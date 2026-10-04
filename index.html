@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark" data-glass="refract">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="description" content="Sukimi，为 Suwayomi Server 打造的液态玻璃漫画网页客户端。" />
+    <title>Sukimi</title>
+    <script>
+      // 首帧前应用已保存的外观，避免深浅色闪烁
+      try {
+        var s = JSON.parse(localStorage.getItem('suwayomi-web.appearance') || '{}').state || {}
+        var t = s.theme || 'dark'
+        if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+        document.documentElement.dataset.theme = t
+        document.documentElement.dataset.glass = s.glass || 'refract'
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

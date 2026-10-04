@@ -1,0 +1,18 @@
+import type { Transition } from 'motion/react'
+
+/*
+ * 动效参数：Material 3 的分类（空间 = 位置/尺寸，效果 = 透明度/颜色）
+ * × Apple 式「时长 + 回弹」写法。效果类不回弹。
+ * 首页与转场用 default/slow（表现型），功能页用 fast（高效型）。
+ */
+export const spring = {
+  fast: { type: 'spring', duration: 0.35, bounce: 0.12 },
+  default: { type: 'spring', duration: 0.5, bounce: 0.18 },
+  slow: { type: 'spring', duration: 0.65, bounce: 0.2 },
+} satisfies Record<string, Transition>
+
+export const fade = {
+  fast: { duration: 0.15, ease: [0.2, 0, 0, 1] },
+  default: { duration: 0.2, ease: [0.2, 0, 0, 1] },
+  slow: { duration: 0.3, ease: [0.2, 0, 0, 1] },
+} satisfies Record<string, Transition>

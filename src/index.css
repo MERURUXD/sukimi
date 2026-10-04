@@ -1,0 +1,532 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/space-grotesk';
+@import '@fontsource-variable/noto-sans-sc';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/* 保留滚轮、触摸和键盘滚动，只隐藏轨道。 */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ───────── 设计变量（与设计稿一致）───────── */
+:root {
+  --bg: #f4f3ef;
+  --surface: #ffffff;
+  --line: rgba(0, 0, 0, 0.08);
+  --text: #141416;
+  --muted: rgba(20, 20, 22, 0.66);
+  --accent: #141416;
+  --on-accent: #f4f3ef;
+  --accent-soft: rgba(0, 0, 0, 0.06);
+  --g-bg: rgba(255, 255, 255, 0.42);
+  --g-bg-hi: rgba(255, 255, 255, 0.72);
+  --g-line: rgba(255, 255, 255, 0.85);
+  --g-glow: rgba(255, 255, 255, 0.45);
+  --scrim-a: rgba(244, 243, 239, 0.3);
+  --scrim-b: rgba(244, 243, 239, 0.72);
+  --solid-bg: #141416;
+  --solid-fg: #f4f3ef;
+  --danger: #d4483b;
+  --faint: rgba(20, 20, 22, 0.6);
+  --track: rgba(0, 0, 0, 0.12);
+  --hover: rgba(127, 127, 127, 0.09);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #0b0b0d;
+  --surface: #141417;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f4f5;
+  --muted: rgba(244, 244, 245, 0.66);
+  --accent: #f4f4f5;
+  --on-accent: #0b0b0d;
+  --accent-soft: rgba(255, 255, 255, 0.1);
+  --g-bg: rgba(255, 255, 255, 0.09);
+  --g-bg-hi: rgba(255, 255, 255, 0.18);
+  --g-line: rgba(255, 255, 255, 0.26);
+  --g-glow: rgba(255, 255, 255, 0.09);
+  --scrim-a: rgba(11, 11, 13, 0.3);
+  --scrim-b: rgba(11, 11, 13, 0.62);
+  --solid-bg: #f4f4f5;
+  --solid-fg: #0b0b0d;
+  --danger: #ff6b5e;
+  --faint: rgba(244, 244, 245, 0.54);
+  --track: rgba(255, 255, 255, 0.16);
+  --hover: rgba(127, 127, 127, 0.09);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-g-hi: var(--g-bg-hi);
+  --color-solid: var(--solid-bg);
+  --color-on-solid: var(--solid-fg);
+  --color-danger: var(--danger);
+  --color-faint: var(--faint);
+  --color-track: var(--track);
+  --color-hover: var(--hover);
+  --font-sans: 'Space Grotesk Variable', 'Noto Sans SC Variable', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-cjk: 'Noto Sans SC Variable', 'Microsoft YaHei', sans-serif;
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--bg);
+    color: var(--text);
+  }
+  html {
+    /* 触屏点按时不闪系统的蓝色 / 灰色高亮块，按钮都有自己的按下样式 */
+    -webkit-tap-highlight-color: transparent;
+  }
+  :root {
+    --nav-h: 76px;
+    /* 手机底部标签栏占的高度；吸底的批量栏、下载条要让开它 */
+    --tabbar-h: 0px;
+  }
+  @media (max-width: 767px) {
+    :root {
+      --nav-h: 64px;
+    }
+    .has-tabbar {
+      --tabbar-h: calc(74px + max(10px, env(safe-area-inset-bottom)));
+    }
+  }
+  @media (min-width: 1024px) {
+    :root {
+      --nav-h: 84px;
+    }
+  }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+}
+
+/* ───────── 玻璃：三档由 <html data-glass> 决定 ─────────
+   frosted  毛玻璃（默认外观，也是 refract 不支持时的退路）
+   refract  液态折射：Glass 组件在支持的浏览器里额外挂上透镜位移滤镜（参数见 design/glassTuning.ts）
+   solid    关闭透明                                         */
+@layer components {
+  /* 边缘只有一圈均匀的高光：细亮边 + 向内的柔光，不做斜向反光和顶部亮线 */
+  .glass {
+    position: relative;
+    isolation: isolate;
+    background: var(--g-bg);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    backdrop-filter: blur(22px) saturate(1.7);
+    border: 1px solid var(--g-line);
+    box-shadow:
+      inset 0 0 10px var(--g-glow),
+      var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.22));
+  }
+  /* 浮在内容上的密集条（批量栏、下载条、阅读器工具栏）*/
+  .glass.dense {
+    background: color-mix(in srgb, var(--bg) 55%, transparent);
+  }
+
+  /* 折射档：位移滤镜由组件以内联 style 写入，这里只把底色调得更透 */
+  /* 折射档的底色用页面背景色（深色主题偏暗、浅色主题偏亮），保证压在白色漫画页 / 黑色背景上文字都清楚 */
+  .glass[data-refract] {
+    background: color-mix(in srgb, var(--bg) var(--refract-tint, 30%), transparent);
+  }
+  .glass.dense[data-refract] {
+    background: color-mix(in srgb, var(--bg) var(--refract-tint-dense, 45%), transparent);
+  }
+
+  [data-glass='solid'] .glass {
+    background: var(--surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--line);
+    box-shadow: var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.18));
+  }
+
+  /* 玻璃上的按钮 */
+  .gbtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--text);
+    transition: background-color 0.15s;
+  }
+  .gbtn:hover {
+    background: var(--g-bg-hi);
+  }
+  .gicon {
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    border-radius: 50%;
+    color: var(--text);
+    transition: background-color 0.15s;
+  }
+  .gicon:hover {
+    background: var(--g-bg-hi);
+  }
+  /* 实心主按钮（白 / 墨）*/
+  .solid {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 0 24px;
+    border-radius: 999px;
+    background: var(--solid-bg);
+    color: var(--solid-fg);
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    transition:
+      opacity 0.15s,
+      transform 0.15s;
+  }
+  .solid:hover {
+    opacity: 0.9;
+  }
+  .solid:active {
+    transform: scale(0.98);
+  }
+  .solid:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* 封面 */
+  .cv {
+    position: relative;
+    display: block;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .cv img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* 页面顶部的封面氛围光 */
+  .ambient {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 460px;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    mask-image: linear-gradient(180deg, #000 30%, transparent);
+  }
+  .ambient img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: blur(80px) saturate(1.5);
+    opacity: 0.42;
+    transform: scale(1.2);
+  }
+  /* 页面内容容器 */
+  .wrap {
+    width: 100%;
+    max-width: 1320px;
+    margin-inline: auto;
+    padding-inline: 16px;
+  }
+  @media (min-width: 640px) {
+    .wrap {
+      padding-inline: 32px;
+    }
+  }
+  @media (min-width: 1024px) {
+    .wrap {
+      padding-inline: 48px;
+    }
+  }
+
+  /* 玻璃分段控件（分类、章节筛选）*/
+  .seg {
+    display: inline-flex;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .seg > button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color 0.15s;
+  }
+  .seg > button:hover,
+  .seg > button[aria-pressed='true'],
+  .seg > button[aria-selected='true'] {
+    color: var(--text);
+  }
+  .seg .c {
+    font-size: 11px;
+    opacity: 0.7;
+  }
+  .seg-on {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 999px;
+    background: var(--g-bg-hi);
+    box-shadow: inset 0 0 0 1px var(--g-glow);
+  }
+
+  /* 弹出层里的选项行 */
+  .opt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 42px;
+    padding: 0 10px;
+    border-radius: 12px;
+    text-align: left;
+    font-weight: 500;
+    color: var(--muted);
+    transition: background-color 0.15s;
+  }
+  .opt:hover {
+    background: var(--g-bg-hi);
+    color: var(--text);
+  }
+  .opt[aria-pressed='true'],
+  .opt[aria-checked='true'] {
+    color: var(--text);
+    font-weight: 700;
+  }
+  .opt:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+  .pop-h {
+    margin: 0 0 10px;
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  /* 三态筛选芯片：包含（实心）/ 排除（虚线 + 删除线）*/
+  .fopt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid var(--g-line);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .fopt:hover {
+    color: var(--text);
+  }
+  .fopt.inc {
+    background: var(--solid-bg);
+    border-color: var(--solid-bg);
+    color: var(--solid-fg);
+  }
+  .fopt.exc {
+    border-style: dashed;
+    border-color: var(--muted);
+    text-decoration: line-through;
+  }
+
+  /* 底部批量操作栏的按钮 */
+  .bb {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 68px;
+    min-height: 56px;
+    padding: 0 10px;
+    border-radius: 24px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background-color 0.15s;
+  }
+  .bb:hover {
+    background: var(--g-bg-hi);
+  }
+  .bb:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .prog {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--track);
+    overflow: hidden;
+  }
+  .prog > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--text);
+  }
+
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* 列表首次加载：封面错开淡入上浮。用独立的 translate / scale，
+   不和虚拟列表定位用的 transform 打架 */
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+    scale: 0.97;
+  }
+}
+.rise,
+.rise-each > * {
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+/* 一组按钮 / 标签：每个单独动画（透明度不能放在玻璃的父元素上，否则玻璃会失效），依次晚 30ms */
+.rise-each > * {
+  animation-delay: calc(var(--d, 0ms) + (sibling-index() - 1) * 30ms);
+}
+
+/* 详情页背景：从页面底色淡入，轻微缩小到位 */
+@keyframes bg-in {
+  from {
+    opacity: 0;
+    scale: 1.12;
+  }
+}
+.bg-in {
+  animation: bg-in 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* 占位骨架：缓慢呼吸 */
+@keyframes skel {
+  50% {
+    opacity: 0.45;
+  }
+}
+.skel {
+  display: block;
+  background: var(--track);
+  animation: skel 1.6s ease-in-out infinite;
+  animation-delay: var(--d, 0ms);
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── 页面切换（View Transitions）─────────
+   整页淡入淡出很短；封面从列表「飞」到详情页。
+   注意：不要给导航栏这类「含玻璃的容器」常驻 view-transition-name——
+   带这个属性的元素会成为 backdrop root，里面的玻璃只能采到容器自身（透明），折射和模糊全部失效。
+   导航在前后两页完全相同，跟着整页交叉淡化看起来也是静止的。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.2s;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+::view-transition-group(manga-cover) {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+::view-transition-old(manga-cover),
+::view-transition-new(manga-cover) {
+  /* 新旧封面是同一张图，直接整体缩放，不做交叉淡化，避免中途变虚 */
+  animation: none;
+  mix-blend-mode: normal;
+  height: 100%;
+  object-fit: cover;
+}
+::view-transition-old(manga-cover) {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ───────── 开发用安全模式（只在 dev 构建里生效）─────────
+   localStorage['suwayomi-web.dev.safe'] = '1' 后刷新：隐藏图片、文字打码，
+   用于截图检查版式而不暴露书库内容（图片完全隐藏，只留封面占位）。
+   标了 data-sfw 的区域（白名单来源，见 lib/devSafe.ts）照常显示。 */
+[data-safe] img:not([data-sfw] img) {
+  visibility: hidden !important;
+}
+[data-safe] main :where(h1, h2, h3, p, span, a, button, li, dd, dt, td):not(.cv, [data-sfw], [data-sfw] *) {
+  color: transparent !important;
+  text-shadow: none !important;
+  background-image: linear-gradient(var(--muted), var(--muted));
+  background-size: 100% 0.9em;
+  background-position: 0 55%;
+  background-repeat: no-repeat;
+  border-radius: 3px;
+}
