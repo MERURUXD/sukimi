@@ -57,6 +57,14 @@ export function chapterNo(n: number) {
   return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100)
 }
 
+/** 章节显示名：直接用来源给的章节名；来源没给名字时才用话数拼一个 */
+export function chapterLabel(c: { chapterNumber: number; name: string }) {
+  const name = c.name.trim()
+  if (name) return name
+  const n = chapterNo(c.chapterNumber)
+  return n ? `第 ${n} 话` : '未命名章节'
+}
+
 export function count(n: number) {
   return n.toLocaleString('en-US')
 }

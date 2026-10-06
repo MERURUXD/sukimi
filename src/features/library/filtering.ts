@@ -5,7 +5,8 @@ import type { FilterKey, SortKey, TriState } from './store'
 export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga) => boolean }[] = [
   { key: 'unread', label: '未读', test: (m) => m.unreadCount > 0 },
   { key: 'downloaded', label: '已下载', test: (m) => m.downloadCount > 0 },
-  { key: 'started', label: '已开始阅读', test: (m) => m.lastReadChapter != null },
+  // 没读过的漫画服务端也会给出 lastReadChapter，阅读时间为 0
+  { key: 'started', label: '已开始阅读', test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 },
   { key: 'bookmarked', label: '有书签', test: (m) => m.bookmarkCount > 0 },
   { key: 'completed', label: '已完结', test: (m) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED' },
 ]

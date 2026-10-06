@@ -6,8 +6,13 @@
 // 前提：服务端设置 server.webUIFlavor = CUSTOM（否则服务端会在检查更新时用官方 WebUI 覆盖回去）。
 // 目标目录取自 .env.local 里的 SUWAYOMI_DATA（服务端数据目录，里面有 server.conf 和 webUI/）。
 // 第一次部署时，目录里如果是官方 WebUI，会先整个备份到 webUI-official-<时间>。
+//
+// 服务端启动时把 webUI/ 复制到临时目录（java.io.tmpdir/Tachidesk/webUI-serve），之后按请求从磁盘读取，
+// 所以部署时顺带更新这份副本即可免重启生效。服务端以其他用户或自定义 tmpdir 运行时，
+// 用 .env.local 的 SUWAYOMI_WEBUI_SERVE 指定该目录；找不到或不是本前端的副本时仍需重启。
 import { execSync } from 'node:child_process'
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { loadEnv } from 'vite'
 
@@ -45,10 +50,35 @@ for (const f of existsSync(target) ? readdirSync(target) : []) rmSync(join(targe
 cpSync(dist, target, { recursive: true })
 
 let commit = ''
+let dirty = false
 try {
   commit = execSync('git rev-parse --short HEAD').toString().trim()
+  dirty = execSync('git status --porcelain').toString().trim() !== ''
 } catch {
   /* 不是 git 仓库也没关系 */
 }
-writeFileSync(join(target, MARK), JSON.stringify({ deployedAt: new Date().toISOString(), commit }, null, 2))
-console.log(`✓ 已部署到 ${target}${commit ? `（${commit}）` : ''}。刷新浏览器即可；如果看到的还是旧界面，重启一次服务端。`)
+const mark = JSON.stringify({ deployedAt: new Date().toISOString(), commit, ...(dirty && { dirty }) }, null, 2)
+writeFileSync(join(target, MARK), mark)
+console.log(`✓ 已部署到 ${target}${commit ? `（${commit}${dirty ? '，含未提交修改' : ''}）` : ''}`)
+
+// 热更新服务端正在托管的副本：先放资源、最后换 index.html，避免中途请求到引用缺失文件的页面；
+// 旧的带哈希资源先留着，已打开的页面懒加载旧分块时不会 404，下次重启服务端会重新复制干净的目录。
+const serve = env.SUWAYOMI_WEBUI_SERVE || join(tmpdir(), 'Tachidesk', 'webUI-serve')
+if (existsSync(join(serve, MARK))) {
+  for (const f of readdirSync(dist)) if (f !== 'index.html') cpSync(join(dist, f), join(serve, f), { recursive: true })
+  cpSync(join(dist, 'index.html'), join(serve, 'index.html'))
+  writeFileSync(join(serve, MARK), mark)
+  console.log(`✓ 已同步服务端托管目录 ${serve}`)
+} else {
+  console.log(`· 没找到本前端的托管副本（${serve}），需要重启服务端才生效`)
+}
+
+// 核验服务端现在返回的页面
+const url = env.SUWAYOMI_URL || 'http://localhost:4567'
+try {
+  const html = await (await fetch(new URL('/', url), { cache: 'no-store' })).text()
+  if (html === readFileSync(join(dist, 'index.html'), 'utf8')) console.log('✓ 服务端已返回新版本，刷新浏览器即可')
+  else console.log('· 服务端返回的仍是旧页面，重启一次服务端后生效')
+} catch {
+  console.log(`· 连不上 ${url}，服务端下次启动时会使用新版本`)
+}

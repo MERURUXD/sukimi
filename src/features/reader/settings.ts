@@ -1,6 +1,12 @@
+import type { ApolloCache, ApolloClient, Reference } from '@apollo/client'
+import { useApolloClient, useQuery } from '@apollo/client/react'
+import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { toastError } from '@/components/ui/toast'
 import { preferenceKey } from '@/lib/demo'
+import { ReaderMangaMeta, ReaderMetaOf, SetReaderMeta } from './queries'
+import { READER_META_PREFIX, createWriteOrder, mergeServerMeta, parseReaderMeta, planMigration, splitPatch, toReaderMeta, type Meta } from './remote'
 
 export type ReadMode = 'single' | 'double' | 'vertical' | 'webtoon'
 export type ReadDir = 'ltr' | 'rtl'
@@ -61,18 +67,15 @@ export const DEFAULTS: ReaderSettings = {
   tapZones: 'auto',
 }
 
-/** 「按漫画记住」时，这些项按漫画单独存；其余是全局偏好 */
-const PER_MANGA: (keyof ReaderSettings)[] = ['mode', 'dir', 'fit']
-
 interface Store {
   defaults: ReaderSettings
+  /** 旧版本存在浏览器里的按漫画设置；现在改存服务端，这里只等补传后清空 */
   perManga: Record<number, Partial<ReaderSettings>>
   rememberPerManga: boolean
-  set: (mangaId: number, patch: Partial<ReaderSettings>) => void
   setRemember: (v: boolean) => void
   /** 设置页：直接改全局默认值 */
   setDefaults: (patch: Partial<ReaderSettings>) => void
-  /** 清掉所有按漫画记住的模式 / 方向 / 缩放 */
+  /** 清掉浏览器里旧的按漫画设置 */
   clearPerManga: () => void
 }
 
@@ -82,20 +85,6 @@ export const useReaderStore = create<Store>()(
       defaults: DEFAULTS,
       perManga: {},
       rememberPerManga: true,
-      set: (mangaId, patch) =>
-        set((s) => {
-          if (!s.rememberPerManga) return { defaults: { ...s.defaults, ...patch } }
-          const local: Partial<ReaderSettings> = {}
-          const global: Partial<ReaderSettings> = {}
-          for (const [k, v] of Object.entries(patch) as [keyof ReaderSettings, never][]) {
-            if (PER_MANGA.includes(k)) local[k] = v
-            else global[k] = v
-          }
-          return {
-            defaults: { ...s.defaults, ...global },
-            perManga: { ...s.perManga, [mangaId]: { ...s.perManga[mangaId], ...local } },
-          }
-        }),
       setRemember: (rememberPerManga) => set({ rememberPerManga }),
       setDefaults: (patch) => set((s) => ({ defaults: { ...s.defaults, ...patch } })),
       clearPerManga: () => set({ perManga: {} }),
@@ -104,13 +93,155 @@ export const useReaderStore = create<Store>()(
   ),
 )
 
+/** 把写入的元数据并进缓存里那部漫画的列表，阅读器和设置页立即生效 */
+export function cacheReaderMeta(cache: ApolloCache, metas: readonly { mangaId: number; key: string; value: string }[]) {
+  for (const id of new Set(metas.map((m) => m.mangaId))) {
+    const incoming = metas.filter((m) => m.mangaId === id).map((m) => ({ __typename: 'MangaMetaType' as const, ...m }))
+    cache.modify({
+      id: cache.identify({ __typename: 'MangaType', id }),
+      fields: {
+        meta: (existing: readonly (Reference | Meta)[] = [], { readField }) => [
+          ...existing.filter((m) => !incoming.some((x) => x.key === readField('key', m as Reference))),
+          ...incoming,
+        ],
+      },
+    })
+  }
+}
+
+/** 缓存里去掉这些漫画的阅读设置元数据 */
+export function uncacheReaderMeta(cache: ApolloCache, ids: readonly number[]) {
+  for (const id of ids) {
+    cache.modify({
+      id: cache.identify({ __typename: 'MangaType', id }),
+      fields: {
+        meta: (existing: readonly (Reference | Meta)[] = [], { readField }) =>
+          existing.filter((m) => !String(readField('key', m as Reference)).startsWith(READER_META_PREFIX)),
+      },
+    })
+  }
+}
+
+const writes = createWriteOrder()
+let migration: Promise<void> | null = null
+
+/** 等排着的补传和保存全部结束；清除前要等，否则它们会把刚清掉的设置又写回服务端 */
+export const settleReaderWrites = writes.settle
+
+/** 旧的浏览器内按漫画设置补传到服务端，成功后清掉；失败下次再试，期间仍按浏览器里的值显示 */
+export function useMigrateReaderPrefs() {
+  const client = useApolloClient()
+  const legacy = useReaderStore((s) => s.perManga)
+  useEffect(() => {
+    const ids = Object.keys(legacy).map(Number)
+    if (!ids.length || migration) return
+    // 和用户的保存排在同一队里；查询不进缓存，免得把用户刚选的值换回服务端旧值
+    migration = writes.run(async () => {
+      const { data } = await client.query({ query: ReaderMetaOf, variables: { ids }, fetchPolicy: 'no-cache' })
+      const items = planMigration(legacy, data?.mangas.nodes ?? [], writes.touched)
+      if (items.length) {
+        await client.mutate({
+          mutation: SetReaderMeta,
+          variables: { items },
+          update: (cache, { data }) => data && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter((m) => !writes.touched(m.mangaId, m.key))),
+        })
+      }
+      useReaderStore.getState().clearPerManga()
+    })
+      .catch(() => {})
+      .finally(() => {
+        migration = null
+      })
+  }, [client, legacy])
+}
+
+const refreshing = new Map<number, Promise<void>>()
+
+/**
+ * 向服务端核对一部漫画的元数据。排在写入队列里，查回来的结果一定包含已发出的保存；
+ * 之后才改、还没保存完的键保留界面上的新值，避免旧结果把刚选的设置换回去。
+ */
+function refreshReaderMeta(client: ApolloClient, mangaId: number) {
+  const running = refreshing.get(mangaId)
+  if (running) return running
+  const variables = { id: mangaId }
+  const task = writes
+    .run(async () => {
+      const { data } = await client.query({ query: ReaderMangaMeta, variables, fetchPolicy: 'no-cache' })
+      if (!data) throw new Error('没有取到漫画元数据')
+      const current = client.cache.readQuery({ query: ReaderMangaMeta, variables })?.manga.meta ?? []
+      const meta = mergeServerMeta(data.manga.meta, current, (key) => writes.pending(mangaId, key))
+      client.cache.writeQuery({ query: ReaderMangaMeta, variables, data: { manga: { ...data.manga, meta } } })
+    })
+    .finally(() => refreshing.delete(mangaId))
+  refreshing.set(mangaId, task)
+  return task
+}
+
+/**
+ * 打开一部漫画时向服务端核对一次阅读设置，别的设备改过的值随后生效。
+ * 返回 ready：这次核对已结束（失败就沿用缓存或默认值）。缓存里有旧值也要等，
+ * 否则核对结果到了会在读到一半时换模式；页面本来就要等服务端返回，几乎不多花时间。
+ */
+export function useReaderMetaSync(mangaId: number) {
+  const client = useApolloClient()
+  const remember = useReaderStore((s) => s.rememberPerManga)
+  const [settled, setSettled] = useState<number | null>(null)
+  useEffect(() => {
+    if (!remember) return
+    let alive = true
+    const done = () => alive && setSettled(mangaId)
+    refreshReaderMeta(client, mangaId).then(done, done)
+    return () => {
+      alive = false
+    }
+  }, [client, mangaId, remember])
+  return !remember || settled === mangaId
+}
+
+/** 一部漫画的阅读设置：内置默认 < 全局默认 < 浏览器里待补传的旧设置 < 服务端元数据（只读缓存，核对由 useReaderMetaSync 负责） */
 export function useReaderSettings(mangaId: number) {
   const defaults = useReaderStore((s) => s.defaults)
-  const local = useReaderStore((s) => (s.rememberPerManga ? s.perManga[mangaId] : undefined))
-  const set = useReaderStore((s) => s.set)
+  const remember = useReaderStore((s) => s.rememberPerManga)
+  const legacy = useReaderStore((s) => s.perManga[mangaId])
+  const setDefaults = useReaderStore((s) => s.setDefaults)
+  const remote = useQuery(ReaderMangaMeta, { variables: { id: mangaId }, skip: !remember, fetchPolicy: 'cache-only' })
+  const client = useApolloClient()
+  const meta = remote.data?.manga.meta
+  const local = remember ? { ...legacy && splitPatch(legacy).local, ...parseReaderMeta(meta) } : undefined
   // 旧版本存下的默认值可能缺新字段，用内置默认补齐
   const settings: ReaderSettings = { ...DEFAULTS, ...defaults, ...local }
-  return [settings, (patch: Partial<ReaderSettings>) => set(mangaId, patch)] as const
+
+  const set = (patch: Partial<ReaderSettings>) => {
+    if (!remember) return setDefaults(patch)
+    const { local, global } = splitPatch(patch)
+    if (Object.keys(global).length) setDefaults(global)
+    const metas = toReaderMeta(local)
+    if (!metas.length) return
+    // 先按写入成功显示；保存排队依次发送，只有这次仍是最新修改时才用响应更新界面
+    const keys = metas.map((m) => m.key)
+    const id = writes.mark(mangaId, keys)
+    const latest = (m: { mangaId: number; key: string }) => writes.isLatest(m.mangaId, m.key, id)
+    cacheReaderMeta(client.cache, metas.map((m) => ({ mangaId, ...m })))
+    writes
+      .run(() =>
+        client.mutate({
+          mutation: SetReaderMeta,
+          variables: { items: [{ mangaIds: [mangaId], metas }] },
+          update: (cache, { data }) => data && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter(latest)),
+        }),
+      )
+      .then(
+        () => writes.finish(mangaId, keys, id),
+        (e) => {
+          writes.finish(mangaId, keys, id)
+          toastError('阅读设置没能保存到服务器', e)
+          // 失败时重新取服务端的值，界面退回去；后面还有更新的修改就交给它
+          if (metas.some((m) => latest({ mangaId, ...m }))) refreshReaderMeta(client, mangaId).catch(() => {})
+        },
+      )
+  }
+  return [settings, set] as const
 }
 
 export const cycle = <T,>(list: readonly { value: T }[], cur: T) =>
