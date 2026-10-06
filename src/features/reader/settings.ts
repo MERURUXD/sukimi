@@ -180,22 +180,23 @@ function refreshReaderMeta(client: ApolloClient, mangaId: number) {
 
 /**
  * 打开一部漫画时向服务端核对一次阅读设置，别的设备改过的值随后生效。
- * 返回 ready：服务端的值已拿到（或拿不到），阅读器等它再开始，避免读到一半换模式。
+ * 返回 ready：这次核对已结束（失败就沿用缓存或默认值）。缓存里有旧值也要等，
+ * 否则核对结果到了会在读到一半时换模式；页面本来就要等服务端返回，几乎不多花时间。
  */
 export function useReaderMetaSync(mangaId: number) {
   const client = useApolloClient()
   const remember = useReaderStore((s) => s.rememberPerManga)
-  const cached = useQuery(ReaderMangaMeta, { variables: { id: mangaId }, skip: !remember, fetchPolicy: 'cache-only' })
-  const [failed, setFailed] = useState<number | null>(null)
+  const [settled, setSettled] = useState<number | null>(null)
   useEffect(() => {
     if (!remember) return
     let alive = true
-    refreshReaderMeta(client, mangaId).catch(() => alive && setFailed(mangaId))
+    const done = () => alive && setSettled(mangaId)
+    refreshReaderMeta(client, mangaId).then(done, done)
     return () => {
       alive = false
     }
   }, [client, mangaId, remember])
-  return !remember || !!cached.data || failed === mangaId
+  return !remember || settled === mangaId
 }
 
 /** 一部漫画的阅读设置：内置默认 < 全局默认 < 浏览器里待补传的旧设置 < 服务端元数据（只读缓存，核对由 useReaderMetaSync 负责） */
