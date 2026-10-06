@@ -1,11 +1,12 @@
 import { useMutation, useQuery } from '@apollo/client/react'
+import { useState } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ClearReaderMeta, ReaderMetaIndex } from '@/features/reader/queries'
 import { READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
-import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
+import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, settleReaderMigration, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
 import { cn } from '@/lib/cn'
 import { Row, Switch } from './parts'
 
@@ -21,7 +22,8 @@ export function ReaderDefaults() {
   useMigrateReaderPrefs()
   // 按漫画的设置存在服务端元数据里；统计时把还没补传的旧设置也算上
   const index = useQuery(ReaderMetaIndex, { fetchPolicy: 'cache-and-network' })
-  const [clearRemote, clearing] = useMutation(ClearReaderMeta)
+  const [clearRemote] = useMutation(ClearReaderMeta)
+  const [clearing, setClearing] = useState(false)
   const remote = index.data?.mangas.nodes.filter((m) => hasReaderMeta(m.meta)).map((m) => m.id) ?? []
   const perMangaCount = new Set([...remote, ...Object.keys(legacy).map(Number)]).size
 
@@ -32,14 +34,21 @@ export function ReaderDefaults() {
       ok: '全部清除',
     })
     if (!ok) return
+    setClearing(true)
     try {
-      if (remote.length) {
-        await clearRemote({ variables: { ids: remote, prefixes: [READER_META_PREFIX] }, update: (cache) => uncacheReaderMeta(cache, remote) })
+      // 先等旧设置补传结束，再向服务端取最新名单，补传刚写上去的也一起删掉
+      await settleReaderMigration()
+      const { data } = await index.refetch()
+      const ids = data?.mangas.nodes.filter((m) => hasReaderMeta(m.meta)).map((m) => m.id) ?? []
+      if (ids.length) {
+        await clearRemote({ variables: { ids, prefixes: [READER_META_PREFIX] }, update: (cache) => uncacheReaderMeta(cache, ids) })
       }
       clearLegacy()
       toast('已清除，所有漫画改用上面的默认值')
     } catch (e) {
       toastError('清除失败', e)
+    } finally {
+      setClearing(false)
     }
   }
 
@@ -105,7 +114,7 @@ export function ReaderDefaults() {
               as="button"
               type="button"
               className="gbtn min-h-9 rounded-full text-[13px]"
-              disabled={clearing.loading}
+              disabled={clearing}
               onClick={clear}
             >
               全部清除
