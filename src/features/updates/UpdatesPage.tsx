@@ -13,12 +13,11 @@ import { toast, toastError } from '@/components/ui/toast'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { RecentUpdates, type UpdateChapter } from '@/features/home/queries'
 import { UpdateLibrary } from '@/features/library/queries'
-import { chapterLabel } from '@/features/manga/MangaHero'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
 import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE, type UpdatesFilter } from './queries'
-import { count, dayLabel, sec, timeAgo } from '@/lib/format'
+import { chapterLabel, count, dayLabel, sec, timeAgo } from '@/lib/format'
 
 export function UpdatesPage() {
   const [filter, setFilter] = useState<UpdatesFilter>('all')
@@ -296,7 +295,6 @@ function Row({
         </span>
         <span className="truncate text-xs text-muted">
           {chapterLabel(c)}
-          {c.name && chapterLabel(c) !== c.name ? ` · ${c.name}` : ''}
         </span>
         {/* 手机把时间与下载状态放回文字区，给标题和章节名留出宽度。 */}
         <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted num sm:hidden">
