@@ -1,4 +1,6 @@
 import { execSync } from 'node:child_process'
+import { createReadStream, existsSync } from 'node:fs'
+import { join, normalize } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -16,7 +18,20 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), {
+      // 只在 dev 服务器上提供 .cache/open-comics 里的本地测试漫画；build 不会带上它们
+      name: 'open-comics-cache',
+      apply: 'serve',
+      configureServer(server) {
+        const root = join(process.cwd(), '.cache', 'open-comics')
+        server.middlewares.use('/dev-data/open-comics', (req, res, next) => {
+          const file = normalize(join(root, decodeURIComponent((req.url ?? '/').split('?')[0])))
+          if (!file.startsWith(root) || !existsSync(file)) return next()
+          res.setHeader('Content-Type', file.endsWith('.json') ? 'application/json' : 'image/jpeg')
+          createReadStream(file).pipe(res)
+        })
+      },
+    }],
     // 设置页「关于」里显示的前端版本
     define: {
       __APP_COMMIT__: JSON.stringify(commit),

@@ -43,6 +43,8 @@ interface DemoChapter {
   id: number; mangaId: number; name: string; chapterNumber: number; sourceOrder: number;
   pageCount: number; lastPageRead: number; lastReadAt: string; fetchedAt: string; uploadDate: string;
   isRead: boolean; isBookmarked: boolean; isDownloaded: boolean; scanlator: string; manga: DemoManga;
+  /** 本地缓存的真实章节才有，缺省时用生成的演示页。 */
+  pages?: string[];
   meta: { chapterId: number; key: string; value: string }[];
 }
 interface DemoManga {
@@ -55,6 +57,14 @@ interface DemoManga {
   trackRecords: { nodes: never[]; totalCount: number };
 }
 const SOURCE = { id: '9000', name: '演示画室', displayName: '演示画室', lang: 'zh', iconUrl: '/favicon.svg', supportsLatest: true, contentWarning: 'SAFE', homeUrl: null, filters: [] }
+const OPEN_SOURCE = { ...SOURCE, id: '9001', name: '开放漫画（本地缓存）', displayName: '开放漫画（本地缓存）' }
+
+/** `pnpm fetch:comics` 生成的 manifest 结构；只在开发环境从本地缓存读取，不进仓库与构建产物。 */
+export interface OpenWork {
+  id: string; title: string; author: string; description: string; genre: string[]; status: string
+  license: { name: string; url: string }; cover: string
+  chapters: { name: string; number: number; pages: string[] }[]
+}
 type Condition = Record<string, { equalTo?: unknown; in?: unknown[]; greaterThan?: string }>
 interface ListArgs { condition?: Record<string, unknown>; filter?: Condition; first?: number; offset?: number; order?: { by: string; byType?: string }[] }
 function matches(item: object, condition: Record<string, unknown> = {}, filter: Condition = {}) {
@@ -69,7 +79,7 @@ function connection<T>(nodes: T[], { first = nodes.length, offset = 0 }: ListArg
 }
 
 /** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
-export function createDemoData(now = Date.now()) {
+export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = []) {
   const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }]
   const mangas: DemoManga[] = TITLES.map((title, i) => {
     const chapters: DemoChapter[] = []
@@ -95,6 +105,29 @@ export function createDemoData(now = Date.now()) {
       fetchedAt: String(Math.floor(now / 1000) - (8 - n) * 86400 - i * 600), uploadDate: String(now - (8 - n) * 86400000 - i * 600000),
     })
     return m
+  })
+  openWorks.forEach(({ work, url }, w) => {
+    const chapters: DemoChapter[] = []
+    const m: DemoManga = {
+      id: 1001 + w, title: work.title, thumbnailUrl: url(`${work.id}/${work.cover}`), author: work.author, artist: work.author,
+      description: work.description, genre: work.genre, status: work.status,
+      realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(Math.floor(now / 1000) - w * 86400),
+      source: OPEN_SOURCE, categories: { nodes: [] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 },
+      get unreadCount() { return chapters.filter((c) => !c.isRead).length },
+      get downloadCount() { return 0 },
+      get bookmarkCount() { return chapters.filter((c) => c.isBookmarked).length },
+      get firstUnreadChapter() { return chapters.find((c) => !c.isRead) ?? null },
+      get lastReadChapter() { return [...chapters].filter((c) => Number(c.lastReadAt) > 0).sort((a, b) => Number(b.lastReadAt) - Number(a.lastReadAt))[0] ?? null },
+      get latestFetchedChapter() { return chapters[chapters.length - 1] },
+      get latestUploadedChapter() { return chapters[chapters.length - 1] },
+    }
+    for (const c of work.chapters) chapters.push({
+      id: m.id * 100 + c.number, mangaId: m.id, manga: m, name: c.name, chapterNumber: c.number, sourceOrder: c.number,
+      pageCount: c.pages.length, lastPageRead: 0, lastReadAt: '0', isRead: false, isBookmarked: false, isDownloaded: false,
+      scanlator: work.license.name, meta: [], pages: c.pages.map((f) => url(`${work.id}/${f}`)),
+      fetchedAt: String(Math.floor(now / 1000) - (work.chapters.length - c.number) * 86400), uploadDate: String(now - (work.chapters.length - c.number) * 86400000),
+    })
+    mangas.push(m)
   })
   const allChapters = mangas.flatMap((m) => m.chapters.nodes)
   const findManga = (id: number) => {
@@ -138,7 +171,7 @@ export function createDemoData(now = Date.now()) {
       })
       return connection(nodes, args)
     },
-    sources: () => connection([SOURCE]), source: () => SOURCE,
+    sources: () => connection(openWorks.length ? [SOURCE, OPEN_SOURCE] : [SOURCE]), source: ({ id }: { id: string }) => id === OPEN_SOURCE.id ? OPEN_SOURCE : SOURCE,
     extensions: () => connection([]), fetchExtensions: () => ({ extensions: [] }),
     trackers: () => connection([]), trackRecords: () => connection([]),
     lastUpdateTimestamp: () => ({ timestamp: String(now) }),
@@ -148,7 +181,7 @@ export function createDemoData(now = Date.now()) {
     fetchMangaAndChapters: ({ input }: { input: { id: number } }) => ({ manga: findManga(input.id), chapters: findManga(input.id).chapters.nodes }),
     fetchChapterPages: ({ input }: { input: { chapterId: number } }) => {
       const c = findChapter(input.chapterId)
-      return { chapter: c, pages: Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i)) }
+      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i)) }
     },
     updateChapter: ({ input }: { input: { id: number; patch: Partial<DemoChapter> } }) => ({ chapter: patchChapter(input.id, input.patch) }),
     updateChapters: ({ input }: { input: { ids: number[]; patch: Partial<DemoChapter> } }) => ({ chapters: input.ids.map((id) => patchChapter(id, input.patch)) }),
