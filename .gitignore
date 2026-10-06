@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# 真实漫画的本地测试缓存，不上传仓库
+.cache/
 .codex-remote-attachments/
 # 代理规范、计划、上传检查与过程记录仅保留在本地（含子目录）
 AGENTS.md

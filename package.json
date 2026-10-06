@@ -13,6 +13,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "schema": "node scripts/fetch-schema.mjs",
+    "fetch:comics": "node scripts/fetch-open-comics.mjs",
     "codegen": "graphql-codegen",
     "typecheck": "tsc -b",
     "test": "node --test scripts/*.test.mjs",
