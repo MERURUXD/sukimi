@@ -109,13 +109,14 @@
       --nav-h: 84px;
     }
   }
-  /* 平板左侧导航栏占的宽度（左边距 12px + 栏宽 72px）；手机和桌面为 0 */
+  /* 平板左侧导航栏占的宽度（左边距 12px + 栏宽 72px）；手机和桌面为 0。
+     横屏刘海机宽度也可能落在平板区间，加上左侧安全区，导航栏和内容一起让开 */
   :root {
     --side-w: 0px;
   }
   @media (min-width: 768px) and (max-width: 1279.98px) {
     .app-shell {
-      --side-w: 84px;
+      --side-w: calc(84px + env(safe-area-inset-left));
     }
   }
   body {
