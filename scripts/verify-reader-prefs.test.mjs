@@ -4,7 +4,7 @@ import test from 'node:test'
 import { buildSchema, executeSync } from 'graphql'
 import * as docs from '../src/api/gql/graphql.ts'
 import { createDemoData } from '../src/features/demo/data.ts'
-import { READER_META_PREFIX, createWriteOrder, hasReaderMeta, mergeMeta, parseReaderMeta, planMigration, readerMetaKey, splitPatch, toReaderMeta } from '../src/features/reader/remote.ts'
+import { READER_META_PREFIX, createWriteOrder, hasReaderMeta, mergeMeta, mergeServerMeta, parseReaderMeta, planMigration, readerMetaKey, splitPatch, toReaderMeta } from '../src/features/reader/remote.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 function ok(rootValue, document, variableValues) {
@@ -96,6 +96,30 @@ test('连续修改同一设置时，较早的响应不算最新，补传也跳�
   assert.equal(writes.isLatest(2, mode, vertical), false, '别的漫画不受影响')
   assert.equal(writes.touched(1, mode), true)
   assert.equal(writes.touched(1, readerMetaKey('fit')), false)
+})
+
+test('还没保存完的键在保存结束前一直算待保存，被更新的修改接手时也不提前结束', () => {
+  const writes = createWriteOrder()
+  const mode = readerMetaKey('mode')
+  const double = writes.mark(1, [mode])
+  assert.equal(writes.pending(1, mode), true)
+  const vertical = writes.mark(1, [mode])
+  writes.finish(1, [mode], double)
+  assert.equal(writes.pending(1, mode), true, '较早的保存结束不算数')
+  writes.finish(1, [mode], vertical)
+  assert.equal(writes.pending(1, mode), false)
+})
+
+test('核对结果以服务端为准，只保留还没保存完的键的新值', () => {
+  const mode = readerMetaKey('mode')
+  const fit = readerMetaKey('fit')
+  const server = [{ key: mode, value: 'single' }, { key: fit, value: 'width' }, { key: 'other', value: '1' }]
+  const current = [{ key: mode, value: 'vertical' }, { key: fit, value: 'height' }]
+  assert.deepEqual(mergeServerMeta(server, current, (key) => key === mode), [
+    { key: fit, value: 'width' }, { key: 'other', value: '1' }, { key: mode, value: 'vertical' },
+  ])
+  // 服务端已删掉、本地也不在保存中的键随之消失
+  assert.deepEqual(mergeServerMeta([], current, () => false), [])
 })
 
 test('演示数据按正式查询读写、统计和清除漫画元数据', () => {

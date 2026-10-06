@@ -17,7 +17,7 @@ import { SaveProgress } from './queries'
 import { ReaderChrome } from './ReaderChrome'
 import { ScrollView } from './ScrollView'
 import { SettingsPanel } from './SettingsPanel'
-import { BGS, FITS, MODES, cycle, useMigrateReaderPrefs, useReaderSettings } from './settings'
+import { BGS, FITS, MODES, cycle, useMigrateReaderPrefs, useReaderMetaSync, useReaderSettings } from './settings'
 import { buildSpreads, spreadOf } from './spreads'
 
 export function ReaderPage() {
@@ -43,7 +43,8 @@ export function ReaderPage() {
   const list = chapters.data?.chapters.nodes
   const idx = list?.findIndex((c) => c.id === chapterId) ?? -1
   const chapter = list?.[idx]
-  const [settings, , settingsReady] = useReaderSettings(mangaId)
+  const [settings] = useReaderSettings(mangaId)
+  const settingsReady = useReaderMetaSync(mangaId)
   useMigrateReaderPrefs()
   const back = useBackToDetail(mangaId)
   const bg = BGS.find((b) => b.value === settings.bg)!
