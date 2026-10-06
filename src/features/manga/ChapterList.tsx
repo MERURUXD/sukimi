@@ -14,7 +14,7 @@ import {
   MoreHorizontal,
   Trash2,
 } from 'lucide-react'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { DeleteDownloads, EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Glass } from '@/components/glass/Glass'
@@ -150,7 +150,8 @@ export function ChapterList({
     [sel],
   )
 
-  // 虚拟列表
+  // 虚拟列表：宽屏每个虚拟行放两话，按「左右、左右」的阅读顺序排，行高取两者较高的
+  const cols = useWideScreen() ? 2 : 1
   const box = useRef<HTMLDivElement>(null)
   const [top, setTop] = useState(0)
   useLayoutEffect(() => {
@@ -160,13 +161,13 @@ export function ChapterList({
     if (Math.abs(t - top) > 0.5) setTop(t)
   })
   const v = useWindowVirtualizer({
-    count: visible.length,
+    count: Math.ceil(visible.length / cols),
     estimateSize: () => 64,
     overscan: 10,
     scrollMargin: top,
     // 默认会取创建时的 window.scrollY 并在挂载后滚回去；切页时那是上一页的位置，交给 ScrollManager 处理
     initialOffset: 0,
-    getItemKey: (i) => visible[i].id,
+    getItemKey: (i) => `${cols}:${visible[i * cols].id}`,
   })
 
   const unread = chapters.filter((c) => !c.isRead).length
@@ -220,27 +221,31 @@ export function ChapterList({
 
       <div ref={box} role="list" aria-label="章节列表" className="relative" style={{ height: v.getTotalSize() }}>
         {v.getVirtualItems().map((r, i) => {
-          const c = visible[r.index]
+          const row = visible.slice(r.index * cols, r.index * cols + cols)
           return (
             <div
               key={r.key}
               data-index={r.index}
               ref={v.measureElement}
-              className="absolute inset-x-0 top-0 pb-0.5 has-[[aria-expanded=true]]:z-20"
+              className={cn('absolute inset-x-0 top-0 pb-0.5 has-[[aria-expanded=true]]:z-20', cols > 1 && 'grid grid-cols-2 gap-x-6')}
               style={{ transform: `translateY(${r.start - v.options.scrollMargin}px)` }}
             >
-              <ChapterRow
-                c={c}
-                index={r.index}
-                mangaId={mangaId}
-                selecting={selecting}
-                selected={sel.selected.has(c.id)}
-                queued={queue.get(c.id)}
-                onToggle={onRowToggle}
-                onLongPress={onLongPress}
-                actions={actions}
-                introDelay={intro ? mangaIntro.chapterRow + Math.min(i, 5) * 35 : undefined}
-              />
+              {row.map((c, j) => (
+                <ChapterRow
+                  key={c.id}
+                  c={c}
+                  index={r.index * cols + j}
+                  mangaId={mangaId}
+                  fill={cols > 1}
+                  selecting={selecting}
+                  selected={sel.selected.has(c.id)}
+                  queued={queue.get(c.id)}
+                  onToggle={onRowToggle}
+                  onLongPress={onLongPress}
+                  actions={actions}
+                  introDelay={intro ? mangaIntro.chapterRow + Math.min(i, 5) * 35 : undefined}
+                />
+              ))}
             </div>
           )
         })}
@@ -290,6 +295,7 @@ const ChapterRow = memo(function ChapterRow({
   c,
   index,
   mangaId,
+  fill,
   selecting,
   selected,
   queued,
@@ -301,6 +307,8 @@ const ChapterRow = memo(function ChapterRow({
   c: Chapter
   index: number
   mangaId: number
+  /** 宽屏两列时名称列占满剩余宽度，日期与按钮靠右 */
+  fill: boolean
   selecting: boolean
   selected: boolean
   queued: QueueItem | undefined
@@ -324,7 +332,8 @@ const ChapterRow = memo(function ChapterRow({
       {...press}
       onClick={selecting ? (e) => onToggle(c.id, index, e) : undefined}
       className={cn(
-        'group relative grid min-h-[62px] grid-cols-[20px_minmax(0,20rem)_104px_72px_44px] items-center gap-3 rounded-2xl px-3 py-1.5 transition-colors max-sm:grid-cols-[16px_minmax(0,1fr)_auto]',
+        'group relative grid min-h-[62px] items-center gap-3 rounded-2xl px-3 py-1.5 transition-colors max-sm:grid-cols-[16px_minmax(0,1fr)_auto]',
+        fill ? 'grid-cols-[20px_minmax(0,1fr)_104px_72px_44px]' : 'grid-cols-[20px_minmax(0,20rem)_104px_72px_44px]',
         selecting ? 'cursor-pointer select-none' : '',
         selected ? 'bg-accent-soft' : 'hover:bg-hover focus-within:bg-hover',
         introDelay !== undefined && 'rise',
@@ -450,5 +459,18 @@ function ProgressRing({ value, error }: { value: number; error: boolean }) {
       <circle cx="9" cy="9" r={r} fill="none" stroke="var(--track)" strokeWidth="2" />
       <circle cx="9" cy="9" r={r} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray={len} strokeDashoffset={len * (1 - value)} strokeLinecap="round" className="transition-[stroke-dashoffset] duration-500" />
     </svg>
+  )
+}
+
+// 两列的章节行各约 600px，正好放下名称、日期与按钮；再窄就回到单列
+const WIDE = '(min-width: 1280px)'
+function useWideScreen() {
+  return useSyncExternalStore(
+    (cb) => {
+      const m = window.matchMedia(WIDE)
+      m.addEventListener('change', cb)
+      return () => m.removeEventListener('change', cb)
+    },
+    () => window.matchMedia(WIDE).matches,
   )
 }
