@@ -73,7 +73,8 @@ export function TopNav() {
           ))}
         </Glass>
 
-        <div className="ml-auto flex items-center gap-2">
+        {/* 平板没有标志和导航胶囊，靠 ml-auto 推到右侧；桌面不能加，否则会吃掉 justify-between 让胶囊居中的空间 */}
+        <div className="flex items-center gap-2 max-xl:ml-auto">
           {isDemo && <DemoNotice />}
           <DownloadIndicator />
           <AppearanceMenu />
