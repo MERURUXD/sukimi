@@ -30,6 +30,14 @@ test('只有一种颜色时补出有明暗差异的变体，不会四块一样',
   for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) assert.ok(dist(p[i].rgb, p[j].rgb) > 0.05)
 })
 
+test('纯黑或纯白封面也补出互不相同的变体', () => {
+  for (const color of [[0, 0, 0], [8, 8, 10], [255, 255, 255]]) {
+    const p = extractPalette(pixels([[...color, 400]]))
+    checkShape(p)
+    for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) assert.ok(dist(p[i].rgb, p[j].rgb) > 0.05, `${color} 第 ${i} 和第 ${j} 块太接近`)
+  }
+})
+
 test('相近的颜色只算一种，鲜艳的小面积颜色优先于灰色', () => {
   // 大片近似的米白、少量灰线稿、一小块鲜艳的粉色
   const p = extractPalette(pixels([[236, 230, 220, 500], [228, 224, 214, 300], [120, 120, 120, 120], [230, 80, 160, 80]]), 3)

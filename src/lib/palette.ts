@@ -9,6 +9,13 @@ export interface Swatch {
 const luma = ([r, g, b]: Rgb) => 0.2126 * r + 0.7152 * g + 0.0722 * b
 const dist = (a: Rgb, b: Rgb) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2])
 const mixRgb = (a: Rgb, b: Rgb, k: number): Rgb => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]
+const MAX_LUMA = 0.72
+/** 补出的变体之间至少差这么多，否则流动时看着像同一块颜色 */
+const MIN_GAP = 0.1
+const cap = (rgb: Rgb): Rgb => {
+  const l = luma(rgb)
+  return l > MAX_LUMA ? mixRgb(rgb, [0, 0, 0], 1 - MAX_LUMA / l) : rgb
+}
 
 /**
  * 从封面像素（RGBA）里取 n 种主色，给首页动态背景用。
@@ -54,22 +61,24 @@ export function extractPalette(px: ArrayLike<number>, n = 4): Swatch[] {
     share[best] += c.share
   }
 
-  const out: Swatch[] = picked.map((p, i) => ({ rgb: p.rgb, weight: share[i] }))
-  // 颜色不够时交替补一深一浅的变体，每轮加大程度，避免补出两块相同的颜色
+  // 大片留白会把背景冲成一片灰白、压住文字，亮度封顶
+  const out: Swatch[] = picked.map((p, i) => ({ rgb: cap(p.rgb), weight: share[i] }))
+  // 颜色不够时交替补一深一浅的变体，每轮加大程度。纯黑再压暗、纯白提亮（封顶后）都还是原色，
+  // 和已有颜色太近的跳过，换另一个方向继续补，保证色块之间始终有层次
   for (let i = 0; out.length < n; i++) {
     const base = out[i % picked.length]
     const round = Math.floor(i / 2)
-    const rgb = i % 2 === 0 ? mixRgb(base.rgb, [0, 0, 0], 0.4 + 0.25 * round) : mixRgb(base.rgb, [1, 1, 1], 0.25 + 0.2 * round)
+    const dark = i % 2 === 0
+    const rgb = cap(dark ? mixRgb(base.rgb, [0, 0, 0], Math.min(1, 0.4 + 0.25 * round)) : mixRgb(base.rgb, [1, 1, 1], Math.min(1, 0.25 + 0.2 * round)))
+    // 几轮之后两个方向都到头了，就不再挑剔，按亮度阶梯硬补
+    const forced = round >= 6
+    if (!forced && out.some((s) => dist(s.rgb, rgb) < MIN_GAP)) continue
     base.weight *= 0.6
-    out.push({ rgb, weight: base.weight * 0.6 })
+    out.push({ rgb: forced ? cap(mixRgb([0, 0, 0], [1, 1, 1], out.length / n)) : rgb, weight: base.weight * 0.6 })
   }
 
-  // 大片留白会把背景冲成一片灰白、压住文字，亮度封顶；面积开方后再归一，避免主色独占画面
-  for (const s of out) {
-    const l = luma(s.rgb)
-    if (l > 0.72) s.rgb = mixRgb(s.rgb, [0, 0, 0], 1 - 0.72 / l)
-    s.weight = Math.sqrt(s.weight)
-  }
+  // 面积开方后再归一，避免主色独占画面
+  for (const s of out) s.weight = Math.sqrt(s.weight)
   const sum = out.reduce((a, s) => a + s.weight, 0)
   for (const s of out) s.weight /= sum
   out.sort((a, b) => luma(a.rgb) - luma(b.rgb))
