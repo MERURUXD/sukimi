@@ -6,7 +6,7 @@ import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ClearReaderMeta, ReaderMetaIndex } from '@/features/reader/queries'
 import { READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
-import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, settleReaderMigration, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
+import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, settleReaderWrites, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
 import { cn } from '@/lib/cn'
 import { Row, Switch } from './parts'
 
@@ -36,8 +36,8 @@ export function ReaderDefaults() {
     if (!ok) return
     setClearing(true)
     try {
-      // 先等旧设置补传结束，再向服务端取最新名单，补传刚写上去的也一起删掉
-      await settleReaderMigration()
+      // 先等补传和排着的保存结束，再向服务端取最新名单，刚写上去的也一起删掉
+      await settleReaderWrites()
       const { data } = await index.refetch()
       const ids = data?.mangas.nodes.filter((m) => hasReaderMeta(m.meta)).map((m) => m.id) ?? []
       if (ids.length) {
