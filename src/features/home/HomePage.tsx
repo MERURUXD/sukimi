@@ -418,15 +418,18 @@ function RecentList({ items }: { items: ReadChapter[] }) {
                 <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="truncate text-base font-semibold">{c.manga.title}</span>
+                {/* 时间放进标题行：文字列宽度固定，各行进度条右端才对齐 */}
+                <span className="flex items-baseline gap-3">
+                  <span className="min-w-0 flex-1 truncate text-base font-semibold">{c.manga.title}</span>
+                  <span className="flex-none text-xs text-muted">{timeAgo(sec(c.lastReadAt))}</span>
+                </span>
                 <span className="truncate text-[13px] text-muted num">
                   {chapterLabel(c)} · {c.isRead ? '已读完' : c.pageCount > 0 ? `${c.lastPageRead + 1} / ${c.pageCount} 页` : `第 ${c.lastPageRead + 1} 页`}
                 </span>
-                <span className="prog mt-2 h-[3px] max-w-[220px]">
+                <span className="prog mt-2 h-[3px] w-full max-w-[220px]">
                   <i style={{ width: `${pct}%` }} />
                 </span>
               </span>
-              <span className="flex-none self-start pt-1 text-xs text-muted">{timeAgo(sec(c.lastReadAt))}</span>
             </Link>
           )
         })}

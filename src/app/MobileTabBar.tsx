@@ -19,7 +19,7 @@ export function MobileTabBar() {
   const downloading = useLive((s) => s.queue.length)
   const { ref: pillRef, box: pillBox } = useNavPill(useLocation().pathname)
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
+    <div data-vt-bar="tabbar" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
       <Glass as="nav" ref={pillRef} dense aria-label="主导航" className="pointer-events-auto grid w-full max-w-[520px] grid-cols-5 rounded-[26px] p-1.5">
         <NavPill box={pillBox} className="rounded-[20px]" />
         {TABS.map((t) => (

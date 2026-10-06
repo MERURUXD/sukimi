@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { useId, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
@@ -27,6 +27,36 @@ export function Seg<T extends string | number>({
   glass?: boolean
 }) {
   const layoutId = useId()
+  const root = useRef<HTMLDivElement>(null)
+  // 选项放不下时 .seg 内部横向滚动：哪一侧还有内容，那一侧边缘渐隐作提示
+  const [fade, setFade] = useState<'l' | 'r' | 'lr' | undefined>()
+  useEffect(() => {
+    const el = root.current
+    if (!el) return
+    const measure = () => {
+      const l = el.scrollLeft > 2
+      const r = el.scrollLeft + el.clientWidth < el.scrollWidth - 2
+      setFade(l && r ? 'lr' : l ? 'l' : r ? 'r' : undefined)
+    }
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', measure)
+      ro.disconnect()
+    }
+  }, [items.length])
+  // 选中项被滚出可视区时（例如从别处带入的筛选）拉回来
+  useEffect(() => {
+    const el = root.current
+    const on = el?.querySelector<HTMLElement>('[aria-pressed="true"]')
+    if (!el || !on) return
+    const left = on.offsetLeft - 8
+    const right = on.offsetLeft + on.offsetWidth + 8
+    if (left < el.scrollLeft) el.scrollTo({ left, behavior: 'smooth' })
+    else if (right > el.scrollLeft + el.clientWidth) el.scrollTo({ left: right - el.clientWidth, behavior: 'smooth' })
+  }, [value])
   const body = items.map((it) => {
     const on = it.value === value
     return (
@@ -38,11 +68,11 @@ export function Seg<T extends string | number>({
     )
   })
   return glass ? (
-    <Glass role="group" aria-label={label} className={cn('seg', className)}>
+    <Glass ref={root as React.Ref<HTMLElement>} role="group" aria-label={label} data-fade={fade} className={cn('seg', className)}>
       {body}
     </Glass>
   ) : (
-    <div role="group" aria-label={label} className={cn('seg isolate bg-accent-soft', className)}>
+    <div ref={root} role="group" aria-label={label} data-fade={fade} className={cn('seg isolate bg-accent-soft', className)}>
       {body}
     </div>
   )

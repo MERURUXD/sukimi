@@ -28,6 +28,13 @@ export function formatDate(t: number) {
   return y === new Date().getFullYear() ? md : `${y}/${md}`
 }
 
+/** 带年份的完整日期，章节行用：只写月日分不清是哪一年发布的 */
+export function formatFullDate(t: number) {
+  if (!t) return ''
+  const d = new Date(t)
+  return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
+}
+
 /** 按天分组的标题：今天、昨天、本周几，再早显示日期 */
 export function dayLabel(t: number, now = new Date()) {
   const d = new Date(t)
