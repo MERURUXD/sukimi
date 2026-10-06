@@ -59,6 +59,11 @@ export function mergeMeta<T extends Meta>(existing: readonly T[], incoming: read
   return [...existing.filter((m) => !keys.has(m.key)), ...incoming]
 }
 
+/** 服务端查回来的元数据：还没保存完的键（keep）保留界面上的新值，其余以服务端为准 */
+export function mergeServerMeta<T extends Meta>(server: readonly T[], current: readonly T[], keep: (key: string) => boolean): T[] {
+  return [...server.filter((m) => !keep(m.key)), ...current.filter((m) => keep(m.key))]
+}
+
 /**
  * 旧版本只存在浏览器里的按漫画设置，补传到服务端。服务端已有的键不覆盖（可能是别的设备后来改的），
  * 本次会话里用户刚改过的键（skip）也不覆盖，服务端查不到的漫画（已被删除）直接丢弃。
@@ -86,6 +91,8 @@ export function createWriteOrder() {
   let tail: Promise<unknown> = Promise.resolve()
   let seq = 0
   const latest = new Map<string, number>()
+  /** 最近一次修改还没保存完的键 */
+  const inflight = new Set<string>()
   const slot = (mangaId: number, key: string) => `${mangaId}:${key}`
   return {
     /** 排在已有写入之后执行；前一个失败不影响后面 */
@@ -99,9 +106,17 @@ export function createWriteOrder() {
     /** 记下一次用户修改，返回它的序号 */
     mark(mangaId: number, keys: readonly string[]) {
       const id = ++seq
-      for (const key of keys) latest.set(slot(mangaId, key), id)
+      for (const key of keys) {
+        latest.set(slot(mangaId, key), id)
+        inflight.add(slot(mangaId, key))
+      }
       return id
     },
+    /** 这次修改保存完（成功或失败）；之后没有更新的修改，这些键就不再算待保存 */
+    finish(mangaId: number, keys: readonly string[], id: number) {
+      for (const key of keys) if (latest.get(slot(mangaId, key)) === id) inflight.delete(slot(mangaId, key))
+    },
+    pending: (mangaId: number, key: string) => inflight.has(slot(mangaId, key)),
     isLatest: (mangaId: number, key: string, id: number) => latest.get(slot(mangaId, key)) === id,
     touched: (mangaId: number, key: string) => latest.has(slot(mangaId, key)),
   }
