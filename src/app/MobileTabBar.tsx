@@ -1,20 +1,12 @@
-import { Bell, Compass, House, LibraryBig, Settings } from 'lucide-react'
 import { NavLink, useLocation } from 'react-router'
 import { useLive } from '@/api/live'
 import { Glass } from '@/components/glass/Glass'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
+import { TABS } from './navTabs'
 
-const TABS = [
-  { to: '/', label: '首页', icon: House, end: true },
-  { to: '/library', label: '书库', icon: LibraryBig },
-  { to: '/updates', label: '更新', icon: Bell },
-  { to: '/browse', label: '发现', icon: Compass },
-  { to: '/settings', label: '设置', icon: Settings },
-]
-
-/** 手机（< 768px）底部标签栏；桌面和平板用顶部导航 */
+/** 手机（< 768px）底部标签栏；平板用左侧导航栏，桌面用顶部导航 */
 export function MobileTabBar() {
   const downloading = useLive((s) => s.queue.length)
   const { ref: pillRef, box: pillBox } = useNavPill(useLocation().pathname)
