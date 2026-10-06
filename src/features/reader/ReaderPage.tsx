@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { toastError } from '@/components/ui/toast'
-import { chapterLabel } from '@/features/manga/MangaHero'
+import { chapterLabel } from '@/lib/format'
 import { MangaChapters, MangaDetail, type Chapter } from '@/features/manga/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -326,8 +326,8 @@ function ReaderSession({
   const curLabel = chapterLabel(chapter)
   const syncLabel =
     isDemo
-      ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel}第 ${synced + 1} 页`
-      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel}第 ${synced + 1} 页`
+      ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel} · 第 ${synced + 1} 页`
+      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel} · 第 ${synced + 1} 页`
 
   const endCard = (
     <EndCard

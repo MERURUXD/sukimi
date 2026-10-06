@@ -6,13 +6,8 @@ import { StartDownloader, StopDownloader, useLive } from '@/api/live'
 import { MotionGlass } from '@/components/glass/Glass'
 import { toastError } from '@/components/ui/toast'
 import { spring } from '@/design/motion'
-import { chapterNo } from '@/lib/format'
+import { chapterLabel } from '@/lib/format'
 import { CoverImg } from './CoverImg'
-
-const label = (c: { chapterNumber: number; name: string }) => {
-  const n = chapterNo(c.chapterNumber)
-  return n ? `第 ${n} 话` : c.name
-}
 
 /** 吸底的下载状态条：当前下载、进度环、暂停 / 继续；完整队列在 /downloads */
 export function DownloadPill() {
@@ -71,7 +66,7 @@ export function DownloadPill() {
             </span>
             <span className="flex min-w-0 flex-col leading-[1.35]">
               <span className="truncate text-[13px] font-semibold">
-                {running ? '正在下载' : '已暂停'} · {cur.manga.title} {label(cur.chapter)}
+                {running ? '正在下载' : '已暂停'} · {cur.manga.title} {chapterLabel(cur.chapter)}
               </span>
               <span className="truncate text-xs text-muted num">
                 {cur.chapter.pageCount > 0
