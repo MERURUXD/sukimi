@@ -3,16 +3,24 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useParams } from 'react-router'
 import { toast, toastError } from '@/components/ui/toast'
 import { sfwAttr } from '@/lib/devSafe'
+import { useIntro } from '@/lib/intro'
 import { ChapterList, useChapterActions } from './ChapterList'
 import { MangaHero } from './MangaHero'
 import { FetchMangaAndChapters, MangaChapters, MangaDetail, MangaPeek, placeholderManga } from './queries'
 import { useLive } from '@/api/live'
+import { cn } from '@/lib/cn'
+import { mangaIntro, mangaIntroDelay } from './intro'
+import { useAppearance } from '@/design/settings'
 
 export function MangaPage() {
   const id = Number(useParams().id)
   const client = useApolloClient()
   const manga = useQuery(MangaDetail, { variables: { id } })
   const chapters = useQuery(MangaChapters, { variables: { mangaId: id } })
+  // 每次进入都播放；章节晚到时仍能接上进场，不因头部先加载而错过。
+  const motion = useAppearance((s) => s.mangaDetailMotion)
+  const entering = useIntro(motion, !!manga.data && (!!chapters.data || !!chapters.error))
+  const intro = motion && entering
   const [fetchRemote, { loading: fetching }] = useMutation(FetchMangaAndChapters)
 
   const list = chapters.data?.chapters.nodes
@@ -66,7 +74,7 @@ export function MangaPage() {
     return <p className="wrap pt-10 text-danger">加载失败：{manga.error.message.split('\n')[0]}</p>
   }
   // 从列表点进来时缓存里已有封面和标题：先画骨架，封面过渡动画才有落点。
-  // 骨架和完整详情用同一个 MangaHero 实例，数据到了不会重新挂载、不会重播进场动画
+  // 完整信息就绪后才播放内容进场，缓存再次进入也沿用相同顺序。
   const peek = manga.data
     ? null
     : client.readFragment({ id: client.cache.identify({ __typename: 'MangaType', id }), fragment: MangaPeek })
@@ -74,20 +82,21 @@ export function MangaPage() {
   if (!m) return <p className="wrap pt-10 text-muted">正在加载…</p>
 
   return (
-    <div data-sfw={sfwAttr(m.source?.displayName)}>
+    <div className="manga-detail" data-sfw={sfwAttr(m.source?.displayName)}>
       <MangaHero
         manga={m}
         chapters={manga.data ? list : undefined}
         fetching={fetching}
         placeholder={!manga.data}
+        intro={intro}
         onRefresh={() => void refresh()}
         onDownloadUnread={downloadUnread}
       />
       {manga.data &&
         (list ? (
-          <ChapterList mangaId={id} chapters={list} queue={queue} actions={actions} />
+          <ChapterList mangaId={id} chapters={list} queue={queue} actions={actions} intro={intro} />
         ) : (
-          <p className="wrap text-muted">正在加载章节…</p>
+          <p style={mangaIntroDelay(mangaIntro.chapterTitle)} className={cn('wrap text-muted', intro && 'rise')}>正在加载章节…</p>
         ))}
     </div>
   )

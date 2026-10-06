@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useLocation, useNavigationType } from 'react-router'
 
 const positions = new Map<string, number>()
@@ -18,8 +18,10 @@ export function useRestoredOffset() {
  * 虚拟列表首帧的高度还是估算值，所以恢复后再在下一帧校正一次。
  */
 export function ScrollManager() {
-  const { key } = useLocation()
+  const { key, pathname, search, hash } = useLocation()
   const nav = useNavigationType()
+  const address = pathname + search + hash
+  const previous = useRef({ key, address, preserve: false })
 
   useEffect(() => {
     history.scrollRestoration = 'manual'
@@ -33,6 +35,14 @@ export function ScrollManager() {
   }, [key])
 
   useLayoutEffect(() => {
+    const before = previous.current
+    const preserve = before.key === key ? before.preserve : before.address === address
+    previous.current = { key, address, preserve }
+    // 同地址的状态切换（如手机底部面板）保留页面位置。
+    if (preserve) {
+      positions.set(key, window.scrollY)
+      return
+    }
     const target = nav === 'POP' ? (positions.get(key) ?? 0) : 0
     window.scrollTo(0, target)
     if (!target) return
@@ -50,7 +60,7 @@ export function ScrollManager() {
       window.removeEventListener('wheel', stop)
       window.removeEventListener('touchstart', stop)
     }
-  }, [key, nav])
+  }, [key, nav, address])
 
   return null
 }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { preferenceKey } from '@/lib/demo'
 
 /**
  * 液态折射的可调参数。默认值是 2026-10-03 手调的「激进」预设；
@@ -57,7 +58,7 @@ export const useGlassTuning = create<GlassTuning & { set: (p: Partial<GlassTunin
       reset: () => set(GLASS_DEFAULTS),
     }),
     {
-      name: 'suwayomi-web.glass',
+      name: preferenceKey('suwayomi-web.glass'),
       version: 1,
       partialize: ({ set: _s, reset: _r, ...rest }) => rest,
     },

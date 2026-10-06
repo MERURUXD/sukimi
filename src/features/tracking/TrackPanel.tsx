@@ -30,7 +30,7 @@ export function TrackButton({ mangaId, title }: { mangaId: number; title: string
   )
 }
 
-function TrackDialog({ mangaId, title, onClose }: { mangaId: number; title: string; onClose: () => void }) {
+export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; title: string; onClose: () => void }) {
   const trackers = useQuery(Trackers).data?.trackers.nodes
   const records = useQuery(MangaTracks, { variables: { id: mangaId }, fetchPolicy: 'cache-and-network' }).data?.manga.trackRecords.nodes
   const [sync, { loading: syncing }] = useMutation(TrackProgress)

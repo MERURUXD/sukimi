@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, BookOpen, CircleCheck, Download, RefreshCw } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { BookCheck, BookOpen, CircleCheck, Download, MoreHorizontal, RefreshCw } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { useLive } from '@/api/live'
@@ -8,6 +8,7 @@ import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { DownloadPill } from '@/components/manga/DownloadPill'
 import { Seg } from '@/components/ui/Seg'
+import { Popover } from '@/components/ui/Popover'
 import { toast, toastError } from '@/components/ui/toast'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { RecentUpdates, type UpdateChapter } from '@/features/home/queries'
@@ -135,32 +136,38 @@ export function UpdatesPage() {
         </div>
       )}
       <div className="wrap pb-10">
-        <div className="flex flex-wrap items-end gap-3 pt-7 pb-3">
-          <div className="min-w-0 flex-[1_1_260px]">
-            <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">更新</h1>
-            <p className="mt-1.5 mb-0 text-muted num">{status || ' '}</p>
+        <header className="pt-4 md:pt-7 md:pb-3">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
+            <button type="button" className="solid min-h-11 shrink-0" onClick={check} disabled={updater.isRunning}>
+              <RefreshCw className={cn('size-[18px]', updater.isRunning && 'animate-spin')} strokeWidth={2} />
+              {updater.isRunning ? '正在检查' : '检查更新'}
+            </button>
           </div>
-          <Seg
-            label="筛选"
-            items={[
-              { value: 'all', label: '全部' },
-              { value: 'unread', label: '未读' },
-              { value: 'downloaded', label: '已下载' },
-            ]}
-            value={filter}
-            onChange={setFilter}
-          />
-          <Glass as="button" type="button" className="gbtn rounded-full" onClick={markAllRead}>
-            全部标为已读
-          </Glass>
-          <Glass as="button" type="button" className="gbtn rounded-full" onClick={downloadAll}>
-            下载全部未读
-          </Glass>
-          <button type="button" className="solid min-h-11" onClick={check} disabled={updater.isRunning}>
-            <RefreshCw className={cn('size-[18px]', updater.isRunning && 'animate-spin')} strokeWidth={2} />
-            {updater.isRunning ? '正在检查' : '检查更新'}
-          </button>
-        </div>
+          <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || ' '}</p>
+          <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">
+            <Seg
+              label="筛选"
+              className="[&>button]:min-h-11 md:[&>button]:min-h-9"
+              items={[
+                { value: 'all', label: '全部' },
+                { value: 'unread', label: '未读' },
+                { value: 'downloaded', label: '已下载' },
+              ]}
+              value={filter}
+              onChange={setFilter}
+            />
+            <div className="hidden items-center gap-3 md:flex">
+              <Glass as="button" type="button" className="gbtn rounded-full" onClick={markAllRead}>
+                全部标为已读
+              </Glass>
+              <Glass as="button" type="button" className="gbtn rounded-full" onClick={downloadAll}>
+                下载全部未读
+              </Glass>
+            </div>
+            <UpdatesMore onMarkRead={markAllRead} onDownload={downloadAll} />
+          </div>
+        </header>
         {updater.isRunning && (
           <div className="mt-1 h-[3px] overflow-hidden rounded-full bg-track">
             <i
@@ -191,6 +198,53 @@ export function UpdatesPage() {
         <DownloadPill />
       </div>
     </>
+  )
+}
+
+function UpdatesMore({ onMarkRead, onDownload }: { onMarkRead: () => Promise<void>; onDownload: () => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const trigger = useRef<HTMLButtonElement>(null)
+  const firstAction = useRef<HTMLButtonElement>(null)
+  const close = () => {
+    setOpen(false)
+    trigger.current?.focus()
+  }
+  useEffect(() => {
+    if (!open) return
+    firstAction.current?.focus()
+    // 宽屏直接展示批量按钮，切换到宽屏时关闭手机弹层。
+    const desktop = window.matchMedia('(min-width: 768px)')
+    const changed = () => { if (desktop.matches) setOpen(false) }
+    desktop.addEventListener('change', changed)
+    return () => desktop.removeEventListener('change', changed)
+  }, [open])
+
+  return (
+    <div className="shrink-0 md:hidden">
+      <Popover
+        open={open}
+        onClose={close}
+        id={id}
+        label="更新批量操作"
+        className="w-[224px] max-w-[calc(100vw-32px)]"
+        trigger={
+          <Glass as="button" ref={trigger} type="button" className="gicon rounded-full" aria-label="更多更新操作" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((v) => !v)}>
+            <MoreHorizontal className="size-5" strokeWidth={1.8} />
+          </Glass>
+        }
+      >
+        <p className="pop-h">批量操作</p>
+        <button ref={firstAction} type="button" className="opt min-h-11" onClick={() => { close(); void onMarkRead() }}>
+          <BookCheck className="size-[18px] shrink-0" strokeWidth={1.8} />
+          全部标为已读
+        </button>
+        <button type="button" className="opt min-h-11" onClick={() => { close(); void onDownload() }}>
+          <Download className="size-[18px] shrink-0" strokeWidth={1.8} />
+          下载全部未读
+        </button>
+      </Popover>
+    </div>
   )
 }
 
@@ -231,32 +285,39 @@ function Row({
   onToggleRead: () => void
 }) {
   const time = new Date(sec(c.fetchedAt)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const downloadStatus = queued?.state === 'ERROR' ? '下载出错' : `下载中 ${Math.round((queued?.progress ?? 0) * 100)}%`
   return (
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       style={rise}
-      className={cn('flex items-center gap-4 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover', rise && 'rise')}
+      className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', rise && 'rise')}
     >
       <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md" aria-label={`${c.manga.title} 详情`}>
         <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
       </Link>
       <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} className="flex min-w-0 flex-1 flex-col text-text no-underline">
-        <span className="flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 items-baseline gap-2">
           {!c.isRead && <span className="size-2 flex-none rounded-full bg-accent" />}
-          <span className={cn('truncate', c.isRead ? 'font-medium text-faint' : 'font-semibold')}>{c.manga.title}</span>
+          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', c.isRead ? 'font-medium text-muted' : 'font-semibold')}>{c.manga.title}</span>
         </span>
         <span className="truncate text-xs text-muted">
           {chapterLabel(c)}
           {c.name && chapterLabel(c) !== c.name ? ` · ${c.name}` : ''}
         </span>
+        {/* 手机把时间与下载状态放回文字区，给标题和章节名留出宽度。 */}
+        <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted num sm:hidden">
+          <span>{time}</span>
+          {queued && <span>{downloadStatus}</span>}
+        </span>
       </Link>
-      <span className="w-24 truncate text-xs text-muted max-sm:hidden">{c.manga.source?.displayName}</span>
-      <span className="w-[52px] text-right text-xs text-muted num">{time}</span>
-      <span className="flex w-24 justify-end">
+      <span className="w-24 flex-none truncate text-xs text-muted max-sm:hidden">{c.manga.source?.displayName}</span>
+      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden">{time}</span>
+      <span className="flex w-11 flex-none justify-end sm:w-24">
         {queued ? (
-          <span className="flex w-[84px] flex-col gap-1">
-            <span className="text-xs text-muted num">{queued.state === 'ERROR' ? '下载出错' : `下载中 ${Math.round(queued.progress * 100)}%`}</span>
-            <span className="h-1 overflow-hidden rounded-full bg-track">
+          <span className="flex w-11 flex-col items-center gap-1 sm:w-[84px] sm:items-stretch" title={downloadStatus}>
+            <Download className="size-5 text-muted sm:hidden" strokeWidth={1.8} />
+            <span className="text-xs text-muted num max-sm:hidden">{downloadStatus}</span>
+            <span className="h-1 w-full overflow-hidden rounded-full bg-track">
               <i className="block h-full rounded-full bg-accent" style={{ width: `${queued.progress * 100}%` }} />
             </span>
           </span>

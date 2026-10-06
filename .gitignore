@@ -10,6 +10,12 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.codex-remote-attachments/
+# 代理约定、开发计划和工具配置仅保留在本地
+/AGENTS.md
+/CLAUDE.md
+/PLAN.md
+/.claude/
 *.local
 .env
 .env.*

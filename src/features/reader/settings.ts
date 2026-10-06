@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { preferenceKey } from '@/lib/demo'
 
 export type ReadMode = 'single' | 'double' | 'vertical' | 'webtoon'
 export type ReadDir = 'ltr' | 'rtl'
@@ -99,7 +100,7 @@ export const useReaderStore = create<Store>()(
       setDefaults: (patch) => set((s) => ({ defaults: { ...s.defaults, ...patch } })),
       clearPerManga: () => set({ perManga: {} }),
     }),
-    { name: 'suwayomi-web.reader', version: 1 },
+    { name: preferenceKey('suwayomi-web.reader'), version: 1 },
   ),
 )
 

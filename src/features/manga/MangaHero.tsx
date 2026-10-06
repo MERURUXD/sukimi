@@ -1,18 +1,24 @@
 import { useMutation, useQuery } from '@apollo/client/react'
-import { ArrowLeftRight, Download, ExternalLink, Heart, Play, RefreshCw, Tags } from 'lucide-react'
-import { useState, type CSSProperties } from 'react'
-import { Link } from 'react-router'
+import { AnimatePresence } from 'motion/react'
+import { ArrowLeftRight, ChevronLeft, Download, ExternalLink, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { COVER_VT } from '@/lib/coverTransition'
 import { Popover } from '@/components/ui/Popover'
+import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toast, toastError } from '@/components/ui/toast'
 import { Categories } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { chapterNo, sec, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
-import { TrackButton } from '@/features/tracking/TrackPanel'
+import { TrackDialog } from '@/features/tracking/TrackPanel'
+import { MangaTracks } from '@/features/tracking/queries'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
+import { mangaIntro, mangaIntroDelay as delay } from './intro'
+import './MangaHero.css'
 
 const STATUS: Record<string, string> = {
   ONGOING: '连载中',
@@ -37,9 +43,6 @@ export function nextToRead(chapters: readonly Chapter[], lastReadId: number | un
   return { chapter: chapters[0], verb: '开始阅读' }
 }
 
-/** 详情内容依次上浮：每一块晚 50ms，跟在封面飞入后面 */
-const delay = (i: number) => ({ '--d': `${120 + i * 50}ms` }) as CSSProperties
-
 export const chapterLabel = (c: Pick<Chapter, 'chapterNumber' | 'name'>) => {
   const n = chapterNo(c.chapterNumber)
   return n ? `第 ${n} 话` : c.name
@@ -52,23 +55,25 @@ export function MangaHero({
   onRefresh,
   onDownloadUnread,
   placeholder = false,
+  intro = false,
 }: {
-  /** 骨架：只有封面和标题，其余占位不可见 */
+  /** 骨架只显示封面，文字等完整信息就绪后再进场。 */
   placeholder?: boolean
+  intro?: boolean
   manga: Manga
   chapters: readonly Chapter[] | undefined
   fetching: boolean
   onRefresh: () => void
   onDownloadUnread: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
   const [setInLibrary, { loading: favBusy }] = useMutation(SetMangaInLibrary)
+  const animate = intro && !placeholder
 
-  const total = chapters?.length ?? 0
-  const read = chapters?.filter((c) => c.isRead).length ?? 0
-  const pct = total ? Math.round((read / total) * 100) : 0
   const target = chapters ? nextToRead(chapters, manga.lastReadChapter?.id) : null
   const last = chapters?.find((c) => c.id === manga.lastReadChapter?.id)
+  const recent = last
+    ? `上次${last.isRead ? '读完' : '停在'}${chapterLabel(last)}${!last.isRead && last.lastPageRead > 0 ? ` · 第 ${last.lastPageRead + 1} 页` : ''} · ${timeAgo(sec(last.lastReadAt))}`
+    : '还没有开始阅读'
 
   const toggleLibrary = async () => {
     try {
@@ -79,20 +84,22 @@ export function MangaHero({
     }
   }
 
-  const tags = [STATUS[manga.status], manga.source?.displayName, ...manga.genre.slice(0, 6)].filter(Boolean) as string[]
+  const genres = manga.genre.slice(0, 6)
   const byline = [manga.author, manga.artist !== manga.author ? manga.artist : null].filter(Boolean).join(' · ')
 
   return (
-    <section className="relative isolate -mt-[var(--nav-h)] overflow-hidden pt-[var(--nav-h)]">
-      {/* 背景从页面底色淡入并轻微缩放，和封面飞入同时进行 */}
-      <div className="bg-in absolute inset-0 -z-20 overflow-hidden" aria-hidden>
-        {manga.thumbnailUrl && (
-          <img
-            src={manga.thumbnailUrl}
-            alt=""
-            className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]"
-          />
-        )}
+    <section className="manga-hero relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]">
+      {/* 裁切层保持不动，避免背景缩放撑宽手机视口、取消封面转场。 */}
+      <div className="absolute inset-0 -z-20 overflow-hidden" aria-hidden>
+        <div className={cn('absolute inset-0', intro && 'bg-in')}>
+          {manga.thumbnailUrl && (
+            <img
+              src={manga.thumbnailUrl}
+              alt=""
+              className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]"
+            />
+          )}
+        </div>
       </div>
       <div
         className="absolute inset-0 -z-10"
@@ -103,166 +110,147 @@ export function MangaHero({
         }}
       />
 
-      <div className="wrap flex flex-wrap items-end gap-x-12 gap-y-6 pt-6 pb-9 sm:gap-y-8 sm:pt-8 sm:pb-11">
+      <div className="manga-hero-layout wrap pt-6 pb-9 sm:pt-8 sm:pb-11">
         <div
-          className="cv w-[150px] flex-none rounded-[14px] shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)] max-sm:mx-auto sm:w-[200px] lg:w-[260px]"
+          className="manga-hero-cover cv rounded-[14px] shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)]"
           style={{ viewTransitionName: COVER_VT }}
         >
           <CoverImg src={manga.thumbnailUrl} />
         </div>
 
-        <div className="flex min-w-0 flex-[1_1_460px] flex-col gap-3.5">
-          {tags.length > 0 && (
-            <div className="rise-each flex flex-wrap gap-1.5" style={delay(0)}>
-              {tags.map((t) => (
-                <Glass key={t} as="span" className="inline-flex min-h-[30px] items-center rounded-full px-3 text-xs font-semibold">
-                  {t}
-                </Glass>
-              ))}
-            </div>
-          )}
-          <h1 style={delay(1)} className="rise m-0 font-cjk text-[28px] leading-[1.1] font-black text-balance sm:text-[34px] lg:text-[52px]">{manga.title}</h1>
-          {byline && (
-            <span style={delay(2)} className="rise text-[15px] text-muted">
-              {byline}
-            </span>
-          )}
-          {manga.description && (
-            <div style={delay(3)} className="rise max-w-[70ch] text-[15px] leading-[1.75] text-muted">
-              <p className={cn('m-0 whitespace-pre-line', !expanded && 'line-clamp-3')}>{manga.description}</p>
-              {manga.description.length > 120 && (
-                <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-1 font-bold text-text">
-                  {expanded ? '收起' : '展开'}
-                </button>
-              )}
-            </div>
-          )}
+        <div className="manga-hero-info flex min-w-0 flex-col">
+          <div className={cn('manga-hero-identity flex min-w-0 flex-col', placeholder && 'invisible')}>
+            <h1 style={delay(mangaIntro.title)} className={cn('manga-hero-title m-0 font-cjk text-balance', animate && 'rise')}>{manga.title}</h1>
+            {byline && <span style={delay(mangaIntro.byline)} className={cn('text-[15px] text-muted', animate && 'rise')}>{byline}</span>}
+            <span style={delay(mangaIntro.meta)} className={cn('manga-hero-meta text-muted', animate && 'rise')}>{[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}</span>
+          </div>
+          {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
+          {genres.length > 0 && <div className="manga-hero-tags flex flex-wrap gap-1.5">
+            {genres.map((t, i) => <Glass as="span" key={t} style={delay(mangaIntro.tags + i * 30)} className={cn('manga-hero-genre', animate && 'rise')}>{t}</Glass>)}
+          </div>}
 
-          <div style={delay(4)} className={cn('mt-1.5 flex flex-wrap gap-2.5', placeholder ? 'invisible' : 'rise-each')}>
+          <div className={cn('manga-hero-actions', placeholder && 'invisible')}>
             {target ? (
-              <Link to={`/manga/${manga.id}/chapter/${target.chapter.id}`} state={FROM_DETAIL} className="solid no-underline">
-                <Play className="size-5 fill-current" strokeWidth={1.6} />
-                {target.verb} · {chapterLabel(target.chapter)}
+              <Link to={`/manga/${manga.id}/chapter/${target.chapter.id}`} state={FROM_DETAIL} style={delay(mangaIntro.actions)} className={cn('solid no-underline', animate && 'rise')} aria-label={`${target.verb} · ${chapterLabel(target.chapter)}`}>
+                <Play className="size-[18px] shrink-0 fill-current" strokeWidth={1.6} />
+                <span className="truncate">{target.verb}<span className="manga-hero-chapter-label"> · {chapterLabel(target.chapter)}</span></span>
               </Link>
-            ) : (
-              <span className="solid opacity-50">{fetching ? '正在获取章节…' : '暂无章节'}</span>
-            )}
-            <Glass as="button"
-                type="button"
-                className={cn('rounded-full', 'gicon', manga.inLibrary && 'bg-g-hi')}
-                onClick={toggleLibrary}
-                disabled={favBusy}
-                aria-pressed={manga.inLibrary}
-                aria-label={manga.inLibrary ? '移出书库' : '加入书库'}
-                title={manga.inLibrary ? '移出书库' : '加入书库'}
-              >
+            ) : <span style={delay(mangaIntro.actions)} className={cn('solid opacity-50', animate && 'rise')}><span className="truncate">{fetching ? '正在获取章节…' : '暂无章节'}</span></span>}
+            <Glass as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
-            <Glass as="button" type="button" className="gicon rounded-full" onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节">
-              <Download className="size-5" strokeWidth={1.8} />
-            </Glass>
-            <Glass as="button"
-                type="button"
-                className="gicon rounded-full"
-                onClick={onRefresh}
-                disabled={fetching}
-                aria-label="从来源刷新信息与章节"
-                title="从来源刷新信息与章节"
-              >
-              <RefreshCw className={cn('size-5', fetching && 'animate-spin')} strokeWidth={1.8} />
-            </Glass>
-            {manga.realUrl && (
-              <Glass as="a" className="gicon rounded-full" href={manga.realUrl} target="_blank" rel="noreferrer" aria-label="在来源网站打开" title="在来源网站打开">
-                <ExternalLink className="size-5" strokeWidth={1.8} />
-              </Glass>
-            )}
-            {manga.inLibrary && <CategoryButton manga={manga} />}
-            {manga.inLibrary && <TrackButton mangaId={manga.id} title={manga.title} />}
-            {manga.inLibrary && (
-              <Link to={`/manga/${manga.id}/migrate`} className="rounded-full text-text no-underline" aria-label="换源迁移" title="换源迁移">
-                <Glass as="span" className="gicon rounded-full">
-                  <ArrowLeftRight className="size-5" strokeWidth={1.8} />
-                </Glass>
-              </Link>
-            )}
+            <Glass as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
+            <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} intro={animate} />
           </div>
+          <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label="阅读记录">{recent}</p>
         </div>
-
-        <Glass
-          style={delay(5)}
-          className={cn('flex min-w-[240px] flex-[1_1_260px] flex-col gap-3.5 rounded-[22px] p-5 sm:max-w-[320px]', placeholder ? 'invisible' : 'rise')}
-        >
-          <div className="flex justify-between text-[13px]">
-            <span className="font-semibold">阅读进度</span>
-            <span className="text-muted num">{pct}%</span>
-          </div>
-          <div className="prog h-[5px]">
-            <i style={{ width: `${pct}%` }} />
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <Stat value={read} label={`已读 / ${total}`} />
-            <Stat value={manga.downloadCount} label="已下载" />
-            <Stat value={manga.bookmarkCount} label="书签" />
-          </div>
-          <span className="text-xs text-muted">
-            {last
-              ? `${last.isRead ? '读完' : '停在'}${chapterLabel(last)}${!last.isRead && last.lastPageRead > 0 ? `第 ${last.lastPageRead + 1} 页` : ''} · ${timeAgo(sec(last.lastReadAt))}`
-              : '还没有开始读'}
-          </span>
-        </Glass>
       </div>
     </section>
   )
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function MangaDescription({ description, intro }: { description: string; intro: boolean }) {
+  const [expanded, setExpanded] = useState(false)
+  const [overflowing, setOverflowing] = useState(false)
+  const paragraph = useRef<HTMLParagraphElement>(null)
+  const id = useId()
+  useLayoutEffect(() => {
+    const el = paragraph.current
+    if (!el) return
+    let active = true
+    // 字数无法判断中文换行；宽度和字体变化后重新比较三行的实际高度。
+    const measure = () => {
+      if (active) setOverflowing(el.scrollHeight > Number.parseFloat(getComputedStyle(el).lineHeight) * 3 + 1)
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    measure()
+    void document.fonts.ready.then(measure)
+    document.fonts.addEventListener('loadingdone', measure)
+    return () => { active = false; observer.disconnect(); document.fonts.removeEventListener('loadingdone', measure) }
+  }, [description])
   return (
-    <div>
-      <b className="block text-2xl leading-[1.2] font-bold num">{value.toLocaleString('en-US')}</b>
-      <span className="text-xs text-muted">{label}</span>
+    <div style={delay(mangaIntro.description)} className={cn('manga-hero-description max-w-[70ch] text-[15px] leading-[1.75] text-muted', intro && 'rise')}>
+      <p ref={paragraph} id={id} className={cn('m-0 whitespace-pre-line', !expanded && 'line-clamp-3')}>{description}</p>
+      {(overflowing || expanded) && <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded((v) => !v)} className="manga-hero-expand mt-1 font-semibold text-text">{expanded ? '收起简介' : '展开简介'}</button>}
     </div>
   )
 }
 
-function CategoryButton({ manga }: { manga: Manga }) {
-  const { data } = useQuery(Categories)
-  const [open, setOpen] = useState(false)
-  const [setCats] = useMutation(SetMangaCategories)
-  const cats = (data?.categories.nodes ?? []).filter((c) => !c.default)
-  if (!cats.length) return null
-
-  const mine = new Set(manga.categories.nodes.map((c) => c.id))
-  const names = cats.filter((c) => mine.has(c.id)).map((c) => c.name)
-
-  const toggle = async (id: number) => {
-    const on = mine.has(id)
-    try {
-      await setCats({ variables: { id: manga.id, add: on ? [] : [id], remove: on ? [id] : [] } })
-    } catch (e) {
-      toastError('修改分类失败', e)
-    }
+function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetching: boolean; onRefresh: () => void; intro: boolean }) {
+  const [popoverOpen, setPopoverOpen] = useState(false)
+  const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  const [categories, setCategories] = useState(false)
+  const [tracking, setTracking] = useState(false)
+  const trigger = useRef<HTMLElement>(null)
+  const closing = useRef(false)
+  const panelId = useId()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const sheetOpen = location.state?.mangaMore === manga.id
+  const open = mobile ? sheetOpen : popoverOpen
+  const label = categories ? '分类' : '更多漫画操作'
+  const tracks = useQuery(MangaTracks, { variables: { id: manga.id }, skip: !manga.inLibrary })
+  const bound = tracks.data?.manga.trackRecords.nodes.length ?? 0
+  const close = () => {
+    if (closing.current) return
+    closing.current = true
+    if (sheetOpen) void navigate(-1)
+    else { setPopoverOpen(false); trigger.current?.focus({ preventScroll: true }) }
   }
+  const toggle = () => {
+    setCategories(false)
+    if (open) close()
+    else if (mobile) {
+      // 面板占用一条同地址的历史记录，手机返回先关闭面板。
+      void navigate(location.pathname + location.search, { state: { ...location.state, mangaMore: manga.id }, preventScrollReset: true })
+    } else setPopoverOpen(true)
+  }
+  useEffect(() => { if (!open) closing.current = false }, [open])
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)')
+    const update = () => { setMobile(query.matches); setPopoverOpen(false) }
+    query.addEventListener('change', update)
+    return () => query.removeEventListener('change', update)
+  }, [])
+  useEffect(() => {
+    if (!mobile && sheetOpen) void navigate(-1)
+  }, [mobile, sheetOpen, navigate])
+  useEffect(() => {
+    if (open && !mobile) document.getElementById(panelId)?.querySelector<HTMLElement>('button:not(:disabled), a')?.focus({ preventScroll: true })
+  }, [open, mobile, categories, panelId])
+  const content = categories ? <>
+    <button type="button" className="opt font-semibold" onClick={() => setCategories(false)}><ChevronLeft className="size-5" />返回更多操作</button>
+    <CategoryChoices manga={manga} />
+  </> : <>
+    <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? '正在刷新…' : '刷新信息与章节'}</button>
+    {manga.realUrl && <a className="opt no-underline" href={manga.realUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
+    {manga.inLibrary && <>
+      <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />管理分类</button>
+      <button type="button" className="opt" onClick={() => { close(); setTracking(true) }}><ListChecks className="size-5" /><span className="flex-1">追踪</span>{bound > 0 && <span className="text-xs text-muted">已绑定 {bound} 个</span>}</button>
+      <Link className="opt no-underline" to={`/manga/${manga.id}/migrate`} replace={sheetOpen} state={sheetOpen ? { ...location.state, mangaMore: undefined } : undefined} onClick={() => setPopoverOpen(false)}><ArrowLeftRight className="size-5" />换源迁移</Link>
+    </>}
+  </>
+  const button = <Glass ref={trigger} as="button" type="button" style={delay(mangaIntro.actions + 90)} className={cn('gicon rounded-full', intro && 'rise')} aria-label="更多漫画操作" aria-expanded={open} aria-controls={panelId} aria-haspopup="dialog" onClick={toggle}><MoreHorizontal className="size-5" strokeWidth={1.8} /></Glass>
+  return <>
+    {mobile ? button : <Popover id={panelId} open={open} onClose={close} label={label} fitViewport className="manga-hero-more-panel w-[256px]" trigger={button}>{content}</Popover>}
+    {createPortal(<>
+      <AnimatePresence>{mobile && open && <BottomSheet id={panelId} label={label} onClose={close}>{content}</BottomSheet>}</AnimatePresence>
+      <AnimatePresence>{tracking && <TrackDialog mangaId={manga.id} title={manga.title} onClose={() => { setTracking(false); trigger.current?.focus({ preventScroll: true }) }} />}</AnimatePresence>
+    </>, document.body)}
+  </>
+}
 
-  return (
-    <Popover
-      open={open}
-      onClose={() => setOpen(false)}
-      label="分类"
-      align="left"
-      className="w-[240px]"
-      trigger={
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setOpen((v) => !v)}>
-          <Tags className="size-[18px]" strokeWidth={1.8} />
-          分类：{names.length ? names.join('、') : '默认'}
-        </Glass>
-      }
-    >
-      {cats.map((c) => (
-        <button key={c.id} type="button" role="menuitemcheckbox" aria-checked={mine.has(c.id)} className="opt" onClick={() => toggle(c.id)}>
-          <span className="flex-1">{c.name}</span>
-          {mine.has(c.id) && <span aria-hidden>✓</span>}
-        </button>
-      ))}
-    </Popover>
-  )
+function CategoryChoices({ manga }: { manga: Manga }) {
+  const { data } = useQuery(Categories)
+  const [setCats] = useMutation(SetMangaCategories)
+  const mine = new Set(manga.categories.nodes.map((c) => c.id))
+  const cats = (data?.categories.nodes ?? []).filter((c) => !c.default)
+  const toggle = async (id: number) => {
+    try { await setCats({ variables: { id: manga.id, add: mine.has(id) ? [] : [id], remove: mine.has(id) ? [id] : [] } }) }
+    catch (e) { toastError('修改分类失败', e) }
+  }
+  return cats.length ? cats.map((c) => (
+    <button key={c.id} type="button" role="menuitemcheckbox" aria-checked={mine.has(c.id)} className="opt" onClick={() => void toggle(c.id)}><span className="flex-1">{c.name}</span>{mine.has(c.id) && <span aria-hidden>✓</span>}</button>
+  )) : <p className="px-3 text-sm text-muted">暂无自定义分类</p>
 }

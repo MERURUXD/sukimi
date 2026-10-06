@@ -1,3 +1,5 @@
+import { useAppearance } from '@/design/settings'
+
 /** 封面「飞入 / 飞回」用的 view-transition-name；同一时刻页面上只能有一个 */
 export const COVER_VT = 'manga-cover'
 
@@ -38,7 +40,7 @@ const pagePath = () => document.querySelector(`[${PAGE_PATH_ATTR}]`)?.getAttribu
  *   找到当初点的那个封面挂上过渡名，详情页的大封面就会飞回原来的格子。
  *   虚拟列表要在第一次渲染时就用恢复后的滚动位置，那个格子才会在 DOM 里（见 useRestoredOffset）。
  */
-export function installCoverTransition() {
+export function installCoverTransition(basePath = '') {
   if (installed) return
   installed = true
 
@@ -46,14 +48,14 @@ export function installCoverTransition() {
     'click',
     (e) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-      const link = (e.target as Element | null)?.closest?.('a[href^="/manga/"]')
+      const link = (e.target as Element | null)?.closest?.(`a[href^="${basePath}/manga/"]`)
       const href = link?.getAttribute('href')
       if (!link || !href || /\/chapter\//.test(href)) return
       const cover = (link.matches('.cv') ? link : link.querySelector('.cv')) as HTMLElement | null
       if (!cover) return
       mark(cover)
       const from = pagePath()
-      if (from) origins.set(href, { path: from, index: Math.max(0, coversOf(href).indexOf(cover)) })
+      if (from) origins.set(href.slice(basePath.length), { path: from, index: Math.max(0, coversOf(href).indexOf(cover)) })
       // 过渡结束后旧页面通常已卸载；万一还在（导航被取消），清掉名字
       setTimeout(() => cover.isConnected && unmark(cover), 1200)
     },
@@ -71,14 +73,21 @@ export function installCoverTransition() {
       update: async () => {
         await update?.()
         const to = pagePath()
+        // 仅跳过涉及详情页的转场，不影响其他页面及菜单动画。
+        if (!useAppearance.getState().mangaDetailMotion && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
+          t.skipTransition()
+          return
+        }
         const origin = from ? origins.get(from) : undefined
         if (!from || !origin || origin.path !== to) return
-        const covers = coversOf(from)
+        const covers = coversOf(`${basePath}${from}`)
         marked = covers[origin.index] ?? covers[0]
         if (marked) mark(marked)
       },
     })
-    t.finished.finally(() => marked && unmark(marked))
+    // 快速返回或打开面板可能取消封面过渡；仍清理标记，不产生未处理拒绝。
+    void t.ready.catch(() => {})
+    void t.finished.finally(() => marked && unmark(marked)).catch(() => {})
     return t
   }) as typeof document.startViewTransition
 }

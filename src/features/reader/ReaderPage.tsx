@@ -9,6 +9,7 @@ import { chapterLabel } from '@/features/manga/MangaHero'
 import { MangaChapters, MangaDetail, type Chapter } from '@/features/manga/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
+import { isDemo } from '@/lib/demo'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
 import { PagedView } from './PagedView'
@@ -323,7 +324,9 @@ function ReaderSession({
     : `${shown.length > 1 ? `${Math.min(...shown) + 1}–${Math.max(...shown) + 1}` : page + 1} / ${pages.length}`
   const curLabel = chapterLabel(chapter)
   const syncLabel =
-    synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel}第 ${synced + 1} 页`
+    isDemo
+      ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel}第 ${synced + 1} 页`
+      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel}第 ${synced + 1} 页`
 
   const endCard = (
     <EndCard
