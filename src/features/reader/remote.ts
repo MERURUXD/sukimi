@@ -61,15 +61,48 @@ export function mergeMeta<T extends Meta>(existing: readonly T[], incoming: read
 
 /**
  * 旧版本只存在浏览器里的按漫画设置，补传到服务端。服务端已有的键不覆盖（可能是别的设备后来改的），
- * 服务端查不到的漫画（已被删除）直接丢弃。
+ * 本次会话里用户刚改过的键（skip）也不覆盖，服务端查不到的漫画（已被删除）直接丢弃。
  */
-export function planMigration(legacy: Record<number, Partial<ReaderSettings>>, remote: readonly { id: number; meta: readonly Meta[] }[]) {
+export function planMigration(
+  legacy: Record<number, Partial<ReaderSettings>>,
+  remote: readonly { id: number; meta: readonly Meta[] }[],
+  skip: (mangaId: number, key: string) => boolean = () => false,
+) {
   const items: { mangaIds: number[]; metas: Meta[] }[] = []
   for (const m of remote) {
     const saved = legacy[m.id]
     if (!saved) continue
-    const metas = toReaderMeta(splitPatch(saved).local).filter((x) => !m.meta.some((r) => r.key === x.key))
+    const metas = toReaderMeta(splitPatch(saved).local).filter((x) => !m.meta.some((r) => r.key === x.key) && !skip(m.id, x.key))
     if (metas.length) items.push({ mangaIds: [m.id], metas })
   }
   return items
+}
+
+/**
+ * 阅读设置的写入顺序。补传与用户修改排成一队依次发送，服务端按修改的先后保存；
+ * 同时记下每部漫画每个键最近一次用户修改的序号，较早的响应和补传都不再覆盖它。
+ */
+export function createWriteOrder() {
+  let tail: Promise<unknown> = Promise.resolve()
+  let seq = 0
+  const latest = new Map<string, number>()
+  const slot = (mangaId: number, key: string) => `${mangaId}:${key}`
+  return {
+    /** 排在已有写入之后执行；前一个失败不影响后面 */
+    run<T>(task: () => Promise<T>): Promise<T> {
+      const result = tail.then(task)
+      tail = result.catch(() => {})
+      return result
+    },
+    /** 等目前排着的写入全部结束 */
+    settle: (): Promise<void> => tail.then(() => {}),
+    /** 记下一次用户修改，返回它的序号 */
+    mark(mangaId: number, keys: readonly string[]) {
+      const id = ++seq
+      for (const key of keys) latest.set(slot(mangaId, key), id)
+      return id
+    },
+    isLatest: (mangaId: number, key: string, id: number) => latest.get(slot(mangaId, key)) === id,
+    touched: (mangaId: number, key: string) => latest.has(slot(mangaId, key)),
+  }
 }

@@ -4,7 +4,7 @@ import test from 'node:test'
 import { buildSchema, executeSync } from 'graphql'
 import * as docs from '../src/api/gql/graphql.ts'
 import { createDemoData } from '../src/features/demo/data.ts'
-import { READER_META_PREFIX, hasReaderMeta, mergeMeta, parseReaderMeta, planMigration, readerMetaKey, splitPatch, toReaderMeta } from '../src/features/reader/remote.ts'
+import { READER_META_PREFIX, createWriteOrder, hasReaderMeta, mergeMeta, parseReaderMeta, planMigration, readerMetaKey, splitPatch, toReaderMeta } from '../src/features/reader/remote.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 function ok(rootValue, document, variableValues) {
@@ -52,6 +52,50 @@ test('旧的浏览器内设置补传时不覆盖服务端已有的键，查不�
     { mangaIds: [1], metas: [{ key: readerMetaKey('dir'), value: 'ltr' }] },
     { mangaIds: [2], metas: [{ key: readerMetaKey('fit'), value: 'height' }] },
   ])
+})
+
+test('补传跳过本次会话里用户刚改过的键', () => {
+  const legacy = { 1: { mode: 'webtoon', fit: 'width' } }
+  const skip = (mangaId, key) => mangaId === 1 && key === readerMetaKey('mode')
+  assert.deepEqual(planMigration(legacy, [{ id: 1, meta: [] }], skip), [
+    { mangaIds: [1], metas: [{ key: readerMetaKey('fit'), value: 'width' }] },
+  ])
+})
+
+// 手动控制何时完成的请求，模拟网络快慢
+function deferred() {
+  let resolve, reject
+  const promise = new Promise((res, rej) => { resolve = res; reject = rej })
+  return { promise, resolve, reject }
+}
+const tick = () => new Promise((r) => setTimeout(r, 0))
+
+test('写入排队依次发送：前一个没完成，后一个不会发出', async () => {
+  const writes = createWriteOrder()
+  const sent = []
+  const first = deferred()
+  const a = writes.run(() => { sent.push('补传'); return first.promise })
+  const b = writes.run(async () => { sent.push('双页') })
+  await tick()
+  assert.deepEqual(sent, ['补传'])
+  first.reject(new Error('网络错误'))
+  await assert.rejects(a)
+  await b
+  assert.deepEqual(sent, ['补传', '双页'], '前一个失败不影响后面')
+  await writes.settle()
+})
+
+test('连续修改同一设置时，较早的响应不算最新，补传也跳过这个键', () => {
+  const writes = createWriteOrder()
+  const mode = readerMetaKey('mode')
+  assert.equal(writes.touched(1, mode), false)
+  const double = writes.mark(1, [mode])
+  const vertical = writes.mark(1, [mode])
+  assert.equal(writes.isLatest(1, mode, double), false)
+  assert.equal(writes.isLatest(1, mode, vertical), true)
+  assert.equal(writes.isLatest(2, mode, vertical), false, '别的漫画不受影响')
+  assert.equal(writes.touched(1, mode), true)
+  assert.equal(writes.touched(1, readerMetaKey('fit')), false)
 })
 
 test('演示数据按正式查询读写、统计和清除漫画元数据', () => {
