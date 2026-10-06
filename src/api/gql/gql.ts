@@ -64,6 +64,11 @@ type Documents = {
     "\n  mutation MigrationTarget($id: Int!) {\n    fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {\n      manga {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n        source {\n          id\n          displayName\n        }\n      }\n      chapters {\n        id\n        chapterNumber\n        isRead\n        isBookmarked\n      }\n    }\n  }\n": typeof types.MigrationTargetDocument,
     "\n  mutation FetchChapterPages($chapterId: Int!) {\n    fetchChapterPages(input: { chapterId: $chapterId }) {\n      pages\n      chapter {\n        id\n        pageCount\n      }\n    }\n  }\n": typeof types.FetchChapterPagesDocument,
     "\n  mutation SaveProgress($id: Int!, $lastPageRead: Int!, $isRead: Boolean) {\n    updateChapter(input: { id: $id, patch: { lastPageRead: $lastPageRead, isRead: $isRead } }) {\n      chapter {\n        id\n        lastPageRead\n        isRead\n        lastReadAt\n        manga {\n          id\n          unreadCount\n          lastReadChapter {\n            id\n            lastReadAt\n          }\n        }\n      }\n    }\n  }\n": typeof types.SaveProgressDocument,
+    "\n  query ReaderMangaMeta($id: Int!) {\n    manga(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n    }\n  }\n": typeof types.ReaderMangaMetaDocument,
+    "\n  query ReaderMetaOf($ids: [Int!]!) {\n    mangas(filter: { id: { in: $ids } }) {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": typeof types.ReaderMetaOfDocument,
+    "\n  query ReaderMetaIndex {\n    mangas {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": typeof types.ReaderMetaIndexDocument,
+    "\n  mutation SetReaderMeta($items: [SetMangaMetasItemInput!]!) {\n    setMangaMetas(input: { items: $items }) {\n      metas {\n        mangaId\n        key\n        value\n      }\n    }\n  }\n": typeof types.SetReaderMetaDocument,
+    "\n  mutation ClearReaderMeta($ids: [Int!]!, $prefixes: [String!]!) {\n    deleteMangaMetas(input: { items: [{ mangaIds: $ids, prefixes: $prefixes }] }) {\n      metas {\n        mangaId\n        key\n      }\n    }\n  }\n": typeof types.ClearReaderMetaDocument,
     "\n  query CategoriesFull {\n    categories(order: [{ by: ORDER }]) {\n      nodes {\n        id\n        name\n        order\n        default\n        includeInUpdate\n        mangas {\n          totalCount\n        }\n      }\n    }\n  }\n": typeof types.CategoriesFullDocument,
     "\n  mutation CreateCategory($name: String!) {\n    createCategory(input: { name: $name }) {\n      category {\n        id\n      }\n    }\n  }\n": typeof types.CreateCategoryDocument,
     "\n  mutation UpdateCategory($id: Int!, $patch: UpdateCategoryPatchInput!) {\n    updateCategory(input: { id: $id, patch: $patch }) {\n      category {\n        id\n        name\n        includeInUpdate\n      }\n    }\n  }\n": typeof types.UpdateCategoryDocument,
@@ -155,6 +160,11 @@ const documents: Documents = {
     "\n  mutation MigrationTarget($id: Int!) {\n    fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {\n      manga {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n        source {\n          id\n          displayName\n        }\n      }\n      chapters {\n        id\n        chapterNumber\n        isRead\n        isBookmarked\n      }\n    }\n  }\n": types.MigrationTargetDocument,
     "\n  mutation FetchChapterPages($chapterId: Int!) {\n    fetchChapterPages(input: { chapterId: $chapterId }) {\n      pages\n      chapter {\n        id\n        pageCount\n      }\n    }\n  }\n": types.FetchChapterPagesDocument,
     "\n  mutation SaveProgress($id: Int!, $lastPageRead: Int!, $isRead: Boolean) {\n    updateChapter(input: { id: $id, patch: { lastPageRead: $lastPageRead, isRead: $isRead } }) {\n      chapter {\n        id\n        lastPageRead\n        isRead\n        lastReadAt\n        manga {\n          id\n          unreadCount\n          lastReadChapter {\n            id\n            lastReadAt\n          }\n        }\n      }\n    }\n  }\n": types.SaveProgressDocument,
+    "\n  query ReaderMangaMeta($id: Int!) {\n    manga(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n    }\n  }\n": types.ReaderMangaMetaDocument,
+    "\n  query ReaderMetaOf($ids: [Int!]!) {\n    mangas(filter: { id: { in: $ids } }) {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": types.ReaderMetaOfDocument,
+    "\n  query ReaderMetaIndex {\n    mangas {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": types.ReaderMetaIndexDocument,
+    "\n  mutation SetReaderMeta($items: [SetMangaMetasItemInput!]!) {\n    setMangaMetas(input: { items: $items }) {\n      metas {\n        mangaId\n        key\n        value\n      }\n    }\n  }\n": types.SetReaderMetaDocument,
+    "\n  mutation ClearReaderMeta($ids: [Int!]!, $prefixes: [String!]!) {\n    deleteMangaMetas(input: { items: [{ mangaIds: $ids, prefixes: $prefixes }] }) {\n      metas {\n        mangaId\n        key\n      }\n    }\n  }\n": types.ClearReaderMetaDocument,
     "\n  query CategoriesFull {\n    categories(order: [{ by: ORDER }]) {\n      nodes {\n        id\n        name\n        order\n        default\n        includeInUpdate\n        mangas {\n          totalCount\n        }\n      }\n    }\n  }\n": types.CategoriesFullDocument,
     "\n  mutation CreateCategory($name: String!) {\n    createCategory(input: { name: $name }) {\n      category {\n        id\n      }\n    }\n  }\n": types.CreateCategoryDocument,
     "\n  mutation UpdateCategory($id: Int!, $patch: UpdateCategoryPatchInput!) {\n    updateCategory(input: { id: $id, patch: $patch }) {\n      category {\n        id\n        name\n        includeInUpdate\n      }\n    }\n  }\n": types.UpdateCategoryDocument,
@@ -410,6 +420,26 @@ export function graphql(source: "\n  mutation FetchChapterPages($chapterId: Int!
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation SaveProgress($id: Int!, $lastPageRead: Int!, $isRead: Boolean) {\n    updateChapter(input: { id: $id, patch: { lastPageRead: $lastPageRead, isRead: $isRead } }) {\n      chapter {\n        id\n        lastPageRead\n        isRead\n        lastReadAt\n        manga {\n          id\n          unreadCount\n          lastReadChapter {\n            id\n            lastReadAt\n          }\n        }\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation SaveProgress($id: Int!, $lastPageRead: Int!, $isRead: Boolean) {\n    updateChapter(input: { id: $id, patch: { lastPageRead: $lastPageRead, isRead: $isRead } }) {\n      chapter {\n        id\n        lastPageRead\n        isRead\n        lastReadAt\n        manga {\n          id\n          unreadCount\n          lastReadChapter {\n            id\n            lastReadAt\n          }\n        }\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ReaderMangaMeta($id: Int!) {\n    manga(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  query ReaderMangaMeta($id: Int!) {\n    manga(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ReaderMetaOf($ids: [Int!]!) {\n    mangas(filter: { id: { in: $ids } }) {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n"): (typeof documents)["\n  query ReaderMetaOf($ids: [Int!]!) {\n    mangas(filter: { id: { in: $ids } }) {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ReaderMetaIndex {\n    mangas {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n"): (typeof documents)["\n  query ReaderMetaIndex {\n    mangas {\n      nodes {\n        id\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetReaderMeta($items: [SetMangaMetasItemInput!]!) {\n    setMangaMetas(input: { items: $items }) {\n      metas {\n        mangaId\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation SetReaderMeta($items: [SetMangaMetasItemInput!]!) {\n    setMangaMetas(input: { items: $items }) {\n      metas {\n        mangaId\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation ClearReaderMeta($ids: [Int!]!, $prefixes: [String!]!) {\n    deleteMangaMetas(input: { items: [{ mangaIds: $ids, prefixes: $prefixes }] }) {\n      metas {\n        mangaId\n        key\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation ClearReaderMeta($ids: [Int!]!, $prefixes: [String!]!) {\n    deleteMangaMetas(input: { items: [{ mangaIds: $ids, prefixes: $prefixes }] }) {\n      metas {\n        mangaId\n        key\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

@@ -15,6 +15,8 @@ export function createCache() {
       ExtensionStoreType: { keyFields: ['indexUrl'] },
       // 扩展没有 id，以包名区分；安装 / 更新返回的结果会直接改到列表里那一项上
       ExtensionType: { keyFields: ['pkgName'] },
+      // 漫画元数据没有 id，整组随漫画存；每次查询或写入后的结果直接替换旧列表
+      MangaType: { fields: { meta: { merge: false } } },
     },
   })
 }

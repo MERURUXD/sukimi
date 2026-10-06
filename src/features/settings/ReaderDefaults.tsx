@@ -1,7 +1,11 @@
+import { useMutation, useQuery } from '@apollo/client/react'
 import { Glass } from '@/components/glass/Glass'
+import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
-import { toast } from '@/components/ui/toast'
-import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, useReaderStore } from '@/features/reader/settings'
+import { toast, toastError } from '@/components/ui/toast'
+import { ClearReaderMeta, ReaderMetaIndex } from '@/features/reader/queries'
+import { READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
+import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
 import { cn } from '@/lib/cn'
 import { Row, Switch } from './parts'
 
@@ -12,8 +16,32 @@ export function ReaderDefaults() {
   const set = useReaderStore((s) => s.setDefaults)
   const remember = useReaderStore((s) => s.rememberPerManga)
   const setRemember = useReaderStore((s) => s.setRemember)
-  const perMangaCount = useReaderStore((s) => Object.keys(s.perManga).length)
-  const clear = useReaderStore((s) => s.clearPerManga)
+  const legacy = useReaderStore((s) => s.perManga)
+  const clearLegacy = useReaderStore((s) => s.clearPerManga)
+  useMigrateReaderPrefs()
+  // 按漫画的设置存在服务端元数据里；统计时把还没补传的旧设置也算上
+  const index = useQuery(ReaderMetaIndex, { fetchPolicy: 'cache-and-network' })
+  const [clearRemote, clearing] = useMutation(ClearReaderMeta)
+  const remote = index.data?.mangas.nodes.filter((m) => hasReaderMeta(m.meta)).map((m) => m.id) ?? []
+  const perMangaCount = new Set([...remote, ...Object.keys(legacy).map(Number)]).size
+
+  const clear = async () => {
+    const ok = await confirm({
+      title: '清除所有按漫画记住的设置？',
+      body: `${perMangaCount} 部漫画的阅读模式、方向和缩放会从服务器删除，所有设备都改用这里的默认值。`,
+      ok: '全部清除',
+    })
+    if (!ok) return
+    try {
+      if (remote.length) {
+        await clearRemote({ variables: { ids: remote, prefixes: [READER_META_PREFIX] }, update: (cache) => uncacheReaderMeta(cache, remote) })
+      }
+      clearLegacy()
+      toast('已清除，所有漫画改用上面的默认值')
+    } catch (e) {
+      toastError('清除失败', e)
+    }
+  }
 
   return (
     <>
@@ -70,17 +98,15 @@ export function ReaderDefaults() {
       <Row label="读完自动进入下一话">
         <Switch on={d.autoNext} onChange={(autoNext) => set({ autoNext })} label="读完自动进入下一话" />
       </Row>
-      <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
+      <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存到服务器，换设备也一致${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
         <div className="flex items-center gap-3">
           {perMangaCount > 0 && (
             <Glass
               as="button"
               type="button"
               className="gbtn min-h-9 rounded-full text-[13px]"
-              onClick={() => {
-                clear()
-                toast('已清除，所有漫画改用上面的默认值')
-              }}
+              disabled={clearing.loading}
+              onClick={clear}
             >
               全部清除
             </Glass>
