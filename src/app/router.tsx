@@ -5,6 +5,8 @@ import { MangaPage } from '@/features/manga/MangaPage'
 import { AppShell, AuthGate } from './AppShell'
 import { Placeholder } from './Placeholder'
 import { RouteError } from './RouteError'
+import { isDemo } from '@/lib/demo'
+import { DemoGate, DemoUnavailable } from '@/features/demo/DemoGate'
 
 /*
  * 首页、书库、详情是最常用的路径（也是封面飞入飞回动画的两端），打进主包；
@@ -14,7 +16,25 @@ const page = <K extends string>(load: () => Promise<Record<K, React.ComponentTyp
   lazy: async () => ({ Component: (await load())[name] }),
 })
 
-export const router = createBrowserRouter([
+const demoRoutes = [{
+  element: <DemoGate />,
+  errorElement: <RouteError />,
+  children: [
+    { path: 'manga/:id/chapter/:chapterId', ...page(() => import('@/features/reader/ReaderPage'), 'ReaderPage') },
+    { element: <AppShell />, children: [
+      { index: true, element: <HomePage /> },
+      { path: 'library', element: <LibraryPage /> },
+      { path: 'manga/:id', element: <MangaPage /> },
+      { path: 'updates', ...page(() => import('@/features/updates/UpdatesPage'), 'UpdatesPage') },
+      { path: 'browse', ...page(() => import('@/features/browse/BrowsePage'), 'BrowsePage') },
+      { path: 'history', ...page(() => import('@/features/history/HistoryPage'), 'HistoryPage') },
+      { path: 'settings/:tab?', ...page(() => import('@/features/demo/DemoSettings'), 'DemoSettings') },
+      { path: '*', element: <DemoUnavailable /> },
+    ] },
+  ],
+}]
+
+export const router = createBrowserRouter(isDemo ? demoRoutes : [
   { path: '/login', ...page(() => import('@/features/auth/LoginPage'), 'LoginPage') },
   // 虚构来源的界面验收入口，不需要登录，也不会请求真实书库或修改服务端。
   ...(import.meta.env.DEV
@@ -58,4 +78,4 @@ export const router = createBrowserRouter([
       },
     ],
   },
-])
+], { basename: isDemo ? '/demo' : '/' })

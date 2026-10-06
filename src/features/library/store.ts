@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { preferenceKey } from '@/lib/demo'
 
 export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed'
 /** 0 不限 · 1 包含 · 2 排除 */
@@ -47,7 +48,7 @@ export const useLibraryView = create<LibraryView>()(
       clearSources: () => set({ sources: [] }),
     }),
     {
-      name: 'suwayomi-web.library',
+      name: preferenceKey('suwayomi-web.library'),
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
       partialize: ({ category, filters, sort, desc, density, sources }) => ({ category, filters, sort, desc, density, sources }),

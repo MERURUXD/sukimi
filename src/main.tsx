@@ -7,6 +7,7 @@ import { restoreSession } from '@/api/auth'
 import { loadSnapshots } from '@/api/persist'
 import { router } from '@/app/router'
 import { installCoverTransition } from '@/lib/coverTransition'
+import { isDemo } from '@/lib/demo'
 import './index.css'
 
 if (import.meta.env.DEV && localStorage.getItem('suwayomi-web.dev.safe') === '1') {
@@ -16,16 +17,18 @@ if (import.meta.env.DEV && localStorage.getItem('suwayomi-web.dev.safe') === '1'
 // 官方 WebUI 留下的 Service Worker 不再需要（见 public/sw.js）
 void navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => void r.unregister()))
 
-installCoverTransition()
-void restoreSession()
+installCoverTransition(isDemo ? '/demo' : '')
+if (!isDemo) void restoreSession()
 
 // 先读出上次的书库 / 首页数据再渲染（通常几十毫秒），最多等 300ms，读不出来就当没有
-const ready = Promise.race([loadSnapshots(apollo), new Promise((r) => setTimeout(r, 300))])
+const ready = isDemo
+  ? import('@/features/demo/client').then(({ createDemoClient }) => createDemoClient())
+  : Promise.race([loadSnapshots(apollo), new Promise((r) => setTimeout(r, 300))]).then(() => apollo)
 
-void ready.then(() =>
+void ready.then((client) =>
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <ApolloProvider client={apollo}>
+      <ApolloProvider client={client}>
         <RouterProvider router={router} />
       </ApolloProvider>
     </StrictMode>,

@@ -8,6 +8,8 @@ import { cn } from '@/lib/cn'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { AppearanceMenu } from './AppearanceMenu'
+import { isDemo } from '@/lib/demo'
+import { DemoNotice } from '@/features/demo/DemoGate'
 
 const LINKS = [
   { to: '/', label: '首页', end: true },
@@ -60,6 +62,7 @@ export function TopNav() {
         </Glass>
 
         <div className="flex items-center gap-2">
+          {isDemo && <DemoNotice />}
           <DownloadIndicator />
           <AppearanceMenu />
         </div>

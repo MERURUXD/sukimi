@@ -17,7 +17,8 @@
     "typecheck": "tsc -b",
     "test": "node --test scripts/*.test.mjs",
     "test:source-filters": "node --test scripts/verify-source-filters.test.mjs",
-    "deploy:server": "node scripts/deploy.mjs"
+    "deploy:server": "node scripts/deploy.mjs",
+    "restart:server": "pwsh -NoProfile -File scripts/restart-server.ps1"
   },
   "dependencies": {
     "@apollo/client": "^4.3.1",

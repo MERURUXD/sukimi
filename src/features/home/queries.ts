@@ -36,6 +36,9 @@ export const RecentReads = graphql(`
             id
             name
             chapterNumber
+            lastPageRead
+            pageCount
+            lastReadAt
           }
         }
       }

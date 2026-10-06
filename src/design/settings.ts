@@ -2,29 +2,47 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useApplyGlassTuning } from './glassTuning'
+import { preferenceKey } from '@/lib/demo'
 
 export type ThemePref = 'system' | 'dark' | 'light'
 export type GlassMode = 'refract' | 'frosted' | 'solid'
+export type HomeLayout = 'poster' | 'cover'
 
 interface AppearanceState {
   theme: ThemePref
   glass: GlassMode
+  mangaDetailMotion: boolean
+  homeMobileLayout: HomeLayout
+  homeDesktopLayout: HomeLayout
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
+  setMangaDetailMotion: (on: boolean) => void
+  setHomeMobileLayout: (layout: HomeLayout) => void
+  setHomeDesktopLayout: (layout: HomeLayout) => void
 }
 
 // 键名与 index.html 里防闪烁脚本一致
-export const APPEARANCE_KEY = 'suwayomi-web.appearance'
+export const APPEARANCE_KEY = preferenceKey('suwayomi-web.appearance')
 
 export const useAppearance = create<AppearanceState>()(
   persist(
     (set) => ({
       theme: 'dark',
       glass: 'refract',
+      mangaDetailMotion: true,
+      homeMobileLayout: 'poster',
+      homeDesktopLayout: 'poster',
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
+      setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
+      setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
+      setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
     }),
-    { name: APPEARANCE_KEY, partialize: ({ theme, glass }) => ({ theme, glass }) },
+    {
+      name: APPEARANCE_KEY,
+      partialize: ({ theme, glass, mangaDetailMotion, homeMobileLayout, homeDesktopLayout }) =>
+        ({ theme, glass, mangaDetailMotion, homeMobileLayout, homeDesktopLayout }),
+    },
   ),
 )
 

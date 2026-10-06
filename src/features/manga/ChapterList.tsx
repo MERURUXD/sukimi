@@ -29,6 +29,7 @@ import { useSelection } from '@/lib/useSelection'
 import type { Chapter } from './queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { useChapterView, type ChapterFilter } from './store'
+import { mangaIntro, mangaIntroDelay } from './intro'
 export interface QueueItem {
   progress: number
   state: 'QUEUED' | 'DOWNLOADING' | 'FINISHED' | 'ERROR'
@@ -103,11 +104,13 @@ export function ChapterList({
   chapters,
   queue,
   actions,
+  intro = false,
 }: {
   mangaId: number
   chapters: readonly Chapter[]
   queue: ReadonlyMap<number, QueueItem>
   actions: Actions
+  intro?: boolean
 }) {
   const { filter, desc, setFilter, toggleOrder } = useChapterView()
   const visible = useMemo(() => {
@@ -180,7 +183,7 @@ export function ChapterList({
   return (
     <section aria-labelledby="h-ch" className="wrap pb-32">
       <div className="flex flex-wrap items-center gap-2.5 pt-2 pb-[18px]">
-        <div className="flex flex-auto items-baseline gap-3">
+        <div style={mangaIntroDelay(mangaIntro.chapterTitle)} className={cn('flex flex-auto items-baseline gap-3', intro && 'rise')}>
           <h2 id="h-ch" className="m-0 text-[28px] font-bold">
             章节
           </h2>
@@ -188,20 +191,21 @@ export function ChapterList({
             {chapters.length} 话 · {unread} 话未读
           </span>
         </div>
-        <div className="flex items-center gap-2.5 max-sm:w-full">
+        <div style={mangaIntroDelay(mangaIntro.chapterTools)} className="flex items-center gap-2.5 max-sm:w-full">
           <Seg
             label="章节筛选"
             items={FILTERS.map((f) => ({ value: f.value, label: f.label, count: f.value === 'all' ? undefined : counts[f.value] }))}
             value={filter}
             onChange={setFilter}
-            className="max-sm:min-w-0 max-sm:flex-1"
+            className={cn('max-sm:min-w-0 max-sm:flex-1', intro && 'rise')}
           />
-          <Glass as="button" type="button" className="gicon size-10 rounded-full" onClick={toggleOrder} aria-label={desc ? '切换为最早在上' : '切换为最新在上'} title={desc ? '最新在上' : '最早在上'}>
+          <Glass as="button" type="button" style={mangaIntroDelay(mangaIntro.chapterTools)} className={cn('gicon size-10 rounded-full', intro && 'rise')} onClick={toggleOrder} aria-label={desc ? '切换为最早在上' : '切换为最新在上'} title={desc ? '最新在上' : '最早在上'}>
             <ArrowDownUp className="size-[18px]" strokeWidth={1.8} />
           </Glass>
           <Glass as="button"
               type="button"
-              className={cn('rounded-full', 'gicon size-10', selecting && 'bg-g-hi')}
+              style={mangaIntroDelay(mangaIntro.chapterTools)}
+              className={cn('rounded-full', 'gicon size-10', selecting && 'bg-g-hi', intro && 'rise')}
               onClick={() => (selecting ? exitSelect() : setSelecting(true))}
               aria-pressed={selecting}
               aria-label="多选章节"
@@ -212,10 +216,10 @@ export function ChapterList({
         </div>
       </div>
 
-      {visible.length === 0 && <p className="py-16 text-center text-muted">{chapters.length ? '没有符合筛选的章节' : '还没有章节'}</p>}
+      {visible.length === 0 && <p style={mangaIntroDelay(mangaIntro.chapterRow)} className={cn('py-16 text-center text-muted', intro && 'rise')}>{chapters.length ? '没有符合筛选的章节' : '还没有章节'}</p>}
 
       <div ref={box} role="list" aria-label="章节列表" className="relative" style={{ height: v.getTotalSize() }}>
-        {v.getVirtualItems().map((r) => {
+        {v.getVirtualItems().map((r, i) => {
           const c = visible[r.index]
           return (
             <div
@@ -235,6 +239,7 @@ export function ChapterList({
                 onToggle={onRowToggle}
                 onLongPress={onLongPress}
                 actions={actions}
+                introDelay={intro ? mangaIntro.chapterRow + Math.min(i, 5) * 35 : undefined}
               />
             </div>
           )
@@ -290,6 +295,7 @@ const ChapterRow = memo(function ChapterRow({
   onToggle,
   onLongPress,
   actions,
+  introDelay,
 }: {
   c: Chapter
   index: number
@@ -300,6 +306,7 @@ const ChapterRow = memo(function ChapterRow({
   onToggle: (id: number, index: number, e: MouseEvent) => void
   onLongPress: (id: number, index: number) => void
   actions: Actions
+  introDelay?: number
 }) {
   const [menu, setMenu] = useState(false)
   const press = useLongPress(() => !selecting && onLongPress(c.id, index))
@@ -313,12 +320,14 @@ const ChapterRow = memo(function ChapterRow({
     <div
       role="listitem"
       aria-selected={selecting ? selected : undefined}
+      style={introDelay === undefined ? undefined : mangaIntroDelay(introDelay)}
       {...press}
       onClick={selecting ? (e) => onToggle(c.id, index, e) : undefined}
       className={cn(
         'group relative grid min-h-[62px] grid-cols-[48px_minmax(0,1fr)_72px_84px_44px] items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors max-sm:grid-cols-[36px_minmax(0,1fr)_56px]',
         selecting ? 'cursor-pointer select-none' : '',
         selected ? 'bg-accent-soft' : 'hover:bg-hover focus-within:bg-hover',
+        introDelay !== undefined && 'rise',
       )}
     >
       <span
