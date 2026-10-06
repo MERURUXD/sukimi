@@ -15,12 +15,14 @@ interface AppearanceState {
   autoHideNav: boolean
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
+  homeMotionBg: boolean
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
   setMangaDetailMotion: (on: boolean) => void
   setAutoHideNav: (on: boolean) => void
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
+  setHomeMotionBg: (on: boolean) => void
 }
 
 // 键名与 index.html 里防闪烁脚本一致
@@ -36,17 +38,20 @@ export const useAppearance = create<AppearanceState>()(
       autoHideNav: false,
       homeMobileLayout: 'poster',
       homeDesktopLayout: 'poster',
+      // 旧偏好里没有这个字段，合并默认值后开启
+      homeMotionBg: true,
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
       setAutoHideNav: (autoHideNav) => set({ autoHideNav }),
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
+      setHomeMotionBg: (homeMotionBg) => set({ homeMotionBg }),
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout }) =>
-        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout }),
+      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg }) =>
+        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg }),
     },
   ),
 )

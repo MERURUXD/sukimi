@@ -9,8 +9,8 @@ import { Row, Section, Switch } from '../parts'
 
 export function AppearanceTab() {
   const {
-    theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout,
-    setTheme, setGlass, setMangaDetailMotion, setAutoHideNav, setHomeMobileLayout, setHomeDesktopLayout,
+    theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg,
+    setTheme, setGlass, setMangaDetailMotion, setAutoHideNav, setHomeMobileLayout, setHomeDesktopLayout, setHomeMotionBg,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const canRefract = supportsRefract()
@@ -74,6 +74,9 @@ export function AppearanceTab() {
             value={homeDesktopLayout}
             onChange={setHomeDesktopLayout}
           />
+        </Row>
+        <Row label="动态背景" hint="首页（「封面与文字」「居中海报」布局）和漫画详情页的背景取封面主色缓慢流动，详情页更慢。关闭后首页显示静态模糊封面、详情页色块静止；系统开启「减弱动态效果」时同样静止。">
+          <Switch on={homeMotionBg} onChange={setHomeMotionBg} label="动态背景" />
         </Row>
       </Section>
 

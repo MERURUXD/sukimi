@@ -7,6 +7,7 @@ import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
 import { Glass } from '@/components/glass/Glass'
+import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds } from '@/features/library/queries'
@@ -67,6 +68,7 @@ export function HomePage() {
 function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
+  const homeMotionBg = useAppearance((s) => s.homeMotionBg)
   const immersive = homeMobileLayout === 'cover'
   const desktopImmersive = homeDesktopLayout === 'cover'
   const [idx, setIdx] = useState(0)
@@ -113,33 +115,38 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
 
   const m = cur.manga
   const target = resume(cur)
+  const staticBg = (
+    <AnimatePresence initial={false}>
+      <motion.img
+        key={m.id}
+        src={m.thumbnailUrl ?? undefined}
+        alt=""
+        initial={{ opacity: 0, scale: 1.08 }}
+        animate={{ opacity: 0.95, scale: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reducedMotion ? 0 : 0.9, ease: [0.2, 0, 0, 1] }}
+        className="absolute -top-[40%] -left-[10%] h-[180%] w-[120%] object-cover blur-[70px] saturate-[1.6]"
+      />
+    </AnimatePresence>
+  )
   const meta = [m.author, m.genre.slice(0, 2).join(' · '), m.source?.displayName].filter(Boolean).join(' · ')
 
   return (
     <section aria-label="继续阅读" className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)] md:min-h-[min(760px,92vh)]" data-mobile-layout={homeMobileLayout} data-desktop-layout={homeDesktopLayout} data-sfw={sfwAttr(m.source?.displayName)}>
-      {/* 背景：当前漫画封面的大幅模糊，切换时交叉淡入 */}
-      <div className={cn('absolute inset-0 -z-20 overflow-hidden', immersive && 'hidden md:block', desktopImmersive && 'md:hidden')} aria-hidden>
-        <AnimatePresence initial={false}>
-          <motion.img
-            key={m.id}
-            src={m.thumbnailUrl ?? undefined}
-            alt=""
-            initial={{ opacity: 0, scale: 1.08 }}
-            animate={{ opacity: 0.95, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: reducedMotion ? 0 : 0.9, ease: [0.2, 0, 0, 1] }}
-            className="absolute -top-[40%] -left-[10%] h-[180%] w-[120%] object-cover blur-[70px] saturate-[1.6]"
-          />
-        </AnimatePresence>
+      {/* 背景：当前漫画封面的大幅模糊，默认缓慢流动、切换时交叉淡入；底边短 2px，避免模糊层取整后漏出亮线 */}
+      <div className={cn('absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden', immersive && 'hidden md:block', desktopImmersive && 'md:hidden')} aria-hidden>
+        {homeMotionBg && !(immersive && desktopImmersive) ? (
+          <CoverFlow src={m.thumbnailUrl} className="absolute inset-0" fallback={staticBg} />
+        ) : (
+          staticBg
+        )}
       </div>
       <div
         aria-hidden
         className={cn('absolute inset-0 -z-10', immersive && 'hidden md:block', desktopImmersive && 'md:hidden')}
-        style={{
-          background:
-            'linear-gradient(90deg, var(--scrim-b) 0%, var(--scrim-a) 60%, transparent 100%), linear-gradient(180deg, transparent 45%, var(--bg) 100%)',
-        }}
+        style={{ background: 'linear-gradient(90deg, var(--scrim-b) 0%, var(--scrim-a) 60%, transparent 100%)' }}
       />
+      <div aria-hidden className={cn('fade-to-bg absolute inset-0 -z-10 [--from:30%]', immersive && 'hidden md:block', desktopImmersive && 'md:hidden')} />
       {desktopImmersive && (
         <div aria-hidden data-desktop-hero-art className="absolute inset-0 -z-10 hidden overflow-hidden bg-bg md:block">
           <AnimatePresence initial={false}>
