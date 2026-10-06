@@ -25,7 +25,7 @@ export function BatchBar({
   return (
     <AnimatePresence>
       {open && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--tabbar-h)+20px)] z-40 flex justify-center px-4">
+        <div className="pointer-events-none fixed right-0 bottom-[calc(var(--tabbar-h)+20px)] left-[var(--side-w)] z-40 flex justify-center px-4">
           <MotionGlass
             role="toolbar"
             aria-label="批量操作"

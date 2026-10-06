@@ -45,8 +45,8 @@ export function TopNav() {
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </Glass>
         ) : (
-          // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清
-          <NavLink to="/" aria-label="Sukimi 首页" className="rounded-full text-text no-underline">
+          // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏
+          <NavLink to="/" aria-label="Sukimi 首页" className="rounded-full text-text no-underline md:max-xl:hidden">
             <Glass as="span" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
               <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
               <span className="max-sm:hidden">Sukimi</span>
@@ -54,7 +54,7 @@ export function TopNav() {
           </NavLink>
         )}
 
-        <Glass as="nav" ref={pillRef} className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[5px] max-md:hidden">
+        <Glass as="nav" ref={pillRef} className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[5px] max-xl:hidden">
           <NavPill box={pillBox} className="rounded-full" />
           {LINKS.map((l) => (
             <NavLink
@@ -73,7 +73,7 @@ export function TopNav() {
           ))}
         </Glass>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2">
           {isDemo && <DemoNotice />}
           <DownloadIndicator />
           <AppearanceMenu />

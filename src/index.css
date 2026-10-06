@@ -109,6 +109,15 @@
       --nav-h: 84px;
     }
   }
+  /* 平板左侧导航栏占的宽度（左边距 12px + 栏宽 72px）；手机和桌面为 0 */
+  :root {
+    --side-w: 0px;
+  }
+  @media (min-width: 768px) and (max-width: 1279.98px) {
+    .app-shell {
+      --side-w: 84px;
+    }
+  }
   body {
     margin: 0;
     min-height: 100dvh;
@@ -289,6 +298,15 @@
   @media (min-width: 1024px) {
     .wrap {
       padding-inline: 48px;
+    }
+  }
+  /*
+   * 平板：内容让开左侧导航栏。只加在内边距上，不推开整个 main，
+   * 首页和详情页铺满的封面背景仍延伸到导航栏玻璃下面。
+   */
+  @media (min-width: 768px) and (max-width: 1279.98px) {
+    .app-shell .wrap {
+      padding-inline: calc(var(--side-w) + 24px) 32px;
     }
   }
 
