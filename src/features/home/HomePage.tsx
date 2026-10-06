@@ -64,14 +64,24 @@ export function HomePage() {
 }
 
 /* ───────── 继续阅读大图区 ───────── */
+/** 大图区当前漫画；放在模块里跨页面保留，整页刷新后自然回到第一部 */
+let lastHeroManga: number | null = null
+
 function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
   const immersive = homeMobileLayout === 'cover'
   const desktopImmersive = homeDesktopLayout === 'cover'
-  const [idx, setIdx] = useState(0)
-  const activeIdx = Math.min(idx, Math.max(0, items.length - 1))
+  // 按漫画 id 记住选中项：从详情页返回时首页会重新挂载，若退回第一部，封面就飞不回原来那张
+  const [selId, setSelId] = useState(() => lastHeroManga)
+  const found = items.findIndex((c) => c.manga.id === selId)
+  const activeIdx = found >= 0 ? found : 0
+  const setIdx = (i: number) => {
+    const id = items[i]?.manga.id ?? null
+    lastHeroManga = id
+    setSelId(id)
+  }
   const cur = items[activeIdx]
   const reducedMotion = useReducedMotion()
   const swipe = useHeroSwipe((direction) => setIdx(Math.max(0, Math.min(items.length - 1, activeIdx + direction))))
