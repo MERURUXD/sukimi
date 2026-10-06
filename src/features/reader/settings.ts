@@ -122,7 +122,10 @@ export function uncacheReaderMeta(cache: ApolloCache, ids: readonly number[]) {
   }
 }
 
-let migrating = false
+let migration: Promise<void> | null = null
+
+/** 等正在进行的补传结束；清除前要等，否则补传会把刚清掉的设置又写回服务端 */
+export const settleReaderMigration = () => migration ?? Promise.resolve()
 
 /** 旧的浏览器内按漫画设置补传到服务端，成功后清掉；失败下次再试，期间仍按浏览器里的值显示 */
 export function useMigrateReaderPrefs() {
@@ -130,9 +133,8 @@ export function useMigrateReaderPrefs() {
   const legacy = useReaderStore((s) => s.perManga)
   useEffect(() => {
     const ids = Object.keys(legacy).map(Number)
-    if (!ids.length || migrating) return
-    migrating = true
-    ;(async () => {
+    if (!ids.length || migration) return
+    migration = (async () => {
       const { data } = await client.query({ query: ReaderMetaOf, variables: { ids }, fetchPolicy: 'network-only' })
       const items = planMigration(legacy, data?.mangas.nodes ?? [])
       if (items.length) {
@@ -146,7 +148,7 @@ export function useMigrateReaderPrefs() {
     })()
       .catch(() => {})
       .finally(() => {
-        migrating = false
+        migration = null
       })
   }, [client, legacy])
 }
