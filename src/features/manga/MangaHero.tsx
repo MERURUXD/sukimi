@@ -12,12 +12,13 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toast, toastError } from '@/components/ui/toast'
 import { Categories } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
-import { chapterNo, sec, timeAgo } from '@/lib/format'
+import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { TrackDialog } from '@/features/tracking/TrackPanel'
 import { MangaTracks } from '@/features/tracking/queries'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
+import { lastRead, nextToRead } from './progress'
 import './MangaHero.css'
 
 const STATUS: Record<string, string> = {
@@ -27,25 +28,6 @@ const STATUS: Record<string, string> = {
   ON_HIATUS: '休刊',
   CANCELLED: '已腰斩',
   LICENSED: '已授权',
-}
-
-/** 「继续阅读」指向哪一话：读到一半的那话 → 上次读完的下一话 → 第一话 */
-export function nextToRead(chapters: readonly Chapter[], lastReadId: number | undefined) {
-  if (!chapters.length) return null
-  const last = chapters.find((c) => c.id === lastReadId)
-  if (last && !last.isRead) return { chapter: last, verb: '继续阅读' }
-  if (last) {
-    const next = chapters.find((c) => c.sourceOrder > last.sourceOrder && !c.isRead)
-    if (next) return { chapter: next, verb: '继续阅读' }
-    const firstUnread = chapters.find((c) => !c.isRead)
-    return firstUnread ? { chapter: firstUnread, verb: '继续阅读' } : { chapter: chapters[0], verb: '重新阅读' }
-  }
-  return { chapter: chapters[0], verb: '开始阅读' }
-}
-
-export const chapterLabel = (c: Pick<Chapter, 'chapterNumber' | 'name'>) => {
-  const n = chapterNo(c.chapterNumber)
-  return n ? `第 ${n} 话` : c.name
 }
 
 export function MangaHero({
@@ -70,9 +52,9 @@ export function MangaHero({
   const animate = intro && !placeholder
 
   const target = chapters ? nextToRead(chapters, manga.lastReadChapter?.id) : null
-  const last = chapters?.find((c) => c.id === manga.lastReadChapter?.id)
+  const last = chapters && lastRead(chapters, manga.lastReadChapter?.id)
   const recent = last
-    ? `上次${last.isRead ? '读完' : '停在'}${chapterLabel(last)}${!last.isRead && last.lastPageRead > 0 ? ` · 第 ${last.lastPageRead + 1} 页` : ''} · ${timeAgo(sec(last.lastReadAt))}`
+    ? `上次${last.isRead ? '读完' : '停在'} ${chapterLabel(last)}${!last.isRead && last.lastPageRead > 0 ? ` · 第 ${last.lastPageRead + 1} 页` : ''} · ${timeAgo(sec(last.lastReadAt))}`
     : '还没有开始阅读'
 
   const toggleLibrary = async () => {
@@ -89,27 +71,7 @@ export function MangaHero({
 
   return (
     <section className="manga-hero relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]">
-      {/* 裁切层保持不动，避免背景缩放撑宽手机视口、取消封面转场。 */}
-      <div className="absolute inset-0 -z-20 overflow-hidden" aria-hidden>
-        <div className={cn('absolute inset-0', intro && 'bg-in')}>
-          {manga.thumbnailUrl && (
-            <img
-              src={manga.thumbnailUrl}
-              alt=""
-              className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]"
-            />
-          )}
-        </div>
-      </div>
-      <div
-        className="absolute inset-0 -z-10"
-        aria-hidden
-        style={{
-          background:
-            'linear-gradient(90deg, var(--scrim-b), var(--scrim-a) 65%, transparent), linear-gradient(180deg, transparent 50%, var(--bg) 100%)',
-        }}
-      />
-
+      {/* 背景由 MangaBackdrop 画在整个详情页底层，才能延伸到章节区再淡出 */}
       <div className="manga-hero-layout wrap pt-6 pb-9 sm:pt-8 sm:pb-11">
         <div
           className="manga-hero-cover cv rounded-[14px] shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)]"

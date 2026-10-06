@@ -5,13 +5,11 @@ import { Link } from 'react-router'
 import type { Reference } from '@apollo/client'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
-import { PageAmbient } from '@/components/manga/PageAmbient'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
-import { chapterLabel } from '@/features/manga/MangaHero'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
-import { clock, count, dayLabel } from '@/lib/format'
+import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
 import { groupHistory, HIDDEN_KEY, hiddenValue, type HistoryEntry } from './history'
@@ -94,7 +92,6 @@ export function HistoryPage() {
 
   return (
     <div className="wrap pb-20">
-      <PageAmbient src={list[0]?.manga.thumbnailUrl} sfw={sfwAttr(list[0]?.manga.source?.displayName)} />
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4 pt-9 pb-8">
         <div className="min-w-0 flex-auto">
           <h1 className="m-0 font-cjk text-[40px] font-black">阅读历史</h1>

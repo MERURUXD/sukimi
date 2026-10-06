@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { toastError } from '@/components/ui/toast'
-import { chapterLabel } from '@/features/manga/MangaHero'
+import { chapterLabel } from '@/lib/format'
 import { MangaChapters, MangaDetail, type Chapter } from '@/features/manga/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -17,7 +17,7 @@ import { SaveProgress } from './queries'
 import { ReaderChrome } from './ReaderChrome'
 import { ScrollView } from './ScrollView'
 import { SettingsPanel } from './SettingsPanel'
-import { BGS, FITS, MODES, cycle, useReaderSettings } from './settings'
+import { BGS, FITS, MODES, cycle, useMigrateReaderPrefs, useReaderMetaSync, useReaderSettings } from './settings'
 import { buildSpreads, spreadOf } from './spreads'
 
 export function ReaderPage() {
@@ -44,6 +44,8 @@ export function ReaderPage() {
   const idx = list?.findIndex((c) => c.id === chapterId) ?? -1
   const chapter = list?.[idx]
   const [settings] = useReaderSettings(mangaId)
+  const settingsReady = useReaderMetaSync(mangaId)
+  useMigrateReaderPrefs()
   const back = useBackToDetail(mangaId)
   const bg = BGS.find((b) => b.value === settings.bg)!
 
@@ -61,7 +63,7 @@ export function ReaderPage() {
             返回详情
           </button>
         </Center>
-      ) : !chapter || !list || pages?.id !== chapterId || !manga.data ? (
+      ) : !chapter || !list || pages?.id !== chapterId || !manga.data || !settingsReady ? (
         <Center>
           <p className="text-muted">正在加载…</p>
         </Center>
@@ -325,8 +327,8 @@ function ReaderSession({
   const curLabel = chapterLabel(chapter)
   const syncLabel =
     isDemo
-      ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel}第 ${synced + 1} 页`
-      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel}第 ${synced + 1} 页`
+      ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel} · 第 ${synced + 1} 页`
+      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel} · 第 ${synced + 1} 页`
 
   const endCard = (
     <EndCard
