@@ -1,3 +1,4 @@
+import { mergeMeta } from '../reader/remote.ts'
 const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 const TITLES = ['云海邮局', '月台尽头', '森林慢车', '星河旅人', '雨后的咖啡馆', '山间来信', '小岛日记', '风的收藏家', '灯塔与猫', '夏日观测站', '旧城漫游', '夜航书店']
 const COLORS = ['#23475d', '#563c66', '#365f50', '#303e70', '#705047', '#526a70', '#317177', '#6c6051', '#3d586c', '#626c49', '#704960', '#3a4260']
@@ -55,6 +56,7 @@ interface DemoManga {
   firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null;
   latestFetchedChapter: DemoChapter; latestUploadedChapter: DemoChapter;
   trackRecords: { nodes: never[]; totalCount: number };
+  meta: { mangaId: number; key: string; value: string }[];
 }
 const SOURCE = { id: '9000', name: '演示画室', displayName: '演示画室', lang: 'zh', iconUrl: '/favicon.svg', supportsLatest: true, contentWarning: 'SAFE', homeUrl: null, filters: [] }
 const OPEN_SOURCE = { ...SOURCE, id: '9001', name: '开放漫画（本地缓存）', displayName: '开放漫画（本地缓存）' }
@@ -88,7 +90,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       description: '一封寄往远方的信，一趟不赶时间的旅程。在山间、森林与小城之间，发现那些被日常忽略的相遇。\n这是为 Sukimi 创作的虚构演示作品，封面和阅读页面均在本地生成。',
       genre: i % 2 ? ['日常', '治愈'] : ['冒险', '奇幻'], status: i % 3 ? 'ONGOING' : 'COMPLETED',
       realUrl: null, initialized: true, inLibrary: i < 10, inLibraryAt: String(Math.floor(now / 1000) - i * 86400),
-      source: SOURCE, categories: { nodes: [categories[i % 2]] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 },
+      source: SOURCE, categories: { nodes: [categories[i % 2]] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 }, meta: [],
       get unreadCount() { return chapters.filter((c) => !c.isRead).length },
       get downloadCount() { return chapters.filter((c) => c.isDownloaded).length },
       get bookmarkCount() { return chapters.filter((c) => c.isBookmarked).length },
@@ -112,7 +114,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       id: 1001 + w, title: work.title, thumbnailUrl: url(`${work.id}/${work.cover}`), author: work.author, artist: work.author,
       description: work.description, genre: work.genre, status: work.status,
       realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(Math.floor(now / 1000) - w * 86400),
-      source: OPEN_SOURCE, categories: { nodes: [] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 },
+      source: OPEN_SOURCE, categories: { nodes: [] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 }, meta: [],
       get unreadCount() { return chapters.filter((c) => !c.isRead).length },
       get downloadCount() { return 0 },
       get bookmarkCount() { return chapters.filter((c) => c.isBookmarked).length },
@@ -195,6 +197,26 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     updateMangas: ({ input }: { input: { ids: number[]; patch: { inLibrary: boolean } } }) => ({ mangas: input.ids.map((id) => { const m = findManga(id); m.inLibrary = input.patch.inLibrary; return m }) }),
     updateMangaCategories: ({ input }: { input: { id: number; patch: Parameters<typeof changeCategories>[1] } }) => ({ manga: changeCategories(input.id, input.patch) }),
     updateMangasCategories: ({ input }: { input: { ids: number[]; patch: Parameters<typeof changeCategories>[1] } }) => ({ mangas: input.ids.map((id) => changeCategories(id, input.patch)) }),
+    // 阅读器按漫画记住的设置存在这里，只在本次演示的内存里
+    setMangaMetas: ({ input }: { input: { items: { mangaIds: number[]; metas: { key: string; value: string }[] }[] } }) => {
+      const metas = input.items.flatMap((item) => item.mangaIds.flatMap((mangaId) => {
+        const m = findManga(mangaId)
+        const incoming = item.metas.map((meta) => ({ ...meta, mangaId }))
+        m.meta = mergeMeta(m.meta, incoming)
+        return incoming
+      }))
+      return { metas, mangas: [...new Set(metas.map((x) => x.mangaId))].map(findManga) }
+    },
+    deleteMangaMetas: ({ input }: { input: { items: { mangaIds: number[]; keys?: string[]; prefixes?: string[] }[] } }) => {
+      const metas = input.items.flatMap((item) => item.mangaIds.flatMap((mangaId) => {
+        const m = findManga(mangaId)
+        const gone = (key: string) => !!item.keys?.includes(key) || !!item.prefixes?.some((p) => key.startsWith(p))
+        const removed = m.meta.filter((x) => gone(x.key))
+        m.meta = m.meta.filter((x) => !gone(x.key))
+        return removed
+      }))
+      return { metas, mangas: [...new Set(metas.map((x) => x.mangaId))].map(findManga) }
+    },
     setChapterMetas: ({ input }: { input: { items: { chapterIds: number[]; metas: { key: string; value: string }[] }[] } }) => {
       const metas = input.items.flatMap((item) => item.chapterIds.flatMap((chapterId) => item.metas.map((meta) => {
         const c = findChapter(chapterId)
