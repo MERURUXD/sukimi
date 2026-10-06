@@ -1,13 +1,16 @@
 import { AnimatePresence } from 'motion/react'
+import { useRef } from 'react'
 import { ArrowDown, ChevronLeft } from 'lucide-react'
 import { NavLink, useLocation, useMatch, useNavigate } from 'react-router'
 import { useLive } from '@/api/live'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
+import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { AppearanceMenu } from './AppearanceMenu'
+import { useHideOnScroll } from './useHideOnScroll'
 import { isDemo } from '@/lib/demo'
 import { DemoNotice } from '@/features/demo/DemoGate'
 
@@ -25,8 +28,17 @@ export function TopNav() {
   // 从站内进来就后退，直接打开的详情页回书库
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/library'))
 
+  const bar = useRef<HTMLElement>(null)
+  const hidden = useHideOnScroll(useAppearance((s) => s.autoHideNav), bar)
+
   return (
-    <header className="fixed inset-x-0 top-0 z-40">
+    // 隐藏用独立的 translate（不用透明度或滤镜），玻璃的背景采样不受影响
+    <header
+      ref={bar}
+      data-vt-bar="topnav"
+      className={cn('fixed inset-x-0 top-0 z-40 transition-[translate] duration-300 ease-out', hidden && '-translate-y-full pointer-events-none')}
+      inert={hidden || undefined}
+    >
       <div className="wrap flex h-[var(--nav-h)] items-center justify-between gap-4">
         {inManga ? (
           <Glass as="button" type="button" className="gicon rounded-full" onClick={back} aria-label="返回">

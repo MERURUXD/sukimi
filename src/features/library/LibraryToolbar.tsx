@@ -70,9 +70,9 @@ export function LibraryToolbar({
         </button>
       ))}
 
-      <span className="flex-1" />
+      <span className="flex-1 max-sm:hidden" />
 
-      <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-1">
+      <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-[1_1_120px]">
         <Search className="size-[18px] flex-none" strokeWidth={1.8} />
         <span className="sr">搜索书库</span>
         <input
@@ -92,7 +92,7 @@ export function LibraryToolbar({
         trigger={
           <Glass as="button"
               type="button"
-              className={cn('rounded-full', 'gbtn', (panel || filtering) && 'bg-g-hi')}
+              className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', (panel || filtering) && 'bg-g-hi')}
               aria-expanded={panel}
               onClick={() => setPanel((v) => !v)}
             >
@@ -170,7 +170,7 @@ export function LibraryToolbar({
         </div>
       </Popover>
 
-      <Glass as="button" type="button" className={cn('rounded-full', 'gbtn', selecting && 'bg-g-hi')} aria-pressed={selecting} onClick={onToggleSelect}>
+      <Glass as="button" type="button" className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', selecting && 'bg-g-hi')} aria-pressed={selecting} onClick={onToggleSelect}>
         {selecting ? <Check className="size-[18px]" strokeWidth={2} /> : <CheckSquare className="size-[18px]" strokeWidth={1.8} />}
         <span className="max-sm:hidden">{selecting ? '完成' : '选择'}</span>
       </Glass>

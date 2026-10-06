@@ -22,7 +22,7 @@ import { BatchBar } from '@/components/ui/BatchBar'
 import { Popover } from '@/components/ui/Popover'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
-import { chapterNo, formatDate, ms } from '@/lib/format'
+import { formatFullDate, ms } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useLongPress } from '@/lib/useLongPress'
 import { useSelection } from '@/lib/useSelection'
@@ -284,7 +284,8 @@ export function ChapterList({
 }
 
 /* ───────── 单行 ─────────
-   无分隔线、无勾选圆圈：选中时章节号换成对勾 + 整行浅底色 */
+   无分隔线、无勾选圆圈：最左一格未读时是小圆点，选中时换成对勾，并给整行浅底色。
+   章节名里通常已含「第 N 话」，不再单独显示章节号。内容靠左收紧，名称与日期不隔着大片空白 */
 const ChapterRow = memo(function ChapterRow({
   c,
   index,
@@ -310,7 +311,6 @@ const ChapterRow = memo(function ChapterRow({
 }) {
   const [menu, setMenu] = useState(false)
   const press = useLongPress(() => !selecting && onLongPress(c.id, index))
-  const no = chapterNo(c.chapterNumber)
   const inProgress = !c.isRead && c.lastPageRead > 0
   const sub = inProgress
     ? `继续阅读 · 第 ${c.lastPageRead + 1}${c.pageCount > 0 ? ` / ${c.pageCount}` : ''} 页`
@@ -324,26 +324,14 @@ const ChapterRow = memo(function ChapterRow({
       {...press}
       onClick={selecting ? (e) => onToggle(c.id, index, e) : undefined}
       className={cn(
-        'group relative grid min-h-[62px] grid-cols-[48px_minmax(0,1fr)_72px_84px_44px] items-center gap-3 rounded-2xl px-2 py-1.5 transition-colors max-sm:grid-cols-[36px_minmax(0,1fr)_56px]',
+        'group relative grid min-h-[62px] grid-cols-[20px_minmax(0,20rem)_104px_72px_44px] items-center gap-3 rounded-2xl px-3 py-1.5 transition-colors max-sm:grid-cols-[16px_minmax(0,1fr)_auto]',
         selecting ? 'cursor-pointer select-none' : '',
         selected ? 'bg-accent-soft' : 'hover:bg-hover focus-within:bg-hover',
         introDelay !== undefined && 'rise',
       )}
     >
-      <span
-        className={cn(
-          'flex items-center gap-1.5 justify-self-center text-[15px] font-semibold num',
-          selected ? 'text-accent' : c.isRead ? 'text-faint' : 'text-text',
-        )}
-      >
-        {selected ? (
-          <Check className="size-5" strokeWidth={2.6} />
-        ) : (
-          <>
-            {!c.isRead && <span className="size-[7px] rounded-full bg-accent" />}
-            {no || '·'}
-          </>
-        )}
+      <span className="flex items-center justify-center text-accent" aria-label={c.isRead ? undefined : '未读'}>
+        {selected ? <Check className="size-5" strokeWidth={2.6} /> : !c.isRead && <span className="size-2 rounded-full bg-accent" />}
       </span>
 
       <span className="flex min-w-0 flex-col">
@@ -369,6 +357,8 @@ const ChapterRow = memo(function ChapterRow({
         )}
       </span>
 
+      <span className="text-[13px] text-muted num max-sm:hidden">{formatFullDate(ms(c.uploadDate))}</span>
+
       <span className="relative z-[1] flex items-center justify-end gap-1.5 text-muted">
         {c.isBookmarked && <Bookmark className="size-[18px] fill-current text-text" strokeWidth={1.8} aria-label="书签" />}
         {queued ? (
@@ -388,8 +378,6 @@ const ChapterRow = memo(function ChapterRow({
           )
         )}
       </span>
-
-      <span className="text-right text-[13px] text-muted num max-sm:hidden">{formatDate(ms(c.uploadDate))}</span>
 
       <span className="relative z-[1] max-sm:hidden">
         {!selecting && (

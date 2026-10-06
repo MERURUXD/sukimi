@@ -175,8 +175,10 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     extensions: () => connection([]), fetchExtensions: () => ({ extensions: [] }),
     trackers: () => connection([]), trackRecords: () => connection([]),
     lastUpdateTimestamp: () => ({ timestamp: String(now) }),
-    fetchSourceManga: ({ input }: { input: { page: number; query?: string; type: string } }) => ({
-      hasNextPage: false, mangas: input.page > 1 ? [] : mangas.filter((m) => !input.query || m.title.includes(input.query)),
+    // 按来源过滤：否则切到「开放漫画」时还是演示画室的作品
+    fetchSourceManga: ({ input }: { input: { source: string; page: number; query?: string; type: string } }) => ({
+      hasNextPage: false,
+      mangas: input.page > 1 ? [] : mangas.filter((m) => m.source.id === String(input.source) && (!input.query || m.title.includes(input.query))),
     }),
     fetchMangaAndChapters: ({ input }: { input: { id: number } }) => ({ manga: findManga(input.id), chapters: findManga(input.id).chapters.nodes }),
     fetchChapterPages: ({ input }: { input: { chapterId: number } }) => {

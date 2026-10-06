@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { PageAmbient } from '@/components/manga/PageAmbient'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { usePrefetchManga } from '@/features/manga/prefetch'
@@ -93,6 +94,7 @@ export function BrowsePage() {
 
   return (
     <div className="wrap">
+      <PageAmbient />
       <div className="flex flex-col items-center gap-[18px] pt-9 pb-8 text-center">
         <h1 className="m-0 font-cjk text-[40px] font-black">发现</h1>
         <form onSubmit={submit} className="w-[min(680px,100%)]">
@@ -114,7 +116,7 @@ export function BrowsePage() {
       {q && <GlobalSearch q={q} sources={searchSources} onOpen={(id) => set({ source: id, mode: 'SEARCH' })} />}
 
       <div className="flex flex-wrap items-start gap-7 pb-20">
-        <aside aria-label="漫画源列表" className="max-w-[280px] min-w-0 flex-[1_1_240px] border-r border-line pr-4 pb-2.5 max-md:max-w-none max-md:border-r-0 max-md:pr-0">
+        <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] border-r border-line pr-4 pb-2.5 max-md:max-w-none max-md:border-r-0 max-md:pr-0">
           <div className="mb-1 flex items-center gap-2 pl-3">
             <h2 className="m-0 flex-1 text-[22px] font-bold">漫画源</h2>
             <Link to="/browse/extensions" className="rounded-full text-text no-underline">
@@ -141,7 +143,7 @@ export function BrowsePage() {
                 >
                   <SourceIcon s={s} />
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-semibold">{s.displayName}</span>
+                    <span className="line-clamp-2 leading-snug font-semibold break-words" title={s.displayName}>{s.displayName}</span>
                     <span className="truncate text-xs text-muted">
                       {[s.supportsLatest ? '支持最新' : null, s.contentWarning === 'NSFW' ? '含成人内容' : s.contentWarning === 'MIXED' ? '部分成人内容' : null]
                         .filter(Boolean)
