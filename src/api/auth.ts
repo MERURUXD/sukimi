@@ -9,6 +9,7 @@
 import type { TypedDocumentNode } from '@apollo/client'
 import { print } from 'graphql'
 import { create } from 'zustand'
+import { isDemo } from '@/lib/demo'
 import { graphql } from './gql'
 
 const REFRESH_KEY = 'suwayomi-web.refreshToken'
@@ -50,6 +51,7 @@ export function getAccessToken() {
 
 /** 不带任何令牌直接请求（登录、续期用） */
 async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V): Promise<R> {
+  if (isDemo) throw new TypeError('演示模式不会请求真实服务端')
   let res: Response
   try {
     res = await fetch('/api/graphql', {

@@ -6,6 +6,7 @@ import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { useLive } from '@/api/live'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { PageAmbient } from '@/components/manga/PageAmbient'
 import { DownloadPill } from '@/components/manga/DownloadPill'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
@@ -130,11 +131,7 @@ export function UpdatesPage() {
 
   return (
     <>
-      {top?.manga.thumbnailUrl && (
-        <div className="ambient" aria-hidden data-sfw={sfwAttr(top.manga.source?.displayName)}>
-          <img src={top.manga.thumbnailUrl} alt="" />
-        </div>
-      )}
+      <PageAmbient src={top?.manga.thumbnailUrl} sfw={sfwAttr(top?.manga.source?.displayName)} />
       <div className="wrap pb-10">
         <header className="pt-4 md:pt-7 md:pb-3">
           <div className="flex items-center justify-between gap-3">
@@ -310,7 +307,7 @@ function Row({
           {queued && <span>{downloadStatus}</span>}
         </span>
       </Link>
-      <span className="w-24 flex-none truncate text-xs text-muted max-sm:hidden">{c.manga.source?.displayName}</span>
+      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
       <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden">{time}</span>
       <span className="flex w-11 flex-none justify-end sm:w-24">
         {queued ? (

@@ -238,6 +238,25 @@
     height: 100%;
     object-fit: cover;
   }
+  /* 封面载入前的流光占位与载入后的渐显，见 CoverImg */
+  .cover-skeleton {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 30%,
+      color-mix(in srgb, var(--text) 7%, transparent) 50%,
+      transparent 70%
+    );
+    background-size: 220% 100%;
+    animation: cover-shimmer 1.6s ease-in-out infinite;
+  }
+  img[data-cover='loading'] {
+    opacity: 0;
+  }
+  img[data-cover='fade'] {
+    animation: cover-in 0.4s ease both;
+  }
 
   /* 页面顶部的封面氛围光 */
   .ambient {
@@ -248,6 +267,16 @@
     overflow: hidden;
     pointer-events: none;
     mask-image: linear-gradient(180deg, #000 30%, transparent);
+  }
+  /* 没有封面时的中性光晕，配色与登录页一致 */
+  .ambient-neutral {
+    width: 100%;
+    height: 100%;
+    opacity: 0.7;
+    filter: blur(60px);
+    background:
+      radial-gradient(40% 60% at 28% 20%, color-mix(in srgb, var(--text) 18%, transparent), transparent),
+      radial-gradient(35% 55% at 74% 40%, color-mix(in srgb, var(--text) 10%, transparent), transparent);
   }
   .ambient img {
     width: 100%;
@@ -284,6 +313,15 @@
     max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
+  }
+  .seg[data-fade='r'] {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+  .seg[data-fade='l'] {
+    mask-image: linear-gradient(90deg, transparent, #000 28px);
+  }
+  .seg[data-fade='lr'] {
+    mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
   }
   .seg > button {
     position: relative;
@@ -427,6 +465,19 @@
   }
 }
 
+@keyframes cover-shimmer {
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+@keyframes cover-in {
+  from {
+    opacity: 0;
+  }
+}
 /* 列表首次加载：封面错开淡入上浮。用独立的 translate / scale，
    不和虚拟列表定位用的 transform 打架 */
 @keyframes rise {

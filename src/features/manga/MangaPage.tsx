@@ -1,7 +1,8 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { toast, toastError } from '@/components/ui/toast'
+import { justLeftReader } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
 import { useIntro } from '@/lib/intro'
 import { ChapterList, useChapterActions } from './ChapterList'
@@ -18,7 +19,9 @@ export function MangaPage() {
   const manga = useQuery(MangaDetail, { variables: { id } })
   const chapters = useQuery(MangaChapters, { variables: { mangaId: id } })
   // 每次进入都播放；章节晚到时仍能接上进场，不因头部先加载而错过。
-  const motion = useAppearance((s) => s.mangaDetailMotion)
+  // 从阅读器返回时不再播放：用户是回到刚离开的页面，不是第一次进入
+  const [fromReader] = useState(() => justLeftReader(id))
+  const motion = useAppearance((s) => s.mangaDetailMotion) && !fromReader
   const entering = useIntro(motion, !!manga.data && (!!chapters.data || !!chapters.error))
   const intro = motion && entering
   const [fetchRemote, { loading: fetching }] = useMutation(FetchMangaAndChapters)

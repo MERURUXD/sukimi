@@ -7,6 +7,7 @@ import { OperationTypeNode } from 'graphql'
 import { createClient } from 'graphql-ws'
 import { from, mergeMap } from 'rxjs'
 import { getAccessToken, refreshAccessToken, useAuth } from './auth'
+import { isDemo } from '@/lib/demo'
 import { clearSnapshots } from './persist'
 import { createCache } from './cache'
 
@@ -51,7 +52,8 @@ const transport = ApolloLink.split(
     return def.kind === 'OperationDefinition' && def.operation === OperationTypeNode.SUBSCRIPTION
   },
   wsLink,
-  new HttpLink({ uri: ENDPOINT }),
+  // 演示页使用独立的本地客户端；万一误用了这个客户端，也不让请求真的发到服务端
+  new HttpLink({ uri: ENDPOINT, fetch: isDemo ? () => Promise.reject(new TypeError('演示模式不会请求真实服务端')) : undefined }),
 )
 
 export const apollo = new ApolloClient({

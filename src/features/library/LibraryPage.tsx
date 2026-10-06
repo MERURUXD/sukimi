@@ -8,6 +8,7 @@ import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
 import type { SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
+import { PageAmbient } from '@/components/manga/PageAmbient'
 import { sfwAttr } from '@/lib/devSafe'
 import { count } from '@/lib/format'
 import { useSelection } from '@/lib/useSelection'
@@ -173,11 +174,7 @@ export function LibraryPage() {
 
   return (
     <>
-      {items[0]?.thumbnailUrl && (
-        <div className="ambient" aria-hidden data-sfw={sfwAttr(items[0].source?.displayName)}>
-          <img src={items[0].thumbnailUrl} alt="" />
-        </div>
-      )}
+      <PageAmbient src={items[0]?.thumbnailUrl} sfw={sfwAttr(items[0]?.source?.displayName)} />
 
       <div className="wrap">
         <div className="pt-7 pb-[22px]">
