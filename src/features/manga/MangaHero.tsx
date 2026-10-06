@@ -89,27 +89,7 @@ export function MangaHero({
 
   return (
     <section className="manga-hero relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]">
-      {/* 裁切层保持不动，避免背景缩放撑宽手机视口、取消封面转场。 */}
-      <div className="absolute inset-0 -z-20 overflow-hidden" aria-hidden>
-        <div className={cn('absolute inset-0', intro && 'bg-in')}>
-          {manga.thumbnailUrl && (
-            <img
-              src={manga.thumbnailUrl}
-              alt=""
-              className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]"
-            />
-          )}
-        </div>
-      </div>
-      <div
-        className="absolute inset-0 -z-10"
-        aria-hidden
-        style={{
-          background:
-            'linear-gradient(90deg, var(--scrim-b), var(--scrim-a) 65%, transparent), linear-gradient(180deg, transparent 50%, var(--bg) 100%)',
-        }}
-      />
-
+      {/* 背景由 MangaBackdrop 画在整个详情页底层，才能延伸到章节区再淡出 */}
       <div className="manga-hero-layout wrap pt-6 pb-9 sm:pt-8 sm:pb-11">
         <div
           className="manga-hero-cover cv rounded-[14px] shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)]"

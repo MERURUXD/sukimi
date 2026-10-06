@@ -89,5 +89,5 @@
   .manga-hero-chapter-label { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .manga-detail .rise, .manga-hero .bg-in { animation-delay: 0ms; }
+  .manga-detail .rise, .manga-detail .bg-in { animation-delay: 0ms; }
 }

@@ -6,6 +6,7 @@ import { justLeftReader } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
 import { useIntro } from '@/lib/intro'
 import { ChapterList, useChapterActions } from './ChapterList'
+import { MangaBackdrop } from './MangaBackdrop'
 import { MangaHero } from './MangaHero'
 import { FetchMangaAndChapters, MangaChapters, MangaDetail, MangaPeek, placeholderManga } from './queries'
 import { useLive } from '@/api/live'
@@ -24,6 +25,8 @@ export function MangaPage() {
   const motion = useAppearance((s) => s.mangaDetailMotion) && !fromReader
   const entering = useIntro(motion, !!manga.data && (!!chapters.data || !!chapters.error))
   const intro = motion && entering
+  // 用回调 ref 存进 state：背景排在大图区前面，布局阶段执行时普通 ref 还没挂上
+  const [heroBox, setHeroBox] = useState<HTMLDivElement | null>(null)
   const [fetchRemote, { loading: fetching }] = useMutation(FetchMangaAndChapters)
 
   const list = chapters.data?.chapters.nodes
@@ -85,7 +88,10 @@ export function MangaPage() {
   if (!m) return <p className="wrap pt-10 text-muted">正在加载…</p>
 
   return (
-    <div className="manga-detail" data-sfw={sfwAttr(m.source?.displayName)}>
+    <div className="manga-detail relative isolate" data-sfw={sfwAttr(m.source?.displayName)}>
+      <MangaBackdrop src={m.thumbnailUrl} hero={heroBox} intro={intro} />
+      {/* 包一层只为量大图区高度；首个子元素的负外边距会穿过这层，布局不变 */}
+      <div ref={setHeroBox}>
       <MangaHero
         manga={m}
         chapters={manga.data ? list : undefined}
@@ -95,6 +101,7 @@ export function MangaPage() {
         onRefresh={() => void refresh()}
         onDownloadUnread={downloadUnread}
       />
+      </div>
       {manga.data &&
         (list ? (
           <ChapterList mangaId={id} chapters={list} queue={queue} actions={actions} intro={intro} />
