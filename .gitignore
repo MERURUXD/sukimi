@@ -43,3 +43,8 @@ server.conf.*
 *.njsproj
 *.sln
 *.sw?
+# 本机服务端启动与热更新工具
+/启动服务端.cmd
+/热更新服务端.cmd
+/scripts/start-server.ps1
+/scripts/update-server.ps1
