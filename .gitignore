@@ -15,6 +15,7 @@ dist-ssr
 /AGENTS.md
 /CLAUDE.md
 /PLAN.md
+/UPLOAD_CHECK.md
 /.claude/
 *.local
 .env
