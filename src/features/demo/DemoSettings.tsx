@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router'
-import { PageAmbient } from '@/components/manga/PageAmbient'
 import { AppearanceTab } from '@/features/settings/tabs/AppearanceTab'
 import { ReaderDefaults } from '@/features/settings/ReaderDefaults'
 import { Section } from '@/features/settings/parts'
@@ -7,7 +6,6 @@ import { Section } from '@/features/settings/parts'
 export function DemoSettings() {
   const { tab = 'appearance' } = useParams()
   return <div className="wrap max-w-[1120px]! pb-24">
-    <PageAmbient />
     <h1 className="pt-7 text-[40px] font-black">设置</h1>
     <p className="mb-6 text-sm text-muted">演示设置单独保存在这台设备上，刷新后阅读进度与书库会恢复初始状态。</p>
     <nav aria-label="演示设置" className="mb-8 flex flex-wrap gap-2">

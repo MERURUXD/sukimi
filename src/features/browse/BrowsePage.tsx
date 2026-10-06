@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
-import { PageAmbient } from '@/components/manga/PageAmbient'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { usePrefetchManga } from '@/features/manga/prefetch'
@@ -94,7 +93,6 @@ export function BrowsePage() {
 
   return (
     <div className="wrap">
-      <PageAmbient />
       <div className="flex flex-col items-center gap-[18px] pt-9 pb-8 text-center">
         <h1 className="m-0 font-cjk text-[40px] font-black">发现</h1>
         <form onSubmit={submit} className="w-[min(680px,100%)]">

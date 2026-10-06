@@ -6,7 +6,6 @@ import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { useLive } from '@/api/live'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
-import { PageAmbient } from '@/components/manga/PageAmbient'
 import { DownloadPill } from '@/components/manga/DownloadPill'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
@@ -127,11 +126,9 @@ export function UpdatesPage() {
     : [ts ? `上次检查 ${timeAgo(ts)}` : null, data ? `${count(data.chapters.totalCount)} 话` : null, syncing ? '正在同步…' : null]
         .filter(Boolean)
         .join(' · ')
-  const top = list[0]
 
   return (
     <>
-      <PageAmbient src={top?.manga.thumbnailUrl} sfw={sfwAttr(top?.manga.source?.displayName)} />
       <div className="wrap pb-10">
         <header className="pt-4 md:pt-7 md:pb-3">
           <div className="flex items-center justify-between gap-3">

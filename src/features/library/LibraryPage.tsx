@@ -8,8 +8,6 @@ import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
 import type { SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
-import { PageAmbient } from '@/components/manga/PageAmbient'
-import { sfwAttr } from '@/lib/devSafe'
 import { count } from '@/lib/format'
 import { useSelection } from '@/lib/useSelection'
 import { applyView, inCategory, librarySources, SORTS } from './filtering'
@@ -174,8 +172,6 @@ export function LibraryPage() {
 
   return (
     <>
-      <PageAmbient src={items[0]?.thumbnailUrl} sfw={sfwAttr(items[0]?.source?.displayName)} />
-
       <div className="wrap">
         <div className="pt-7 pb-[22px]">
           <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">书库</h1>
