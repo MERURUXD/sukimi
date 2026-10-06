@@ -27,6 +27,34 @@ function unmark(el: HTMLElement) {
   delete el.dataset.coverVt
 }
 
+/**
+ * 固定在屏幕边缘的玻璃栏（顶栏、底部标签栏）加上 data-vt-bar="名字"。
+ * 过渡动画的伪元素都画在页面最上层，封面从栏下面的格子里飞出或飞回时会盖在栏上。
+ * 给与封面重叠的栏临时挂上过渡名，它就成了独立图层，按绘制顺序排在封面之上。
+ * 不能常驻：带过渡名的元素会成为 backdrop root，玻璃的模糊和折射失效（见 index.css），
+ * 所以只在这一次过渡期间、且确实重叠时才挂，动画结束就摘掉。
+ * 已知代价：挂名期间栏内玻璃的模糊 / 折射会暂时消失。
+ */
+const BAR_ATTR = 'data-vt-bar'
+const liftedBars = new Set<HTMLElement>()
+
+function liftBars(cover: HTMLElement | null | undefined) {
+  if (!cover?.isConnected) return
+  const c = cover.getBoundingClientRect()
+  document.querySelectorAll<HTMLElement>(`[${BAR_ATTR}]`).forEach((bar) => {
+    const b = bar.getBoundingClientRect()
+    const overlap = c.left < b.right && c.right > b.left && c.top < b.bottom && c.bottom > b.top
+    if (!overlap) return
+    bar.style.viewTransitionName = `bar-${bar.getAttribute(BAR_ATTR)}`
+    liftedBars.add(bar)
+  })
+}
+
+function dropBars() {
+  liftedBars.forEach((bar) => { bar.style.viewTransitionName = '' })
+  liftedBars.clear()
+}
+
 const pagePath = () => document.querySelector(`[${PAGE_PATH_ATTR}]`)?.getAttribute(PAGE_PATH_ATTR) ?? null
 
 /**
@@ -68,6 +96,8 @@ export function installCoverTransition(basePath = '') {
     const update = typeof arg === 'function' ? arg : arg?.update
     const from = pagePath()
     let marked: HTMLElement | undefined
+    // 旧页面的快照在 start 调用时就拍了：点进详情时，被点的封面可能正压在栏下面
+    liftBars(document.querySelector<HTMLElement>('[data-cover-vt]'))
     const t = start({
       ...(typeof arg === 'object' ? arg : {}),
       update: async () => {
@@ -82,12 +112,18 @@ export function installCoverTransition(basePath = '') {
         if (!from || !origin || origin.path !== to) return
         const covers = coversOf(`${basePath}${from}`)
         marked = covers[origin.index] ?? covers[0]
-        if (marked) mark(marked)
+        if (marked) {
+          mark(marked)
+          liftBars(marked)
+        }
       },
     })
     // 快速返回或打开面板可能取消封面过渡；仍清理标记，不产生未处理拒绝。
     void t.ready.catch(() => {})
-    void t.finished.finally(() => marked && unmark(marked)).catch(() => {})
+    void t.finished.finally(() => {
+      if (marked) unmark(marked)
+      dropBars()
+    }).catch(() => {})
     return t
   }) as typeof document.startViewTransition
 }

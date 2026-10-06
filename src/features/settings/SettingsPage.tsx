@@ -18,6 +18,7 @@ import {
 import { useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { PageAmbient } from '@/components/manga/PageAmbient'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
 import { Section } from './parts'
@@ -120,6 +121,7 @@ export function SettingsPage() {
   return (
     // 设置页没有书库内容，开发安全模式下不打码
     <div className="wrap max-w-[1120px]! pb-24" data-sfw="">
+      <PageAmbient />
       <div className="flex items-center gap-2 pt-7 pb-6">
         {current && (
           <Glass as="button" type="button" className="gicon rounded-full md:hidden" onClick={back} aria-label="返回设置列表">

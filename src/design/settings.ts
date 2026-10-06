@@ -12,11 +12,13 @@ interface AppearanceState {
   theme: ThemePref
   glass: GlassMode
   mangaDetailMotion: boolean
+  autoHideNav: boolean
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
   setMangaDetailMotion: (on: boolean) => void
+  setAutoHideNav: (on: boolean) => void
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
 }
@@ -30,18 +32,21 @@ export const useAppearance = create<AppearanceState>()(
       theme: 'dark',
       glass: 'refract',
       mangaDetailMotion: true,
+      // 旧偏好里没有这个字段，合并默认值后等于关闭
+      autoHideNav: false,
       homeMobileLayout: 'poster',
       homeDesktopLayout: 'poster',
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
+      setAutoHideNav: (autoHideNav) => set({ autoHideNav }),
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, homeMobileLayout, homeDesktopLayout }) =>
-        ({ theme, glass, mangaDetailMotion, homeMobileLayout, homeDesktopLayout }),
+      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout }) =>
+        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout }),
     },
   ),
 )

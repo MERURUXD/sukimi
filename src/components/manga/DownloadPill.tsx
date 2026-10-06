@@ -64,7 +64,8 @@ export function DownloadPill() {
                   className="transition-[stroke-dashoffset] duration-500"
                 />
               </svg>
-              <span className="cv w-[26px] rounded-[4px]">
+              {/* 封面裁成圆形，留在进度环里面；原来的 2:3 矩形四角会盖住进度环 */}
+              <span className="cv size-[32px] aspect-square rounded-full">
                 <CoverImg src={cur.manga.thumbnailUrl} />
               </span>
             </span>
