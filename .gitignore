@@ -11,12 +11,15 @@ node_modules
 dist
 dist-ssr
 .codex-remote-attachments/
-# 代理约定、开发计划和工具配置仅保留在本地
-/AGENTS.md
-/CLAUDE.md
-/PLAN.md
-/UPLOAD_CHECK.md
-/.claude/
+# 代理规范、计划、上传检查与过程记录仅保留在本地（含子目录）
+AGENTS.md
+AGENTS.override.md
+CLAUDE.md
+PLAN.md
+UPLOAD_CHECK.md
+.claude/
+.agents/
+.codex/
 *.local
 .env
 .env.*
