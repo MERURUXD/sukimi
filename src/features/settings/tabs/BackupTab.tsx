@@ -1,6 +1,7 @@
 import { useApolloClient, useMutation } from '@apollo/client/react'
 import { DatabaseBackup, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '@/api/auth'
 import { graphql } from '@/api/gql'
 import type { BackupRestoreState } from '@/api/gql/graphql'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
@@ -63,6 +64,8 @@ const STATE: Record<BackupRestoreState, string> = {
 }
 
 export function BackupTab() {
+  // 旧服务端没有用户账号，也就没有这一项
+  const multi = useAuth((s) => !!s.user && !s.user.legacy)
   return (
     <>
       <SettingsNotice />
@@ -86,6 +89,7 @@ export function BackupTab() {
           <SSwitch k="autoBackupIncludeTracking" label="追踪" />
           <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
           <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
+          {multi && <SSwitch k="autoBackupIncludeUserSettings" label="各账号的个人设置" hint="OPDS、同步、自动下载等归各账号自己的设置；不勾选时恢复备份后这些设置回到默认值" />}
         </Section>
       </RequireSettings>
     </>

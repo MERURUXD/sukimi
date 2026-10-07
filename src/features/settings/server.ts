@@ -153,6 +153,15 @@ graphql(`
   }
 `)
 
+/** 只有支持用户账号的服务端才有的全局项；旧服务端查它会整条查询失败，所以单独查询、按需跳过 */
+export const MultiUserSettingsQuery = graphql(`
+  query MultiUserSettings {
+    settings {
+      autoBackupIncludeUserSettings
+    }
+  }
+`)
+
 export const UserSettingsQuery = graphql(`
   query UserSettings {
     userSettings {
@@ -189,7 +198,7 @@ export const SetServerSettings = graphql(`
   }
 `)
 
-export type Settings = ServerSettingsFragment & Partial<UserSettingsFragment>
+export type Settings = ServerSettingsFragment & Partial<UserSettingsFragment> & { autoBackupIncludeUserSettings?: boolean }
 export type SettingKey = keyof Omit<Settings, '__typename'>
 export type SettingsPatch = PartialSettingsTypeInput
 
@@ -232,12 +241,13 @@ export function useServerSettings() {
   const manage = can(user, 'MANAGE_SETTINGS')
   const global = useQuery(ServerSettingsQuery, { skip: !manage })
   const mine = useQuery(UserSettingsQuery, { skip: !perUser })
+  const extra = useQuery(MultiUserSettingsQuery, { skip: !manage || !perUser })
 
   return useMemo(() => {
-    const ready = (!manage || !!global.data) && (!perUser || !!mine.data)
-    const settings = ready ? ({ ...global.data?.settings, ...mine.data?.userSettings } as Settings) : undefined
+    const ready = (!manage || !!global.data) && (!perUser || !!mine.data) && (!manage || !perUser || !!extra.data)
+    const settings = ready ? ({ ...global.data?.settings, ...extra.data?.settings, ...mine.data?.userSettings } as Settings) : undefined
     return { data: settings && { settings } }
-  }, [manage, perUser, global.data, mine.data])
+  }, [manage, perUser, global.data, extra.data, mine.data])
 }
 
 /** 保存一组服务端设置；失败时抛出，由调用方提示 */

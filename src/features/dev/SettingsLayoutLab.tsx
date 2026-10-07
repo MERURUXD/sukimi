@@ -33,6 +33,10 @@ export function SettingsLayoutLab() {
     return new ApolloClient({
       cache: createCache(),
       link: new ApolloLink((operation) => new Observable((observer) => {
+        if (operation.operationName === 'MultiUserSettings') {
+          observer.next({ data: { settings: { __typename: 'SettingsType', autoBackupIncludeUserSettings: true } } })
+          return observer.complete()
+        }
         if (operation.operationName === 'UserSettings') {
           observer.next({ data: { userSettings: { ...fixture, __typename: 'UserSettingsType' } } })
           return observer.complete()
