@@ -7,6 +7,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useApolloClient } from '@apollo/client/react'
 import { useAuth } from './auth'
+import { contextGeneration } from './userContext'
 import { graphql } from './gql'
 import type { DownloadItemFragment } from './gql/graphql'
 import { wsClient } from './client'
@@ -128,8 +129,10 @@ function applyDownloads(client: ApolloClient, msg: { type: string; download: Dow
 }
 
 async function resyncDownloads(client: ApolloClient) {
-  const { data } = await client.query({ query: DownloadsSnapshot, fetchPolicy: 'network-only' })
-  if (data) useLive.setState({ queue: sortQueue(data.downloadStatus.queue), downloader: data.downloadStatus.state })
+  // 这份快照只给 useLive 用，不进 Apollo 缓存；请求期间换了账号，返回的队列属于上一个账号，丢弃
+  const gen = contextGeneration()
+  const { data } = await client.query({ query: DownloadsSnapshot, fetchPolicy: 'no-cache' })
+  if (data && contextGeneration() === gen) useLive.setState({ queue: sortQueue(data.downloadStatus.queue), downloader: data.downloadStatus.state })
 }
 
 /** 挂在登录后的页面外壳里，负责订阅；断线自动重连（graphql-ws 内置） */
