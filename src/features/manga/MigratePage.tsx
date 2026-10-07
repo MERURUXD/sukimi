@@ -4,7 +4,7 @@ import { BookmarkCheck, Loader2, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DeleteDownloads, UpdateChapters } from '@/api/chapters'
-import { resetOnUserContext } from '@/api/userContext'
+import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { Seg } from '@/components/ui/Seg'
@@ -214,35 +214,44 @@ function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
 
   const run = async () => {
     if (!plan) return
+    const still = captureUser()
     try {
       setStep('加入书库')
       await client.mutate({ mutation: SetMangaInLibrary, variables: { id: target.id, inLibrary: true } })
       if (categories && cats.length) {
+        still()
         setStep('复制分类')
         await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: cats } })
       }
       if (read && plan.read.length) {
+        still()
         setStep('标记已读')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
       }
       if (bookmarks && plan.bookmarked.length) {
+        still()
         setStep('复制书签')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.bookmarked, patch: { isBookmarked: true } } })
       }
       if (!keepOld) {
         if (deleteDownloads && downloaded.length) {
+          still()
           setStep('删除旧的下载')
           await client.mutate({ mutation: DeleteDownloads, variables: { ids: downloaded } })
         }
+        still()
         setStep('旧的移出书库')
         await client.mutate({ mutation: SetMangaInLibrary, variables: { id: from.id, inLibrary: false } })
       }
+      still()
       // 书库列表在别的页面，没法就地改；清掉让它下次打开时重新查询（本地快照会先顶上）
       client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'mangas', args: { condition: { inLibrary: true } } })
       client.cache.gc()
       toast(keepOld ? `已复制到「${target.source.displayName}」` : `已迁移到「${target.source.displayName}」`)
       onDone(target.id)
     } catch (e) {
+      // 中途换了账号：后面的步骤不再发出，对话框早已随页面卸载，不用提示
+      if (e instanceof StaleSessionError) return
       toastError(`${step ?? '迁移'}失败`, e)
       setStep(null)
     }

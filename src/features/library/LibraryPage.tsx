@@ -5,6 +5,7 @@ import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
+import { captureUser, StaleSessionError } from '@/api/userContext'
 import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
 import type { SegItem } from '@/components/ui/Seg'
@@ -113,11 +114,14 @@ export function LibraryPage() {
   const ids = [...sel.selected]
 
   const chapterIds = async (filter: object) => {
+    const still = captureUser()
     const { data: r } = await client.query({
       query: ChapterIds,
       variables: { filter: { mangaId: { in: ids }, ...filter } },
       fetchPolicy: 'network-only',
     })
+    // 查询期间换了账号：查到的是上一个账号的章节，不能再拿去改新账号的数据
+    still()
     return r?.chapters.nodes.map((c) => c.id) ?? []
   }
 
@@ -127,7 +131,7 @@ export function LibraryPage() {
       const msg = await fn()
       toast(msg || label)
     } catch (e) {
-      toastError(`${label}失败`, e)
+      if (!(e instanceof StaleSessionError)) toastError(`${label}失败`, e)
     } finally {
       setBusy(false)
     }

@@ -6,7 +6,7 @@ import { Link, useHref, useNavigate } from 'react-router'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
-import { resetOnUserContext } from '@/api/userContext'
+import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { Can } from '@/features/auth/Can'
 import { Glass } from '@/components/glass/Glass'
 import { CoverFlow } from '@/components/manga/CoverFlow'
@@ -97,17 +97,19 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
 
   const downloadRest = async () => {
     if (!cur) return
+    const still = captureUser()
     try {
       const { data } = await client.query({
         query: ChapterIds,
         variables: { filter: { mangaId: { equalTo: cur.manga.id }, isRead: { equalTo: false }, isDownloaded: { equalTo: false } } },
         fetchPolicy: 'network-only',
       })
+      still()
       const ids = data?.chapters.nodes.map((c) => c.id) ?? []
       if (ids.length) await enqueue({ variables: { ids } })
       toast(ids.length ? `已将 ${ids.length} 话加入下载队列` : '后续章节都已下载')
     } catch (e) {
-      toastError('加入下载失败', e)
+      if (!(e instanceof StaleSessionError)) toastError('加入下载失败', e)
     }
   }
 

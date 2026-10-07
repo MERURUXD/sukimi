@@ -47,7 +47,7 @@ export function ReaderDefaults() {
       if (!same()) return
       const ids = data?.mangas.nodes.filter((m) => hasReaderMeta(m.meta)).map((m) => m.id) ?? []
       if (ids.length) {
-        await clearRemote({ variables: { ids, prefixes: [READER_META_PREFIX] }, update: (cache) => uncacheReaderMeta(cache, ids) })
+        await clearRemote({ variables: { ids, prefixes: [READER_META_PREFIX] }, update: (cache) => same() && uncacheReaderMeta(cache, ids) })
       }
       if (same()) clearLegacy()
       toast('已清除，所有漫画改用上面的默认值')
