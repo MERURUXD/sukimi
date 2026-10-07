@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@apollo/client/react'
+import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { useCallback, useMemo } from 'react'
 import { create } from 'zustand'
 import { useAuth } from '@/api/auth'
@@ -254,6 +254,7 @@ export function useServerSettings() {
 export function useSaveSettings() {
   const [mutate] = useMutation(SetServerSettings)
   const [mutateUser] = useMutation(SetUserSettings)
+  const client = useApolloClient()
   return useCallback(
     async (patch: SettingsPatch) => {
       if (usesUserSettings()) {
@@ -261,6 +262,13 @@ export function useSaveSettings() {
         const rest = Object.fromEntries(Object.entries(patch).filter(([k]) => !isUserSettingKey(k)))
         if (Object.keys(mine).length) await mutateUser({ variables: { settings: mine } })
         if (Object.keys(rest).length) await mutate({ variables: { settings: rest as SettingsPatch } })
+        // 这一项单独查询，保存的响应里没有它，缓存要自己更新，开关才不会弹回旧值
+        if ('autoBackupIncludeUserSettings' in rest) {
+          client.cache.modify({
+            id: client.cache.identify({ __typename: 'SettingsType' }),
+            fields: { autoBackupIncludeUserSettings: () => !!rest.autoBackupIncludeUserSettings },
+          })
+        }
       } else {
         await mutate({ variables: { settings: patch } })
       }
@@ -269,7 +277,7 @@ export function useSaveSettings() {
         usePendingRestart.setState((s) => ({ keys: [...new Set([...s.keys, ...restart])] }))
       }
     },
-    [mutate, mutateUser],
+    [mutate, mutateUser, client],
   )
 }
 
