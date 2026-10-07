@@ -72,11 +72,21 @@ useAuth.subscribe((s, prev) => {
   }
 })
 
+const sameRights = (a: { roles: string[]; permissions: string[] }, b: { roles: string[]; permissions: string[] }) =>
+  a.roles.join() === b.roles.join() && a.permissions.join() === b.permissions.join()
+
 // 已登录状态下用户变了（启动时发现保存的身份与服务端不符等）：丢掉上一个用户的缓存、快照与连接，
 // 订阅用旧令牌建立的连接也要断开重连。页面树由 AuthGate 按用户 id 重建。
+// 同一个用户的角色或权限变了（管理员改了权限，下次续期才发现）同样算身份环境变了：
+// 缓存里按旧权限取到的数据（如成人来源）不能继续显示，订阅只在建立连接时鉴权，也要重连。
+// 这时页面不会重建，所以用 resetStore 清空后让正在显示的查询重新请求。
 useAuth.subscribe((s, prev) => {
-  if (s.status !== 'signedIn' || !s.user || !prev.user || s.user.id === prev.user.id) return
+  if (s.status !== 'signedIn' || !s.user || !prev.user) return
+  const switched = s.user.id !== prev.user.id
+  // 启动时从保存的身份（还没有角色权限）过渡到服务端给出的真实身份，不算权限变化
+  const rights = !switched && prev.status === 'signedIn' && !sameRights(s.user, prev.user)
+  if (!switched && !rights) return
   void clearSnapshots()
   wsClient.terminate()
-  void apollo.clearStore()
+  void (rights ? apollo.resetStore().catch(() => {}) : apollo.clearStore())
 })
