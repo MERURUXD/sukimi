@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client/react'
 import { useState } from 'react'
+import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
@@ -35,15 +36,20 @@ export function ReaderDefaults() {
     })
     if (!ok) return
     setClearing(true)
+    // 等待期间换了账号：这次清除属于上一个账号，不能再用新账号的令牌删除，也不能清新账号的存档
+    const userId = useAuth.getState().user?.id
+    const same = () => useAuth.getState().user?.id === userId
     try {
       // 先等补传和排着的保存结束，再向服务端取最新名单，刚写上去的也一起删掉
       await settleReaderWrites()
+      if (!same()) return
       const { data } = await index.refetch()
+      if (!same()) return
       const ids = data?.mangas.nodes.filter((m) => hasReaderMeta(m.meta)).map((m) => m.id) ?? []
       if (ids.length) {
-        await clearRemote({ variables: { ids, prefixes: [READER_META_PREFIX] }, update: (cache) => uncacheReaderMeta(cache, ids) })
+        await clearRemote({ variables: { ids, prefixes: [READER_META_PREFIX] }, update: (cache) => same() && uncacheReaderMeta(cache, ids) })
       }
-      clearLegacy()
+      if (same()) clearLegacy()
       toast('已清除，所有漫画改用上面的默认值')
     } catch (e) {
       toastError('清除失败', e)

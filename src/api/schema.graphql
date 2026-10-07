@@ -1,3 +1,6 @@
+"""Requires the user to have all of the given permissions"""
+directive @requirePermissions(permission: [UserPermission!]!) on OBJECT | FIELD_DEFINITION
+
 """Requires user authentication"""
 directive @requireAuth on OBJECT | FIELD_DEFINITION
 
@@ -57,6 +60,7 @@ enum BackupRestoreState {
   RESTORING_MANGA
   RESTORING_META
   RESTORING_SETTINGS
+  RESTORING_USER_SETTINGS
 }
 
 type BackupRestoreStatus {
@@ -114,6 +118,7 @@ input BooleanFilterInput {
 input CategoryConditionInput {
   default: Boolean
   id: Int
+  isDefaultCategory: Boolean
   name: String
   order: Int
 }
@@ -127,6 +132,7 @@ input CategoryFilterInput {
   and: [CategoryFilterInput!]
   default: BooleanFilterInput
   id: IntFilterInput
+  isDefaultCategory: BooleanFilterInput
   name: StringFilterInput
   not: CategoryFilterInput
   or: [CategoryFilterInput!]
@@ -283,11 +289,11 @@ type ChapterType {
   chapterNumber: Float!
   fetchedAt: LongString!
   id: Int!
-  isBookmarked: Boolean!
-  isDownloaded: Boolean!
-  isRead: Boolean!
-  lastPageRead: Int!
-  lastReadAt: LongString!
+  isBookmarked: Boolean! @deprecated(reason: "Use user.isBookmarked instead")
+  isDownloaded: Boolean! @deprecated(reason: "Use user.isDownloaded instead")
+  isRead: Boolean! @deprecated(reason: "Use user.isRead instead")
+  lastPageRead: Int! @deprecated(reason: "Use user.lastPageRead instead")
+  lastReadAt: LongString! @deprecated(reason: "Use user.lastReadAt instead")
   mangaId: Int!
   name: String!
   pageCount: Int!
@@ -298,6 +304,16 @@ type ChapterType {
   url: String!
   manga: MangaType!
   meta: [ChapterMetaType!]!
+  user: ChapterUserType!
+}
+
+type ChapterUserType {
+  chapterId: Int!
+  isBookmarked: Boolean!
+  isDownloaded: Boolean!
+  isRead: Boolean!
+  lastPageRead: Int!
+  lastReadAt: LongString!
 }
 
 type CheckBoxFilter {
@@ -405,6 +421,28 @@ input CreateCategoryInput {
 type CreateCategoryPayload {
   category: CategoryType!
   clientMutationId: String
+}
+
+input CreateRecoveryCodeInput {
+  clientMutationId: String
+  userId: Int!
+}
+
+type CreateRecoveryCodePayload {
+  clientMutationId: String
+  code: String!
+  expiresAt: LongString!
+}
+
+input CreateRegistrationCodeInput {
+  clientMutationId: String
+  permissions: [UserPermission!]
+}
+
+type CreateRegistrationCodePayload {
+  clientMutationId: String
+  code: String!
+  expiresAt: LongString!
 }
 
 """A location in a connection that can be used for resuming pagination."""
@@ -1303,8 +1341,8 @@ type MangaType {
   description: String
   genre: [String!]!
   id: Int!
-  inLibrary: Boolean!
-  inLibraryAt: LongString!
+  inLibrary: Boolean! @deprecated(reason: "Use user.inLibrary instead")
+  inLibraryAt: LongString! @deprecated(reason: "Use user.inLibraryAt instead")
   initialized: Boolean!
   lastFetchedAt: LongString
   realUrl: String
@@ -1316,27 +1354,40 @@ type MangaType {
   updateStrategy: UpdateStrategy!
   url: String!
   age: LongString
-  bookmarkCount: Int!
+  bookmarkCount: Int! @deprecated(reason: "Use user.bookmarkCount instead")
   categories: CategoryNodeList!
   chapters: ChapterNodeList!
   chaptersAge: LongString
-  downloadCount: Int!
-  firstUnreadChapter: ChapterType
+  downloadCount: Int! @deprecated(reason: "Use user.downloadCount instead")
+  firstUnreadChapter: ChapterType @deprecated(reason: "Use user.firstUnreadChapter instead")
   hasDuplicateChapters: Boolean!
   highestNumberedChapter: ChapterType
-  lastReadChapter: ChapterType
+  lastReadChapter: ChapterType @deprecated(reason: "Use user.lastReadChapter instead")
   latestFetchedChapter: ChapterType
-  latestReadChapter: ChapterType
+  latestReadChapter: ChapterType @deprecated(reason: "Use user.latestReadChapter instead")
   latestUploadedChapter: ChapterType
   meta: [MangaMetaType!]!
   source: SourceType
   trackRecords: TrackRecordNodeList!
-  unreadCount: Int!
+  unreadCount: Int! @deprecated(reason: "Use user.unreadCount instead")
+  user: MangaUserType!
 }
 
 type MangaUpdateType {
   status: MangaJobStatus!
   manga: MangaType!
+}
+
+type MangaUserType {
+  inLibrary: Boolean!
+  inLibraryAt: LongString!
+  mangaId: Int!
+  bookmarkCount: Int!
+  downloadCount: Int!
+  firstUnreadChapter: ChapterType
+  lastReadChapter: ChapterType
+  latestReadChapter: ChapterType
+  unreadCount: Int!
 }
 
 input MetaConditionInput {
@@ -1471,12 +1522,36 @@ type Mutation {
   updateLibrary(input: UpdateLibraryInput!): UpdateLibraryPayload
   updateLibraryManga(input: UpdateLibraryMangaInput!): UpdateLibraryMangaPayload
   updateStop(input: UpdateStopInput!): UpdateStopPayload!
+
+  """
+  Issues a one-time recovery code bound to CreateRecoveryCodeInput.userId.
+  """
+  createRecoveryCode(input: CreateRecoveryCodeInput!): CreateRecoveryCodePayload!
+
+  """Issues a one-time registration code."""
+  createRegistrationCode(input: CreateRegistrationCodeInput!): CreateRegistrationCodePayload!
   login(input: LoginInput!): LoginPayload!
+
+  """Redeems a recovery code with a self-chosen new password."""
+  redeemRecoveryCode(input: RedeemRecoveryCodeInput!): RedeemRecoveryCodePayload!
+
+  """
+  Redeems a registration code with a username and a self-chosen password.
+  """
+  redeemRegistrationCode(input: RedeemRegistrationCodeInput!): RedeemRegistrationCodePayload!
   refreshToken(input: RefreshTokenInput!): RefreshTokenPayload!
+  register(input: RegisterInput!): RegisterPayload!
+
+  """Revokes an outstanding user code."""
+  revokeUserCode(input: RevokeUserCodeInput!): RevokeUserCodePayload!
+  setPassword(input: SetPasswordInput!): SetPasswordPayload!
+  updateUser(input: UpdateUserInput!): UpdateUserPayload!
+  resetUserSettings(input: ResetUserSettingsInput!): ResetUserSettingsPayload!
+  setUserSettings(input: SetUserSettingsInput!): SetUserSettingsPayload!
   clearCookiesAndCache(input: ClearCookiesAndCacheInput): ClearCookiesAndCachePayload!
 }
 
-union Node = CategoryMetaType | CategoryType | ChapterMetaType | ChapterType | DownloadType | DownloadUpdate | ExtensionStoreType | ExtensionType | GlobalMetaType | MangaMetaType | MangaType | PartialSettingsType | SettingsType | SourceMetaType | SourceType | TrackRecordType | TrackerType
+union Node = CategoryMetaType | CategoryType | ChapterMetaType | ChapterType | ChapterUserType | DownloadType | DownloadUpdate | ExtensionStoreType | ExtensionType | GlobalMetaType | MangaMetaType | MangaType | MangaUserType | PartialSettingsType | PartialUserSettingsType | SettingsType | SourceMetaType | SourceType | TrackRecordType | TrackerType | UserSettingsType | UserType
 
 interface NodeList {
   """
@@ -1522,6 +1597,7 @@ input PartialBackupFlagsInput {
   includeManga: Boolean
   includeServerSettings: Boolean
   includeTracking: Boolean
+  includeUserSettings: Boolean
 }
 
 type PartialSettingsType implements Settings {
@@ -1535,10 +1611,11 @@ type PartialSettingsType implements Settings {
   autoBackupIncludeManga: Boolean
   autoBackupIncludeServerSettings: Boolean
   autoBackupIncludeTracking: Boolean
+  autoBackupIncludeUserSettings: Boolean
   autoDownloadAheadLimit: Int @deprecated(reason: "Replaced with autoDownloadNewChaptersLimit, replace with autoDownloadNewChaptersLimit")
-  autoDownloadIgnoreReUploads: Boolean
-  autoDownloadNewChapters: Boolean
-  autoDownloadNewChaptersLimit: Int
+  autoDownloadIgnoreReUploads: Boolean @deprecated(reason: "Now per-user")
+  autoDownloadNewChapters: Boolean @deprecated(reason: "Now per-user")
+  autoDownloadNewChaptersLimit: Int @deprecated(reason: "Now per-user")
   backupInterval: Int
   backupPath: String
   backupTTL: Int
@@ -1555,10 +1632,10 @@ type PartialSettingsType implements Settings {
   downloadConversions: [SettingsDownloadConversionType!]
   downloadsPath: String
   electronPath: String
-  excludeCompleted: Boolean
-  excludeEntryWithUnreadChapters: Boolean
-  excludeNotStarted: Boolean
-  excludeUnreadChapters: Boolean
+  excludeCompleted: Boolean @deprecated(reason: "Now per-user")
+  excludeEntryWithUnreadChapters: Boolean @deprecated(reason: "Now per-user")
+  excludeNotStarted: Boolean @deprecated(reason: "Now per-user")
+  excludeUnreadChapters: Boolean @deprecated(reason: "Now per-user")
   extensionRepos: [String!] @deprecated(reason: "Replaced with addExtensionStore and removeExtensionStore mutations, replace with extensionStores")
   flareSolverrAsResponseFallback: Boolean
   flareSolverrEnabled: Boolean
@@ -1574,13 +1651,13 @@ type PartialSettingsType implements Settings {
   jwtRefreshExpiry: Duration
   jwtTokenExpiry: Duration
   kcefEnabled: Boolean
-  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod @deprecated(reason: "Now per-user")
   koreaderSyncDeviceId: String @deprecated(reason: "Moved to preference store. Is supposed to be random and gets auto generated, replace with MOVE TO PREFERENCES")
-  koreaderSyncPercentageTolerance: Float
+  koreaderSyncPercentageTolerance: Float @deprecated(reason: "Now per-user")
   koreaderSyncServerUrl: String @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   koreaderSyncStrategy: KoreaderSyncLegacyStrategy @deprecated(reason: "Replaced with koreaderSyncStrategyForward and koreaderSyncStrategyBackward, replace with koreaderSyncStrategyForward, koreaderSyncStrategyBackward")
-  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy
-  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy @deprecated(reason: "Now per-user")
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy @deprecated(reason: "Now per-user")
   koreaderSyncUserkey: String @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   koreaderSyncUsername: String @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   localSourcePath: String
@@ -1588,34 +1665,34 @@ type PartialSettingsType implements Settings {
   maxLogFiles: Int
   maxLogFolderSize: String
   maxSourcesInParallel: Int
-  opdsCbzMimetype: CbzMediaType
-  opdsChapterSortOrder: SortOrder
-  opdsEnablePageReadProgress: Boolean
-  opdsItemsPerPage: Int
-  opdsMarkAsReadOnDownload: Boolean
-  opdsShowOnlyDownloadedChapters: Boolean
-  opdsShowOnlyUnreadChapters: Boolean
-  opdsSkipChapterMetadataFeed: Boolean
-  opdsUseBinaryFileSizes: Boolean
+  opdsCbzMimetype: CbzMediaType @deprecated(reason: "Now per-user")
+  opdsChapterSortOrder: SortOrder @deprecated(reason: "Now per-user")
+  opdsEnablePageReadProgress: Boolean @deprecated(reason: "Now per-user")
+  opdsItemsPerPage: Int @deprecated(reason: "Now per-user")
+  opdsMarkAsReadOnDownload: Boolean @deprecated(reason: "Now per-user")
+  opdsShowOnlyDownloadedChapters: Boolean @deprecated(reason: "Now per-user")
+  opdsShowOnlyUnreadChapters: Boolean @deprecated(reason: "Now per-user")
+  opdsSkipChapterMetadataFeed: Boolean @deprecated(reason: "Now per-user")
+  opdsUseBinaryFileSizes: Boolean @deprecated(reason: "Now per-user")
   port: Int
-  serveConversions: [SettingsDownloadConversionType!]
+  serveConversions: [SettingsDownloadConversionType!] @deprecated(reason: "Now per-user")
   socksProxyEnabled: Boolean
   socksProxyHost: String
   socksProxyPassword: String
   socksProxyPort: String
   socksProxyUsername: String
   socksProxyVersion: Int
-  syncDataCategories: Boolean
-  syncDataChapters: Boolean
-  syncDataHistory: Boolean
-  syncDataManga: Boolean
-  syncDataTracking: Boolean
-  syncInterval: Duration
-  syncYomiApiKey: String
-  syncYomiEnabled: Boolean
-  syncYomiHost: String
+  syncDataCategories: Boolean @deprecated(reason: "Now per-user")
+  syncDataChapters: Boolean @deprecated(reason: "Now per-user")
+  syncDataHistory: Boolean @deprecated(reason: "Now per-user")
+  syncDataManga: Boolean @deprecated(reason: "Now per-user")
+  syncDataTracking: Boolean @deprecated(reason: "Now per-user")
+  syncInterval: Duration @deprecated(reason: "Now per-user")
+  syncYomiApiKey: String @deprecated(reason: "Now per-user")
+  syncYomiEnabled: Boolean @deprecated(reason: "Now per-user")
+  syncYomiHost: String @deprecated(reason: "Now per-user")
   systemTrayEnabled: Boolean
-  updateMangas: Boolean
+  updateMangas: Boolean @deprecated(reason: "Now per-user")
   useHikariConnectionPool: Boolean
   webUIChannel: WebUIChannel
   webUIFlavor: WebUIFlavor
@@ -1634,9 +1711,7 @@ input PartialSettingsTypeInput {
   autoBackupIncludeManga: Boolean
   autoBackupIncludeServerSettings: Boolean
   autoBackupIncludeTracking: Boolean
-  autoDownloadIgnoreReUploads: Boolean
-  autoDownloadNewChapters: Boolean
-  autoDownloadNewChaptersLimit: Int
+  autoBackupIncludeUserSettings: Boolean
   backupInterval: Int
   backupPath: String
   backupTTL: Int
@@ -1650,10 +1725,6 @@ input PartialSettingsTypeInput {
   downloadConversions: [SettingsDownloadConversionTypeInput!]
   downloadsPath: String
   electronPath: String
-  excludeCompleted: Boolean
-  excludeEntryWithUnreadChapters: Boolean
-  excludeNotStarted: Boolean
-  excludeUnreadChapters: Boolean
   flareSolverrAsResponseFallback: Boolean
   flareSolverrEnabled: Boolean
   flareSolverrSessionName: String
@@ -1667,15 +1738,38 @@ input PartialSettingsTypeInput {
   jwtRefreshExpiry: Duration
   jwtTokenExpiry: Duration
   kcefEnabled: Boolean
-  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod
-  koreaderSyncPercentageTolerance: Float
-  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy
-  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy
   localSourcePath: String
   maxLogFileSize: String
   maxLogFiles: Int
   maxLogFolderSize: String
   maxSourcesInParallel: Int
+  port: Int
+  socksProxyEnabled: Boolean
+  socksProxyHost: String
+  socksProxyPassword: String
+  socksProxyPort: String
+  socksProxyUsername: String
+  socksProxyVersion: Int
+  systemTrayEnabled: Boolean
+  useHikariConnectionPool: Boolean
+  webUIChannel: WebUIChannel
+  webUIFlavor: WebUIFlavor
+  webUIInterface: WebUIInterface
+  webUIUpdateCheckInterval: Float
+}
+
+type PartialUserSettingsType implements UserSettings {
+  autoDownloadIgnoreReUploads: Boolean
+  autoDownloadNewChapters: Boolean
+  autoDownloadNewChaptersLimit: Int
+  excludeCompleted: Boolean
+  excludeEntryWithUnreadChapters: Boolean
+  excludeNotStarted: Boolean
+  excludeUnreadChapters: Boolean
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod
+  koreaderSyncPercentageTolerance: Float
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy
   opdsCbzMimetype: CbzMediaType
   opdsChapterSortOrder: SortOrder
   opdsEnablePageReadProgress: Boolean
@@ -1685,14 +1779,7 @@ input PartialSettingsTypeInput {
   opdsShowOnlyUnreadChapters: Boolean
   opdsSkipChapterMetadataFeed: Boolean
   opdsUseBinaryFileSizes: Boolean
-  port: Int
-  serveConversions: [SettingsDownloadConversionTypeInput!]
-  socksProxyEnabled: Boolean
-  socksProxyHost: String
-  socksProxyPassword: String
-  socksProxyPort: String
-  socksProxyUsername: String
-  socksProxyVersion: Int
+  serveConversions: [SettingsDownloadConversionType!]
   syncDataCategories: Boolean
   syncDataChapters: Boolean
   syncDataHistory: Boolean
@@ -1702,13 +1789,55 @@ input PartialSettingsTypeInput {
   syncYomiApiKey: String
   syncYomiEnabled: Boolean
   syncYomiHost: String
-  systemTrayEnabled: Boolean
   updateMangas: Boolean
-  useHikariConnectionPool: Boolean
-  webUIChannel: WebUIChannel
-  webUIFlavor: WebUIFlavor
-  webUIInterface: WebUIInterface
-  webUIUpdateCheckInterval: Float
+}
+
+input PartialUserSettingsTypeInput {
+  autoDownloadIgnoreReUploads: Boolean
+  autoDownloadNewChapters: Boolean
+  autoDownloadNewChaptersLimit: Int
+  excludeCompleted: Boolean
+  excludeEntryWithUnreadChapters: Boolean
+  excludeNotStarted: Boolean
+  excludeUnreadChapters: Boolean
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod
+  koreaderSyncPercentageTolerance: Float
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy
+  opdsCbzMimetype: CbzMediaType
+  opdsChapterSortOrder: SortOrder
+  opdsEnablePageReadProgress: Boolean
+  opdsItemsPerPage: Int
+  opdsMarkAsReadOnDownload: Boolean
+  opdsShowOnlyDownloadedChapters: Boolean
+  opdsShowOnlyUnreadChapters: Boolean
+  opdsSkipChapterMetadataFeed: Boolean
+  opdsUseBinaryFileSizes: Boolean
+  serveConversions: [SettingsDownloadConversionTypeInput!]
+  syncDataCategories: Boolean
+  syncDataChapters: Boolean
+  syncDataHistory: Boolean
+  syncDataManga: Boolean
+  syncDataTracking: Boolean
+  syncInterval: Duration
+  syncYomiApiKey: String
+  syncYomiEnabled: Boolean
+  syncYomiHost: String
+  updateMangas: Boolean
+}
+
+input PermissionsFilterInput {
+  distinctFrom: UserPermission
+  distinctFromAll: [UserPermission!]
+  distinctFromAny: [UserPermission!]
+  equalTo: UserPermission
+  in: [UserPermission!]
+  isNull: Boolean
+  notDistinctFrom: UserPermission
+  notEqualTo: UserPermission
+  notEqualToAll: [UserPermission!]
+  notEqualToAny: [UserPermission!]
+  notIn: [UserPermission!]
 }
 
 type PlatformInfo {
@@ -1776,6 +1905,39 @@ type Query {
   lastUpdateTimestamp: LastUpdateTimestampPayload!
   libraryUpdateStatus: LibraryUpdateStatus!
   updateStatus: UpdateStatus! @deprecated(reason: "Replaced with libraryUpdateStatus, replace with libraryUpdateStatus")
+  user(id: Int): UserType!
+
+  """Outstanding (unconsumed, unexpired) user codes."""
+  userCodes(forUserId: Int): [UserCodeType!]!
+  users(condition: UserConditionInput, filter: UserFilterInput, order: [UserOrderInput!], before: Cursor, after: Cursor, first: Int, last: Int, offset: Int): UserNodeList!
+  userSettings: UserSettingsType!
+}
+
+input RedeemRecoveryCodeInput {
+  clientMutationId: String
+  code: String!
+  newPassword: String!
+}
+
+type RedeemRecoveryCodePayload {
+  accessToken: String!
+  clientMutationId: String
+  refreshToken: String!
+  user: UserType!
+}
+
+input RedeemRegistrationCodeInput {
+  clientMutationId: String
+  code: String!
+  password: String!
+  username: String!
+}
+
+type RedeemRegistrationCodePayload {
+  accessToken: String!
+  clientMutationId: String
+  refreshToken: String!
+  user: UserType!
 }
 
 input RefreshTokenInput {
@@ -1785,6 +1947,17 @@ input RefreshTokenInput {
 
 type RefreshTokenPayload {
   accessToken: String!
+  clientMutationId: String
+}
+
+input RegisterInput {
+  clientMutationId: String
+  password: String!
+  userPermissions: [UserPermission!]
+  username: String!
+}
+
+type RegisterPayload {
   clientMutationId: String
 }
 
@@ -1823,6 +1996,15 @@ type ResetSettingsPayload {
   settings: SettingsType!
 }
 
+input ResetUserSettingsInput {
+  clientMutationId: String
+}
+
+type ResetUserSettingsPayload {
+  clientMutationId: String
+  userSettings: UserSettingsType!
+}
+
 input RestoreBackupInput {
   backup: Upload!
   clientMutationId: String
@@ -1833,6 +2015,15 @@ type RestoreBackupPayload {
   clientMutationId: String
   id: String!
   status: BackupRestoreStatus
+}
+
+input RevokeUserCodeInput {
+  clientMutationId: String
+  id: Int!
+}
+
+type RevokeUserCodePayload {
+  clientMutationId: String
 }
 
 input SearchTrackerInput {
@@ -1952,6 +2143,16 @@ type SetMangaMetasPayload {
   metas: [MangaMetaType!]!
 }
 
+input SetPasswordInput {
+  clientMutationId: String
+  newPassword: String!
+  oldPassword: String!
+}
+
+type SetPasswordPayload {
+  clientMutationId: String
+}
+
 input SetSettingsInput {
   clientMutationId: String
   settings: PartialSettingsTypeInput!
@@ -1988,6 +2189,16 @@ type SetSourceMetasPayload {
   sources: [SourceType!]!
 }
 
+input SetUserSettingsInput {
+  clientMutationId: String
+  userSettings: PartialUserSettingsTypeInput!
+}
+
+type SetUserSettingsPayload {
+  clientMutationId: String
+  userSettings: UserSettingsType!
+}
+
 interface Settings {
   authMode: AuthMode
   authPassword: String
@@ -1999,10 +2210,11 @@ interface Settings {
   autoBackupIncludeManga: Boolean
   autoBackupIncludeServerSettings: Boolean
   autoBackupIncludeTracking: Boolean
+  autoBackupIncludeUserSettings: Boolean
   autoDownloadAheadLimit: Int @deprecated(reason: "Replaced with autoDownloadNewChaptersLimit, replace with autoDownloadNewChaptersLimit")
-  autoDownloadIgnoreReUploads: Boolean
-  autoDownloadNewChapters: Boolean
-  autoDownloadNewChaptersLimit: Int
+  autoDownloadIgnoreReUploads: Boolean @deprecated(reason: "Now per-user")
+  autoDownloadNewChapters: Boolean @deprecated(reason: "Now per-user")
+  autoDownloadNewChaptersLimit: Int @deprecated(reason: "Now per-user")
   backupInterval: Int
   backupPath: String
   backupTTL: Int
@@ -2019,10 +2231,10 @@ interface Settings {
   downloadConversions: [SettingsDownloadConversion!]
   downloadsPath: String
   electronPath: String
-  excludeCompleted: Boolean
-  excludeEntryWithUnreadChapters: Boolean
-  excludeNotStarted: Boolean
-  excludeUnreadChapters: Boolean
+  excludeCompleted: Boolean @deprecated(reason: "Now per-user")
+  excludeEntryWithUnreadChapters: Boolean @deprecated(reason: "Now per-user")
+  excludeNotStarted: Boolean @deprecated(reason: "Now per-user")
+  excludeUnreadChapters: Boolean @deprecated(reason: "Now per-user")
   extensionRepos: [String!] @deprecated(reason: "Replaced with addExtensionStore and removeExtensionStore mutations, replace with extensionStores")
   flareSolverrAsResponseFallback: Boolean
   flareSolverrEnabled: Boolean
@@ -2038,13 +2250,13 @@ interface Settings {
   jwtRefreshExpiry: Duration
   jwtTokenExpiry: Duration
   kcefEnabled: Boolean
-  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod @deprecated(reason: "Now per-user")
   koreaderSyncDeviceId: String @deprecated(reason: "Moved to preference store. Is supposed to be random and gets auto generated, replace with MOVE TO PREFERENCES")
-  koreaderSyncPercentageTolerance: Float
+  koreaderSyncPercentageTolerance: Float @deprecated(reason: "Now per-user")
   koreaderSyncServerUrl: String @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   koreaderSyncStrategy: KoreaderSyncLegacyStrategy @deprecated(reason: "Replaced with koreaderSyncStrategyForward and koreaderSyncStrategyBackward, replace with koreaderSyncStrategyForward, koreaderSyncStrategyBackward")
-  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy
-  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy @deprecated(reason: "Now per-user")
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy @deprecated(reason: "Now per-user")
   koreaderSyncUserkey: String @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   koreaderSyncUsername: String @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   localSourcePath: String
@@ -2052,34 +2264,34 @@ interface Settings {
   maxLogFiles: Int
   maxLogFolderSize: String
   maxSourcesInParallel: Int
-  opdsCbzMimetype: CbzMediaType
-  opdsChapterSortOrder: SortOrder
-  opdsEnablePageReadProgress: Boolean
-  opdsItemsPerPage: Int
-  opdsMarkAsReadOnDownload: Boolean
-  opdsShowOnlyDownloadedChapters: Boolean
-  opdsShowOnlyUnreadChapters: Boolean
-  opdsSkipChapterMetadataFeed: Boolean
-  opdsUseBinaryFileSizes: Boolean
+  opdsCbzMimetype: CbzMediaType @deprecated(reason: "Now per-user")
+  opdsChapterSortOrder: SortOrder @deprecated(reason: "Now per-user")
+  opdsEnablePageReadProgress: Boolean @deprecated(reason: "Now per-user")
+  opdsItemsPerPage: Int @deprecated(reason: "Now per-user")
+  opdsMarkAsReadOnDownload: Boolean @deprecated(reason: "Now per-user")
+  opdsShowOnlyDownloadedChapters: Boolean @deprecated(reason: "Now per-user")
+  opdsShowOnlyUnreadChapters: Boolean @deprecated(reason: "Now per-user")
+  opdsSkipChapterMetadataFeed: Boolean @deprecated(reason: "Now per-user")
+  opdsUseBinaryFileSizes: Boolean @deprecated(reason: "Now per-user")
   port: Int
-  serveConversions: [SettingsDownloadConversion!]
+  serveConversions: [SettingsDownloadConversion!] @deprecated(reason: "Now per-user")
   socksProxyEnabled: Boolean
   socksProxyHost: String
   socksProxyPassword: String
   socksProxyPort: String
   socksProxyUsername: String
   socksProxyVersion: Int
-  syncDataCategories: Boolean
-  syncDataChapters: Boolean
-  syncDataHistory: Boolean
-  syncDataManga: Boolean
-  syncDataTracking: Boolean
-  syncInterval: Duration
-  syncYomiApiKey: String
-  syncYomiEnabled: Boolean
-  syncYomiHost: String
+  syncDataCategories: Boolean @deprecated(reason: "Now per-user")
+  syncDataChapters: Boolean @deprecated(reason: "Now per-user")
+  syncDataHistory: Boolean @deprecated(reason: "Now per-user")
+  syncDataManga: Boolean @deprecated(reason: "Now per-user")
+  syncDataTracking: Boolean @deprecated(reason: "Now per-user")
+  syncInterval: Duration @deprecated(reason: "Now per-user")
+  syncYomiApiKey: String @deprecated(reason: "Now per-user")
+  syncYomiEnabled: Boolean @deprecated(reason: "Now per-user")
+  syncYomiHost: String @deprecated(reason: "Now per-user")
   systemTrayEnabled: Boolean
-  updateMangas: Boolean
+  updateMangas: Boolean @deprecated(reason: "Now per-user")
   useHikariConnectionPool: Boolean
   webUIChannel: WebUIChannel
   webUIFlavor: WebUIFlavor
@@ -2140,10 +2352,11 @@ type SettingsType implements Settings {
   autoBackupIncludeManga: Boolean!
   autoBackupIncludeServerSettings: Boolean!
   autoBackupIncludeTracking: Boolean!
+  autoBackupIncludeUserSettings: Boolean!
   autoDownloadAheadLimit: Int! @deprecated(reason: "Replaced with autoDownloadNewChaptersLimit, replace with autoDownloadNewChaptersLimit")
-  autoDownloadIgnoreReUploads: Boolean!
-  autoDownloadNewChapters: Boolean!
-  autoDownloadNewChaptersLimit: Int!
+  autoDownloadIgnoreReUploads: Boolean! @deprecated(reason: "Now per-user")
+  autoDownloadNewChapters: Boolean! @deprecated(reason: "Now per-user")
+  autoDownloadNewChaptersLimit: Int! @deprecated(reason: "Now per-user")
   backupInterval: Int!
   backupPath: String!
   backupTTL: Int!
@@ -2160,10 +2373,10 @@ type SettingsType implements Settings {
   downloadConversions: [SettingsDownloadConversionType!]!
   downloadsPath: String!
   electronPath: String!
-  excludeCompleted: Boolean!
-  excludeEntryWithUnreadChapters: Boolean!
-  excludeNotStarted: Boolean!
-  excludeUnreadChapters: Boolean!
+  excludeCompleted: Boolean! @deprecated(reason: "Now per-user")
+  excludeEntryWithUnreadChapters: Boolean! @deprecated(reason: "Now per-user")
+  excludeNotStarted: Boolean! @deprecated(reason: "Now per-user")
+  excludeUnreadChapters: Boolean! @deprecated(reason: "Now per-user")
   extensionRepos: [String!]! @deprecated(reason: "Replaced with addExtensionStore and removeExtensionStore mutations, replace with extensionStores")
   flareSolverrAsResponseFallback: Boolean!
   flareSolverrEnabled: Boolean!
@@ -2179,13 +2392,13 @@ type SettingsType implements Settings {
   jwtRefreshExpiry: Duration!
   jwtTokenExpiry: Duration!
   kcefEnabled: Boolean!
-  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod!
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod! @deprecated(reason: "Now per-user")
   koreaderSyncDeviceId: String! @deprecated(reason: "Moved to preference store. Is supposed to be random and gets auto generated, replace with MOVE TO PREFERENCES")
-  koreaderSyncPercentageTolerance: Float!
+  koreaderSyncPercentageTolerance: Float! @deprecated(reason: "Now per-user")
   koreaderSyncServerUrl: String! @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   koreaderSyncStrategy: KoreaderSyncLegacyStrategy! @deprecated(reason: "Replaced with koreaderSyncStrategyForward and koreaderSyncStrategyBackward, replace with koreaderSyncStrategyForward, koreaderSyncStrategyBackward")
-  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy!
-  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy!
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy! @deprecated(reason: "Now per-user")
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy! @deprecated(reason: "Now per-user")
   koreaderSyncUserkey: String! @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   koreaderSyncUsername: String! @deprecated(reason: "Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES")
   localSourcePath: String!
@@ -2193,34 +2406,34 @@ type SettingsType implements Settings {
   maxLogFiles: Int!
   maxLogFolderSize: String!
   maxSourcesInParallel: Int!
-  opdsCbzMimetype: CbzMediaType!
-  opdsChapterSortOrder: SortOrder!
-  opdsEnablePageReadProgress: Boolean!
-  opdsItemsPerPage: Int!
-  opdsMarkAsReadOnDownload: Boolean!
-  opdsShowOnlyDownloadedChapters: Boolean!
-  opdsShowOnlyUnreadChapters: Boolean!
-  opdsSkipChapterMetadataFeed: Boolean!
-  opdsUseBinaryFileSizes: Boolean!
+  opdsCbzMimetype: CbzMediaType! @deprecated(reason: "Now per-user")
+  opdsChapterSortOrder: SortOrder! @deprecated(reason: "Now per-user")
+  opdsEnablePageReadProgress: Boolean! @deprecated(reason: "Now per-user")
+  opdsItemsPerPage: Int! @deprecated(reason: "Now per-user")
+  opdsMarkAsReadOnDownload: Boolean! @deprecated(reason: "Now per-user")
+  opdsShowOnlyDownloadedChapters: Boolean! @deprecated(reason: "Now per-user")
+  opdsShowOnlyUnreadChapters: Boolean! @deprecated(reason: "Now per-user")
+  opdsSkipChapterMetadataFeed: Boolean! @deprecated(reason: "Now per-user")
+  opdsUseBinaryFileSizes: Boolean! @deprecated(reason: "Now per-user")
   port: Int!
-  serveConversions: [SettingsDownloadConversionType!]!
+  serveConversions: [SettingsDownloadConversionType!]! @deprecated(reason: "Now per-user")
   socksProxyEnabled: Boolean!
   socksProxyHost: String!
   socksProxyPassword: String!
   socksProxyPort: String!
   socksProxyUsername: String!
   socksProxyVersion: Int!
-  syncDataCategories: Boolean!
-  syncDataChapters: Boolean!
-  syncDataHistory: Boolean!
-  syncDataManga: Boolean!
-  syncDataTracking: Boolean!
-  syncInterval: Duration!
-  syncYomiApiKey: String!
-  syncYomiEnabled: Boolean!
-  syncYomiHost: String!
+  syncDataCategories: Boolean! @deprecated(reason: "Now per-user")
+  syncDataChapters: Boolean! @deprecated(reason: "Now per-user")
+  syncDataHistory: Boolean! @deprecated(reason: "Now per-user")
+  syncDataManga: Boolean! @deprecated(reason: "Now per-user")
+  syncDataTracking: Boolean! @deprecated(reason: "Now per-user")
+  syncInterval: Duration! @deprecated(reason: "Now per-user")
+  syncYomiApiKey: String! @deprecated(reason: "Now per-user")
+  syncYomiEnabled: Boolean! @deprecated(reason: "Now per-user")
+  syncYomiHost: String! @deprecated(reason: "Now per-user")
   systemTrayEnabled: Boolean!
-  updateMangas: Boolean!
+  updateMangas: Boolean! @deprecated(reason: "Now per-user")
   useHikariConnectionPool: Boolean!
   webUIChannel: WebUIChannel!
   webUIFlavor: WebUIFlavor!
@@ -2946,6 +3159,18 @@ type UpdateTrackPayload {
   trackRecord: TrackRecordType
 }
 
+input UpdateUserInput {
+  clientMutationId: String
+  permissions: [UserPermission!]
+  role: UserRole
+  userId: Int!
+}
+
+type UpdateUserPayload {
+  clientMutationId: String
+  user: UserType!
+}
+
 type UpdaterJobsInfoType {
   finishedJobs: Int!
   isRunning: Boolean!
@@ -2972,6 +3197,154 @@ type UpdaterUpdates {
 
 """A file part in a multipart request"""
 scalar Upload
+
+enum UserCodePurpose {
+  RECOVERY
+  REGISTRATION
+}
+
+type UserCodeType {
+  createdAt: LongString!
+  expiresAt: LongString!
+  id: Int!
+  permissions: [UserPermission!]
+  purpose: UserCodePurpose!
+  createdBy: UserType!
+  user: UserType
+}
+
+input UserConditionInput {
+  id: Int
+  permission: UserPermission
+  role: String
+  username: String
+}
+
+type UserEdge implements Edge {
+  cursor: Cursor!
+  node: UserType!
+}
+
+input UserFilterInput {
+  and: [UserFilterInput!]
+  id: IntFilterInput
+  not: UserFilterInput
+  or: [UserFilterInput!]
+  permission: PermissionsFilterInput
+  role: StringFilterInput
+  username: StringFilterInput
+}
+
+type UserNodeList implements NodeList {
+  edges: [UserEdge!]!
+  nodes: [UserType!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+enum UserOrderBy {
+  ID
+  USERNAME
+}
+
+input UserOrderInput {
+  by: UserOrderBy!
+  byType: SortOrder
+}
+
+enum UserPermission {
+  INSTALL_EXTENSIONS
+  INSTALL_EXTERNAL_EXTENSIONS
+  UNINSTALL_EXTENSIONS
+  DOWNLOAD_CHAPTERS
+  ACCESS_NSFW
+  MANAGE_SETTINGS
+  MANAGE_USERS
+  MANAGE_EXTENSION_STORES
+  MANAGE_SOURCE_PREFERENCES
+  MANAGE_CACHE
+}
+
+enum UserRole {
+  ADMIN
+  USER
+  VISITOR
+}
+
+interface UserSettings {
+  autoDownloadIgnoreReUploads: Boolean
+  autoDownloadNewChapters: Boolean
+  autoDownloadNewChaptersLimit: Int
+  excludeCompleted: Boolean
+  excludeEntryWithUnreadChapters: Boolean
+  excludeNotStarted: Boolean
+  excludeUnreadChapters: Boolean
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod
+  koreaderSyncPercentageTolerance: Float
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy
+  opdsCbzMimetype: CbzMediaType
+  opdsChapterSortOrder: SortOrder
+  opdsEnablePageReadProgress: Boolean
+  opdsItemsPerPage: Int
+  opdsMarkAsReadOnDownload: Boolean
+  opdsShowOnlyDownloadedChapters: Boolean
+  opdsShowOnlyUnreadChapters: Boolean
+  opdsSkipChapterMetadataFeed: Boolean
+  opdsUseBinaryFileSizes: Boolean
+  serveConversions: [SettingsDownloadConversion!]
+  syncDataCategories: Boolean
+  syncDataChapters: Boolean
+  syncDataHistory: Boolean
+  syncDataManga: Boolean
+  syncDataTracking: Boolean
+  syncInterval: Duration
+  syncYomiApiKey: String
+  syncYomiEnabled: Boolean
+  syncYomiHost: String
+  updateMangas: Boolean
+}
+
+type UserSettingsType implements UserSettings {
+  autoDownloadIgnoreReUploads: Boolean!
+  autoDownloadNewChapters: Boolean!
+  autoDownloadNewChaptersLimit: Int!
+  excludeCompleted: Boolean!
+  excludeEntryWithUnreadChapters: Boolean!
+  excludeNotStarted: Boolean!
+  excludeUnreadChapters: Boolean!
+  koreaderSyncChecksumMethod: KoreaderSyncChecksumMethod!
+  koreaderSyncPercentageTolerance: Float!
+  koreaderSyncStrategyBackward: KoreaderSyncConflictStrategy!
+  koreaderSyncStrategyForward: KoreaderSyncConflictStrategy!
+  opdsCbzMimetype: CbzMediaType!
+  opdsChapterSortOrder: SortOrder!
+  opdsEnablePageReadProgress: Boolean!
+  opdsItemsPerPage: Int!
+  opdsMarkAsReadOnDownload: Boolean!
+  opdsShowOnlyDownloadedChapters: Boolean!
+  opdsShowOnlyUnreadChapters: Boolean!
+  opdsSkipChapterMetadataFeed: Boolean!
+  opdsUseBinaryFileSizes: Boolean!
+  serveConversions: [SettingsDownloadConversionType!]!
+  syncDataCategories: Boolean!
+  syncDataChapters: Boolean!
+  syncDataHistory: Boolean!
+  syncDataManga: Boolean!
+  syncDataTracking: Boolean!
+  syncInterval: Duration!
+  syncYomiApiKey: String!
+  syncYomiEnabled: Boolean!
+  syncYomiHost: String!
+  updateMangas: Boolean!
+}
+
+type UserType {
+  id: Int!
+  username: String!
+  permissions: [UserPermission!]!
+  roles: [UserRole!]!
+}
 
 input ValidateBackupInput {
   backup: Upload!

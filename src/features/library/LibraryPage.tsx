@@ -2,8 +2,10 @@ import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { BookCheck, Download, FolderInput, LibraryBig } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
+import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
+import { captureUser, StaleSessionError } from '@/api/userContext'
 import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
 import type { SegItem } from '@/components/ui/Seg'
@@ -38,9 +40,11 @@ export function LibraryPage() {
   const deferredQuery = useDeferredValue(query.trim())
 
   const all = useMemo(() => data?.mangas.nodes ?? [], [data])
+  // 每个用户的默认分类 id 不同，不能写死 0
+  const defaultCategoryId = catData?.categories.nodes.find((c) => c.default)?.id ?? 0
   const items = useMemo(
-    () => applyView(all, { ...view, query: deferredQuery }),
-    [all, view, deferredQuery],
+    () => applyView(all, { ...view, defaultCategoryId, query: deferredQuery }),
+    [all, view, defaultCategoryId, deferredQuery],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(all), [all])
@@ -50,12 +54,12 @@ export function LibraryPage() {
     const cats = catData?.categories.nodes ?? []
     const tabs: SegItem<'all' | number>[] = [{ value: 'all', label: '全部', count: all.length }]
     for (const c of cats) {
-      const n = all.filter((m) => inCategory(m, c.id)).length
+      const n = all.filter((m) => inCategory(m, c.id, defaultCategoryId)).length
       if (c.default && n === 0) continue
       tabs.push({ value: c.id, label: c.default ? '默认' : c.name, count: n })
     }
     return tabs
-  }, [catData, all])
+  }, [catData, all, defaultCategoryId])
 
   // 记住的分类已被删除时回到「全部」
   useEffect(() => {
@@ -110,11 +114,14 @@ export function LibraryPage() {
   const ids = [...sel.selected]
 
   const chapterIds = async (filter: object) => {
+    const still = captureUser()
     const { data: r } = await client.query({
       query: ChapterIds,
       variables: { filter: { mangaId: { in: ids }, ...filter } },
       fetchPolicy: 'network-only',
     })
+    // 查询期间换了账号：查到的是上一个账号的章节，不能再拿去改新账号的数据
+    still()
     return r?.chapters.nodes.map((c) => c.id) ?? []
   }
 
@@ -124,7 +131,7 @@ export function LibraryPage() {
       const msg = await fn()
       toast(msg || label)
     } catch (e) {
-      toastError(`${label}失败`, e)
+      if (!(e instanceof StaleSessionError)) toastError(`${label}失败`, e)
     } finally {
       setBusy(false)
     }
@@ -260,10 +267,12 @@ export function LibraryPage() {
           <BookCheck className="size-5" strokeWidth={1.8} />
           全部已读
         </button>
-        <button type="button" className="bb" disabled={busy || !ids.length} onClick={downloadUnread}>
-          <Download className="size-5" strokeWidth={1.8} />
-          下载未读
-        </button>
+        <Can permission="DOWNLOAD_CHAPTERS">
+          <button type="button" className="bb" disabled={busy || !ids.length} onClick={downloadUnread}>
+            <Download className="size-5" strokeWidth={1.8} />
+            下载未读
+          </button>
+        </Can>
         <button
           type="button"
           className={confirmRemove ? 'bb text-danger' : 'bb'}

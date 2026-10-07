@@ -26,6 +26,7 @@ export const MangaDetail = graphql(`
       categories {
         nodes {
           id
+          default
         }
       }
       lastReadChapter {

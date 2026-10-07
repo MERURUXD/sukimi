@@ -36,6 +36,8 @@ const demoRoutes = [{
 
 export const router = createBrowserRouter(isDemo ? demoRoutes : [
   { path: '/login', ...page(() => import('@/features/auth/LoginPage'), 'LoginPage') },
+  { path: '/register', ...page(() => import('@/features/auth/RedeemPage'), 'RegisterPage') },
+  { path: '/recover', ...page(() => import('@/features/auth/RedeemPage'), 'RecoverPage') },
   // 虚构来源的界面验收入口，不需要登录，也不会请求真实书库或修改服务端。
   ...(import.meta.env.DEV
     ? [

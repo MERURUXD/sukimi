@@ -4,12 +4,14 @@
  * - 不持久化整个 Apollo 缓存：章节列表、页面地址这些量大又容易过期，只挑书库和首页。
  * - 快照不写回 Apollo 缓存，页面在网络数据到之前直接用原始快照渲染：
  *   书库有三千多部，写进规范化缓存再读出来要一秒多，比直接用快照慢得多。
- * - 退出登录时清空，避免下一个账号看到上一个账号的书库。
+ * - 退出登录、换账号时清空；每条记录还带用户 id，读到别人的就丢弃，双重避免串书库。
  */
 import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client'
 import { IN_LIBRARY, RecentReads, RecentUpdates } from '@/features/home/queries'
 import { Categories, LibraryMangas } from '@/features/library/queries'
 import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE } from '@/features/updates/queries'
+import { snapshotUsable } from '@/features/auth/userScope'
+import { isDevLab } from '@/lib/demo'
 import { useAuth } from './auth'
 
 interface Entry {
@@ -25,7 +27,7 @@ const entry = <R, V extends OperationVariables>(key: string, query: TypedDocumen
 })
 
 /** 改了这些查询的字段就把版本号加一，旧快照直接作废 */
-const VERSION = 3
+const VERSION = 4
 const ENTRIES = [
   entry('library', LibraryMangas),
   entry('categories', Categories),
@@ -64,6 +66,8 @@ function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<
 
 interface Snapshot {
   v: number
+  /** 保存时的用户 id，读取时不一致就丢弃 */
+  userId: number
   savedAt: number
   data: unknown
 }
@@ -76,11 +80,17 @@ const snapshots = new Map<string, unknown>()
  * 读库失败（隐私模式等）就当没有缓存，不影响使用。
  */
 export async function loadSnapshots(client: ApolloClient) {
+  // 还不知道是谁（没登录过）就不读，登录后走网络
+  const userId = useAuth.getState().user?.id
+  // 虚构验收页的用户不是真实账号，不去读真实快照
+  if (isDevLab) return
   await Promise.all(
     ENTRIES.map(async (e) => {
       try {
+        if (userId === undefined) return
         const snap = await tx<Snapshot | undefined>('readonly', (s) => s.get(e.key))
-        if (snap?.v === VERSION) snapshots.set(e.key, snap.data)
+        // 读的过程中换了人也不能收
+        if (snapshotUsable(snap, VERSION, userId) && useAuth.getState().user?.id === userId) snapshots.set(e.key, snap!.data)
       } catch {
         /* 没有缓存 */
       }
@@ -97,14 +107,18 @@ function watch(client: ApolloClient, e: Entry) {
     variables: e.variables,
     optimistic: false,
     callback: (diff) => {
-      if (!diff.complete || useAuth.getState().status !== 'signedIn') return
+      const { status, user } = useAuth.getState()
+      if (!diff.complete || status !== 'signedIn' || !user) return
       const data = diff.result
+      const userId = user.id
       clearTimeout(timers.get(e.key))
       // 下载进度等会频繁改动书库数据，攒一会儿再写
       timers.set(
         e.key,
         setTimeout(() => {
-          void tx('readwrite', (s) => s.put({ v: VERSION, savedAt: Date.now(), data } satisfies Snapshot, e.key)).catch(() => {})
+          // 等待期间换了人，这份数据就不是他的了
+          if (useAuth.getState().user?.id !== userId) return
+          void tx('readwrite', (s) => s.put({ v: VERSION, userId, savedAt: Date.now(), data } satisfies Snapshot, e.key)).catch(() => {})
         }, 3000),
       )
     },

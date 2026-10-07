@@ -13,12 +13,15 @@ import {
   RefreshCcw,
   Server,
   TriangleAlert,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type ComponentType } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
+import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
+import { can } from '@/features/auth/permissions'
 import { cn } from '@/lib/cn'
 import { Section } from './parts'
 import { ReaderDefaults } from './ReaderDefaults'
@@ -32,6 +35,7 @@ import { LibraryTab } from './tabs/LibraryTab'
 import { ServerTab } from './tabs/ServerTab'
 import { SyncTab } from './tabs/SyncTab'
 import { TrackingTab } from './tabs/TrackingTab'
+import { UsersTab } from './tabs/UsersTab'
 
 function ReadingTab() {
   return (
@@ -47,6 +51,8 @@ interface Tab {
   icon: LucideIcon
   desc: string
   Component: ComponentType
+  /** 只有管理用户的账号才看得到；旧服务端没有用户账号，也不显示 */
+  adminOnly?: boolean
 }
 
 const TABS: Tab[] = [
@@ -59,12 +65,21 @@ const TABS: Tab[] = [
   { id: 'sync', label: '同步', icon: RefreshCcw, desc: 'SyncYomi、KOReader', Component: SyncTab },
   { id: 'tracking', label: '追踪', icon: ListChecks, desc: 'AniList、MyAnimeList 等，同步阅读进度', Component: TrackingTab },
   { id: 'server', label: '服务器', icon: Server, desc: '网络、登录、代理、日志、OPDS', Component: ServerTab },
+  { id: 'users', label: '用户', icon: Users, desc: '邀请新用户、权限、找回码', Component: UsersTab, adminOnly: true },
   { id: 'about', label: '关于', icon: Info, desc: '版本、检查更新、退出登录', Component: AboutTab },
 ]
+
+/** 按当前用户的权限筛出能看到的分栏 */
+function useVisibleTabs() {
+  const user = useAuth((s) => s.user)
+  const manageUsers = !!user && !user.legacy && can(user, 'MANAGE_USERS')
+  return TABS.filter((t) => !t.adminOnly || manageUsers)
+}
 
 /** 选中块使用玻璃容器内的坐标，页面滚动和 sticky 不会改变动画起点。 */
 export function SettingsNavigation({ selected, singlePage, basePath = '/settings' }: { selected: string; singlePage?: boolean; basePath?: string }) {
   const root = useRef<HTMLElement>(null)
+  const tabs = useVisibleTabs()
   const [highlight, setHighlight] = useState<{ y: number; height: number } | null>(null)
   useLayoutEffect(() => {
     const container = root.current
@@ -83,7 +98,7 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
     <nav aria-label="设置分栏" className={cn('md:sticky md:top-[calc(var(--nav-h)+12px)]', singlePage && 'max-md:hidden')}>
       <Glass ref={root} className="isolate flex flex-col gap-0.5 rounded-[22px] p-1.5 max-md:rounded-[26px]">
         {highlight && <motion.span aria-hidden initial={false} animate={highlight} transition={spring.fast} className="pointer-events-none absolute top-0 right-1.5 left-1.5 -z-10 rounded-[16px] bg-g-hi shadow-[inset_0_0_0_1px_var(--g-glow)] max-md:hidden" />}
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const on = t.id === selected
           return (
             <Link key={t.id} to={`${basePath}/${t.id}`} replace={!!singlePage} aria-current={on ? 'page' : undefined}
@@ -109,8 +124,9 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
 export function SettingsPage() {
   const { tab } = useParams()
   const navigate = useNavigate()
-  const current = TABS.find((t) => t.id === tab)
-  const shown = current ?? TABS[0]
+  const tabs = useVisibleTabs()
+  const current = tabs.find((t) => t.id === tab)
+  const shown = current ?? tabs[0]
   const pending = usePendingRestart((s) => s.keys.length)
 
   if (tab && !current) return <Navigate to="/settings" replace />

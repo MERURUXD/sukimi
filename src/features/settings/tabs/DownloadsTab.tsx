@@ -5,23 +5,28 @@ import { toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
 import { Row, Section, Select, type SaveStatus } from '../parts'
 import { useSaveSettings, useServerSettings, type Settings } from '../server'
+import { RequireSettings, SettingsNotice } from '../gate'
 
 export function DownloadsTab() {
   return (
     <>
-      <Section
-        title="下载"
-        action={
-          <Link to="/downloads" className="gbtn min-h-10 rounded-full bg-g-hi text-text no-underline">
-            查看下载队列
-          </Link>
-        }
-      >
-        <SText k="downloadsPath" label="下载目录" hint="服务端所在电脑上的路径；留空使用数据目录下的 downloads" placeholder="默认" stack />
-        <SSwitch k="downloadAsCbz" label="存成 CBZ 压缩包" hint="每一话打包成一个 .cbz 文件，便于拷到其他阅读器；不影响在这里阅读" />
-      </Section>
+      <SettingsNotice />
+      <RequireSettings>
+        <Section
+          title="下载"
+        desc="下载目录与格式由所有用户共用。"
+          action={
+            <Link to="/downloads" className="gbtn min-h-10 rounded-full bg-g-hi text-text no-underline">
+              查看下载队列
+            </Link>
+          }
+        >
+          <SText k="downloadsPath" label="下载目录" hint="服务端所在电脑上的路径；留空使用数据目录下的 downloads" placeholder="默认" stack />
+          <SSwitch k="downloadAsCbz" label="存成 CBZ 压缩包" hint="每一话打包成一个 .cbz 文件，便于拷到其他阅读器；不影响在这里阅读" />
+        </Section>
+      </RequireSettings>
 
-      <Section title="自动下载新章节" desc="检查书库更新发现新章节时自动加入下载队列。">
+      <Section title="自动下载新章节" desc="检查书库更新发现新章节时自动加入下载队列。只影响你自己的账号。">
         <SSwitch k="autoDownloadNewChapters" label="自动下载新章节" />
         <SSwitch k="excludeEntryWithUnreadChapters" label="跳过有未读章节的漫画" hint="已经积压了没读的，就不自动下载新的" />
         <SNumber k="autoDownloadNewChaptersLimit" label="每部最多自动下载" unit="话" min={0} hint="一次发现很多新章节时最多下载几话；0 表示不限制" />
@@ -29,8 +34,10 @@ export function DownloadsTab() {
       </Section>
 
       <Section title="图片格式转换" desc="下载时把图片转成另一种格式，适合需要兼容老设备、或想压缩体积的情况。不常用，没有需求可以留空。">
-        <Conversions k="downloadConversions" label="下载时转换" />
-        <Conversions k="serveConversions" label="阅读时转换" hint="浏览器打开页面时实时转换，不改动已下载的文件" />
+        <RequireSettings>
+          <Conversions k="downloadConversions" label="下载时转换" hint="所有用户共用" />
+        </RequireSettings>
+        <Conversions k="serveConversions" label="阅读时转换" hint="浏览器打开页面时实时转换，不改动已下载的文件；只影响你自己的账号" />
       </Section>
     </>
   )
