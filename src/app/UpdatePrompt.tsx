@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
-import { RefreshCw, X } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { create } from 'zustand'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
@@ -71,34 +71,46 @@ export function UpdatePrompt() {
   useUpdateWatch()
   const next = useAppUpdate((s) => s.next)
   const dismissed = useAppUpdate((s) => s.dismissed)
+  const [reloading, setReloading] = useState(false)
   const show = !!next && next !== dismissed
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--nav-h)+8px)] z-[59] flex justify-center px-4 md:justify-end md:px-6">
+    <div className="pointer-events-none fixed inset-x-0 top-[calc(var(--nav-h)+10px)] z-[59] flex justify-center px-4 md:justify-end md:px-6">
       <AnimatePresence>
         {show && (
           <MotionGlass
             dense
             role="status"
-            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            initial={{ opacity: 0, y: -10, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={spring.fast}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={spring.default}
             suspendRefract
-            className="pointer-events-auto flex items-center gap-1 rounded-full py-1.5 pr-1.5 pl-5 text-[13px] font-semibold"
+            className="pointer-events-auto flex w-full max-w-[380px] items-center gap-3.5 rounded-[26px] py-3 pr-3 pl-3.5"
           >
-            <span className="mr-2">Sukimi 有新版本</span>
-            <button type="button" className="solid min-h-8 gap-1.5 px-3.5 text-[13px] shadow-none" onClick={() => location.reload()}>
-              <RefreshCw className="size-4" strokeWidth={2} />
-              刷新
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-solid text-on-solid">
+              <Sparkles className="size-[18px]" strokeWidth={2} />
+            </span>
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block text-[14px] font-semibold">新版本已就绪</span>
+              <span className="mt-1 block text-[12px] text-muted">更新后页面会重新载入</span>
+            </span>
+            <button
+              type="button"
+              className="h-9 shrink-0 rounded-full px-3 text-[13px] font-semibold text-muted transition-colors hover:text-text"
+              onClick={() => useAppUpdate.setState({ dismissed: next })}
+            >
+              稍后
             </button>
             <button
               type="button"
-              aria-label="稍后再说"
-              title="稍后再说"
-              className="grid size-8 place-items-center rounded-full text-muted hover:text-text"
-              onClick={() => useAppUpdate.setState({ dismissed: next })}
+              disabled={reloading}
+              className="h-9 shrink-0 rounded-full bg-solid px-4 text-[13px] font-bold text-on-solid transition-opacity hover:opacity-90 disabled:opacity-60"
+              onClick={() => {
+                setReloading(true)
+                location.reload()
+              }}
             >
-              <X className="size-4" strokeWidth={2} />
+              {reloading ? '更新中…' : '更新'}
             </button>
           </MotionGlass>
         )}
