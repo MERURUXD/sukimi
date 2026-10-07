@@ -17,6 +17,7 @@ export type BackupRestoreState =
   | 'RESTORING_MANGA'
   | 'RESTORING_META'
   | 'RESTORING_SETTINGS'
+  | 'RESTORING_USER_SETTINGS'
   | 'SUCCESS';
 
 export type BooleanFilterInput = {
@@ -225,6 +226,7 @@ export type PartialBackupFlagsInput = {
   includeManga?: boolean | null | undefined;
   includeServerSettings?: boolean | null | undefined;
   includeTracking?: boolean | null | undefined;
+  includeUserSettings?: boolean | null | undefined;
 };
 
 export type PartialSettingsTypeInput = {
@@ -238,9 +240,7 @@ export type PartialSettingsTypeInput = {
   autoBackupIncludeManga?: boolean | null | undefined;
   autoBackupIncludeServerSettings?: boolean | null | undefined;
   autoBackupIncludeTracking?: boolean | null | undefined;
-  autoDownloadIgnoreReUploads?: boolean | null | undefined;
-  autoDownloadNewChapters?: boolean | null | undefined;
-  autoDownloadNewChaptersLimit?: number | null | undefined;
+  autoBackupIncludeUserSettings?: boolean | null | undefined;
   backupInterval?: number | null | undefined;
   backupPath?: string | null | undefined;
   backupTTL?: number | null | undefined;
@@ -254,10 +254,6 @@ export type PartialSettingsTypeInput = {
   downloadConversions?: Array<SettingsDownloadConversionTypeInput> | null | undefined;
   downloadsPath?: string | null | undefined;
   electronPath?: string | null | undefined;
-  excludeCompleted?: boolean | null | undefined;
-  excludeEntryWithUnreadChapters?: boolean | null | undefined;
-  excludeNotStarted?: boolean | null | undefined;
-  excludeUnreadChapters?: boolean | null | undefined;
   flareSolverrAsResponseFallback?: boolean | null | undefined;
   flareSolverrEnabled?: boolean | null | undefined;
   flareSolverrSessionName?: string | null | undefined;
@@ -271,43 +267,19 @@ export type PartialSettingsTypeInput = {
   jwtRefreshExpiry?: string | null | undefined;
   jwtTokenExpiry?: string | null | undefined;
   kcefEnabled?: boolean | null | undefined;
-  koreaderSyncChecksumMethod?: KoreaderSyncChecksumMethod | null | undefined;
-  koreaderSyncPercentageTolerance?: number | null | undefined;
-  koreaderSyncStrategyBackward?: KoreaderSyncConflictStrategy | null | undefined;
-  koreaderSyncStrategyForward?: KoreaderSyncConflictStrategy | null | undefined;
   localSourcePath?: string | null | undefined;
   maxLogFileSize?: string | null | undefined;
   maxLogFiles?: number | null | undefined;
   maxLogFolderSize?: string | null | undefined;
   maxSourcesInParallel?: number | null | undefined;
-  opdsCbzMimetype?: CbzMediaType | null | undefined;
-  opdsChapterSortOrder?: SortOrder | null | undefined;
-  opdsEnablePageReadProgress?: boolean | null | undefined;
-  opdsItemsPerPage?: number | null | undefined;
-  opdsMarkAsReadOnDownload?: boolean | null | undefined;
-  opdsShowOnlyDownloadedChapters?: boolean | null | undefined;
-  opdsShowOnlyUnreadChapters?: boolean | null | undefined;
-  opdsSkipChapterMetadataFeed?: boolean | null | undefined;
-  opdsUseBinaryFileSizes?: boolean | null | undefined;
   port?: number | null | undefined;
-  serveConversions?: Array<SettingsDownloadConversionTypeInput> | null | undefined;
   socksProxyEnabled?: boolean | null | undefined;
   socksProxyHost?: string | null | undefined;
   socksProxyPassword?: string | null | undefined;
   socksProxyPort?: string | null | undefined;
   socksProxyUsername?: string | null | undefined;
   socksProxyVersion?: number | null | undefined;
-  syncDataCategories?: boolean | null | undefined;
-  syncDataChapters?: boolean | null | undefined;
-  syncDataHistory?: boolean | null | undefined;
-  syncDataManga?: boolean | null | undefined;
-  syncDataTracking?: boolean | null | undefined;
-  syncInterval?: string | null | undefined;
-  syncYomiApiKey?: string | null | undefined;
-  syncYomiEnabled?: boolean | null | undefined;
-  syncYomiHost?: string | null | undefined;
   systemTrayEnabled?: boolean | null | undefined;
-  updateMangas?: boolean | null | undefined;
   useHikariConnectionPool?: boolean | null | undefined;
   webUIChannel?: WebUiChannel | null | undefined;
   webUIFlavor?: WebUiFlavor | null | undefined;

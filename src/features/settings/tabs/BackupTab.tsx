@@ -56,6 +56,7 @@ const STATE: Record<BackupRestoreState, string> = {
   RESTORING_MANGA: '正在恢复漫画',
   RESTORING_META: '正在恢复附加数据',
   RESTORING_SETTINGS: '正在恢复设置',
+  RESTORING_USER_SETTINGS: '正在恢复个人设置',
   SUCCESS: '恢复完成',
   FAILURE: '恢复失败',
 }
