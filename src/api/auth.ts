@@ -262,6 +262,8 @@ export function refreshAccessToken(): Promise<string> {
   const request: Promise<string> = anonymousRequest(RefreshMutation, { input: { refreshToken } })
     .then(async ({ refreshToken: r }) => {
       await establishSession(r.accessToken, undefined, started)
+      // 期间已退出或换了会话：不能让等着重放请求的 retryOnUnauthorized 拿着新会话的令牌去执行旧会话的操作
+      if (started !== epoch) throw new AuthError('会话已更换')
       return r.accessToken
     })
     .catch((e: unknown) => {
