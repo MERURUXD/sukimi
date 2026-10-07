@@ -11,6 +11,7 @@ import { IN_LIBRARY, RecentReads, RecentUpdates } from '@/features/home/queries'
 import { Categories, LibraryMangas } from '@/features/library/queries'
 import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE } from '@/features/updates/queries'
 import { snapshotUsable } from '@/features/auth/userScope'
+import { isDevLab } from '@/lib/demo'
 import { useAuth } from './auth'
 
 interface Entry {
@@ -81,6 +82,8 @@ const snapshots = new Map<string, unknown>()
 export async function loadSnapshots(client: ApolloClient) {
   // 还不知道是谁（没登录过）就不读，登录后走网络
   const userId = useAuth.getState().user?.id
+  // 虚构验收页的用户不是真实账号，不去读真实快照
+  if (isDevLab) return
   await Promise.all(
     ENTRIES.map(async (e) => {
       try {

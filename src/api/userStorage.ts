@@ -5,10 +5,11 @@
 import type { StoreApi } from 'zustand'
 import { createJSONStorage, type PersistOptions } from 'zustand/middleware'
 import { scopedKey } from '@/features/auth/userScope'
-import { isDemo } from '@/lib/demo'
+import { isDemo, isDevLab } from '@/lib/demo'
 import { useAuth } from './auth'
 
-const key = (name: string) => scopedKey(name, useAuth.getState().user?.id, isDemo)
+// 虚构验收页（/dev/*）同样走 .demo 隔离键，不碰真实用户的偏好
+const key = (name: string) => scopedKey(name, useAuth.getState().user?.id, isDemo || isDevLab)
 
 export const userStorage = <S>() =>
   createJSONStorage<S>(() => ({

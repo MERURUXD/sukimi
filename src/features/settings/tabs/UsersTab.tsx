@@ -127,7 +127,7 @@ export function UsersTab() {
 function IssuedCode({ issued, onClose }: { issued: Issued; onClose: () => void }) {
   const link = issued.kind === 'register' ? registerLink(window.location.origin, issued.code) : null
   return (
-    <Glass className="flex flex-col gap-3 rounded-[18px] p-4">
+    <div className="flex flex-col gap-3">
       <div className="text-sm text-muted">
         {issued.kind === 'register' ? '注册码' : `${issued.username} 的找回码`}只显示这一次，请现在复制并私下发给对方 · {codeExpiryText(issued.expiresAt)}
       </div>
@@ -147,7 +147,7 @@ function IssuedCode({ issued, onClose }: { issued: Issued; onClose: () => void }
           我已保存
         </Glass>
       </div>
-    </Glass>
+    </div>
   )
 }
 
