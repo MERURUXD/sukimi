@@ -125,7 +125,6 @@ export function uncacheReaderMeta(cache: ApolloCache, ids: readonly number[]) {
   }
 }
 
-const writes = createWriteOrder()
 let migration: Promise<void> | null = null
 const refreshing = new Map<number, Promise<void>>()
 
@@ -134,6 +133,14 @@ const refreshing = new Map<number, Promise<void>>()
  * 回来的结果也不能写进新账号的缓存和偏好：每个任务记下发起时的用户，之后发现不一致就放弃。
  */
 const currentUser = () => useAuth.getState().user?.id
+
+/** 写入顺序与「已修改」记录按账号各一份：一个账号改过的键，不能让另一个账号的补传误以为自己改过 */
+const writeOrders = new Map<number | undefined, ReturnType<typeof createWriteOrder>>()
+const writesOf = (userId = currentUser()) => {
+  let w = writeOrders.get(userId)
+  if (!w) writeOrders.set(userId, (w = createWriteOrder()))
+  return w
+}
 useAuth.subscribe((s, prev) => {
   if (s.user?.id === prev.user?.id) return
   // 旧账号的任务即使还没结束，也不能挡住新账号重新开始
@@ -142,7 +149,7 @@ useAuth.subscribe((s, prev) => {
 })
 
 /** 等排着的补传和保存全部结束；清除前要等，否则它们会把刚清掉的设置又写回服务端 */
-export const settleReaderWrites = writes.settle
+export const settleReaderWrites = () => writesOf().settle()
 
 /** 旧的浏览器内按漫画设置补传到服务端，成功后清掉；失败下次再试，期间仍按浏览器里的值显示 */
 export function useMigrateReaderPrefs() {
@@ -152,6 +159,7 @@ export function useMigrateReaderPrefs() {
     const ids = Object.keys(legacy).map(Number)
     if (!ids.length || migration) return
     const userId = currentUser()
+    const writes = writesOf(userId)
     const mine: Promise<void> = (migration = writes.run(async () => {
       // 排队期间换了账号：这批旧设置属于上一个账号的浏览器存档，不在这里补传
       if (currentUser() !== userId) return
@@ -186,6 +194,7 @@ function refreshReaderMeta(client: ApolloClient, mangaId: number) {
   if (running) return running
   const variables = { id: mangaId }
   const userId = currentUser()
+  const writes = writesOf(userId)
   const task: Promise<void> = writes
     .run(async () => {
       if (currentUser() !== userId) return
@@ -245,6 +254,7 @@ export function useReaderSettings(mangaId: number) {
     if (!metas.length) return
     // 先按写入成功显示；保存排队依次发送，只有这次仍是最新修改时才用响应更新界面
     const keys = metas.map((m) => m.key)
+    const writes = writesOf()
     const id = writes.mark(mangaId, keys)
     const latest = (m: { mangaId: number; key: string }) => writes.isLatest(m.mangaId, m.key, id)
     cacheReaderMeta(client.cache, metas.map((m) => ({ mangaId, ...m })))
