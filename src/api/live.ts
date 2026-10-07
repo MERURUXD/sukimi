@@ -6,6 +6,7 @@ import type { ApolloClient } from '@apollo/client'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useApolloClient } from '@apollo/client/react'
+import { useAuth } from './auth'
 import { graphql } from './gql'
 import type { DownloadItemFragment } from './gql/graphql'
 import { wsClient } from './client'
@@ -89,6 +90,11 @@ export const useLive = create<LiveState>(() => ({
   queue: [],
   updater: { isRunning: false, finished: 0, total: 0 },
 }))
+
+// 退出登录或换账号时清空，下载队列、更新进度不留给下一个用户
+useAuth.subscribe((s, prev) => {
+  if (s.user?.id !== prev.user?.id) useLive.setState(useLive.getInitialState())
+})
 
 const sortQueue = (q: DownloadItem[]) => [...q].sort((a, b) => a.position - b.position)
 

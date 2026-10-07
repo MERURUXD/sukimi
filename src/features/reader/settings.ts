@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { toastError } from '@/components/ui/toast'
-import { preferenceKey } from '@/lib/demo'
+import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
+import { USER_KEYS } from '@/features/auth/userScope'
 import { ReaderMangaMeta, ReaderMetaOf, SetReaderMeta } from './queries'
 import { READER_META_PREFIX, createWriteOrder, mergeServerMeta, parseReaderMeta, planMigration, splitPatch, toReaderMeta, type Meta } from './remote'
 
@@ -79,19 +80,20 @@ interface Store {
   clearPerManga: () => void
 }
 
+const INITIAL: Pick<Store, 'defaults' | 'perManga' | 'rememberPerManga'> = { defaults: DEFAULTS, perManga: {}, rememberPerManga: true }
+
 export const useReaderStore = create<Store>()(
   persist(
     (set) => ({
-      defaults: DEFAULTS,
-      perManga: {},
-      rememberPerManga: true,
+      ...INITIAL,
       setRemember: (rememberPerManga) => set({ rememberPerManga }),
       setDefaults: (patch) => set((s) => ({ defaults: { ...s.defaults, ...patch } })),
       clearPerManga: () => set({ perManga: {} }),
     }),
-    { name: preferenceKey('suwayomi-web.reader'), version: 1 },
+    { name: USER_KEYS.reader, storage: userStorage<Store>(), merge: scopedMerge<Store>(INITIAL), version: 1 },
   ),
 )
+rehydrateOnUserChange(useReaderStore)
 
 /** 把写入的元数据并进缓存里那部漫画的列表，阅读器和设置页立即生效 */
 export function cacheReaderMeta(cache: ApolloCache, metas: readonly { mangaId: number; key: string; value: string }[]) {

@@ -6,11 +6,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ApolloCache } from '@apollo/client'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
+import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Popover } from '@/components/ui/Popover'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
+import { USER_KEYS } from '@/features/auth/userScope'
 import { Switch } from '@/features/settings/parts'
 import { cn } from '@/lib/cn'
 import { defaultLangs, langCounts, tabCounts, visibleExtensions, type Extension, type ExtensionTab } from './extensionList'
@@ -18,23 +20,27 @@ import { Extensions, FetchExtensions, InstallExternalExtension, langLabel, Updat
 import { SourceIcon } from './SourceIcon'
 
 /** 「未安装」的语言选择和成人扩展开关，记在本机 */
-const useExtensionView = create<{
+interface ExtensionView {
   /** null = 还没选过，用默认语言 */
   langs: string[] | null
   hideNsfw: boolean
   setLangs: (langs: string[] | null) => void
   setHideNsfw: (v: boolean) => void
-}>()(
+}
+
+const INITIAL: Pick<ExtensionView, 'langs' | 'hideNsfw'> = { langs: null, hideNsfw: false }
+
+const useExtensionView = create<ExtensionView>()(
   persist(
     (set) => ({
-      langs: null,
-      hideNsfw: false,
+      ...INITIAL,
       setLangs: (langs) => set({ langs }),
       setHideNsfw: (hideNsfw) => set({ hideNsfw }),
     }),
-    { name: 'suwayomi-web.extensions' },
+    { name: USER_KEYS.extensions, storage: userStorage<ExtensionView>(), merge: scopedMerge<ExtensionView>(INITIAL) },
   ),
 )
+rehydrateOnUserChange(useExtensionView)
 
 /** 上次从仓库拉取列表的时间；本次会话内 10 分钟内不重复拉 */
 let fetchedAt = 0

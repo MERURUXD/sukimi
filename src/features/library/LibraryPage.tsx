@@ -38,9 +38,11 @@ export function LibraryPage() {
   const deferredQuery = useDeferredValue(query.trim())
 
   const all = useMemo(() => data?.mangas.nodes ?? [], [data])
+  // 每个用户的默认分类 id 不同，不能写死 0
+  const defaultCategoryId = catData?.categories.nodes.find((c) => c.default)?.id ?? 0
   const items = useMemo(
-    () => applyView(all, { ...view, query: deferredQuery }),
-    [all, view, deferredQuery],
+    () => applyView(all, { ...view, defaultCategoryId, query: deferredQuery }),
+    [all, view, defaultCategoryId, deferredQuery],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(all), [all])
@@ -50,12 +52,12 @@ export function LibraryPage() {
     const cats = catData?.categories.nodes ?? []
     const tabs: SegItem<'all' | number>[] = [{ value: 'all', label: '全部', count: all.length }]
     for (const c of cats) {
-      const n = all.filter((m) => inCategory(m, c.id)).length
+      const n = all.filter((m) => inCategory(m, c.id, defaultCategoryId)).length
       if (c.default && n === 0) continue
       tabs.push({ value: c.id, label: c.default ? '默认' : c.name, count: n })
     }
     return tabs
-  }, [catData, all])
+  }, [catData, all, defaultCategoryId])
 
   // 记住的分类已被删除时回到「全部」
   useEffect(() => {

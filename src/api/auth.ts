@@ -12,6 +12,7 @@ import { create } from 'zustand'
 import { isDemo } from '@/lib/demo'
 import { graphql } from './gql'
 import { can, type AuthUser } from '@/features/auth/permissions'
+import { claimLegacyData } from '@/features/auth/userScope'
 import type { UserPermission } from './gql/graphql'
 
 const REFRESH_KEY = 'suwayomi-web.refreshToken'
@@ -155,6 +156,12 @@ const sameUser = (a: AuthUser | null, b: AuthUser) =>
 async function establishSession(token: string, refreshToken?: string) {
   const user = await fetchUser(token)
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
+  // 先认领旧偏好再公布新用户，各存储随后重新读取时就能读到
+  try {
+    claimLegacyData(localStorage, user.id)
+  } catch {
+    /* 存储不可用就从默认值开始 */
+  }
   localStorage.setItem(USER_KEY, JSON.stringify({ id: user.id, username: user.username }))
   applyAccessToken(token)
   // 内容没变就沿用原对象，避免每 5 分钟续期都让订阅了 user 的组件重渲染

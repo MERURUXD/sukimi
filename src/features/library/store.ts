@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { preferenceKey } from '@/lib/demo'
+import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
+import { USER_KEYS } from '@/features/auth/userScope'
 
 export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed'
 /** 0 不限 · 1 包含 · 2 排除 */
@@ -28,15 +29,19 @@ interface LibraryView {
 
 const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0 }
 
+const INITIAL: Pick<LibraryView, 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources'> = {
+  category: 'all',
+  filters: NO_FILTERS,
+  sort: 'updated',
+  desc: true,
+  density: 'comfy',
+  sources: [],
+}
+
 export const useLibraryView = create<LibraryView>()(
   persist(
     (set) => ({
-      category: 'all',
-      filters: NO_FILTERS,
-      sort: 'updated',
-      desc: true,
-      density: 'comfy',
-      sources: [],
+      ...INITIAL,
       setCategory: (category) => set({ category }),
       cycleFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: ((s.filters[k] + 1) % 3) as TriState } })),
       clearFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: 0 } })),
@@ -48,10 +53,13 @@ export const useLibraryView = create<LibraryView>()(
       clearSources: () => set({ sources: [] }),
     }),
     {
-      name: preferenceKey('suwayomi-web.library'),
+      name: USER_KEYS.library,
+      storage: userStorage<typeof INITIAL>(),
+      merge: scopedMerge<LibraryView>(INITIAL),
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
       partialize: ({ category, filters, sort, desc, density, sources }) => ({ category, filters, sort, desc, density, sources }),
     },
   ),
 )
+rehydrateOnUserChange(useLibraryView)

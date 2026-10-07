@@ -207,7 +207,7 @@ function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   }, [onClose, step])
 
   const plan = useMemo(() => (info.status === 'ready' ? planMigration(fromChapters, info.chapters) : null), [info, fromChapters])
-  const cats = from.categories.nodes.map((c) => c.id).filter((id) => id !== 0)
+  const cats = from.categories.nodes.filter((c) => !c.default).map((c) => c.id)
   const downloaded = fromChapters.filter((c) => c.isDownloaded).map((c) => c.id)
 
   const run = async () => {

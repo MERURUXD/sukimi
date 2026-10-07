@@ -71,3 +71,12 @@ useAuth.subscribe((s, prev) => {
     void apollo.clearStore()
   }
 })
+
+// 已登录状态下用户变了（启动时发现保存的身份与服务端不符等）：丢掉上一个用户的缓存、快照与连接，
+// 订阅用旧令牌建立的连接也要断开重连。页面树由 AuthGate 按用户 id 重建。
+useAuth.subscribe((s, prev) => {
+  if (s.status !== 'signedIn' || !s.user || !prev.user || s.user.id === prev.user.id) return
+  void clearSnapshots()
+  wsClient.terminate()
+  void apollo.clearStore()
+})
