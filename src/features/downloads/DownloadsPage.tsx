@@ -3,6 +3,7 @@ import { Reorder, useDragControls } from 'motion/react'
 import { ArrowDownToLine, ArrowUpToLine, GripVertical, Pause, Play, RotateCcw, Trash2, X } from 'lucide-react'
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import { Link } from 'react-router'
+import { useSharedServer } from '@/api/auth'
 import { setDownloadStatus, StartDownloader, StopDownloader, useLive, type DownloadItem } from '@/api/live'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -30,6 +31,7 @@ export function DownloadsPage() {
   const running = useLive((s) => s.downloader) === 'STARTED'
   const connected = useLive((s) => s.connected)
   const [view, setView] = useState<View>('order')
+  const shared = useSharedServer()
 
   const [start] = useMutation(StartDownloader)
   const [stop] = useMutation(StopDownloader)
@@ -75,8 +77,10 @@ export function DownloadsPage() {
 
   const clearAll = async () => {
     const ok = await confirm({
-      title: '清空下载队列？',
-      body: `队列里的 ${queue.length} 话都会移出，已经下载完的章节不受影响。`,
+      title: shared ? '清空所有账号的下载队列？' : '清空下载队列？',
+      body: shared
+        ? `队列由服务器上的所有账号共用，其他人加入的章节也会一起移出，共 ${queue.length} 话。已经下载完的章节不受影响。`
+        : `队列里的 ${queue.length} 话都会移出，已经下载完的章节不受影响。`,
       ok: '清空',
       danger: true,
     })
@@ -120,6 +124,11 @@ export function DownloadsPage() {
             {status}
             {!connected && ' · 实时连接断开，正在重连…'}
           </span>
+          {shared && (
+            <p className="mt-1 mb-0 text-[13px] text-faint">
+              下载队列由服务器上的所有账号共用：开始、暂停、调整顺序和移出都会影响其他人。
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2.5 max-sm:gap-2">
           {errors.length > 0 && (
@@ -129,12 +138,17 @@ export function DownloadsPage() {
             </Glass>
           )}
           {queue.length > 0 && (
-            <Glass as="button" type="button" className="gbtn rounded-full hover:text-danger" onClick={() => void clearAll()}>
+            <Glass as="button" type="button" className="gbtn rounded-full hover:text-danger" title={shared ? '移出所有账号排队的章节' : undefined} onClick={() => void clearAll()}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />
               清空
             </Glass>
           )}
-          <button type="button" className="solid min-h-11" onClick={() => void toggle()}>
+          <button
+            type="button"
+            className="solid min-h-11"
+            title={shared ? (running ? '所有账号的下载都会暂停' : '会开始下载所有账号排队的章节') : undefined}
+            onClick={() => void toggle()}
+          >
             {running ? <Pause className="size-[18px]" strokeWidth={1.8} /> : <Play className="size-[18px] fill-current" strokeWidth={1.6} />}
             {running ? (
               <span>
