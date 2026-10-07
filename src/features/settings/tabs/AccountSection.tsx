@@ -6,6 +6,7 @@ import { graphql } from '@/api/gql'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
+import { ROLE_LABEL } from '@/features/auth/permissions'
 import { Row, Section, TextInput } from '../parts'
 
 const SetPassword = graphql(`
@@ -15,8 +16,6 @@ const SetPassword = graphql(`
     }
   }
 `)
-
-const ROLE_LABEL = { ADMIN: '管理员', USER: '用户', VISITOR: '访客' } as const
 
 /** 服务端内置管理员（用户 1）的密码来自服务端配置，不能在这里改 */
 const BUILTIN_ADMIN_ID = 1

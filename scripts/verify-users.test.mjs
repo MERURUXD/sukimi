@@ -83,3 +83,14 @@ test('默认分类 id 不是 0 时，没有分类的漫画归在默认分类', a
   // 管理员默认分类仍是 0
   assert.equal(inCategory(none, 0), true)
 })
+
+test('注册码有效期：expiresAt 是秒，不是毫秒', async () => {
+  const { codeExpiryText, registerLink } = await import('../src/features/settings/userCodes.ts')
+  const now = Date.UTC(2026, 9, 7)
+  const at = (ms) => String((now + ms) / 1000)
+  assert.equal(codeExpiryText(at(7 * 24 * 3600_000 - 5000), now), '7 天后过期')
+  assert.equal(codeExpiryText(at(5 * 3600_000 - 5000), now), '5 小时后过期')
+  assert.equal(codeExpiryText(at(10 * 60_000), now), '不到 1 小时后过期')
+  assert.equal(codeExpiryText(at(-1000), now), '已过期')
+  assert.equal(registerLink('https://x.test', 'a b'), 'https://x.test/register?code=a%20b')
+})

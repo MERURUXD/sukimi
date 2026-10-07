@@ -14,3 +14,20 @@ export function can(user: Pick<AuthUser, 'roles' | 'permissions'> | null, permis
   if (!user) return false
   return user.roles.includes('ADMIN') || user.permissions.includes(permission)
 }
+
+export const PERMISSION_LABEL: Record<UserPermission, string> = {
+  INSTALL_EXTENSIONS: '安装扩展',
+  INSTALL_EXTERNAL_EXTENSIONS: '安装外部扩展（APK / 上传）',
+  UNINSTALL_EXTENSIONS: '卸载扩展',
+  DOWNLOAD_CHAPTERS: '下载章节',
+  ACCESS_NSFW: '查看成人内容',
+  MANAGE_SETTINGS: '管理服务端设置',
+  MANAGE_USERS: '管理用户',
+  MANAGE_EXTENSION_STORES: '管理扩展仓库',
+  MANAGE_SOURCE_PREFERENCES: '管理来源偏好',
+  MANAGE_CACHE: '清理缓存',
+}
+
+export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABEL) as UserPermission[]
+
+export const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '管理员', USER: '用户', VISITOR: '访客' }

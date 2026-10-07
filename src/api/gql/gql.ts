@@ -97,6 +97,13 @@ type Documents = {
     "\n  query KoSyncStatus {\n    koSyncStatus {\n      isLoggedIn\n      serverAddress\n      username\n    }\n  }\n": typeof types.KoSyncStatusDocument,
     "\n  mutation ConnectKoSync($input: ConnectKoSyncAccountInput!) {\n    connectKoSyncAccount(input: $input) {\n      message\n      status {\n        isLoggedIn\n        serverAddress\n        username\n      }\n    }\n  }\n": typeof types.ConnectKoSyncDocument,
     "\n  mutation LogoutKoSync {\n    logoutKoSyncAccount(input: {}) {\n      status {\n        isLoggedIn\n        serverAddress\n        username\n      }\n    }\n  }\n": typeof types.LogoutKoSyncDocument,
+    "\n  query Users {\n    users {\n      nodes {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n": typeof types.UsersDocument,
+    "\n  query UserCodes {\n    userCodes {\n      id\n      purpose\n      expiresAt\n      createdBy {\n        id\n        username\n      }\n      user {\n        id\n        username\n      }\n    }\n  }\n": typeof types.UserCodesDocument,
+    "\n  mutation CreateRegistrationCode {\n    createRegistrationCode(input: {}) {\n      code\n      expiresAt\n    }\n  }\n": typeof types.CreateRegistrationCodeDocument,
+    "\n  mutation CreateRecoveryCode($userId: Int!) {\n    createRecoveryCode(input: { userId: $userId }) {\n      code\n      expiresAt\n    }\n  }\n": typeof types.CreateRecoveryCodeDocument,
+    "\n  mutation RevokeUserCode($id: Int!) {\n    revokeUserCode(input: { id: $id }) {\n      clientMutationId\n    }\n  }\n": typeof types.RevokeUserCodeDocument,
+    "\n  mutation UpdateUser($input: UpdateUserInput!) {\n    updateUser(input: $input) {\n      user {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n": typeof types.UpdateUserDocument,
+    "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n": typeof types.RegisterUserDocument,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": typeof types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": typeof types.TrackRecordFieldsFragmentDoc,
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": typeof types.TrackSearchFieldsFragmentDoc,
@@ -197,6 +204,13 @@ const documents: Documents = {
     "\n  query KoSyncStatus {\n    koSyncStatus {\n      isLoggedIn\n      serverAddress\n      username\n    }\n  }\n": types.KoSyncStatusDocument,
     "\n  mutation ConnectKoSync($input: ConnectKoSyncAccountInput!) {\n    connectKoSyncAccount(input: $input) {\n      message\n      status {\n        isLoggedIn\n        serverAddress\n        username\n      }\n    }\n  }\n": types.ConnectKoSyncDocument,
     "\n  mutation LogoutKoSync {\n    logoutKoSyncAccount(input: {}) {\n      status {\n        isLoggedIn\n        serverAddress\n        username\n      }\n    }\n  }\n": types.LogoutKoSyncDocument,
+    "\n  query Users {\n    users {\n      nodes {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n": types.UsersDocument,
+    "\n  query UserCodes {\n    userCodes {\n      id\n      purpose\n      expiresAt\n      createdBy {\n        id\n        username\n      }\n      user {\n        id\n        username\n      }\n    }\n  }\n": types.UserCodesDocument,
+    "\n  mutation CreateRegistrationCode {\n    createRegistrationCode(input: {}) {\n      code\n      expiresAt\n    }\n  }\n": types.CreateRegistrationCodeDocument,
+    "\n  mutation CreateRecoveryCode($userId: Int!) {\n    createRecoveryCode(input: { userId: $userId }) {\n      code\n      expiresAt\n    }\n  }\n": types.CreateRecoveryCodeDocument,
+    "\n  mutation RevokeUserCode($id: Int!) {\n    revokeUserCode(input: { id: $id }) {\n      clientMutationId\n    }\n  }\n": types.RevokeUserCodeDocument,
+    "\n  mutation UpdateUser($input: UpdateUserInput!) {\n    updateUser(input: $input) {\n      user {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n": types.UpdateUserDocument,
+    "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n": types.RegisterUserDocument,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": types.TrackRecordFieldsFragmentDoc,
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": types.TrackSearchFieldsFragmentDoc,
@@ -560,6 +574,34 @@ export function graphql(source: "\n  mutation ConnectKoSync($input: ConnectKoSyn
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation LogoutKoSync {\n    logoutKoSyncAccount(input: {}) {\n      status {\n        isLoggedIn\n        serverAddress\n        username\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation LogoutKoSync {\n    logoutKoSyncAccount(input: {}) {\n      status {\n        isLoggedIn\n        serverAddress\n        username\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query Users {\n    users {\n      nodes {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n"): (typeof documents)["\n  query Users {\n    users {\n      nodes {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query UserCodes {\n    userCodes {\n      id\n      purpose\n      expiresAt\n      createdBy {\n        id\n        username\n      }\n      user {\n        id\n        username\n      }\n    }\n  }\n"): (typeof documents)["\n  query UserCodes {\n    userCodes {\n      id\n      purpose\n      expiresAt\n      createdBy {\n        id\n        username\n      }\n      user {\n        id\n        username\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateRegistrationCode {\n    createRegistrationCode(input: {}) {\n      code\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  mutation CreateRegistrationCode {\n    createRegistrationCode(input: {}) {\n      code\n      expiresAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CreateRecoveryCode($userId: Int!) {\n    createRecoveryCode(input: { userId: $userId }) {\n      code\n      expiresAt\n    }\n  }\n"): (typeof documents)["\n  mutation CreateRecoveryCode($userId: Int!) {\n    createRecoveryCode(input: { userId: $userId }) {\n      code\n      expiresAt\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RevokeUserCode($id: Int!) {\n    revokeUserCode(input: { id: $id }) {\n      clientMutationId\n    }\n  }\n"): (typeof documents)["\n  mutation RevokeUserCode($id: Int!) {\n    revokeUserCode(input: { id: $id }) {\n      clientMutationId\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation UpdateUser($input: UpdateUserInput!) {\n    updateUser(input: $input) {\n      user {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation UpdateUser($input: UpdateUserInput!) {\n    updateUser(input: $input) {\n      user {\n        id\n        username\n        roles\n        permissions\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n"): (typeof documents)["\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
