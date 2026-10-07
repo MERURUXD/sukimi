@@ -8,7 +8,7 @@ import type { ApolloCache } from '@apollo/client'
 import { useCan } from '@/api/auth'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
-import { resetOnUserContext } from '@/api/userContext'
+import { contextGeneration, resetOnUserContext } from '@/api/userContext'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Popover } from '@/components/ui/Popover'
@@ -92,16 +92,19 @@ export function ExtensionsPage() {
 
   const check = async (quiet = false) => {
     setChecking(true)
+    // 请求期间换了身份：返回的列表按旧权限取得，不能写进缓存，也不能记成「刚拉过」
+    const gen = contextGeneration()
     try {
       const r = await fetchExtensions({
         // 拉回来的就是完整列表，直接写进列表查询，省一次请求
         update: (cache, { data: d }) => {
           const nodes = d?.fetchExtensions?.extensions
-          if (!nodes) return
+          if (!nodes || contextGeneration() !== gen) return
           cache.writeQuery({ query: Extensions, data: { extensions: { nodes } } })
           forgetSources(cache)
         },
       })
+      if (contextGeneration() !== gen) return
       fetchedAt = Date.now()
       if (!quiet) {
         const n = r.data?.fetchExtensions?.extensions.filter((e) => e.isInstalled && e.hasUpdate).length ?? 0

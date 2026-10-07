@@ -11,7 +11,13 @@ export function resetOnUserContext(fn: () => void) {
   resets.add(fn)
 }
 
+let generation = 0
+
+/** 身份环境的代数：每次重置加一。异步任务开始时记下，返回后对不上就丢弃结果 */
+export const contextGeneration = () => generation
+
 export function resetUserContext() {
+  generation++
   for (const fn of resets) fn()
 }
 
