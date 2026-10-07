@@ -163,7 +163,8 @@ export function useMigrateReaderPrefs() {
         await client.mutate({
           mutation: SetReaderMeta,
           variables: { items },
-          update: (cache, { data }) => data && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter((m) => !writes.touched(m.mangaId, m.key))),
+          // 请求发出后才换了账号：返回的数据属于上一个账号，不能写进新账号的缓存
+          update: (cache, { data }) => data && currentUser() === userId && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter((m) => !writes.touched(m.mangaId, m.key))),
         })
       }
       // 只清当前账号自己的存档，换了账号就不能动新账号的偏好
@@ -255,7 +256,7 @@ export function useReaderSettings(mangaId: number) {
         await client.mutate({
           mutation: SetReaderMeta,
           variables: { items: [{ mangaIds: [mangaId], metas }] },
-          update: (cache, { data }) => data && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter(latest)),
+          update: (cache, { data }) => data && currentUser() === userId && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter(latest)),
         })
       })
       .then(
