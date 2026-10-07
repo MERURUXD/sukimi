@@ -1,0 +1,53 @@
+# 推送到 main 后检查并打包前端，发布到滚动的 webui-latest 预发布版本。
+# 服务器上的定时任务读取这里的清单，校验哈希后免重启热更新。
+name: webui-release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# 连续推送时只发布最后一次
+concurrency:
+  group: webui-release
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: 打包与清单
+        run: |
+          commit=$(git rev-parse --short HEAD)
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          printf '{\n  "deployedAt": "%s",\n  "commit": "%s"\n}\n' "$now" "$commit" > dist/.suwayomi-web
+          tar -cf sukimi-webui.tar -C dist .
+          sha=$(sha256sum sukimi-webui.tar | cut -d' ' -f1)
+          printf '{"commit":"%s","sha256":"%s","builtAt":"%s"}\n' "$commit" "$sha" "$now" > sukimi-webui.json
+          cat sukimi-webui.json
+
+      - name: 发布到 webui-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f webui-latest
+          git push -f origin webui-latest
+          gh release view webui-latest >/dev/null 2>&1 ||
+            gh release create webui-latest --prerelease --title '前端最新构建' --notes '由 webui-release 自动更新，服务器定时拉取。'
+          # 清单最后上传：服务器读到新清单时，归档已经是同一版；万一读到一半，哈希不符会等下一轮
+          gh release upload webui-latest sukimi-webui.tar --clobber
+          gh release upload webui-latest sukimi-webui.json --clobber
