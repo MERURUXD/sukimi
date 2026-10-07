@@ -3,7 +3,8 @@ import { ExternalLink, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { graphql } from '@/api/gql'
 import { Glass } from '@/components/glass/Glass'
-import { toastError } from '@/components/ui/toast'
+import { toast, toastError } from '@/components/ui/toast'
+import { checkForUpdate } from '@/app/UpdatePrompt'
 import { formatDate } from '@/lib/format'
 import { Row, Section } from '../parts'
 import { AccountSection } from './AccountSection'
@@ -120,14 +121,35 @@ export function AboutTab() {
       </Section>
 
       <Section title="Sukimi">
-        <Row label="版本" hint="更新方法：在项目目录运行 pnpm deploy:server，然后重启服务端">
-          <span className="text-muted num">
-            {__APP_COMMIT__} · {formatDate(Date.parse(__APP_BUILT_AT__))}
-          </span>
+        <Row label="版本" hint="在项目目录运行 pnpm deploy:server 部署新版本；已打开的页面会提示刷新">
+          <div className="flex items-center gap-3">
+            <span className="text-muted num">
+              {__APP_COMMIT__} · {formatDate(Date.parse(__APP_BUILT_AT__))}
+            </span>
+            <AppCheck />
+          </div>
         </Row>
       </Section>
 
       <AccountSection />
     </>
+  )
+}
+
+function AppCheck() {
+  const [checking, setChecking] = useState(false)
+  async function check() {
+    setChecking(true)
+    const r = await checkForUpdate(true)
+    setChecking(false)
+    // 有新版本时由页面顶部的常驻提示负责，这里只补充另外两种结果
+    if (r === false) toast('已是最新版本')
+    else if (r === undefined) toast(import.meta.env.DEV ? '开发环境不检查前端版本' : '暂时无法检查，稍后再试', 'error')
+  }
+  return (
+    <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void check()} disabled={checking}>
+      <RefreshCw className={checking ? 'size-[18px] animate-spin' : 'size-[18px]'} strokeWidth={1.8} />
+      检查
+    </Glass>
   )
 }

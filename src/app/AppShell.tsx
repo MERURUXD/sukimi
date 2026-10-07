@@ -9,6 +9,7 @@ import { MobileTabBar } from './MobileTabBar'
 import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
 import { TopNav } from './TopNav'
+import { UpdatePrompt } from './UpdatePrompt'
 
 /** 需要登录的页面外壳：未登录跳登录页，连不上服务器给重试 */
 export function AuthGate() {
@@ -58,6 +59,7 @@ export function AppShell() {
         <Outlet />
       </main>
       {tabbar && <MobileTabBar />}
+      <UpdatePrompt />
       <ScrollManager />
     </div>
   )
