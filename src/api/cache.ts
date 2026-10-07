@@ -10,6 +10,7 @@ export function createCache() {
     typePolicies: {
       // 没有 id 的全局单例：查询和 setSettings 返回的结果合并到同一个对象上
       SettingsType: { keyFields: [] },
+      UserSettingsType: { keyFields: [] },
       KoSyncStatusPayload: { keyFields: [] },
       // 扩展仓库以地址区分
       ExtensionStoreType: { keyFields: ['indexUrl'] },

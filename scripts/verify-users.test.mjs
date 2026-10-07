@@ -101,3 +101,13 @@ test('没有权限的报错改成清楚的提示，其他报错只取第一行',
   assert.equal(errorText(new Error('出错了\n堆栈')), '出错了')
   assert.equal(errorText('纯文本'), '纯文本')
 })
+
+test('按用户的设置共 31 项，不含全局项', async () => {
+  const { USER_SETTING_KEYS, isUserSettingKey } = await import('../src/features/settings/userSettingKeys.ts')
+  assert.equal(USER_SETTING_KEYS.size, 31)
+  assert.equal(isUserSettingKey('opdsItemsPerPage'), true)
+  assert.equal(isUserSettingKey('autoDownloadNewChapters'), true)
+  assert.equal(isUserSettingKey('downloadsPath'), false)
+  assert.equal(isUserSettingKey('globalUpdateInterval'), false)
+  assert.equal(isUserSettingKey('port'), false)
+})
