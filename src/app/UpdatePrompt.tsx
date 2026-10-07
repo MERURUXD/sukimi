@@ -40,6 +40,22 @@ export async function checkForUpdate(force = false): Promise<boolean | undefined
   }
 }
 
+const RETURN_KEY = 'suwayomi-web.update-return'
+
+/**
+ * 换到新版本。不能直接 reload：服务端缓存了深层路径的回退页，热更新后只有 / 是新首页，
+ * 所以先记下当前地址回到 /，由 index.html 的内联脚本在启动前换回原地址。
+ */
+function applyUpdate() {
+  if (location.pathname === '/') return location.reload()
+  try {
+    sessionStorage.setItem(RETURN_KEY, location.pathname + location.search + location.hash)
+  } catch {
+    /* 存不了就停在首页 */
+  }
+  location.replace('/')
+}
+
 /** 懒加载分块失败多半是服务端重启后旧资源被清掉了，同样提示刷新 */
 function onPreloadError() {
   useAppUpdate.setState({ next: 'chunk-missing', dismissed: undefined })
@@ -107,7 +123,7 @@ export function UpdatePrompt() {
               className="h-9 shrink-0 rounded-full bg-solid px-4 text-[13px] font-bold text-on-solid transition-opacity hover:opacity-90 disabled:opacity-60"
               onClick={() => {
                 setReloading(true)
-                location.reload()
+                applyUpdate()
               }}
             >
               {reloading ? '更新中…' : '更新'}

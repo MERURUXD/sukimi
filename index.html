@@ -7,6 +7,13 @@
     <meta name="description" content="Sukimi，为 Suwayomi Server 打造的液态玻璃漫画网页客户端。" />
     <title>Sukimi</title>
     <script>
+      // 点「更新」时先回到 / 取最新首页（服务端会缓存深层路径的回退页，热更新后仍是旧版），
+      // 再在任何模块读取路径之前换回原来的地址，见 src/app/UpdatePrompt.tsx
+      try {
+        var back = sessionStorage.getItem('suwayomi-web.update-return')
+        sessionStorage.removeItem('suwayomi-web.update-return')
+        if (back && location.pathname === '/' && back.charAt(0) === '/' && back.charAt(1) !== '/') history.replaceState(null, '', back)
+      } catch (e) {}
       // 首帧前应用已保存的外观，避免深浅色闪烁
       try {
         var demo = location.pathname === '/demo' || location.pathname.startsWith('/demo/')
