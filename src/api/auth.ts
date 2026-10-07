@@ -236,6 +236,8 @@ export async function redeemRecoveryCode(code: string, newPassword: string) {
 }
 
 export function signOut() {
+  // 退出也是一次会话变化：还在路上的续期 / 登录返回后不能把令牌和用户再写回来
+  startNewSession()
   clearTimeout(refreshTimer)
   accessToken = null
   accessExp = 0
