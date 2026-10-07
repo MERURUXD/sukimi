@@ -76,7 +76,7 @@ export function SChoice<V extends string | number>({
       {s.value === undefined ? (
         <span className="text-muted">…</span>
       ) : opts.length <= 4 && !opts.some((o) => o.disabled) ? (
-        <Seg label={name} items={opts} value={s.value} onChange={(v) => void s.set(v)} />
+        <Seg glass={false} label={name} items={opts} value={s.value} onChange={(v) => void s.set(v)} />
       ) : (
         <Select label={name} value={s.value} options={opts} onChange={(v) => void s.set(v)} className="min-w-[200px]" />
       )}

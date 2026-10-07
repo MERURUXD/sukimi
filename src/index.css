@@ -175,6 +175,12 @@
     box-shadow: var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.18));
   }
 
+  /* 设置正文里的静态控件（输入框、分段、按钮）：普通表面，不挂模糊和折射，保留圆角与轻描边 */
+  .plain {
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
   /* 玻璃上的按钮 */
   .gbtn {
     display: inline-flex;

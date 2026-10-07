@@ -13,7 +13,7 @@ function DemoIdentity() {
   const id = useAuth((s) => s.user?.id)
   return <Section title="演示身份" desc="两个都是虚构用户。切换后，设置里的「用户」页、下载入口等会按权限显示或隐藏。">
     <Row label="当前身份">
-      <Seg label="演示身份" value={id === PREVIEW_MEMBER.id ? 'member' : 'admin'}
+      <Seg glass={false} label="演示身份" value={id === PREVIEW_MEMBER.id ? 'member' : 'admin'}
         onChange={(v) => useAuth.setState({ user: v === 'member' ? PREVIEW_MEMBER : PREVIEW_ADMIN })}
         items={[{ value: 'admin', label: '管理员' }, { value: 'member', label: '普通用户' }]} />
     </Row>

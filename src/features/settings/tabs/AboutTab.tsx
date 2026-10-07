@@ -2,7 +2,6 @@ import { useApolloClient, useQuery } from '@apollo/client/react'
 import { ExternalLink, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
 import { graphql } from '@/api/gql'
-import { Glass } from '@/components/glass/Glass'
 import { toast, toastError } from '@/components/ui/toast'
 import { checkForUpdate } from '@/app/UpdatePrompt'
 import { formatDate } from '@/lib/format'
@@ -100,10 +99,10 @@ export function AboutTab() {
                 下载页
               </a>
             )}
-            <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void check()} disabled={checking}>
+            <button type="button" className="gbtn plain rounded-full" onClick={() => void check()} disabled={checking}>
               <RefreshCw className={checking ? 'size-[18px] animate-spin' : 'size-[18px]'} strokeWidth={1.8} />
               检查
-            </Glass>
+            </button>
           </div>
         </Row>
         {a && (
@@ -147,9 +146,9 @@ function AppCheck() {
     else if (r === undefined) toast(import.meta.env.DEV ? '开发环境不检查前端版本' : '暂时无法检查，稍后再试', 'error')
   }
   return (
-    <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void check()} disabled={checking}>
+    <button type="button" className="gbtn plain rounded-full" onClick={() => void check()} disabled={checking}>
       <RefreshCw className={checking ? 'size-[18px] animate-spin' : 'size-[18px]'} strokeWidth={1.8} />
       检查
-    </Glass>
+    </button>
   )
 }

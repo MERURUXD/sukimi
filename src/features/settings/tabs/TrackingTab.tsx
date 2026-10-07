@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from '@apollo/client/react'
 import { useState, type FormEvent } from 'react'
-import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SourceIcon } from '@/features/browse/SourceIcon'
@@ -76,9 +75,9 @@ function TrackerRow({ t }: { t: Tracker }) {
           </span>
         </span>
         {t.isLoggedIn && !t.isTokenExpired ? (
-          <Glass as="button" type="button" className="gbtn rounded-full" disabled={leaving} onClick={() => void signOut()}>
+          <button type="button" className="gbtn plain rounded-full" disabled={leaving} onClick={() => void signOut()}>
             退出
-          </Glass>
+          </button>
         ) : (
           !form && (
             <button type="button" className="solid min-h-10" onClick={signIn}>

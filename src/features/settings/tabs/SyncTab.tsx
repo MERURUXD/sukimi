@@ -3,7 +3,6 @@ import { RefreshCw } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { graphql } from '@/api/gql'
 import type { KoreaderSyncConflictStrategy, SyncState } from '@/api/gql/graphql'
-import { Glass } from '@/components/glass/Glass'
 import { toast, toastError } from '@/components/ui/toast'
 import { timeAgo } from '@/lib/format'
 import { SChoice, SDuration, SNumber, SSecret, SSwitch, SText } from '../fields'
@@ -111,10 +110,10 @@ function SyncYomiSection() {
       title="SyncYomi"
       desc="通过自建的 SyncYomi 服务，和 Mihon 等其他设备同步书库与阅读进度。"
       action={
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void syncNow()} disabled={loading}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => void syncNow()} disabled={loading}>
           <RefreshCw className="size-[18px]" strokeWidth={1.8} />
           立即同步
-        </Glass>
+        </button>
       }
     >
       {s && (
@@ -161,9 +160,9 @@ function KoReaderSection() {
     <Section title="KOReader 同步" desc="和 KOReader 阅读器（电子书设备常用）同步阅读进度，使用 KOReader 的进度同步服务。">
       {st?.isLoggedIn ? (
         <Row label={`已连接：${st.username ?? ''}`} hint={st.serverAddress ?? undefined}>
-          <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void logout().catch((e) => toastError('退出失败', e))}>
+          <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError('退出失败', e))}>
             断开
-          </Glass>
+          </button>
         </Row>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-2.5">

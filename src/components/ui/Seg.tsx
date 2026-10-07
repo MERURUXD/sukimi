@@ -10,7 +10,7 @@ export interface SegItem<T> {
   count?: number
 }
 
-/** 玻璃分段控件，选中块在选项间滑动 */
+/** 分段控件，选中块在选项间滑动；glass=false 时用普通表面（静态页面里的设置项）*/
 export function Seg<T extends string | number>({
   items,
   value,
@@ -72,7 +72,7 @@ export function Seg<T extends string | number>({
       {body}
     </Glass>
   ) : (
-    <div ref={root} role="group" aria-label={label} data-fade={fade} className={cn('seg isolate bg-accent-soft', className)}>
+    <div ref={root} role="group" aria-label={label} data-fade={fade} className={cn('seg plain isolate', className)}>
       {body}
     </div>
   )

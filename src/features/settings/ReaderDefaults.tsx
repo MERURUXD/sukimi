@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client/react'
 import { useState } from 'react'
 import { useAuth } from '@/api/auth'
-import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
@@ -61,10 +60,11 @@ export function ReaderDefaults() {
   return (
     <>
       <Row label="阅读模式">
-        <Seg label="阅读模式" items={MODES} value={d.mode} onChange={(mode) => set({ mode })} />
+        <Seg glass={false} label="阅读模式" items={MODES} value={d.mode} onChange={(mode) => set({ mode })} />
       </Row>
       <Row label="翻页方向" hint="分页模式下生效">
         <Seg
+          glass={false}
           label="翻页方向"
           items={[
             { value: 'rtl', label: '从右到左' },
@@ -75,10 +75,10 @@ export function ReaderDefaults() {
         />
       </Row>
       <Row label="缩放适配">
-        <Seg label="缩放适配" items={FITS} value={d.fit} onChange={(fit) => set({ fit })} />
+        <Seg glass={false} label="缩放适配" items={FITS} value={d.fit} onChange={(fit) => set({ fit })} />
       </Row>
       <Row label="点击分区" hint={TAP_ZONES.find((z) => z.value === d.tapZones)?.hint}>
-        <Seg label="点击分区" items={TAP_ZONES} value={d.tapZones} onChange={(tapZones) => set({ tapZones })} />
+        <Seg glass={false} label="点击分区" items={TAP_ZONES} value={d.tapZones} onChange={(tapZones) => set({ tapZones })} />
       </Row>
       <Row label="背景">
         <div className="flex gap-2.5">
@@ -116,15 +116,14 @@ export function ReaderDefaults() {
       <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存到服务器，换设备也一致${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
         <div className="flex items-center gap-3">
           {perMangaCount > 0 && (
-            <Glass
-              as="button"
+            <button
               type="button"
-              className="gbtn min-h-9 rounded-full text-[13px]"
+              className="gbtn plain min-h-9 rounded-full text-[13px]"
               disabled={clearing}
               onClick={clear}
             >
               全部清除
-            </Glass>
+            </button>
           )}
           <Switch on={remember} onChange={setRemember} label="按漫画记住阅读模式" />
         </div>

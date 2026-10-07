@@ -4,7 +4,6 @@ import { useState, type FormEvent } from 'react'
 import { useAuth } from '@/api/auth'
 import { graphql } from '@/api/gql'
 import type { UserPermission, UserRole } from '@/api/gql/graphql'
-import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
@@ -133,19 +132,19 @@ function IssuedCode({ issued, onClose }: { issued: Issued; onClose: () => void }
       </div>
       <code className="font-mono text-lg break-all select-all">{issued.code}</code>
       <div className="flex flex-wrap gap-2">
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void copy(issued.code, '码')}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => void copy(issued.code, '码')}>
           <Copy className="size-[18px]" strokeWidth={1.8} />
           复制码
-        </Glass>
+        </button>
         {link && (
-          <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void copy(link, '链接')}>
+          <button type="button" className="gbtn plain rounded-full" onClick={() => void copy(link, '链接')}>
             <Copy className="size-[18px]" strokeWidth={1.8} />
             复制注册链接
-          </Glass>
+          </button>
         )}
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={onClose}>
+        <button type="button" className="gbtn plain rounded-full" onClick={onClose}>
           我已保存
-        </Glass>
+        </button>
       </div>
     </div>
   )
@@ -170,10 +169,10 @@ function InviteSection({ issued, onIssued }: { issued: Issued | null; onIssued: 
     >
       {issued && <IssuedCode issued={issued} onClose={() => onIssued(null)} />}
       <Row label="注册码" hint="一次性，7 天内有效">
-        <Glass as="button" type="button" className="gbtn rounded-full" disabled={loading} onClick={() => void make()}>
+        <button type="button" className="gbtn plain rounded-full" disabled={loading} onClick={() => void make()}>
           <Plus className="size-[18px]" strokeWidth={1.8} />
           生成注册码
-        </Glass>
+        </button>
       </Row>
     </Section>
   )
@@ -226,12 +225,12 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
                 <span className="text-sm text-muted">{u.roles.map((r) => ROLE_LABEL[r]).join('、')}</span>
                 {u.id !== BUILTIN_ADMIN_ID && u.id !== selfId && (
                   <>
-                    <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setEditing(editing === u.id ? null : u.id)}>
+                    <button type="button" className="gbtn plain rounded-full" onClick={() => setEditing(editing === u.id ? null : u.id)}>
                       {editing === u.id ? '收起' : '编辑'}
-                    </Glass>
-                    <Glass as="button" type="button" className="gicon rounded-full" aria-label={`给 ${u.username} 生成找回码`} onClick={() => void recover(u.id, u.username)}>
+                    </button>
+                    <button type="button" className="gicon plain rounded-full" aria-label={`给 ${u.username} 生成找回码`} onClick={() => void recover(u.id, u.username)}>
                       <KeyRound className="size-[18px]" strokeWidth={1.8} />
-                    </Glass>
+                    </button>
                   </>
                 )}
               </div>
@@ -270,6 +269,7 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
   return (
     <div className="flex flex-col gap-4 pl-1 md:pl-4">
       <Seg
+        glass={false}
         label="角色"
         value={role}
         onChange={setRole}
@@ -294,9 +294,9 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
         <button type="button" className="solid" disabled={loading} onClick={() => void submit()}>
           {loading ? '正在保存…' : '保存'}
         </button>
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={onDone}>
+        <button type="button" className="gbtn plain rounded-full" onClick={onDone}>
           取消
-        </Glass>
+        </button>
       </div>
     </div>
   )
@@ -327,9 +327,9 @@ function CodesSection() {
             label={c.purpose === 'REGISTRATION' ? '注册码' : `${c.user?.username ?? ''} 的找回码`}
             hint={`${codeExpiryText(c.expiresAt)} · 由 ${c.createdBy.username} 生成`}
           >
-            <Glass as="button" type="button" className="gicon rounded-full" aria-label="撤销" onClick={() => void drop(c.id)}>
+            <button type="button" className="gicon plain rounded-full" aria-label="撤销" onClick={() => void drop(c.id)}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />
-            </Glass>
+            </button>
           </Row>
         ))}
       </div>
@@ -367,17 +367,17 @@ function CreateUserSection() {
             <button className="solid" disabled={loading || !username.trim() || !password}>
               {loading ? '正在创建…' : '创建'}
             </button>
-            <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setOpen(false)}>
+            <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(false)}>
               取消
-            </Glass>
+            </button>
           </div>
         </form>
       ) : (
         <Row label="创建账号">
-          <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setOpen(true)}>
+          <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(true)}>
             <UserPlus className="size-[18px]" strokeWidth={1.8} />
             创建账号
-          </Glass>
+          </button>
         </Row>
       )}
     </Section>

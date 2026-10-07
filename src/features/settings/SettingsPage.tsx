@@ -138,9 +138,9 @@ export function SettingsPage() {
     <div className="wrap max-w-[1120px]! pb-24" data-sfw="">
       <div className="flex items-center gap-2 pt-7 pb-6">
         {current && (
-          <Glass as="button" type="button" className="gicon rounded-full md:hidden" onClick={back} aria-label="返回设置列表">
+          <button type="button" className="gicon plain rounded-full md:hidden" onClick={back} aria-label="返回设置列表">
             <ChevronLeft className="size-6" strokeWidth={1.8} />
-          </Glass>
+          </button>
         )}
         <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">
           <span className={cn(current && 'max-md:hidden')}>设置</span>
@@ -154,10 +154,10 @@ export function SettingsPage() {
 
         <div className={cn('min-w-0', !current && 'max-md:hidden')}>
           {pending > 0 && (
-            <Glass className="mb-8 flex items-center gap-3 rounded-[18px] px-4 py-3 text-sm">
+            <div className="plain mb-8 flex items-center gap-3 rounded-[18px] px-4 py-3 text-sm">
               <TriangleAlert className="size-5 flex-none" strokeWidth={1.8} />
               有 {pending} 项改动要重启服务端后才生效。
-            </Glass>
+            </div>
           )}
           {/* 换栏时内容轻轻淡入 */}
           <div key={shown.id} className="rise" style={{ animationDuration: '0.35s' }}>

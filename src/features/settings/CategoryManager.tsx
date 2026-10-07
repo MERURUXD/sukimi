@@ -2,7 +2,6 @@ import { useMutation, useQuery } from '@apollo/client/react'
 import { ArrowDown, ArrowUp, Check, Pencil, Plus, RefreshCwOff, Trash2, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { graphql } from '@/api/gql'
-import { Glass } from '@/components/glass/Glass'
 import { toast, toastError } from '@/components/ui/toast'
 import { Categories } from '@/features/library/queries'
 import { cn } from '@/lib/cn'
@@ -177,10 +176,10 @@ export function CategoryManager() {
       ))}
       <form onSubmit={add} className="mt-2 flex items-center gap-2">
         <input className={input} placeholder="新分类名称" value={name} onChange={(e) => setName(e.target.value)} />
-        <Glass as="button" type="submit" className="gbtn rounded-full" disabled={!name.trim()}>
+        <button type="submit" className="gbtn plain rounded-full" disabled={!name.trim()}>
           <Plus className="size-[18px]" />
           新建
-        </Glass>
+        </button>
       </form>
     </div>
   )
