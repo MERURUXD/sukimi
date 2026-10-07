@@ -16,6 +16,8 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
 type Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": typeof types.LoginDocument,
     "\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n": typeof types.CurrentUserDocument,
+    "\n  mutation RedeemRegistrationCode($input: RedeemRegistrationCodeInput!) {\n    redeemRegistrationCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": typeof types.RedeemRegistrationCodeDocument,
+    "\n  mutation RedeemRecoveryCode($input: RedeemRecoveryCodeInput!) {\n    redeemRecoveryCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": typeof types.RedeemRecoveryCodeDocument,
     "\n  mutation RefreshToken($input: RefreshTokenInput!) {\n    refreshToken(input: $input) {\n      accessToken\n    }\n  }\n": typeof types.RefreshTokenDocument,
     "\n  mutation UpdateChapters($ids: [Int!]!, $patch: UpdateChapterPatchInput!) {\n    updateChapters(input: { ids: $ids, patch: $patch }) {\n      chapters {\n        id\n        isRead\n        isBookmarked\n        lastPageRead\n        manga {\n          id\n          unreadCount\n          bookmarkCount\n        }\n      }\n    }\n  }\n": typeof types.UpdateChaptersDocument,
     "\n  mutation EnqueueDownloads($ids: [Int!]!) {\n    enqueueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n      }\n    }\n  }\n": typeof types.EnqueueDownloadsDocument,
@@ -80,6 +82,7 @@ type Documents = {
     "\n  mutation SetServerSettings($settings: PartialSettingsTypeInput!) {\n    setSettings(input: { settings: $settings }) {\n      settings {\n        ...ServerSettings\n      }\n    }\n  }\n": typeof types.SetServerSettingsDocument,
     "\n  query SettingsAbout {\n    aboutServer {\n      name\n      version\n      buildType\n      buildTime\n      github\n      discord\n      platformInfo {\n        arch\n        os {\n          name\n          version\n        }\n        jvm {\n          javaVersion\n        }\n      }\n    }\n  }\n": typeof types.SettingsAboutDocument,
     "\n  query CheckServerUpdates {\n    checkForServerUpdates {\n      channel\n      tag\n      url\n    }\n  }\n": typeof types.CheckServerUpdatesDocument,
+    "\n  mutation SetPassword($input: SetPasswordInput!) {\n    setPassword(input: $input) {\n      clientMutationId\n    }\n  }\n": typeof types.SetPasswordDocument,
     "\n  mutation CreateBackup {\n    createBackup(input: {}) {\n      url\n    }\n  }\n": typeof types.CreateBackupDocument,
     "\n  query ValidateBackup($input: ValidateBackupInput!) {\n    validateBackup(input: $input) {\n      missingSources {\n        id\n        name\n      }\n      missingTrackers {\n        name\n      }\n    }\n  }\n": typeof types.ValidateBackupDocument,
     "\n  mutation RestoreBackup($input: RestoreBackupInput!) {\n    restoreBackup(input: $input) {\n      id\n    }\n  }\n": typeof types.RestoreBackupDocument,
@@ -113,6 +116,8 @@ type Documents = {
 const documents: Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": types.LoginDocument,
     "\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n": types.CurrentUserDocument,
+    "\n  mutation RedeemRegistrationCode($input: RedeemRegistrationCodeInput!) {\n    redeemRegistrationCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": types.RedeemRegistrationCodeDocument,
+    "\n  mutation RedeemRecoveryCode($input: RedeemRecoveryCodeInput!) {\n    redeemRecoveryCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": types.RedeemRecoveryCodeDocument,
     "\n  mutation RefreshToken($input: RefreshTokenInput!) {\n    refreshToken(input: $input) {\n      accessToken\n    }\n  }\n": types.RefreshTokenDocument,
     "\n  mutation UpdateChapters($ids: [Int!]!, $patch: UpdateChapterPatchInput!) {\n    updateChapters(input: { ids: $ids, patch: $patch }) {\n      chapters {\n        id\n        isRead\n        isBookmarked\n        lastPageRead\n        manga {\n          id\n          unreadCount\n          bookmarkCount\n        }\n      }\n    }\n  }\n": types.UpdateChaptersDocument,
     "\n  mutation EnqueueDownloads($ids: [Int!]!) {\n    enqueueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n      }\n    }\n  }\n": types.EnqueueDownloadsDocument,
@@ -177,6 +182,7 @@ const documents: Documents = {
     "\n  mutation SetServerSettings($settings: PartialSettingsTypeInput!) {\n    setSettings(input: { settings: $settings }) {\n      settings {\n        ...ServerSettings\n      }\n    }\n  }\n": types.SetServerSettingsDocument,
     "\n  query SettingsAbout {\n    aboutServer {\n      name\n      version\n      buildType\n      buildTime\n      github\n      discord\n      platformInfo {\n        arch\n        os {\n          name\n          version\n        }\n        jvm {\n          javaVersion\n        }\n      }\n    }\n  }\n": types.SettingsAboutDocument,
     "\n  query CheckServerUpdates {\n    checkForServerUpdates {\n      channel\n      tag\n      url\n    }\n  }\n": types.CheckServerUpdatesDocument,
+    "\n  mutation SetPassword($input: SetPasswordInput!) {\n    setPassword(input: $input) {\n      clientMutationId\n    }\n  }\n": types.SetPasswordDocument,
     "\n  mutation CreateBackup {\n    createBackup(input: {}) {\n      url\n    }\n  }\n": types.CreateBackupDocument,
     "\n  query ValidateBackup($input: ValidateBackupInput!) {\n    validateBackup(input: $input) {\n      missingSources {\n        id\n        name\n      }\n      missingTrackers {\n        name\n      }\n    }\n  }\n": types.ValidateBackupDocument,
     "\n  mutation RestoreBackup($input: RestoreBackupInput!) {\n    restoreBackup(input: $input) {\n      id\n    }\n  }\n": types.RestoreBackupDocument,
@@ -230,6 +236,14 @@ export function graphql(source: "\n  mutation Login($input: LoginInput!) {\n    
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n"): (typeof documents)["\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RedeemRegistrationCode($input: RedeemRegistrationCodeInput!) {\n    redeemRegistrationCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n"): (typeof documents)["\n  mutation RedeemRegistrationCode($input: RedeemRegistrationCodeInput!) {\n    redeemRegistrationCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RedeemRecoveryCode($input: RedeemRecoveryCodeInput!) {\n    redeemRecoveryCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n"): (typeof documents)["\n  mutation RedeemRecoveryCode($input: RedeemRecoveryCodeInput!) {\n    redeemRecoveryCode(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
@@ -486,6 +500,10 @@ export function graphql(source: "\n  query SettingsAbout {\n    aboutServer {\n 
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query CheckServerUpdates {\n    checkForServerUpdates {\n      channel\n      tag\n      url\n    }\n  }\n"): (typeof documents)["\n  query CheckServerUpdates {\n    checkForServerUpdates {\n      channel\n      tag\n      url\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetPassword($input: SetPasswordInput!) {\n    setPassword(input: $input) {\n      clientMutationId\n    }\n  }\n"): (typeof documents)["\n  mutation SetPassword($input: SetPasswordInput!) {\n    setPassword(input: $input) {\n      clientMutationId\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

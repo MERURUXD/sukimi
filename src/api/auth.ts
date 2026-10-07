@@ -66,6 +66,25 @@ const CurrentUser = graphql(`
   }
 `)
 
+// 兑换返回里不选 user.permissions：刚兑换时还没登录，读它会报未授权，登录后再查当前用户
+const RedeemRegistrationMutation = graphql(`
+  mutation RedeemRegistrationCode($input: RedeemRegistrationCodeInput!) {
+    redeemRegistrationCode(input: $input) {
+      accessToken
+      refreshToken
+    }
+  }
+`)
+
+const RedeemRecoveryMutation = graphql(`
+  mutation RedeemRecoveryCode($input: RedeemRecoveryCodeInput!) {
+    redeemRecoveryCode(input: $input) {
+      accessToken
+      refreshToken
+    }
+  }
+`)
+
 const RefreshMutation = graphql(`
   mutation RefreshToken($input: RefreshTokenInput!) {
     refreshToken(input: $input) {
@@ -130,13 +149,16 @@ function applyAccessToken(token: string) {
   }
 }
 
+/** 服务端不认识这个字段 / 操作（旧版本，没有用户账号功能） */
+const isMissingField = (e: unknown) => e instanceof AuthError && /FieldUndefined|Cannot query field|is undefined/i.test(e.message)
+
 /** 用刚拿到的访问令牌查当前用户；服务端没有 `user` 查询（旧版本）时退化为单用户管理员 */
 async function fetchUser(token: string): Promise<AuthUser> {
   try {
     const { user } = await anonymousRequest(CurrentUser, {}, token)
     return { id: user.id, username: user.username, roles: user.roles, permissions: user.permissions }
   } catch (e) {
-    if (e instanceof AuthError && /FieldUndefined|Cannot query field|is undefined/i.test(e.message)) return LEGACY_USER
+    if (isMissingField(e)) return LEGACY_USER
     throw e
   }
 }
@@ -172,6 +194,28 @@ async function establishSession(token: string, refreshToken?: string) {
 export async function login(username: string, password: string) {
   const { login } = await anonymousRequest(LoginMutation, { input: { username, password } })
   await establishSession(login.accessToken, login.refreshToken)
+}
+
+const UNSUPPORTED = '这台服务端不支持用户账号，需要新版 Suwayomi'
+
+/** 兑换注册码：创建账号并直接登录 */
+export async function redeemRegistrationCode(code: string, username: string, password: string) {
+  try {
+    const { redeemRegistrationCode: r } = await anonymousRequest(RedeemRegistrationMutation, { input: { code, username, password } })
+    await establishSession(r.accessToken, r.refreshToken)
+  } catch (e) {
+    throw isMissingField(e) ? new AuthError(UNSUPPORTED) : e
+  }
+}
+
+/** 兑换找回码：设置新密码并直接登录 */
+export async function redeemRecoveryCode(code: string, newPassword: string) {
+  try {
+    const { redeemRecoveryCode: r } = await anonymousRequest(RedeemRecoveryMutation, { input: { code, newPassword } })
+    await establishSession(r.accessToken, r.refreshToken)
+  } catch (e) {
+    throw isMissingField(e) ? new AuthError(UNSUPPORTED) : e
+  }
 }
 
 export function signOut() {
