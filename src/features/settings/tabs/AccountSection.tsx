@@ -3,6 +3,7 @@ import { KeyRound, LogOut } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { signOut, useAuth } from '@/api/auth'
 import { graphql } from '@/api/gql'
+import { captureUser, StaleSessionError } from '@/api/userContext'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
@@ -33,13 +34,16 @@ function ChangePassword() {
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!ready || loading) return
+    // 等响应期间换了账号：这次修改属于上一个账号，不能把新账号退出登录
+    const still = captureUser()
     try {
       await save({ variables: { input: { oldPassword, newPassword } } })
+      still()
       // 改密码会让这个账号在所有设备上登出，包括这一台
       toast('密码已修改，请用新密码重新登录')
       signOut()
     } catch (err) {
-      toastError('修改密码失败', err)
+      if (!(err instanceof StaleSessionError)) toastError('修改密码失败', err)
     }
   }
 
