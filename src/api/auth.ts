@@ -105,8 +105,8 @@ let inflight: Promise<string> | null = null
  */
 let epoch = 0
 const startNewSession = () => {
-  epoch++
   inflight = null
+  return ++epoch
 }
 
 export class AuthError extends Error {}
@@ -205,19 +205,20 @@ async function establishSession(token: string, refreshToken?: string, guard?: nu
 }
 
 export async function login(username: string, password: string) {
-  startNewSession()
+  const mine = startNewSession()
   const { login } = await anonymousRequest(LoginMutation, { input: { username, password } })
-  await establishSession(login.accessToken, login.refreshToken)
+  // 更晚开始的登录 / 兑换已经接手，这份结果就丢弃（见 epoch 的说明）
+  await establishSession(login.accessToken, login.refreshToken, mine)
 }
 
 const UNSUPPORTED = '这台服务端不支持用户账号，需要新版 Suwayomi'
 
 /** 兑换注册码：创建账号并直接登录 */
 export async function redeemRegistrationCode(code: string, username: string, password: string) {
-  startNewSession()
+  const mine = startNewSession()
   try {
     const { redeemRegistrationCode: r } = await anonymousRequest(RedeemRegistrationMutation, { input: { code, username, password } })
-    await establishSession(r.accessToken, r.refreshToken)
+    await establishSession(r.accessToken, r.refreshToken, mine)
   } catch (e) {
     throw isMissingField(e) ? new AuthError(UNSUPPORTED) : e
   }
@@ -225,10 +226,10 @@ export async function redeemRegistrationCode(code: string, username: string, pas
 
 /** 兑换找回码：设置新密码并直接登录 */
 export async function redeemRecoveryCode(code: string, newPassword: string) {
-  startNewSession()
+  const mine = startNewSession()
   try {
     const { redeemRecoveryCode: r } = await anonymousRequest(RedeemRecoveryMutation, { input: { code, newPassword } })
-    await establishSession(r.accessToken, r.refreshToken)
+    await establishSession(r.accessToken, r.refreshToken, mine)
   } catch (e) {
     throw isMissingField(e) ? new AuthError(UNSUPPORTED) : e
   }
