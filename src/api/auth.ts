@@ -99,6 +99,15 @@ let accessToken: string | null = null
 let accessExp = 0
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 let inflight: Promise<string> | null = null
+/**
+ * 会话代数：登录、兑换码每次开始都加一。更早发起的续期（比如启动时还没返回的恢复会话）
+ * 返回后发现代数变了就作废，不能覆盖刚建立的新会话，也不能因为它失败把新会话登出。
+ */
+let epoch = 0
+const startNewSession = () => {
+  epoch++
+  inflight = null
+}
 
 export class AuthError extends Error {}
 
@@ -177,8 +186,10 @@ const sameUser = (a: AuthUser | null, b: AuthUser) =>
  * 拿到令牌后的统一收尾（登录、兑换码、续期共用）：先查用户，成功后才写入令牌与身份，
  * 这样查询失败时不会留下半个登录态。`refreshToken` 续期时不传，沿用已保存的。
  */
-async function establishSession(token: string, refreshToken?: string) {
+async function establishSession(token: string, refreshToken?: string, guard?: number) {
   const user = await fetchUser(token)
+  // 等用户信息期间已有更新的登录：这份结果过期了，丢弃
+  if (guard !== undefined && guard !== epoch) return
   if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
   // 先认领旧偏好再公布新用户，各存储随后重新读取时就能读到
   try {
@@ -194,6 +205,7 @@ async function establishSession(token: string, refreshToken?: string) {
 }
 
 export async function login(username: string, password: string) {
+  startNewSession()
   const { login } = await anonymousRequest(LoginMutation, { input: { username, password } })
   await establishSession(login.accessToken, login.refreshToken)
 }
@@ -202,6 +214,7 @@ const UNSUPPORTED = '这台服务端不支持用户账号，需要新版 Suwayom
 
 /** 兑换注册码：创建账号并直接登录 */
 export async function redeemRegistrationCode(code: string, username: string, password: string) {
+  startNewSession()
   try {
     const { redeemRegistrationCode: r } = await anonymousRequest(RedeemRegistrationMutation, { input: { code, username, password } })
     await establishSession(r.accessToken, r.refreshToken)
@@ -212,6 +225,7 @@ export async function redeemRegistrationCode(code: string, username: string, pas
 
 /** 兑换找回码：设置新密码并直接登录 */
 export async function redeemRecoveryCode(code: string, newPassword: string) {
+  startNewSession()
   try {
     const { redeemRecoveryCode: r } = await anonymousRequest(RedeemRecoveryMutation, { input: { code, newPassword } })
     await establishSession(r.accessToken, r.refreshToken)
@@ -241,17 +255,19 @@ export function refreshAccessToken(): Promise<string> {
     signOut()
     return Promise.reject(new AuthError('未登录'))
   }
-  const request = anonymousRequest(RefreshMutation, { input: { refreshToken } })
+  const started = epoch
+  const request: Promise<string> = anonymousRequest(RefreshMutation, { input: { refreshToken } })
     .then(async ({ refreshToken: r }) => {
-      await establishSession(r.accessToken)
+      await establishSession(r.accessToken, undefined, started)
       return r.accessToken
     })
     .catch((e: unknown) => {
-      if (e instanceof AuthError) signOut()
+      // 过期的续期失败不能把后来建立的新会话登出
+      if (e instanceof AuthError && started === epoch) signOut()
       throw e
     })
     .finally(() => {
-      inflight = null
+      if (inflight === request) inflight = null
     })
   inflight = request
   return request
