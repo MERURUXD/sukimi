@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useLocation } from 'react-router'
 import { AnimatePresence } from 'motion/react'
 import { Sparkles } from 'lucide-react'
 import { create } from 'zustand'
@@ -82,9 +83,23 @@ function useUpdateWatch() {
   }, [])
 }
 
-/** 前端有新版本时的常驻提示；阅读页不挂，读完回到其他页面时再出现 */
+/**
+ * 有新版本时，在下一次站内跳转后自动换上：跳转本来就会换掉整页内容，这时重新载入几乎察觉不到。
+ * AppShell 不包含阅读页，读漫画时不会被打断；从阅读页回来的那次挂载不算跳转，
+ * 免得刚发出的阅读进度请求被重新载入打断。
+ */
+function useAutoApply() {
+  const { key } = useLocation()
+  const first = useRef(key)
+  useEffect(() => {
+    if (key !== first.current && useAppUpdate.getState().next) applyUpdate()
+  }, [key])
+}
+
+/** 前端有新版本时的常驻提示，停在同一页时用；阅读页不挂，读完回到其他页面时再出现 */
 export function UpdatePrompt() {
   useUpdateWatch()
+  useAutoApply()
   const next = useAppUpdate((s) => s.next)
   const dismissed = useAppUpdate((s) => s.dismissed)
   const [reloading, setReloading] = useState(false)
@@ -108,7 +123,7 @@ export function UpdatePrompt() {
             </span>
             <span className="min-w-0 flex-1 leading-tight">
               <span className="block text-[14px] font-semibold">新版本已就绪</span>
-              <span className="mt-1 block text-[12px] text-muted">更新后页面会重新载入</span>
+              <span className="mt-1 block text-[12px] text-muted">切换页面时会自动更新</span>
             </span>
             <button
               type="button"
