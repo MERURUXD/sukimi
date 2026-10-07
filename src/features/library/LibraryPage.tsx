@@ -2,6 +2,7 @@ import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { BookCheck, Download, FolderInput, LibraryBig } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
+import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { Popover } from '@/components/ui/Popover'
@@ -262,10 +263,12 @@ export function LibraryPage() {
           <BookCheck className="size-5" strokeWidth={1.8} />
           全部已读
         </button>
-        <button type="button" className="bb" disabled={busy || !ids.length} onClick={downloadUnread}>
-          <Download className="size-5" strokeWidth={1.8} />
-          下载未读
-        </button>
+        <Can permission="DOWNLOAD_CHAPTERS">
+          <button type="button" className="bb" disabled={busy || !ids.length} onClick={downloadUnread}>
+            <Download className="size-5" strokeWidth={1.8} />
+            下载未读
+          </button>
+        </Can>
         <button
           type="button"
           className={confirmRemove ? 'bb text-danger' : 'bb'}

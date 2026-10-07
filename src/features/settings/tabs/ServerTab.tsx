@@ -1,6 +1,7 @@
 import type { AuthMode, CbzMediaType, SortOrder, WebUiChannel, WebUiFlavor } from '@/api/gql/graphql'
 import { SChoice, SDuration, SNumber, SSecret, SSwitch, SText, useSettingsLoaded } from '../fields'
 import { Row, Section } from '../parts'
+import { SettingsGate } from '../gate'
 
 const AUTH: Record<AuthMode, string> = {
   NONE: '不需要登录',
@@ -15,7 +16,7 @@ export function ServerTab() {
   const s = useSettingsLoaded()
 
   return (
-    <>
+    <SettingsGate>
       <Section title="网络" desc="改动后服务端要重启，并且需要用新的地址访问。改错可能导致连不上，请确认能在服务端所在的电脑上改回来。">
         <SText
           k="ip"
@@ -158,6 +159,6 @@ export function ServerTab() {
         )}
         <SSwitch k="useHikariConnectionPool" label="使用连接池" />
       </Section>
-    </>
+    </SettingsGate>
   )
 }

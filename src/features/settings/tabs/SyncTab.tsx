@@ -8,6 +8,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { timeAgo } from '@/lib/format'
 import { SChoice, SDuration, SNumber, SSecret, SSwitch, SText } from '../fields'
 import { Row, Section, TextInput } from '../parts'
+import { SettingsGate } from '../gate'
 
 const LastSync = graphql(`
   query LastSync {
@@ -83,10 +84,10 @@ const STRATEGIES: { value: KoreaderSyncConflictStrategy; label: string }[] = [
 
 export function SyncTab() {
   return (
-    <>
+    <SettingsGate>
       <SyncYomiSection />
       <KoReaderSection />
-    </>
+    </SettingsGate>
   )
 }
 

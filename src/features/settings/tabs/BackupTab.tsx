@@ -9,6 +9,7 @@ import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
 import { Row, Section } from '../parts'
+import { RequireSettings, SettingsNotice } from '../gate'
 
 const CreateBackup = graphql(`
   mutation CreateBackup {
@@ -64,24 +65,29 @@ const STATE: Record<BackupRestoreState, string> = {
 export function BackupTab() {
   return (
     <>
+      <SettingsNotice />
       <ManualBackup />
 
-      <Section title="自动备份" desc="服务端每隔一段时间自动备份一次，旧备份过期后自动删除。">
-        <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 表示不自动备份" />
-        <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="在这个时间点进行（服务端所在电脑的时间）" />
-        <SNumber k="backupTTL" label="保留" unit="天" min={0} hint="超过这个天数的自动备份会被删除；0 表示一直保留" />
-        <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端所在电脑上的路径；留空使用数据目录下的 backups" stack />
-      </Section>
+      <RequireSettings>
+        <Section title="自动备份" desc="服务端每隔一段时间自动备份一次，旧备份过期后自动删除。">
+          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 表示不自动备份" />
+          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="在这个时间点进行（服务端所在电脑的时间）" />
+          <SNumber k="backupTTL" label="保留" unit="天" min={0} hint="超过这个天数的自动备份会被删除；0 表示一直保留" />
+          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端所在电脑上的路径；留空使用数据目录下的 backups" stack />
+        </Section>
+      </RequireSettings>
 
-      <Section title="自动备份包含">
-        <SSwitch k="autoBackupIncludeManga" label="漫画" />
-        <SSwitch k="autoBackupIncludeCategories" label="分类" />
-        <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
-        <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
-        <SSwitch k="autoBackupIncludeTracking" label="追踪" />
-        <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
-        <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
-      </Section>
+      <RequireSettings>
+        <Section title="自动备份包含">
+          <SSwitch k="autoBackupIncludeManga" label="漫画" />
+          <SSwitch k="autoBackupIncludeCategories" label="分类" />
+          <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
+          <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
+          <SSwitch k="autoBackupIncludeTracking" label="追踪" />
+          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
+          <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
+        </Section>
+      </RequireSettings>
     </>
   )
 }

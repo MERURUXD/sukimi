@@ -7,7 +7,7 @@ import { restoreSession } from '@/api/auth'
 import { loadSnapshots } from '@/api/persist'
 import { router } from '@/app/router'
 import { installCoverTransition } from '@/lib/coverTransition'
-import { isDemo } from '@/lib/demo'
+import { isDemo, isDevLab } from '@/lib/demo'
 import './index.css'
 
 if (import.meta.env.DEV && localStorage.getItem('suwayomi-web.dev.safe') === '1') {
@@ -18,7 +18,7 @@ if (import.meta.env.DEV && localStorage.getItem('suwayomi-web.dev.safe') === '1'
 void navigator.serviceWorker?.getRegistrations().then((rs) => rs.forEach((r) => void r.unregister()))
 
 installCoverTransition(isDemo ? '/demo' : '')
-if (!isDemo) void restoreSession()
+if (!isDemo && !isDevLab) void restoreSession()
 
 // 先读出上次的书库 / 首页数据再渲染（通常几十毫秒），最多等 300ms，读不出来就当没有
 const ready = isDemo

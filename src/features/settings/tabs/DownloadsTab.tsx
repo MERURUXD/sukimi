@@ -5,10 +5,11 @@ import { toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
 import { Row, Section, Select, type SaveStatus } from '../parts'
 import { useSaveSettings, useServerSettings, type Settings } from '../server'
+import { SettingsGate } from '../gate'
 
 export function DownloadsTab() {
   return (
-    <>
+    <SettingsGate>
       <Section
         title="下载"
         action={
@@ -32,7 +33,7 @@ export function DownloadsTab() {
         <Conversions k="downloadConversions" label="下载时转换" />
         <Conversions k="serveConversions" label="阅读时转换" hint="浏览器打开页面时实时转换，不改动已下载的文件" />
       </Section>
-    </>
+    </SettingsGate>
   )
 }
 

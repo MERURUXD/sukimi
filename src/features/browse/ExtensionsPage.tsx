@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ApolloCache } from '@apollo/client'
+import { useCan } from '@/api/auth'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { Glass } from '@/components/glass/Glass'
@@ -12,6 +13,7 @@ import { confirm } from '@/components/ui/Confirm'
 import { Popover } from '@/components/ui/Popover'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
+import { Can } from '@/features/auth/Can'
 import { USER_KEYS } from '@/features/auth/userScope'
 import { Switch } from '@/features/settings/parts'
 import { cn } from '@/lib/cn'
@@ -71,6 +73,7 @@ export function ExtensionsPage() {
   const [fetchExtensions] = useMutation(FetchExtensions)
   const [updateOne] = useMutation(UpdateExtension)
   const [updateAll] = useMutation(UpdateExtensions)
+  const canInstall = useCan('INSTALL_EXTENSIONS')
 
   const counts = useMemo(() => tabCounts(list ?? []), [list])
   const tab = (params.get('tab') as ExtensionTab | null) ?? (counts.updates > 0 ? 'updates' : 'installed')
@@ -261,7 +264,7 @@ export function ExtensionsPage() {
 
         <span className="flex-1" />
 
-        {counts.updates > 0 && (
+        {counts.updates > 0 && canInstall && (
           <button type="button" className="solid min-h-11" disabled={updatingAll} onClick={() => void runAll()}>
             {updatingAll ? <Loader2 className="size-[18px] animate-spin" /> : <Download className="size-[18px]" strokeWidth={1.8} />}
             <span className="max-sm:hidden">全部</span>更新
@@ -271,11 +274,13 @@ export function ExtensionsPage() {
           <RefreshCw className={cn('size-[18px]', checking && 'animate-spin')} strokeWidth={1.8} />
           <span className="max-sm:hidden">检查更新</span>
         </Glass>
-        <Glass as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="安装 APK 文件" disabled={installingFile} onClick={() => fileInput.current?.click()}>
-          {installingFile ? <Loader2 className="size-[18px] animate-spin" /> : <PackagePlus className="size-[18px]" strokeWidth={1.8} />}
-          <span className="max-sm:hidden">安装 APK</span>
-        </Glass>
-        <input ref={fileInput} type="file" accept=".apk,application/vnd.android.package-archive" hidden onChange={(e) => void installFile(e)} />
+        <Can permission="INSTALL_EXTERNAL_EXTENSIONS">
+          <Glass as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="安装 APK 文件" disabled={installingFile} onClick={() => fileInput.current?.click()}>
+            {installingFile ? <Loader2 className="size-[18px] animate-spin" /> : <PackagePlus className="size-[18px]" strokeWidth={1.8} />}
+            <span className="max-sm:hidden">安装 APK</span>
+          </Glass>
+          <input ref={fileInput} type="file" accept=".apk,application/vnd.android.package-archive" hidden onChange={(e) => void installFile(e)} />
+        </Can>
       </div>
 
       {error && !list && (
@@ -320,6 +325,9 @@ const WARNING: Record<Extension['contentWarning'], string | null> = { SAFE: null
 
 function ExtensionRow({ e, showStore, busy, onAction }: { e: Extension; showStore: boolean; busy?: Busy; onAction: (a: Busy) => void }) {
   const name = displayName(e)
+  // 更新也算安装；没有对应权限的账号只看列表
+  const canInstall = useCan('INSTALL_EXTENSIONS')
+  const canUninstall = useCan('UNINSTALL_EXTENSIONS')
   const meta = [
     `v${e.versionName}`,
     WARNING[e.contentWarning],
@@ -341,19 +349,23 @@ function ExtensionRow({ e, showStore, busy, onAction }: { e: Extension; showStor
           {busy === 'install' ? '安装中' : busy === 'update' ? '更新中' : '卸载中'}
         </span>
       ) : !e.isInstalled ? (
-        <Glass as="button" type="button" className="gbtn min-h-10 rounded-full px-4" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
-          安装
-        </Glass>
+        canInstall && (
+          <Glass as="button" type="button" className="gbtn min-h-10 rounded-full px-4" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
+            安装
+          </Glass>
+        )
       ) : (
         <span className="flex items-center gap-1">
-          {e.hasUpdate && (
+          {e.hasUpdate && canInstall && (
             <button type="button" className="solid min-h-10 px-4" aria-label={`更新 ${name}`} onClick={() => onAction('update')}>
               更新
             </button>
           )}
-          <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={`卸载 ${name}`} title="卸载" onClick={() => onAction('uninstall')}>
-            <Trash2 className="size-[18px]" strokeWidth={1.8} />
-          </button>
+          {canUninstall && (
+            <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={`卸载 ${name}`} title="卸载" onClick={() => onAction('uninstall')}>
+              <Trash2 className="size-[18px]" strokeWidth={1.8} />
+            </button>
+          )}
         </span>
       )}
     </div>

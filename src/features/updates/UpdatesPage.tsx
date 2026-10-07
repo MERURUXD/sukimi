@@ -3,6 +3,7 @@ import { BookCheck, BookOpen, CircleCheck, Download, MoreHorizontal, RefreshCw }
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
+import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -232,10 +233,12 @@ function UpdatesMore({ onMarkRead, onDownload }: { onMarkRead: () => Promise<voi
           <BookCheck className="size-[18px] shrink-0" strokeWidth={1.8} />
           全部标为已读
         </button>
-        <button type="button" className="opt min-h-11" onClick={() => { close(); void onDownload() }}>
-          <Download className="size-[18px] shrink-0" strokeWidth={1.8} />
-          下载全部未读
-        </button>
+        <Can permission="DOWNLOAD_CHAPTERS">
+          <button type="button" className="opt min-h-11" onClick={() => { close(); void onDownload() }}>
+            <Download className="size-[18px] shrink-0" strokeWidth={1.8} />
+            下载全部未读
+          </button>
+        </Can>
       </Popover>
     </div>
   )

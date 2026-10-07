@@ -2,6 +2,7 @@ import { AnimatePresence } from 'motion/react'
 import { create } from 'zustand'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
+import { errorText } from '@/lib/errorText'
 
 interface Toast {
   id: number
@@ -19,8 +20,7 @@ export function toast(text: string, tone: Toast['tone'] = 'info') {
 }
 
 export function toastError(prefix: string, e: unknown) {
-  const msg = (e as Error)?.message?.split('\n')[0] ?? String(e)
-  toast(`${prefix}：${msg}`, 'error')
+  toast(`${prefix}：${errorText(e)}`, 'error')
 }
 
 export function Toaster() {

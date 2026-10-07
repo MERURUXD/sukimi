@@ -94,3 +94,10 @@ test('注册码有效期：expiresAt 是秒，不是毫秒', async () => {
   assert.equal(codeExpiryText(at(-1000), now), '已过期')
   assert.equal(registerLink('https://x.test', 'a b'), 'https://x.test/register?code=a%20b')
 })
+
+test('没有权限的报错改成清楚的提示，其他报错只取第一行', async () => {
+  const { errorText, FORBIDDEN_TEXT } = await import('../src/lib/errorText.ts')
+  assert.equal(errorText(new Error('Forbidden: missing permission DOWNLOAD_CHAPTERS')), FORBIDDEN_TEXT)
+  assert.equal(errorText(new Error('出错了\n堆栈')), '出错了')
+  assert.equal(errorText('纯文本'), '纯文本')
+})

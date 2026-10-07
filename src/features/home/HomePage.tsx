@@ -6,6 +6,7 @@ import { Link, useHref, useNavigate } from 'react-router'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
+import { Can } from '@/features/auth/Can'
 import { Glass } from '@/components/glass/Glass'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -260,9 +261,11 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
                       <Heart className="size-5 fill-current" strokeWidth={1.8} />
                     </Glass>
                   )}
-                  <Glass as="button" type="button" className="gicon rounded-full" onClick={downloadRest} aria-label="下载后续章节" title="下载后续章节">
-                    <Download className="size-5" strokeWidth={1.8} />
-                  </Glass>
+                  <Can permission="DOWNLOAD_CHAPTERS">
+                    <Glass as="button" type="button" className="gicon rounded-full" onClick={downloadRest} aria-label="下载后续章节" title="下载后续章节">
+                      <Download className="size-5" strokeWidth={1.8} />
+                    </Glass>
+                  </Can>
                 </div>
               </div>
             </motion.div>

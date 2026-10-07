@@ -15,6 +15,7 @@ import { FROM_DETAIL } from '@/features/reader/nav'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { TrackDialog } from '@/features/tracking/TrackPanel'
+import { Can } from '@/features/auth/Can'
 import { MangaTracks } from '@/features/tracking/queries'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
@@ -101,7 +102,9 @@ export function MangaHero({
             <Glass as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
-            <Glass as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
+            <Can permission="DOWNLOAD_CHAPTERS">
+              <Glass as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
+            </Can>
             <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} intro={animate} />
           </div>
           <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label="阅读记录">{recent}</p>

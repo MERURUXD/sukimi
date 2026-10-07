@@ -9,7 +9,7 @@
 import type { TypedDocumentNode } from '@apollo/client'
 import { print } from 'graphql'
 import { create } from 'zustand'
-import { isDemo } from '@/lib/demo'
+import { isDemo, isDevLab } from '@/lib/demo'
 import { graphql } from './gql'
 import { can, type AuthUser } from '@/features/auth/permissions'
 import { claimLegacyData } from '@/features/auth/userScope'
@@ -27,8 +27,11 @@ export type AuthStatus = 'checking' | 'signedIn' | 'signedOut' | 'unreachable'
 /** 旧服务端没有 `user` 查询时的身份；id 0 不会和服务端分配的真实用户（从 1 起）重合 */
 const LEGACY_USER: AuthUser = { id: 0, username: '', roles: ['ADMIN'], permissions: [], legacy: true }
 
+/** 演示与虚构验收页里的用户：管理员，这样各功能入口都能看到；id 为负数，不会和服务端的真实用户冲突 */
+const PREVIEW_USER: AuthUser = { id: -1, username: '演示用户', roles: ['ADMIN'], permissions: [] }
+
 function readStoredUser(): AuthUser | null {
-  if (isDemo) return null
+  if (isDemo || isDevLab) return PREVIEW_USER
   try {
     const v = JSON.parse(localStorage.getItem(USER_KEY) ?? 'null')
     if (typeof v?.id !== 'number' || typeof v.username !== 'string') return null

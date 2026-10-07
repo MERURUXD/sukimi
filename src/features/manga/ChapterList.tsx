@@ -28,6 +28,8 @@ import { useLongPress } from '@/lib/useLongPress'
 import { useSelection } from '@/lib/useSelection'
 import type { Chapter } from './queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
+import { Can } from '@/features/auth/Can'
+import { useCan } from '@/api/auth'
 import { useChapterView, type ChapterFilter } from './store'
 import { mangaIntro, mangaIntroDelay } from './intro'
 export interface QueueItem {
@@ -275,10 +277,12 @@ export function ChapterList({
           {allBookmarked ? <BookmarkMinus className="size-5" strokeWidth={1.8} /> : <Bookmark className="size-5" strokeWidth={1.8} />}
           {allBookmarked ? '取消书签' : '书签'}
         </button>
-        <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.download(ids)}>
-          <Download className="size-5" strokeWidth={1.8} />
-          下载
-        </button>
+        <Can permission="DOWNLOAD_CHAPTERS">
+          <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.download(ids)}>
+            <Download className="size-5" strokeWidth={1.8} />
+            下载
+          </button>
+        </Can>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.deleteDownloads(ids)}>
           <Trash2 className="size-5" strokeWidth={1.8} />
           删除下载
@@ -318,6 +322,7 @@ const ChapterRow = memo(function ChapterRow({
   introDelay?: number
 }) {
   const [menu, setMenu] = useState(false)
+  const canDownload = useCan('DOWNLOAD_CHAPTERS')
   const press = useLongPress(() => !selecting && onLongPress(c.id, index))
   const inProgress = !c.isRead && c.lastPageRead > 0
   const sub = inProgress
@@ -375,7 +380,7 @@ const ChapterRow = memo(function ChapterRow({
         ) : c.isDownloaded ? (
           <CircleCheck className="size-[18px]" strokeWidth={1.8} aria-label="已下载" />
         ) : (
-          !selecting && (
+          !selecting && canDownload && (
             <button
               type="button"
               className="gicon size-9 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -421,9 +426,11 @@ const ChapterRow = memo(function ChapterRow({
                 删除下载
               </MenuItem>
             ) : (
-              <MenuItem icon={Download} onClick={() => (setMenu(false), actions.download([c.id]))} disabled={!!queued}>
-                下载
-              </MenuItem>
+              canDownload && (
+                <MenuItem icon={Download} onClick={() => (setMenu(false), actions.download([c.id]))} disabled={!!queued}>
+                  下载
+                </MenuItem>
+              )
             )}
           </Popover>
         )}
