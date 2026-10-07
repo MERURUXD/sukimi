@@ -8,6 +8,7 @@ import type { ApolloCache } from '@apollo/client'
 import { useCan } from '@/api/auth'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
+import { resetOnUserContext } from '@/api/userContext'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Popover } from '@/components/ui/Popover'
@@ -47,6 +48,10 @@ rehydrateOnUserChange(useExtensionView)
 /** 上次从仓库拉取列表的时间；本次会话内 10 分钟内不重复拉 */
 let fetchedAt = 0
 const FETCH_TTL = 10 * 60_000
+// 换身份后（权限可能不同）要重新拉一次
+resetOnUserContext(() => {
+  fetchedAt = 0
+})
 
 /** 装卸扩展会改变来源列表和「可更新」数量，让它们下次显示时重新查询 */
 function forgetSources(cache: ApolloCache) {

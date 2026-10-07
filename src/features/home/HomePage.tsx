@@ -6,6 +6,7 @@ import { Link, useHref, useNavigate } from 'react-router'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
+import { resetOnUserContext } from '@/api/userContext'
 import { Can } from '@/features/auth/Can'
 import { Glass } from '@/components/glass/Glass'
 import { CoverFlow } from '@/components/manga/CoverFlow'
@@ -67,6 +68,9 @@ export function HomePage() {
 /* ───────── 继续阅读大图区 ───────── */
 /** 大图区当前漫画；放在模块里跨页面保留，整页刷新后自然回到第一部 */
 let lastHeroManga: number | null = null
+resetOnUserContext(() => {
+  lastHeroManga = null
+})
 
 function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)

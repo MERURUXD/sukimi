@@ -9,6 +9,7 @@ import { from, mergeMap } from 'rxjs'
 import { getAccessToken, refreshAccessToken, useAuth } from './auth'
 import { isDemo } from '@/lib/demo'
 import { clearSnapshots } from './persist'
+import { resetUserContext } from './userContext'
 import { createCache } from './cache'
 
 const ENDPOINT = '/api/graphql'
@@ -66,6 +67,7 @@ useAuth.subscribe((s, prev) => {
   if (s.status !== 'signedOut' || prev.status === 'signedOut') return
   // 启动时发现登录已过期（checking → signedOut）也要清掉本地快照
   void clearSnapshots()
+  resetUserContext()
   if (prev.status === 'signedIn') {
     wsClient.terminate()
     void apollo.clearStore()
@@ -87,6 +89,7 @@ useAuth.subscribe((s, prev) => {
   const rights = !switched && prev.status === 'signedIn' && !sameRights(s.user, prev.user)
   if (!switched && !rights) return
   void clearSnapshots()
+  resetUserContext()
   wsClient.terminate()
   void (rights ? apollo.resetStore().catch(() => {}) : apollo.clearStore())
 })

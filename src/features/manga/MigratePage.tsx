@@ -4,6 +4,7 @@ import { BookmarkCheck, Loader2, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DeleteDownloads, UpdateChapters } from '@/api/chapters'
+import { resetOnUserContext } from '@/api/userContext'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { Seg } from '@/components/ui/Seg'
@@ -20,6 +21,7 @@ import { MangaChapters, MangaDetail, MigrationTarget, SetMangaCategories, SetMan
 
 /** 搜过的关键词结果留在内存里，看完候选的详情返回时不用重新搜 */
 const searched = new Map<string, SearchResults>()
+resetOnUserContext(() => searched.clear())
 
 type Candidate = SourceManga & { source: Source }
 
