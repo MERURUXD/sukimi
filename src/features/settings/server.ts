@@ -2,6 +2,7 @@ import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { useCallback, useMemo } from 'react'
 import { create } from 'zustand'
 import { useAuth } from '@/api/auth'
+import { contextGeneration } from '@/api/userContext'
 import { graphql } from '@/api/gql'
 import type { PartialSettingsTypeInput, ServerSettingsFragment, UserSettingsFragment } from '@/api/gql/graphql'
 import { can } from '@/features/auth/permissions'
@@ -252,25 +253,36 @@ export function useServerSettings() {
 
 /** 保存一组服务端设置；失败时抛出，由调用方提示 */
 export function useSaveSettings() {
-  const [mutate] = useMutation(SetServerSettings)
-  const [mutateUser] = useMutation(SetUserSettings)
+  // 响应不自动写进缓存（no-cache）：保存期间换了账号，返回的数据属于上一个账号，不能覆盖新账号已加载的设置。
+  // 返回后核对身份环境没变，再自己写进缓存。
+  const [mutate] = useMutation(SetServerSettings, { fetchPolicy: 'no-cache' })
+  const [mutateUser] = useMutation(SetUserSettings, { fetchPolicy: 'no-cache' })
   const client = useApolloClient()
   return useCallback(
     async (patch: SettingsPatch) => {
+      const gen = contextGeneration()
+      const fresh = () => contextGeneration() === gen
+      const saveGlobal = async (settings: SettingsPatch) => {
+        const r = await mutate({ variables: { settings } })
+        if (fresh() && r.data) client.cache.writeQuery({ query: ServerSettingsQuery, data: { settings: r.data.setSettings.settings } })
+      }
       if (usesUserSettings()) {
         const mine = Object.fromEntries(Object.entries(patch).filter(([k]) => isUserSettingKey(k)))
         const rest = Object.fromEntries(Object.entries(patch).filter(([k]) => !isUserSettingKey(k)))
-        if (Object.keys(mine).length) await mutateUser({ variables: { settings: mine } })
-        if (Object.keys(rest).length) await mutate({ variables: { settings: rest as SettingsPatch } })
+        if (Object.keys(mine).length) {
+          const r = await mutateUser({ variables: { settings: mine } })
+          if (fresh() && r.data) client.cache.writeQuery({ query: UserSettingsQuery, data: { userSettings: r.data.setUserSettings.userSettings } })
+        }
+        if (Object.keys(rest).length) await saveGlobal(rest as SettingsPatch)
         // 这一项单独查询，保存的响应里没有它，缓存要自己更新，开关才不会弹回旧值
-        if ('autoBackupIncludeUserSettings' in rest) {
+        if (fresh() && 'autoBackupIncludeUserSettings' in rest) {
           client.cache.modify({
             id: client.cache.identify({ __typename: 'SettingsType' }),
             fields: { autoBackupIncludeUserSettings: () => !!rest.autoBackupIncludeUserSettings },
           })
         }
       } else {
-        await mutate({ variables: { settings: patch } })
+        await saveGlobal(patch)
       }
       const restart = Object.keys(patch).filter((k) => RESTART_KEYS.has(k))
       if (restart.length) {
