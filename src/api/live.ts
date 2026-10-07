@@ -6,6 +6,8 @@ import type { ApolloClient } from '@apollo/client'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { useApolloClient } from '@apollo/client/react'
+import { useAuth } from './auth'
+import { contextGeneration } from './userContext'
 import { graphql } from './gql'
 import type { DownloadItemFragment } from './gql/graphql'
 import { wsClient } from './client'
@@ -90,6 +92,11 @@ export const useLive = create<LiveState>(() => ({
   updater: { isRunning: false, finished: 0, total: 0 },
 }))
 
+// 退出登录或换账号时清空，下载队列、更新进度不留给下一个用户
+useAuth.subscribe((s, prev) => {
+  if (s.user?.id !== prev.user?.id) useLive.setState(useLive.getInitialState())
+})
+
 const sortQueue = (q: DownloadItem[]) => [...q].sort((a, b) => a.position - b.position)
 
 /** 下载相关变更返回的最新状态，直接写回（订阅推送可能晚一点到） */
@@ -122,8 +129,10 @@ function applyDownloads(client: ApolloClient, msg: { type: string; download: Dow
 }
 
 async function resyncDownloads(client: ApolloClient) {
-  const { data } = await client.query({ query: DownloadsSnapshot, fetchPolicy: 'network-only' })
-  if (data) useLive.setState({ queue: sortQueue(data.downloadStatus.queue), downloader: data.downloadStatus.state })
+  // 这份快照只给 useLive 用，不进 Apollo 缓存；请求期间换了账号，返回的队列属于上一个账号，丢弃
+  const gen = contextGeneration()
+  const { data } = await client.query({ query: DownloadsSnapshot, fetchPolicy: 'no-cache' })
+  if (data && contextGeneration() === gen) useLive.setState({ queue: sortQueue(data.downloadStatus.queue), downloader: data.downloadStatus.state })
 }
 
 /** 挂在登录后的页面外壳里，负责订阅；断线自动重连（graphql-ws 内置） */

@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { MotionGlass } from '@/components/glass/Glass'
+import { resetOnUserContext } from '@/api/userContext'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
 
@@ -14,6 +15,12 @@ interface Ask {
 }
 
 const useAsk = create<{ ask: Ask | null }>(() => ({ ask: null }))
+
+// 换身份时还没回答的确认框按「取消」处理：它属于上一个身份发起的操作，不能留给下一个身份去点
+resetOnUserContext(() => {
+  useAsk.getState().ask?.resolve(false)
+  useAsk.setState({ ask: null })
+})
 
 /** 弹出确认框，用户确认返回 true。危险操作用 danger 把确认按钮标红 */
 export function confirm(opts: Omit<Ask, 'resolve'>) {

@@ -12,6 +12,7 @@ import { cn } from '@/lib/cn'
 import { riseStep } from '@/lib/intro'
 import { LibrarySkeleton } from '@/features/library/LibraryGrid'
 import type { FilterChangeInput } from '@/api/gql/graphql'
+import { resetOnUserContext } from '@/api/userContext'
 import { sourceBrowseKey } from './filters'
 import { SourceFilterPanel } from './SourceFilterPanel'
 import { SourceIcon } from './SourceIcon'
@@ -325,6 +326,12 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
 /* ───────── 全局搜索：所有源并行（最多同时 3 个） ───────── */
 /** 搜过的关键词结果留在内存里，从详情页返回时不用重新搜 */
 const searched = new Map<string, SearchResults>()
+// 来源浏览与搜索结果带着按用户的 inLibrary，也受权限（成人来源）影响，换身份时清空
+resetOnUserContext(() => {
+  loaded.clear()
+  appliedFilters.clear()
+  searched.clear()
+})
 
 function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; onOpen: (id: string) => void }) {
   const results = useMultiSourceSearch(q, sources, searched)

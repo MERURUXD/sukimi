@@ -1,6 +1,8 @@
 import { useApolloClient, useMutation } from '@apollo/client/react'
 import { DatabaseBackup, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useAuth } from '@/api/auth'
+import { captureUser, StaleSessionError } from '@/api/userContext'
 import { graphql } from '@/api/gql'
 import type { BackupRestoreState } from '@/api/gql/graphql'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
@@ -9,6 +11,7 @@ import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
 import { Row, Section } from '../parts'
+import { RequireSettings, SettingsNotice } from '../gate'
 
 const CreateBackup = graphql(`
   mutation CreateBackup {
@@ -56,31 +59,40 @@ const STATE: Record<BackupRestoreState, string> = {
   RESTORING_MANGA: '正在恢复漫画',
   RESTORING_META: '正在恢复附加数据',
   RESTORING_SETTINGS: '正在恢复设置',
+  RESTORING_USER_SETTINGS: '正在恢复个人设置',
   SUCCESS: '恢复完成',
   FAILURE: '恢复失败',
 }
 
 export function BackupTab() {
+  // 旧服务端没有用户账号，也就没有这一项
+  const multi = useAuth((s) => !!s.user && !s.user.legacy)
   return (
     <>
+      <SettingsNotice />
       <ManualBackup />
 
-      <Section title="自动备份" desc="服务端每隔一段时间自动备份一次，旧备份过期后自动删除。">
-        <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 表示不自动备份" />
-        <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="在这个时间点进行（服务端所在电脑的时间）" />
-        <SNumber k="backupTTL" label="保留" unit="天" min={0} hint="超过这个天数的自动备份会被删除；0 表示一直保留" />
-        <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端所在电脑上的路径；留空使用数据目录下的 backups" stack />
-      </Section>
+      <RequireSettings>
+        <Section title="自动备份" desc="服务端每隔一段时间自动备份一次，旧备份过期后自动删除。">
+          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 表示不自动备份" />
+          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="在这个时间点进行（服务端所在电脑的时间）" />
+          <SNumber k="backupTTL" label="保留" unit="天" min={0} hint="超过这个天数的自动备份会被删除；0 表示一直保留" />
+          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端所在电脑上的路径；留空使用数据目录下的 backups" stack />
+        </Section>
+      </RequireSettings>
 
-      <Section title="自动备份包含">
-        <SSwitch k="autoBackupIncludeManga" label="漫画" />
-        <SSwitch k="autoBackupIncludeCategories" label="分类" />
-        <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
-        <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
-        <SSwitch k="autoBackupIncludeTracking" label="追踪" />
-        <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
-        <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
-      </Section>
+      <RequireSettings>
+        <Section title="自动备份包含">
+          <SSwitch k="autoBackupIncludeManga" label="漫画" />
+          <SSwitch k="autoBackupIncludeCategories" label="分类" />
+          <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
+          <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
+          <SSwitch k="autoBackupIncludeTracking" label="追踪" />
+          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
+          <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
+          {multi && <SSwitch k="autoBackupIncludeUserSettings" label="各账号的个人设置" hint="OPDS、同步、自动下载等归各账号自己的设置；不勾选时恢复备份后这些设置回到默认值" />}
+        </Section>
+      </RequireSettings>
     </>
   )
 }
@@ -108,8 +120,11 @@ function ManualBackup() {
   }
 
   const pick = async (file: File) => {
+    // 校验与确认期间换了账号：不能把上一个账号选的备份恢复进新账号的书库
+    const still = captureUser()
     try {
       const v = await uploadRequest(ValidateBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
+      still()
       const { missingSources, missingTrackers } = v.validateBackup
       const ok = await confirm({
         title: `从「${file.name}」恢复？`,
@@ -129,10 +144,11 @@ function ManualBackup() {
         danger: true,
       })
       if (!ok) return
+      still()
       const r = await uploadRequest(RestoreBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
       setRestore({ id: r.restoreBackup.id, state: 'IDLE', done: 0, total: 0 })
     } catch (e) {
-      toastError('恢复失败', e)
+      if (!(e instanceof StaleSessionError)) toastError('恢复失败', e)
     }
   }
 

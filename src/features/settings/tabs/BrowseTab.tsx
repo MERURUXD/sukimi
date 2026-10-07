@@ -7,6 +7,8 @@ import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
 import { Row, Section, TextInput } from '../parts'
+import { Can } from '@/features/auth/Can'
+import { RequireSettings, SettingsNotice } from '../gate'
 
 const ExtensionStores = graphql(`
   query ExtensionStores {
@@ -65,33 +67,42 @@ const ClearCachedImages = graphql(`
 export function BrowseTab() {
   return (
     <>
-      <ExtensionStoresSection />
+      <SettingsNotice />
+      <Can permission="MANAGE_EXTENSION_STORES">
+        <ExtensionStoresSection />
+      </Can>
 
-      <Section title="来源">
-        <SNumber
-          k="maxSourcesInParallel"
-          label="同时请求的来源数"
-          min={1}
-          max={20}
-          hint="检查更新和下载时，最多同时向几个不同的来源发请求（同一来源的漫画总是排队进行）。调高更快，但更容易被来源限流。"
-        />
-        <SText k="localSourcePath" label="本地漫画目录" hint="「本地」来源读取的文件夹；留空使用数据目录下的 local" placeholder="默认" stack />
-        <SSwitch k="kcefEnabled" label="内置浏览器内核（WebView）" hint="部分来源登录、过验证需要；关掉能省内存" />
-      </Section>
+      <RequireSettings>
+        <Section title="来源">
+          <SNumber
+            k="maxSourcesInParallel"
+            label="同时请求的来源数"
+            min={1}
+            max={20}
+            hint="检查更新和下载时，最多同时向几个不同的来源发请求（同一来源的漫画总是排队进行）。调高更快，但更容易被来源限流。"
+          />
+          <SText k="localSourcePath" label="本地漫画目录" hint="「本地」来源读取的文件夹；留空使用数据目录下的 local" placeholder="默认" stack />
+          <SSwitch k="kcefEnabled" label="内置浏览器内核（WebView）" hint="部分来源登录、过验证需要；关掉能省内存" />
+        </Section>
+      </RequireSettings>
 
-      <Section
-        title="Cloudflare 验证（FlareSolverr）"
-        desc="有些来源开启了 Cloudflare 防护，需要另外运行 FlareSolverr 服务来通过验证。没有遇到「Cloudflare」报错就不用开。"
-      >
-        <SSwitch k="flareSolverrEnabled" label="使用 FlareSolverr" />
-        <SText k="flareSolverrUrl" label="FlareSolverr 地址" placeholder="http://localhost:8191" width="w-[260px]" />
-        <SNumber k="flareSolverrTimeout" label="超时" unit="秒" min={0} />
-        <SText k="flareSolverrSessionName" label="会话名称" />
-        <SNumber k="flareSolverrSessionTtl" label="会话保留" unit="分钟" min={0} />
-        <SSwitch k="flareSolverrAsResponseFallback" label="直接使用 FlareSolverr 的返回内容" hint="验证后仍然失败时，退而使用 FlareSolverr 拿到的页面" />
-      </Section>
+      <RequireSettings>
+        <Section
+          title="Cloudflare 验证（FlareSolverr）"
+          desc="有些来源开启了 Cloudflare 防护，需要另外运行 FlareSolverr 服务来通过验证。没有遇到「Cloudflare」报错就不用开。"
+        >
+          <SSwitch k="flareSolverrEnabled" label="使用 FlareSolverr" />
+          <SText k="flareSolverrUrl" label="FlareSolverr 地址" placeholder="http://localhost:8191" width="w-[260px]" />
+          <SNumber k="flareSolverrTimeout" label="超时" unit="秒" min={0} />
+          <SText k="flareSolverrSessionName" label="会话名称" />
+          <SNumber k="flareSolverrSessionTtl" label="会话保留" unit="分钟" min={0} />
+          <SSwitch k="flareSolverrAsResponseFallback" label="直接使用 FlareSolverr 的返回内容" hint="验证后仍然失败时，退而使用 FlareSolverr 拿到的页面" />
+        </Section>
+      </RequireSettings>
 
-      <CacheSection />
+      <Can permission="MANAGE_CACHE">
+        <CacheSection />
+      </Can>
     </>
   )
 }

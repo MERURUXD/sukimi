@@ -1,4 +1,5 @@
 import { ms, sec } from '@/lib/format'
+import { inCategory } from './category'
 import type { LibraryManga } from './queries'
 import type { FilterKey, SortKey, TriState } from './store'
 
@@ -10,6 +11,8 @@ export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga) =
   { key: 'bookmarked', label: '有书签', test: (m) => m.bookmarkCount > 0 },
   { key: 'completed', label: '已完结', test: (m) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED' },
 ]
+
+export { inCategory }
 
 export const lastUpdated = (m: LibraryManga) =>
   Math.max(sec(m.latestFetchedChapter?.fetchedAt), ms(m.latestUploadedChapter?.uploadDate))
@@ -25,13 +28,6 @@ export const SORTS: { key: SortKey; label: string; value: (m: LibraryManga) => n
   { key: 'downloaded', label: '已下载数', value: (m) => m.downloadCount },
 ]
 
-export function inCategory(m: LibraryManga, category: 'all' | number) {
-  if (category === 'all') return true
-  const ids = m.categories.nodes
-  // 没有分类的漫画归在默认分类（id 0）
-  return category === 0 ? ids.length === 0 || ids.some((c) => c.id === 0) : ids.some((c) => c.id === category)
-}
-
 export function matchesSearch(m: LibraryManga, q: string) {
   if (!q) return true
   const hay = [m.title, m.author, m.artist, m.source?.displayName, ...m.genre].filter(Boolean).join('\n').toLowerCase()
@@ -45,6 +41,7 @@ export function applyView(
   list: readonly LibraryManga[],
   opts: {
     category: 'all' | number
+    defaultCategoryId?: number
     filters: Record<FilterKey, TriState>
     sources: readonly string[]
     sort: SortKey
@@ -58,7 +55,7 @@ export function applyView(
 
   const out = list.filter(
     (m) =>
-      inCategory(m, opts.category) &&
+      inCategory(m, opts.category, opts.defaultCategoryId) &&
       (opts.sources.length === 0 || (m.source != null && opts.sources.includes(m.source.id))) &&
       active.every((f) => f.test(m) === (opts.filters[f.key] === 1)) &&
       matchesSearch(m, opts.query),

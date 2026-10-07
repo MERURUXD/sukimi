@@ -1,13 +1,12 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { ExternalLink, LogOut, RefreshCw } from 'lucide-react'
+import { ExternalLink, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
-import { signOut } from '@/api/auth'
 import { graphql } from '@/api/gql'
 import { Glass } from '@/components/glass/Glass'
-import { confirm } from '@/components/ui/Confirm'
 import { toastError } from '@/components/ui/toast'
 import { formatDate } from '@/lib/format'
 import { Row, Section } from '../parts'
+import { AccountSection } from './AccountSection'
 
 const About = graphql(`
   query SettingsAbout {
@@ -128,21 +127,7 @@ export function AboutTab() {
         </Row>
       </Section>
 
-      <Section title="账户">
-        <Row label="退出登录" hint="清除这台设备上保存的登录状态和书库缓存">
-          <Glass
-            as="button"
-            type="button"
-            className="gbtn rounded-full"
-            onClick={async () => {
-              if (await confirm({ title: '退出登录？', ok: '退出' })) signOut()
-            }}
-          >
-            <LogOut className="size-[18px]" strokeWidth={1.8} />
-            退出登录
-          </Glass>
-        </Row>
-      </Section>
+      <AccountSection />
     </>
   )
 }

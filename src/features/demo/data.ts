@@ -1,3 +1,4 @@
+import { DEMO_ACCOUNT_REJECT, PREVIEW_ADMIN, PREVIEW_MEMBER } from '../auth/previewUsers.ts'
 import { mergeMeta } from '../reader/remote.ts'
 const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 const TITLES = ['云海邮局', '月台尽头', '森林慢车', '星河旅人', '雨后的咖啡馆', '山间来信', '小岛日记', '风的收藏家', '灯塔与猫', '夏日观测站', '旧城漫游', '夜航书店']
@@ -160,7 +161,20 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     m.categories.nodes = categories.filter((c) => ids.has(c.id))
     return m
   }
+  // 虚构的用户与未使用的码，给演示里的「用户」页看；改账号的操作都拒绝
+  const reject = () => { throw new Error(DEMO_ACCOUNT_REJECT) }
+  const demoUsers = [
+    { id: 1, username: 'admin', roles: ['ADMIN'], permissions: [] },
+    { ...PREVIEW_ADMIN }, { ...PREVIEW_MEMBER },
+    { id: 4, username: '阿远', roles: ['USER'], permissions: ['DOWNLOAD_CHAPTERS', 'INSTALL_EXTENSIONS', 'UNINSTALL_EXTENSIONS'] },
+  ]
+  const demoCodes = [
+    { id: 1, purpose: 'REGISTRATION', expiresAt: String(Math.floor(now / 1000) + 5 * 86400), createdBy: demoUsers[1], user: null },
+    { id: 2, purpose: 'RECOVERY', expiresAt: String(Math.floor(now / 1000) + 20 * 3600), createdBy: demoUsers[1], user: demoUsers[3] },
+  ]
   const root = {
+    users: () => connection(demoUsers), userCodes: () => demoCodes,
+    createRegistrationCode: reject, createRecoveryCode: reject, revokeUserCode: reject, updateUser: reject, register: reject, setPassword: reject,
     mangas: (args: ListArgs) => connection(mangas.filter((m) => matches(m, args.condition, args.filter)), args),
     manga: ({ id }: { id: number }) => findManga(id),
     categories: () => connection(categories),

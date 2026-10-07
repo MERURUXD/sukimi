@@ -14,6 +14,7 @@ import { TopNav } from './TopNav'
 export function AuthGate() {
   useApplyAppearance()
   const status = useAuth((s) => s.status)
+  const userId = useAuth((s) => s.user?.id)
   const location = useLocation()
 
   if (status === 'checking') return null
@@ -33,10 +34,11 @@ export function AuthGate() {
   }
   return (
     <>
-      <Outlet />
+      {/* 换账号时整树重建，各页面与订阅不会带着上一个用户的状态 */}
+      <Outlet key={userId} />
       <Toaster />
       <ConfirmHost />
-      <LiveStatus />
+      <LiveStatus key={userId} />
     </>
   )
 }
