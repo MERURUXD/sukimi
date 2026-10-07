@@ -11,21 +11,56 @@ import { print } from 'graphql'
 import { create } from 'zustand'
 import { isDemo } from '@/lib/demo'
 import { graphql } from './gql'
+import { can, type AuthUser } from '@/features/auth/permissions'
+import type { UserPermission } from './gql/graphql'
 
 const REFRESH_KEY = 'suwayomi-web.refreshToken'
+/** 只存 id 与用户名，让各本地存储在首屏前就能知道当前是谁；角色与权限每次续期时重新查询 */
+const USER_KEY = 'suwayomi-web.user'
 const COOKIE = 'suwayomi-server-token'
 /** 提前多久续期 */
 const LEEWAY = 60_000
 
 export type AuthStatus = 'checking' | 'signedIn' | 'signedOut' | 'unreachable'
 
-export const useAuth = create<{ status: AuthStatus }>(() => ({ status: 'checking' }))
+/** 旧服务端没有 `user` 查询时的身份；id 0 不会和服务端分配的真实用户（从 1 起）重合 */
+const LEGACY_USER: AuthUser = { id: 0, username: '', roles: ['ADMIN'], permissions: [], legacy: true }
+
+function readStoredUser(): AuthUser | null {
+  if (isDemo) return null
+  try {
+    const v = JSON.parse(localStorage.getItem(USER_KEY) ?? 'null')
+    if (typeof v?.id !== 'number' || typeof v.username !== 'string') return null
+    return { id: v.id, username: v.username, roles: [], permissions: [], legacy: v.id === 0 || undefined }
+  } catch {
+    return null
+  }
+}
+
+/** status 为 signedIn 时 user 一定不为空 */
+export const useAuth = create<{ status: AuthStatus; user: AuthUser | null }>(() => ({
+  status: 'checking',
+  user: readStoredUser(),
+}))
+
+export const useCan = (permission: UserPermission) => useAuth((s) => can(s.user, permission))
 
 const LoginMutation = graphql(`
   mutation Login($input: LoginInput!) {
     login(input: $input) {
       accessToken
       refreshToken
+    }
+  }
+`)
+
+const CurrentUser = graphql(`
+  query CurrentUser {
+    user {
+      id
+      username
+      roles
+      permissions
     }
   }
 `)
@@ -49,8 +84,8 @@ export function getAccessToken() {
   return accessToken
 }
 
-/** 不带任何令牌直接请求（登录、续期用） */
-async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V): Promise<R> {
+/** 不带 Cookie 与登录态直接请求（登录、续期用）；`token` 只给取当前用户这类刚拿到令牌、尚未生效的请求 */
+async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V, token?: string): Promise<R> {
   if (isDemo) throw new TypeError('演示模式不会请求真实服务端')
   let res: Response
   try {
@@ -58,7 +93,7 @@ async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V
       method: 'POST',
       // 过期 Cookie 不能跟着登录请求发出去
       credentials: 'omit',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...(token && { authorization: `Bearer ${token}` }) },
       body: JSON.stringify({ query: print(doc), variables }),
     })
   } catch (e) {
@@ -94,11 +129,42 @@ function applyAccessToken(token: string) {
   }
 }
 
+/** 用刚拿到的访问令牌查当前用户；服务端没有 `user` 查询（旧版本）时退化为单用户管理员 */
+async function fetchUser(token: string): Promise<AuthUser> {
+  try {
+    const { user } = await anonymousRequest(CurrentUser, {}, token)
+    return { id: user.id, username: user.username, roles: user.roles, permissions: user.permissions }
+  } catch (e) {
+    if (e instanceof AuthError && /FieldUndefined|Cannot query field|is undefined/i.test(e.message)) return LEGACY_USER
+    throw e
+  }
+}
+
+const sameUser = (a: AuthUser | null, b: AuthUser) =>
+  !!a &&
+  a.id === b.id &&
+  a.username === b.username &&
+  !!a.legacy === !!b.legacy &&
+  a.roles.join() === b.roles.join() &&
+  a.permissions.join() === b.permissions.join()
+
+/**
+ * 拿到令牌后的统一收尾（登录、兑换码、续期共用）：先查用户，成功后才写入令牌与身份，
+ * 这样查询失败时不会留下半个登录态。`refreshToken` 续期时不传，沿用已保存的。
+ */
+async function establishSession(token: string, refreshToken?: string) {
+  const user = await fetchUser(token)
+  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken)
+  localStorage.setItem(USER_KEY, JSON.stringify({ id: user.id, username: user.username }))
+  applyAccessToken(token)
+  // 内容没变就沿用原对象，避免每 5 分钟续期都让订阅了 user 的组件重渲染
+  const prev = useAuth.getState().user
+  useAuth.setState({ status: 'signedIn', user: sameUser(prev, user) ? prev : user })
+}
+
 export async function login(username: string, password: string) {
   const { login } = await anonymousRequest(LoginMutation, { input: { username, password } })
-  localStorage.setItem(REFRESH_KEY, login.refreshToken)
-  applyAccessToken(login.accessToken)
-  useAuth.setState({ status: 'signedIn' })
+  await establishSession(login.accessToken, login.refreshToken)
 }
 
 export function signOut() {
@@ -106,8 +172,9 @@ export function signOut() {
   accessToken = null
   accessExp = 0
   localStorage.removeItem(REFRESH_KEY)
+  localStorage.removeItem(USER_KEY)
   document.cookie = `${COOKIE}=; path=/; max-age=0`
-  useAuth.setState({ status: 'signedOut' })
+  useAuth.setState({ status: 'signedOut', user: null })
 }
 
 /**
@@ -122,9 +189,8 @@ export function refreshAccessToken(): Promise<string> {
     return Promise.reject(new AuthError('未登录'))
   }
   const request = anonymousRequest(RefreshMutation, { input: { refreshToken } })
-    .then(({ refreshToken: r }) => {
-      applyAccessToken(r.accessToken)
-      if (useAuth.getState().status !== 'signedIn') useAuth.setState({ status: 'signedIn' })
+    .then(async ({ refreshToken: r }) => {
+      await establishSession(r.accessToken)
       return r.accessToken
     })
     .catch((e: unknown) => {
@@ -141,7 +207,7 @@ export function refreshAccessToken(): Promise<string> {
 /** 启动时恢复会话 */
 export async function restoreSession() {
   if (!localStorage.getItem(REFRESH_KEY)) {
-    useAuth.setState({ status: 'signedOut' })
+    useAuth.setState({ status: 'signedOut', user: null })
     return
   }
   try {

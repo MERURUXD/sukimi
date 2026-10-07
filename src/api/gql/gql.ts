@@ -15,6 +15,7 @@ import type { TypedDocumentNode as DocumentNode } from '@graphql-typed-document-
  */
 type Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": typeof types.LoginDocument,
+    "\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n": typeof types.CurrentUserDocument,
     "\n  mutation RefreshToken($input: RefreshTokenInput!) {\n    refreshToken(input: $input) {\n      accessToken\n    }\n  }\n": typeof types.RefreshTokenDocument,
     "\n  mutation UpdateChapters($ids: [Int!]!, $patch: UpdateChapterPatchInput!) {\n    updateChapters(input: { ids: $ids, patch: $patch }) {\n      chapters {\n        id\n        isRead\n        isBookmarked\n        lastPageRead\n        manga {\n          id\n          unreadCount\n          bookmarkCount\n        }\n      }\n    }\n  }\n": typeof types.UpdateChaptersDocument,
     "\n  mutation EnqueueDownloads($ids: [Int!]!) {\n    enqueueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n      }\n    }\n  }\n": typeof types.EnqueueDownloadsDocument,
@@ -111,6 +112,7 @@ type Documents = {
 };
 const documents: Documents = {
     "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n": types.LoginDocument,
+    "\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n": types.CurrentUserDocument,
     "\n  mutation RefreshToken($input: RefreshTokenInput!) {\n    refreshToken(input: $input) {\n      accessToken\n    }\n  }\n": types.RefreshTokenDocument,
     "\n  mutation UpdateChapters($ids: [Int!]!, $patch: UpdateChapterPatchInput!) {\n    updateChapters(input: { ids: $ids, patch: $patch }) {\n      chapters {\n        id\n        isRead\n        isBookmarked\n        lastPageRead\n        manga {\n          id\n          unreadCount\n          bookmarkCount\n        }\n      }\n    }\n  }\n": types.UpdateChaptersDocument,
     "\n  mutation EnqueueDownloads($ids: [Int!]!) {\n    enqueueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n      }\n    }\n  }\n": types.EnqueueDownloadsDocument,
@@ -224,6 +226,10 @@ export function graphql(source: string): unknown;
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n"): (typeof documents)["\n  mutation Login($input: LoginInput!) {\n    login(input: $input) {\n      accessToken\n      refreshToken\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n"): (typeof documents)["\n  query CurrentUser {\n    user {\n      id\n      username\n      roles\n      permissions\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
