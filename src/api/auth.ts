@@ -48,6 +48,12 @@ export const useAuth = create<{ status: AuthStatus; user: AuthUser | null }>(() 
 
 export const useCan = (permission: UserPermission) => useAuth((s) => can(s.user, permission))
 
+/**
+ * 服务端有多个账号：下载队列和书库更新是整台服务器共用的，操作前要提醒会影响其他人。
+ * 旧版服务端只有一个账号，不用提示
+ */
+export const useSharedServer = () => useAuth((s) => !!s.user && !s.user.legacy)
+
 const LoginMutation = graphql(`
   mutation Login($input: LoginInput!) {
     login(input: $input) {
