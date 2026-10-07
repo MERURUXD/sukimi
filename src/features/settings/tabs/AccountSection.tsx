@@ -76,7 +76,7 @@ function ChangePassword() {
 }
 
 /** 「关于」里的账户区：当前用户、改密码、退出 */
-export function AccountSection() {
+export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
   const user = useAuth((s) => s.user)
   // 旧服务端没有用户账号，只有退出登录
   const multi = !!user && !user.legacy
@@ -94,19 +94,21 @@ export function AccountSection() {
         ) : (
           <ChangePassword />
         ))}
-      <Row label="退出登录" hint="清除这台设备上保存的登录状态和书库缓存">
-        <Glass
-          as="button"
-          type="button"
-          className="gbtn rounded-full"
-          onClick={async () => {
-            if (await confirm({ title: '退出登录？', ok: '退出' })) signOut()
-          }}
-        >
-          <LogOut className="size-[18px]" strokeWidth={1.8} />
-          退出登录
-        </Glass>
-      </Row>
+      {!hideSignOut && (
+        <Row label="退出登录" hint="清除这台设备上保存的登录状态和书库缓存">
+          <Glass
+            as="button"
+            type="button"
+            className="gbtn rounded-full"
+            onClick={async () => {
+              if (await confirm({ title: '退出登录？', ok: '退出' })) signOut()
+            }}
+          >
+            <LogOut className="size-[18px]" strokeWidth={1.8} />
+            退出登录
+          </Glass>
+        </Row>
+      )}
     </Section>
   )
 }

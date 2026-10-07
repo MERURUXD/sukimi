@@ -111,3 +111,26 @@ test('按用户的设置共 31 项，不含全局项', async () => {
   assert.equal(isUserSettingKey('globalUpdateInterval'), false)
   assert.equal(isUserSettingKey('port'), false)
 })
+
+test('演示里有两个虚构用户与未使用的码，改账号的操作明确拒绝', async () => {
+  const { readFileSync } = await import('node:fs')
+  const { buildSchema, executeSync } = await import('graphql')
+  const docs = await import('../src/api/gql/graphql.ts')
+  const { createDemoData } = await import('../src/features/demo/data.ts')
+  const { PREVIEW_ADMIN, PREVIEW_MEMBER, DEMO_ACCOUNT_REJECT } = await import('../src/features/auth/previewUsers.ts')
+  const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
+  const run = (document, variableValues) => executeSync({ schema, rootValue: createDemoData(), document, variableValues })
+
+  const users = run(docs.UsersDocument)
+  assert.equal(users.errors, undefined)
+  const names = users.data.users.nodes.map((u) => u.username)
+  assert.ok(names.includes(PREVIEW_ADMIN.username) && names.includes(PREVIEW_MEMBER.username))
+  assert.ok(can(PREVIEW_ADMIN, 'MANAGE_USERS') && !can(PREVIEW_MEMBER, 'MANAGE_USERS'))
+
+  const codes = run(docs.UserCodesDocument)
+  assert.equal(codes.errors, undefined)
+  assert.equal(codes.data.userCodes.length, 2)
+
+  const write = run(docs.CreateRegistrationCodeDocument)
+  assert.equal(write.errors?.[0]?.message, DEMO_ACCOUNT_REJECT)
+})
