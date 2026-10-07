@@ -4,7 +4,6 @@ import { useState, type FormEvent } from 'react'
 import { signOut, useAuth } from '@/api/auth'
 import { graphql } from '@/api/gql'
 import { captureUser, StaleSessionError } from '@/api/userContext'
-import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { ROLE_LABEL } from '@/features/auth/permissions'
@@ -50,10 +49,10 @@ function ChangePassword() {
   if (!open) {
     return (
       <Row label="修改密码" hint="修改后这个账号在所有设备上都会退出登录">
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setOpen(true)}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(true)}>
           <KeyRound className="size-[18px]" strokeWidth={1.8} />
           修改密码
-        </Glass>
+        </button>
       </Row>
     )
   }
@@ -71,9 +70,9 @@ function ChangePassword() {
         <button className="solid" disabled={!ready || loading}>
           {loading ? '正在修改…' : '确认修改'}
         </button>
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setOpen(false)}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(false)}>
           取消
-        </Glass>
+        </button>
       </div>
     </form>
   )
@@ -100,17 +99,16 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
         ))}
       {!hideSignOut && (
         <Row label="退出登录" hint="清除这台设备上保存的登录状态和书库缓存">
-          <Glass
-            as="button"
+          <button
             type="button"
-            className="gbtn rounded-full"
+            className="gbtn plain rounded-full"
             onClick={async () => {
               if (await confirm({ title: '退出登录？', ok: '退出' })) signOut()
             }}
           >
             <LogOut className="size-[18px]" strokeWidth={1.8} />
             退出登录
-          </Glass>
+          </button>
         </Row>
       )}
     </Section>

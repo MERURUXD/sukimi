@@ -1,5 +1,4 @@
 import { RotateCcw } from 'lucide-react'
-import { Glass } from '@/components/glass/Glass'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
@@ -20,6 +19,7 @@ export function AppearanceTab() {
       <Section title="外观" desc="只保存在这台设备的浏览器里。">
         <Row label="主题">
           <Seg
+            glass={false}
             label="主题"
             items={[
               { value: 'dark', label: '深色' },
@@ -32,6 +32,7 @@ export function AppearanceTab() {
         </Row>
         <Row label="玻璃效果" hint={canRefract ? '液态：边缘像透镜一样折射背后的内容' : '当前浏览器不支持液态折射，会自动显示为毛玻璃'}>
           <Seg
+            glass={false}
             label="玻璃效果"
             items={[
               { value: 'refract', label: '液态' },
@@ -53,6 +54,7 @@ export function AppearanceTab() {
       <Section title="首页展示" desc="手机与桌面分别选择，自动保存到当前浏览器。">
         <Row label="手机首页布局" hint="居中海报保留完整封面，全幅封面突出画面与人物。">
           <Seg
+            glass={false}
             label="手机首页布局"
             className="max-md:[&_button]:min-h-11"
             items={[
@@ -65,6 +67,7 @@ export function AppearanceTab() {
         </Row>
         <Row label="桌面首页布局" hint="封面与文字并排展示，或将封面铺满背景。全幅模式会裁切画面。">
           <Seg
+            glass={false}
             label="桌面首页布局"
             className="max-md:[&_button]:min-h-11"
             items={[
@@ -84,10 +87,10 @@ export function AppearanceTab() {
         title="液态玻璃质感"
         desc="只在「液态」档生效。调整会立即作用到整个应用，预览区的背景可以滚动。"
         action={
-          <Glass as="button" type="button" className="gbtn w-fit rounded-full" onClick={reset}>
+          <button type="button" className="gbtn plain w-fit rounded-full" onClick={reset}>
             <RotateCcw className="size-[18px]" strokeWidth={1.8} />
             恢复默认
-          </Glass>
+          </button>
         }
       >
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">

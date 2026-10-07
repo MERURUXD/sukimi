@@ -6,7 +6,6 @@ import { captureUser, StaleSessionError } from '@/api/userContext'
 import { graphql } from '@/api/gql'
 import type { BackupRestoreState } from '@/api/gql/graphql'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
-import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
@@ -184,10 +183,10 @@ function ManualBackup() {
         </button>
       </Row>
       <Row label="从文件恢复" hint="先检查备份里缺哪些扩展，确认后再开始">
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => fileRef.current?.click()} disabled={!!restore && !finished}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => fileRef.current?.click()} disabled={!!restore && !finished}>
           <Upload className="size-[18px]" strokeWidth={1.8} />
           选择备份文件
-        </Glass>
+        </button>
         <input
           ref={fileRef}
           type="file"

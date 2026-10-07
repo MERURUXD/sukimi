@@ -1,6 +1,5 @@
 import { Check, ChevronDown, LoaderCircle } from 'lucide-react'
 import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
-import { Glass } from '@/components/glass/Glass'
 import { cn } from '@/lib/cn'
 
 /** 分栏里的一组设置：标题 + 说明，组与组之间只靠留白分开 */
@@ -92,20 +91,20 @@ export function Switch({ on, onChange, label, disabled }: { on: boolean; onChang
   )
 }
 
-/** 玻璃输入框；suffix 放单位 */
+/** 输入框（普通表面）；suffix 放单位 */
 export function TextInput({
   className,
   suffix,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { suffix?: ReactNode }) {
   return (
-    <Glass as="label" className={cn('flex h-11 min-w-0 items-center gap-2 rounded-[14px] px-3.5', className)}>
+    <label className={cn('plain flex h-11 min-w-0 items-center gap-2 rounded-[14px] px-3.5', className)}>
       <input
         {...props}
         className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint disabled:opacity-60"
       />
       {suffix && <span className="flex-none text-[13px] text-muted">{suffix}</span>}
-    </Glass>
+    </label>
   )
 }
 
@@ -125,7 +124,7 @@ export function Select<T extends string | number>({
 }) {
   const id = useId()
   return (
-    <Glass as="label" htmlFor={id} className={cn('relative flex h-11 items-center rounded-[14px]', className)}>
+    <label htmlFor={id} className={cn('plain relative flex h-11 items-center rounded-[14px]', className)}>
       <select
         id={id}
         aria-label={label}
@@ -140,6 +139,6 @@ export function Select<T extends string | number>({
         ))}
       </select>
       <ChevronDown className="pointer-events-none absolute right-3 size-4 text-muted" />
-    </Glass>
+    </label>
   )
 }

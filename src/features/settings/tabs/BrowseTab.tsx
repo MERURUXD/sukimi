@@ -2,7 +2,6 @@ import { useMutation, useQuery } from '@apollo/client/react'
 import { Plus, Trash2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { graphql } from '@/api/gql'
-import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
@@ -220,14 +219,14 @@ function CacheSection() {
   return (
     <Section title="缓存">
       <Row label="图片缓存" hint="在线阅读的漫画页和封面缓存">
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void images()} disabled={c2}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => void images()} disabled={c2}>
           清除
-        </Glass>
+        </button>
       </Row>
       <Row label="Cookie 与网页缓存" hint="来源登录状态、Cloudflare 验证结果等">
-        <Glass as="button" type="button" className="gbtn rounded-full text-danger" onClick={() => void cookies()} disabled={c1}>
+        <button type="button" className="gbtn plain rounded-full text-danger" onClick={() => void cookies()} disabled={c1}>
           清除
-        </Glass>
+        </button>
       </Row>
     </Section>
   )
