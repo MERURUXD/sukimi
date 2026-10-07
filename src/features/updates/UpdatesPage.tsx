@@ -94,6 +94,8 @@ export function UpdatesPage() {
         title: '停止检查更新？',
         body: '检查更新由服务器上的所有账号共用，其他人发起的检查也会一起停止。已经找到的新章节会保留。',
         ok: '停止',
+        // 会停掉别人的检查：不默认聚焦确认按钮，避免误按回车
+        danger: true,
       }))
     )
       return
