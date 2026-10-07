@@ -2,6 +2,7 @@ import { useApolloClient, useMutation } from '@apollo/client/react'
 import { DatabaseBackup, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/api/auth'
+import { captureUser, StaleSessionError } from '@/api/userContext'
 import { graphql } from '@/api/gql'
 import type { BackupRestoreState } from '@/api/gql/graphql'
 import { FILE_SLOT, uploadRequest } from '@/api/upload'
@@ -119,8 +120,11 @@ function ManualBackup() {
   }
 
   const pick = async (file: File) => {
+    // 校验与确认期间换了账号：不能把上一个账号选的备份恢复进新账号的书库
+    const still = captureUser()
     try {
       const v = await uploadRequest(ValidateBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
+      still()
       const { missingSources, missingTrackers } = v.validateBackup
       const ok = await confirm({
         title: `从「${file.name}」恢复？`,
@@ -140,10 +144,11 @@ function ManualBackup() {
         danger: true,
       })
       if (!ok) return
+      still()
       const r = await uploadRequest(RestoreBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
       setRestore({ id: r.restoreBackup.id, state: 'IDLE', done: 0, total: 0 })
     } catch (e) {
-      toastError('恢复失败', e)
+      if (!(e instanceof StaleSessionError)) toastError('恢复失败', e)
     }
   }
 
