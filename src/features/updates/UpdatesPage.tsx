@@ -1,19 +1,21 @@
 import { useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, BookOpen, CircleCheck, Download, MoreHorizontal, RefreshCw } from 'lucide-react'
+import { BookCheck, BookOpen, CircleCheck, Download, MoreHorizontal, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
+import { useSharedServer } from '@/api/auth'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { DownloadPill } from '@/components/manga/DownloadPill'
+import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { toast, toastError } from '@/components/ui/toast'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { RecentUpdates, type UpdateChapter } from '@/features/home/queries'
-import { UpdateLibrary } from '@/features/library/queries'
+import { UpdateLibrary, UpdateStop } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
@@ -82,6 +84,26 @@ export function UpdatesPage() {
       toastError('无法开始检查', e)
     }
   }
+  // 服务端同一时间只有一个更新任务，多账号时停下的可能是别人发起的检查
+  const shared = useSharedServer()
+  const [stopUpdate] = useMutation(UpdateStop)
+  const stop = async () => {
+    if (
+      shared &&
+      !(await confirm({
+        title: '停止检查更新？',
+        body: '检查更新由服务器上的所有账号共用，其他人发起的检查也会一起停止。已经找到的新章节会保留。',
+        ok: '停止',
+      }))
+    )
+      return
+    try {
+      await stopUpdate()
+      toast('已停止检查更新')
+    } catch (e) {
+      toastError('停止失败', e)
+    }
+  }
   // 检查结束后刷新列表与时间（订阅那边也会刷新活动查询，这里保证分页从头来）
   const wasRunning = useRef(false)
   useEffect(() => {
@@ -133,10 +155,17 @@ export function UpdatesPage() {
         <header className="pt-4 md:pt-7 md:pb-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
-            <button type="button" className="solid min-h-11 shrink-0" onClick={check} disabled={updater.isRunning}>
-              <RefreshCw className={cn('size-[18px]', updater.isRunning && 'animate-spin')} strokeWidth={2} />
-              {updater.isRunning ? '正在检查' : '检查更新'}
-            </button>
+            {updater.isRunning ? (
+              <button type="button" className="solid min-h-11 shrink-0" onClick={() => void stop()}>
+                <Square className="size-4 fill-current" strokeWidth={2} />
+                停止检查
+              </button>
+            ) : (
+              <button type="button" className="solid min-h-11 shrink-0" onClick={check}>
+                <RefreshCw className="size-[18px]" strokeWidth={2} />
+                检查更新
+              </button>
+            )}
           </div>
           <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || ' '}</p>
           <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">

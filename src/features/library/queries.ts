@@ -73,6 +73,15 @@ export const UpdateLibrary = graphql(`
   }
 `)
 
+// 停止的是服务端唯一的更新任务，不区分是哪个账号发起的
+export const UpdateStop = graphql(`
+  mutation UpdateStop {
+    updateStop(input: {}) {
+      clientMutationId
+    }
+  }
+`)
+
 export const SetInLibrary = graphql(`
   mutation SetInLibrary($ids: [Int!]!, $inLibrary: Boolean!) {
     updateMangas(input: { ids: $ids, patch: { inLibrary: $inLibrary } }) {

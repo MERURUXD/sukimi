@@ -1,11 +1,13 @@
 import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
 import { ApolloProvider } from '@apollo/client/react'
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/api/auth'
 import { createCache } from '@/api/cache'
 import { useLive, type DownloadItem } from '@/api/live'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
+import { PREVIEW_MEMBER } from '@/features/auth/previewUsers'
 import { DownloadsPage } from '@/features/downloads/DownloadsPage'
 
 const MANGAS = ['虚构漫画 甲', '虚构漫画 乙：名字比较长用来检查截断', '虚构漫画 丙', '虚构漫画 丁']
@@ -23,6 +25,14 @@ const item = (i: number, m: number, n: number): DownloadItem => ({
 export function DownloadsLab() {
   useApplyAppearance()
   const [log, setLog] = useState<string[]>([])
+  // 切换虚构身份看共用提示：多账号服务端显示，旧版单账号（?legacy）不显示；离开时还原原来的身份。
+  // 换身份会清空实时状态，所以用整页刷新切换，不在页面里直接改
+  const [shared] = useState(() => !new URLSearchParams(location.search).has('legacy'))
+  useEffect(() => {
+    const prev = useAuth.getState().user
+    useAuth.setState({ user: shared ? PREVIEW_MEMBER : { id: 0, username: '', roles: ['ADMIN'], permissions: [], legacy: true } })
+    return () => useAuth.setState({ user: prev })
+  }, [shared])
   const [client] = useState(() => {
     const status = () => {
       const s = useLive.getState()
@@ -99,7 +109,13 @@ export function DownloadsLab() {
 
   return (
     <div className="pt-6" data-sfw="">
-      <p className="wrap m-0 text-sm text-muted">下载队列 · 界面验收（虚构数据，仅开发环境）</p>
+      <p className="wrap m-0 text-sm text-muted">
+        下载队列 · 界面验收（虚构数据，仅开发环境）
+        <label className="ml-3 inline-flex items-center gap-1.5">
+          <input type="checkbox" checked={shared} onChange={(e) => location.assign(e.target.checked ? location.pathname : '?legacy')} />
+          多账号服务端
+        </label>
+      </p>
       <ApolloProvider client={client}>
         <DownloadsPage />
       </ApolloProvider>
