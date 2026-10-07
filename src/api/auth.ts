@@ -111,6 +111,9 @@ const startNewSession = () => {
 
 export class AuthError extends Error {}
 
+/** 当前会话的代数（登录、退出、兑换会改变它；普通续期不会）。请求发出时记下，401 重放前核对 */
+export const getSessionEpoch = () => epoch
+
 export function getAccessToken() {
   return accessToken
 }

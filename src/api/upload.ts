@@ -1,6 +1,6 @@
 import type { TypedDocumentNode } from '@apollo/client'
 import { print } from 'graphql'
-import { getAccessToken, refreshAccessToken } from './auth'
+import { getAccessToken, getSessionEpoch, refreshAccessToken } from './auth'
 import { isDemo } from '@/lib/demo'
 
 /** 变量里文件所在位置的占位（实际文件通过 files 传入） */
@@ -31,8 +31,14 @@ export async function uploadRequest<R, V extends Record<string, unknown>>(
     })
   }
 
+  const epoch = getSessionEpoch()
   let res = await send(getAccessToken())
-  if (res.status === 401) res = await send(await refreshAccessToken())
+  if (res.status === 401) {
+    const token = await refreshAccessToken()
+    // 上传期间会话换了：不重放，免得用新会话的令牌上传旧会话选的文件
+    if (epoch !== getSessionEpoch()) throw new Error('会话已更换，上传已取消')
+    res = await send(token)
+  }
   const json = (await res.json()) as { data?: R; errors?: { message: string }[] }
   if (json.errors?.length || !json.data) throw new Error(json.errors?.[0]?.message ?? `请求失败（${res.status}）`)
   return json.data

@@ -6,7 +6,7 @@ import { getMainDefinition } from '@apollo/client/utilities'
 import { OperationTypeNode } from 'graphql'
 import { createClient } from 'graphql-ws'
 import { from, mergeMap } from 'rxjs'
-import { getAccessToken, refreshAccessToken, useAuth } from './auth'
+import { getAccessToken, getSessionEpoch, refreshAccessToken, useAuth } from './auth'
 import { isDemo } from '@/lib/demo'
 import { clearSnapshots } from './persist'
 import { resetUserContext } from './userContext'
@@ -22,6 +22,8 @@ function isUnauthorized(error: unknown) {
 // 令牌过期 → 续期后重试一次
 const retryOnUnauthorized = new ErrorLink(({ error, operation, forward }) => {
   if (!isUnauthorized(error) || operation.getContext().authRetried) return
+  // 请求发出后会话已换（退出、别人登录）：不重放，免得拿新会话的令牌去执行旧会话的操作
+  if (operation.getContext().sessionEpoch !== getSessionEpoch()) return
   return from(refreshAccessToken()).pipe(
     mergeMap(() => {
       operation.setContext({ authRetried: true })
@@ -32,7 +34,8 @@ const retryOnUnauthorized = new ErrorLink(({ error, operation, forward }) => {
 
 const withToken = new SetContextLink((prev) => {
   const token = getAccessToken()
-  return token ? { headers: { ...prev.headers, authorization: `Bearer ${token}` } } : {}
+  // 记下发出时的会话，401 之后重放前核对
+  return { sessionEpoch: getSessionEpoch(), ...(token && { headers: { ...prev.headers, authorization: `Bearer ${token}` } }) }
 })
 
 // 订阅走 WebSocket（graphql-transport-ws）。
