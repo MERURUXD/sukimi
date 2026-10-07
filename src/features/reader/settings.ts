@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { toastError } from '@/components/ui/toast'
+import { useAuth } from '@/api/auth'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { USER_KEYS } from '@/features/auth/userScope'
 import { ReaderMangaMeta, ReaderMetaOf, SetReaderMeta } from './queries'
@@ -126,6 +127,19 @@ export function uncacheReaderMeta(cache: ApolloCache, ids: readonly number[]) {
 
 const writes = createWriteOrder()
 let migration: Promise<void> | null = null
+const refreshing = new Map<number, Promise<void>>()
+
+/*
+ * 阅读设置的网络任务都是在某个账号名下发起的。换账号后，排着的任务不能再用新账号的令牌发出，
+ * 回来的结果也不能写进新账号的缓存和偏好：每个任务记下发起时的用户，之后发现不一致就放弃。
+ */
+const currentUser = () => useAuth.getState().user?.id
+useAuth.subscribe((s, prev) => {
+  if (s.user?.id === prev.user?.id) return
+  // 旧账号的任务即使还没结束，也不能挡住新账号重新开始
+  migration = null
+  refreshing.clear()
+})
 
 /** 等排着的补传和保存全部结束；清除前要等，否则它们会把刚清掉的设置又写回服务端 */
 export const settleReaderWrites = writes.settle
@@ -137,9 +151,13 @@ export function useMigrateReaderPrefs() {
   useEffect(() => {
     const ids = Object.keys(legacy).map(Number)
     if (!ids.length || migration) return
-    // 和用户的保存排在同一队里；查询不进缓存，免得把用户刚选的值换回服务端旧值
-    migration = writes.run(async () => {
+    const userId = currentUser()
+    const mine: Promise<void> = (migration = writes.run(async () => {
+      // 排队期间换了账号：这批旧设置属于上一个账号的浏览器存档，不在这里补传
+      if (currentUser() !== userId) return
+      // 和用户的保存排在同一队里；查询不进缓存，免得把用户刚选的值换回服务端旧值
       const { data } = await client.query({ query: ReaderMetaOf, variables: { ids }, fetchPolicy: 'no-cache' })
+      if (currentUser() !== userId) return
       const items = planMigration(legacy, data?.mangas.nodes ?? [], writes.touched)
       if (items.length) {
         await client.mutate({
@@ -148,16 +166,15 @@ export function useMigrateReaderPrefs() {
           update: (cache, { data }) => data && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter((m) => !writes.touched(m.mangaId, m.key))),
         })
       }
-      useReaderStore.getState().clearPerManga()
+      // 只清当前账号自己的存档，换了账号就不能动新账号的偏好
+      if (currentUser() === userId) useReaderStore.getState().clearPerManga()
     })
       .catch(() => {})
       .finally(() => {
-        migration = null
-      })
+        if (migration === mine) migration = null
+      }))
   }, [client, legacy])
 }
-
-const refreshing = new Map<number, Promise<void>>()
 
 /**
  * 向服务端核对一部漫画的元数据。排在写入队列里，查回来的结果一定包含已发出的保存；
@@ -167,15 +184,20 @@ function refreshReaderMeta(client: ApolloClient, mangaId: number) {
   const running = refreshing.get(mangaId)
   if (running) return running
   const variables = { id: mangaId }
-  const task = writes
+  const userId = currentUser()
+  const task: Promise<void> = writes
     .run(async () => {
+      if (currentUser() !== userId) return
       const { data } = await client.query({ query: ReaderMangaMeta, variables, fetchPolicy: 'no-cache' })
+      if (currentUser() !== userId) return
       if (!data) throw new Error('没有取到漫画元数据')
       const current = client.cache.readQuery({ query: ReaderMangaMeta, variables })?.manga.meta ?? []
       const meta = mergeServerMeta(data.manga.meta, current, (key) => writes.pending(mangaId, key))
       client.cache.writeQuery({ query: ReaderMangaMeta, variables, data: { manga: { ...data.manga, meta } } })
     })
-    .finally(() => refreshing.delete(mangaId))
+    .finally(() => {
+      if (refreshing.get(mangaId) === task) refreshing.delete(mangaId)
+    })
   refreshing.set(mangaId, task)
   return task
 }
@@ -225,21 +247,24 @@ export function useReaderSettings(mangaId: number) {
     const id = writes.mark(mangaId, keys)
     const latest = (m: { mangaId: number; key: string }) => writes.isLatest(m.mangaId, m.key, id)
     cacheReaderMeta(client.cache, metas.map((m) => ({ mangaId, ...m })))
+    const userId = currentUser()
     writes
-      .run(() =>
-        client.mutate({
+      .run(async () => {
+        // 排队期间换了账号：不用新账号的令牌替上一个账号发出
+        if (currentUser() !== userId) return
+        await client.mutate({
           mutation: SetReaderMeta,
           variables: { items: [{ mangaIds: [mangaId], metas }] },
           update: (cache, { data }) => data && cacheReaderMeta(cache, (data.setMangaMetas?.metas ?? []).filter(latest)),
-        }),
-      )
+        })
+      })
       .then(
         () => writes.finish(mangaId, keys, id),
         (e) => {
           writes.finish(mangaId, keys, id)
           toastError('阅读设置没能保存到服务器', e)
           // 失败时重新取服务端的值，界面退回去；后面还有更新的修改就交给它
-          if (metas.some((m) => latest({ mangaId, ...m }))) refreshReaderMeta(client, mangaId).catch(() => {})
+          if (currentUser() === userId && metas.some((m) => latest({ mangaId, ...m }))) refreshReaderMeta(client, mangaId).catch(() => {})
         },
       )
   }

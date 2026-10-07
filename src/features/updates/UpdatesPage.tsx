@@ -155,9 +155,11 @@ export function UpdatesPage() {
               <Glass as="button" type="button" className="gbtn rounded-full" onClick={markAllRead}>
                 全部标为已读
               </Glass>
-              <Glass as="button" type="button" className="gbtn rounded-full" onClick={downloadAll}>
-                下载全部未读
-              </Glass>
+              <Can permission="DOWNLOAD_CHAPTERS">
+                <Glass as="button" type="button" className="gbtn rounded-full" onClick={downloadAll}>
+                  下载全部未读
+                </Glass>
+              </Can>
             </div>
             <UpdatesMore onMarkRead={markAllRead} onDownload={downloadAll} />
           </div>
@@ -321,9 +323,11 @@ function Row({
             <CircleCheck className="size-5" strokeWidth={1.8} />
           </span>
         ) : (
-          <button type="button" className="gicon text-muted hover:text-text" onClick={onEnqueue} aria-label={`下载 ${c.manga.title} ${chapterLabel(c)}`}>
-            <Download className="size-5" strokeWidth={1.8} />
-          </button>
+          <Can permission="DOWNLOAD_CHAPTERS">
+            <button type="button" className="gicon text-muted hover:text-text" onClick={onEnqueue} aria-label={`下载 ${c.manga.title} ${chapterLabel(c)}`}>
+              <Download className="size-5" strokeWidth={1.8} />
+            </button>
+          </Can>
         )}
       </span>
       <button
