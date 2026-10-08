@@ -192,3 +192,59 @@ export const InstallExternalExtension = graphql(`
     }
   }
 `)
+
+/* ───────── 扩展设置（来源偏好） ───────── */
+
+/** 已安装扩展提供的来源里哪些有可调的偏好；用来决定扩展行上要不要显示设置入口 */
+export const ConfigurableSources = graphql(`
+  query ConfigurableSources {
+    sources {
+      nodes {
+        id
+        displayName
+        lang
+        isConfigurable
+        extension {
+          pkgName
+        }
+      }
+    }
+  }
+`)
+
+// 各类型的 default / currentValue 字段类型不同，必须分别起别名。
+graphql(`
+  fragment SourcePreferenceFields on Preference {
+    __typename
+    ... on CheckBoxPreference { key title summary visible enabled checkDefault: default checkValue: currentValue }
+    ... on SwitchPreference { key title summary visible enabled switchDefault: default switchValue: currentValue }
+    ... on EditTextPreference { key title summary visible enabled dialogTitle dialogMessage textDefault: default textValue: currentValue }
+    ... on ListPreference { key title summary visible enabled entries entryValues listDefault: default listValue: currentValue }
+    ... on MultiSelectListPreference { key title summary visible enabled dialogTitle dialogMessage entries entryValues multiDefault: default multiValue: currentValue }
+  }
+`)
+
+export const SourcePreferences = graphql(`
+  query SourcePreferences($id: LongString!) {
+    source(id: $id) {
+      id
+      displayName
+      preferences {
+        ...SourcePreferenceFields
+      }
+    }
+  }
+`)
+
+export const UpdateSourcePreference = graphql(`
+  mutation UpdateSourcePreference($source: LongString!, $change: SourcePreferenceChangeInput!) {
+    updateSourcePreference(input: { source: $source, change: $change }) {
+      source {
+        id
+        preferences {
+          ...SourcePreferenceFields
+        }
+      }
+    }
+  }
+`)

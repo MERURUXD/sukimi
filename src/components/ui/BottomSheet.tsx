@@ -3,11 +3,13 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
+import './BottomSheet.css'
 
 /** 手机底部浮层：使用全局玻璃外观，内容过长时在面板内滚动。 */
-export function BottomSheet({ id, label, onClose, children }: {
+export function BottomSheet({ id, label, closeLabel = '关闭更多操作', onClose, children }: {
   id: string
   label: string
+  closeLabel?: string
   onClose: () => void
   children: ReactNode
 }) {
@@ -67,7 +69,7 @@ export function BottomSheet({ id, label, onClose, children }: {
       >
         <div className="flex shrink-0 items-center gap-3 pl-3">
           <h2 className="m-0 flex-1 text-base font-semibold">{label}</h2>
-          <button type="button" className="gicon rounded-full hover:bg-hover" aria-label="关闭更多操作" onClick={onClose}><X className="size-5" /></button>
+          <button type="button" className="gicon rounded-full hover:bg-hover" aria-label={closeLabel} onClick={onClose}><X className="size-5" /></button>
         </div>
         <div className="no-scrollbar min-h-0 overflow-y-auto overscroll-contain">{children}</div>
       </MotionGlass>

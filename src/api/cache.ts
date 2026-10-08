@@ -6,6 +6,8 @@ export function createCache() {
     // 筛选文档包含 Filter 联合类型片段；未登记成员时 Apollo 会跳过片段里的字段。
     possibleTypes: {
       Filter: ['CheckBoxFilter', 'GroupFilter', 'HeaderFilter', 'SelectFilter', 'SeparatorFilter', 'SortFilter', 'TextFilter', 'TriStateFilter'],
+      // 来源偏好同样是联合类型，设置面板的片段依赖它
+      Preference: ['CheckBoxPreference', 'EditTextPreference', 'ListPreference', 'MultiSelectListPreference', 'SwitchPreference'],
     },
     typePolicies: {
       // 没有 id 的全局单例：查询和 setSettings 返回的结果合并到同一个对象上

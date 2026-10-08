@@ -1,0 +1,2 @@
+.manga-bottom-sheet-root { padding: 12px 12px max(12px, env(safe-area-inset-bottom)); }
+.manga-bottom-sheet { max-height: min(520px, calc(100dvh - 24px - env(safe-area-inset-bottom))); }
