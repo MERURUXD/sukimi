@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useId, useState, type MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { Glass } from '@/components/glass/Glass'
@@ -15,16 +15,18 @@ const STARS = [
 /** 太阳 ⇄ 月亮：圆盘放大成月牙（用一个黑圆从右上角滑进来挖掉一块），光芒收起并转动 */
 function SunMoon({ dark }: { dark: boolean }) {
   const mask = useId()
+  // 全局的 reduced-motion 样式管不到 motion 的脚本动画，开了「减少动态效果」时图标要直接切换
+  const transition = useReducedMotion() ? { duration: 0 } : spring.default
   return (
     <svg viewBox="0 0 24 24" className="size-5 overflow-visible" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
       <mask id={mask}>
         <rect width="24" height="24" fill="white" stroke="none" />
-        <motion.circle r="7" fill="black" stroke="none" initial={false} animate={dark ? { cx: 17, cy: 7 } : { cx: 32, cy: -8 }} transition={spring.default} />
+        <motion.circle r="7" fill="black" stroke="none" initial={false} animate={dark ? { cx: 17, cy: 7 } : { cx: 32, cy: -8 }} transition={transition} />
       </mask>
-      <motion.circle cx="12" cy="12" fill="currentColor" mask={`url(#${mask})`} initial={false} animate={{ r: dark ? 8.5 : 4.5 }} transition={spring.default} />
+      <motion.circle cx="12" cy="12" fill="currentColor" mask={`url(#${mask})`} initial={false} animate={{ r: dark ? 8.5 : 4.5 }} transition={transition} />
       {/* 外层 g 负责悬停时的持续自转（CSS），里层 g 负责切换时的收起（motion），两个 transform 不能放同一个元素 */}
       <g className="theme-rays">
-        <motion.g initial={false} animate={dark ? { rotate: 90, scale: 0.4, opacity: 0 } : { rotate: 0, scale: 1, opacity: 1 }} transition={spring.default} style={{ transformOrigin: '12px 12px' }}>
+        <motion.g initial={false} animate={dark ? { rotate: 90, scale: 0.4, opacity: 0 } : { rotate: 0, scale: 1, opacity: 1 }} transition={transition} style={{ transformOrigin: '12px 12px' }}>
           {RAYS.map((deg) => (
             <line key={deg} x1="12" y1="2.6" x2="12" y2="4.4" transform={`rotate(${deg} 12 12)`} />
           ))}
@@ -44,6 +46,9 @@ function SunMoon({ dark }: { dark: boolean }) {
     </svg>
   )
 }
+
+/** 最近一次发起的切换编号，转场收尾时据此判断自己是不是最新的 */
+let latestToggle = 0
 
 /**
  * 顶栏的深浅色切换。
@@ -89,9 +94,12 @@ export function ThemeToggle() {
     // 写目标主题：index.css 据此关掉全部 CSS 过渡（否则新快照里颜色还在渐变，圆圈揭开的不是最终画面），并决定叠放层次
     root.dataset.themeVt = next
     const t = document.startViewTransition(apply)
+    // 上一次转场还没结束就再点：新转场会让旧的被跳过，旧的收尾不能清掉新的标记和变量
+    const token = ++latestToggle
     let reveal: Animation | undefined
     t.ready
       .then(() => {
+        if (token !== latestToggle) return
         // 变深：新的（深色）画面在上面，从按钮处放大盖住旧画面；
         // 变浅：旧的（深色）画面在上面，向按钮处缩小露出新画面。始终是深色那层在动，参考 BewlyCat
         const toDark = next === 'dark'
@@ -107,6 +115,7 @@ export function ThemeToggle() {
       .finally(() => {
         // 挂在根元素上的伪元素动画不会随过渡自动清掉，forwards 的终点会留到下一次切换，必须手动取消
         reveal?.cancel()
+        if (token !== latestToggle) return
         delete root.dataset.themeVt
         root.style.removeProperty('--vt-x')
         root.style.removeProperty('--vt-y')
