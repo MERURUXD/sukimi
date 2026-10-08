@@ -131,16 +131,6 @@ export const UnbindTrack = graphql(`
   }
 `)
 
-export const TrackProgress = graphql(`
-  mutation TrackProgress($mangaId: Int!) {
-    trackProgress(input: { mangaId: $mangaId }) {
-      trackRecords {
-        ...TrackRecordFields
-      }
-    }
-  }
-`)
-
 export const LoginTrackerOAuth = graphql(`
   mutation LoginTrackerOAuth($trackerId: Int!, $callbackUrl: String!) {
     loginTrackerOAuth(input: { trackerId: $trackerId, callbackUrl: $callbackUrl }) {

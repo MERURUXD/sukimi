@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fromDateInput, oauthUrl, parseOAuthState, statusLabel, toDateInput } from '../src/features/tracking/tracking.ts'
+import { fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, readProgress, scoreWord, starScale, statusLabel, toDateInput } from '../src/features/tracking/tracking.ts'
 
 test('授权地址带上可解析的 state，回调时能取回追踪服务', () => {
   const url = oauthUrl({ id: 2, name: 'AniList', authUrl: 'https://example.invalid/oauth?client_id=1&response_type=token' }, 'http://localhost:4567')
@@ -30,4 +30,48 @@ test('日期输入框与毫秒互换，0 表示没有', () => {
   const ms = fromDateInput('2026-03-09')
   assert.equal(toDateInput(ms), '2026-03-09')
   assert.equal(fromDateInput(''), '0')
+})
+
+test('评分档位画成星星，其余仍用下拉框', () => {
+  // Bangumi：0–10；验收页：'' + 1–10
+  assert.equal(starScale(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']), 10)
+  assert.equal(starScale(['', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']), 10)
+  assert.equal(starScale(['0', '1', '2', '3', '4', '5']), 5)
+  assert.equal(starScale(Array.from({ length: 101 }, (_, i) => String(i))), null)
+  assert.equal(starScale(['', '0.5', '1.0', '10.0']), null)
+  assert.equal(starScale(['', ':(', ':|', ':)']), null)
+  assert.equal(starScale([]), null)
+})
+
+test('星星数字与服务端分数互换', () => {
+  const bgm = Array.from({ length: 11 }, (_, i) => String(i))
+  assert.equal(scoreValue('8'), 8)
+  assert.equal(scoreValue(''), 0)
+  assert.equal(scoreValue('-'), 0)
+  assert.equal(scoreString(bgm, 7), '7')
+  assert.equal(scoreString(bgm, 0), '0')
+  assert.equal(scoreString(['', '1', '2'], 0), '')
+  assert.equal(scoreWord('Bangumi', 8), '力荐')
+  assert.equal(scoreWord('Bangumi', 0), '')
+  assert.equal(scoreWord('AniList', 8), '')
+})
+
+const chapters = (nums, read = () => true) => nums.map((n, i) => ({ chapterNumber: n, sourceOrder: i + 1, isRead: read(n, i) }))
+
+test('同步进度跳过贺图等异常编号', () => {
+  // 第 45 话之后插了一张「2026 新年贺图」
+  assert.equal(readProgress(chapters([...Array.from({ length: 45 }, (_, i) => i + 1), 2026, 46, 47, 48, 49, 50, 51, 52, 53])), 53)
+  // 贺图是最新一话
+  assert.equal(readProgress(chapters([1, 2, 3, 53, 54, 55, 2026])), 55)
+  assert.equal(readProgress(chapters([50, 51, 52, 53, 54, 55, 2026])), 55)
+  // 只算已读的
+  assert.equal(readProgress(chapters([1, 2, 3, 4, 5], (n) => n <= 3)), 3)
+  // 小数话、番外（0 与负数）不影响
+  assert.equal(readProgress(chapters([0, 1, 1.5, 2, -1, 3])), 3)
+  // 来源顺序略有错乱时照常取最大
+  assert.equal(readProgress(chapters([1, 2, 4, 3, 5, 7, 6])), 7)
+  // 长篇正常推进
+  assert.equal(readProgress(chapters(Array.from({ length: 1200 }, (_, i) => i + 1))), 1200)
+  assert.equal(readProgress(chapters([])), 0)
+  assert.equal(readProgress(chapters([12])), 12)
 })
