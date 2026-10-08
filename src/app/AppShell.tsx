@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation, useMatch } from 'react-router'
 import { cn } from '@/lib/cn'
 import { restoreSession, useAuth } from '@/api/auth'
@@ -6,6 +7,7 @@ import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
 import { MobileTabBar } from './MobileTabBar'
+import { takeNavDirection } from './navTabs'
 import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
 import { TopNav } from './TopNav'
@@ -49,13 +51,24 @@ export function AppShell() {
   // 详情页在手机上不显示底部标签栏（返回键在左上角，底部留给批量栏）
   const tabbar = !useMatch('/manga/:id/*')
   const { pathname } = useLocation()
+  const main = useRef<HTMLElement>(null)
+
+  // 主标签之间切换：新页面带一点水平滑入，淡入淡出由整页过渡负责。
+  // 只用位移不用透明度，祖先的透明度会让里面玻璃的背景采样失效；导航栏不在 main 里，保持不动
+  useLayoutEffect(() => {
+    const dir = takeNavDirection()
+    if (!dir || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    main.current?.animate([{ translate: `${dir * 28}px 0` }, { translate: '0 0' }], { duration: 340, easing: 'cubic-bezier(0.2, 0, 0, 1)' })
+  }, [pathname])
+
   return (
-    <div className={cn('app-shell relative isolate min-h-dvh', tabbar && 'has-tabbar')}>
+    // overflow-x: clip：滑入时 main 暂时比屏幕宽，不能撑出横向滚动条
+    <div className={cn('app-shell relative isolate min-h-dvh overflow-x-clip', tabbar && 'has-tabbar')}>
       <TopNav />
       <SideNav />
       {/* 导航悬浮在内容之上；详情页的封面背景会延伸到导航下面 */}
       {/* data-page-path：封面飞回动画用来判断「从哪页回到哪页」，见 lib/coverTransition */}
-      <main className="pt-[var(--nav-h)] pb-[var(--tabbar-h)]" data-page-path={pathname}>
+      <main ref={main} className="pt-[var(--nav-h)] pb-[var(--tabbar-h)]" data-page-path={pathname}>
         <Outlet />
       </main>
       {tabbar && <MobileTabBar />}
