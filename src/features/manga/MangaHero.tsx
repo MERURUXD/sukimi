@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
 import { ArrowLeftRight, ChevronLeft, Download, ExternalLink, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
@@ -69,7 +69,8 @@ export function MangaHero({
   }
 
   const genres = manga.genre.slice(0, 6)
-  const byline = [manga.author, manga.artist !== manga.author ? manga.artist : null].filter(Boolean).join(' · ')
+  // 作者字段常是「甲, 乙」，拆开后每个名字单独可搜，作画与作者相同时只留一份
+  const people = [...new Set([manga.author, manga.artist].flatMap((s) => (s ?? '').split(/[,，、]/).map((n) => n.trim()).filter(Boolean)))]
 
   return (
     <section className="manga-hero relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]">
@@ -84,8 +85,19 @@ export function MangaHero({
 
         <div className="manga-hero-info flex min-w-0 flex-col">
           <div className={cn('manga-hero-identity flex min-w-0 flex-col', placeholder && 'invisible')}>
-            <h1 style={delay(mangaIntro.title)} className={cn('manga-hero-title m-0 font-cjk text-balance', animate && 'rise')}>{manga.title}</h1>
-            {byline && <span style={delay(mangaIntro.byline)} className={cn('text-[15px] text-muted', animate && 'rise')}>{byline}</span>}
+            <h1 style={delay(mangaIntro.title)} className={cn('manga-hero-title m-0 font-cjk text-balance', animate && 'rise')}>
+              <SearchLink q={manga.title}>{manga.title}</SearchLink>
+            </h1>
+            {people.length > 0 && (
+              <span style={delay(mangaIntro.byline)} className={cn('text-[15px] text-muted', animate && 'rise')}>
+                {people.map((n, i) => (
+                  <Fragment key={n}>
+                    {i > 0 && ' · '}
+                    <SearchLink q={n}>{n}</SearchLink>
+                  </Fragment>
+                ))}
+              </span>
+            )}
             <span style={delay(mangaIntro.meta)} className={cn('manga-hero-meta text-muted', animate && 'rise')}>{[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}</span>
           </div>
           {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
@@ -115,6 +127,15 @@ export function MangaHero({
         {manga.inLibrary && !placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} style={delay(mangaIntro.byline)} className={cn('manga-hero-side', animate && 'rise')} />}
       </div>
     </section>
+  )
+}
+
+/** 标题、作者点开后到发现页对所有漫画源做全局搜索 */
+function SearchLink({ q, children }: { q: string; children: ReactNode }) {
+  return (
+    <Link to={`/browse?${new URLSearchParams({ q, mode: 'SEARCH' })}`} title={`全局搜索「${q}」`} className="text-inherit no-underline hover:underline">
+      {children}
+    </Link>
   )
 }
 
