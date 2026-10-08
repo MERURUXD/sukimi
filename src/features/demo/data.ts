@@ -125,7 +125,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       chapterNumber: n, sourceOrder: n, pageCount: 6, lastPageRead: fresh ? 0 : n < 3 ? 5 : n === 3 ? 1 : 0,
       isRead: !fresh && n < 3, isBookmarked: !fresh && n === 3, isDownloaded: n < 4, scanlator: '演示画室', meta: [],
       lastReadAt: !fresh && !imported && n <= 3 ? String(Math.floor(now / 1000) - away - i * 7200 - (3 - n) * 300) : '0',
-      fetchedAt: String(Math.floor(now / 1000) - (8 - n) * 86400 - i * 600), uploadDate: String(now - (8 - n) * 86400000 - i * 600000),
+      // 第 1 部的后三话同一天抓到，演示更新页的折叠
+      fetchedAt: String(Math.floor(now / 1000) - (i === 0 && n >= 6 ? 3600 + (8 - n) * 60 : (8 - n) * 86400 + i * 600)), uploadDate: String(now - (8 - n) * 86400000 - i * 600000),
     })
     return m
   })

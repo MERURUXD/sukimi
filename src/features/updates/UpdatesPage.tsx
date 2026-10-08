@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, BookOpen, CircleCheck, Download, MoreHorizontal, RefreshCw, Square } from 'lucide-react'
+import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, MoreHorizontal, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { captureUser } from '@/api/userContext'
@@ -21,6 +21,7 @@ import { UpdateLibrary, UpdateStop } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
+import { groupByManga } from './group'
 import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE, type UpdatesFilter } from './queries'
 import { chapterLabel, count, dayLabel, sec, timeAgo } from '@/lib/format'
 
@@ -43,7 +44,7 @@ export function UpdatesPage() {
   const list = useMemo(() => data?.chapters.nodes ?? [], [data])
   const hasMore = data?.chapters.pageInfo.hasNextPage ?? false
 
-  // 按抓取日期分组
+  // 按抓取日期分组，同一天里同一部漫画的多话再折叠成一行
   const days = useMemo(() => {
     const out: { label: string; rows: UpdateChapter[] }[] = []
     for (const c of list) {
@@ -51,8 +52,15 @@ export function UpdatesPage() {
       if (out.at(-1)?.label === label) out.at(-1)!.rows.push(c)
       else out.push({ label, rows: [c] })
     }
-    return out
+    return out.map((d) => ({ ...d, groups: groupByManga(d.rows, d.label) }))
   }, [list])
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
+  const toggleGroup = (key: string) =>
+    setOpen((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
 
   // 滚到底自动加载下一页
   const sentinel = useRef<HTMLDivElement>(null)
@@ -218,9 +226,20 @@ export function UpdatesPage() {
                 {d.label}
                 <span className="text-[13px] font-medium text-muted">{d.rows.length} 话</span>
               </h2>
-              {d.rows.map((c, ri) => (
-                <Row key={c.id} rise={intro ? riseStep(rowIndex(days, di, ri)) : undefined} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
-              ))}
+              {d.groups.map((g, gi) => {
+                const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
+                const row = (c: UpdateChapter, nested?: number) => (
+                  <Row key={c.id} rise={nested === undefined ? rise : riseStep(nested)} nested={nested !== undefined} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
+                )
+                if (g.rows.length === 1) return row(g.rows[0])
+                const expanded = open.has(g.key)
+                return (
+                  <div key={g.key} className={expanded ? 'mb-2' : undefined}>
+                    <GroupRow rows={g.rows} rise={rise} expanded={expanded} onToggle={() => toggleGroup(g.key)} />
+                    {expanded && g.rows.map((c, i) => row(c, i))}
+                  </div>
+                )
+              })}
             </div>
           ))}
           <div ref={sentinel} />
@@ -284,9 +303,9 @@ function UpdatesMore({ onMarkRead, onDownload }: { onMarkRead: () => Promise<voi
 }
 
 /** 第几条（跨日期分组，日期标题也算一格），给进场动画排延迟 */
-function rowIndex(days: { rows: unknown[] }[], di: number, ri: number) {
-  let n = di + ri
-  for (let i = 0; i < di; i++) n += days[i].rows.length
+function rowIndex(days: { groups: unknown[] }[], di: number, gi: number) {
+  let n = di + gi
+  for (let i = 0; i < di; i++) n += days[i].groups.length
   return n
 }
 
@@ -309,12 +328,15 @@ function RowsSkeleton() {
 function Row({
   c,
   rise,
+  nested,
   queued,
   onEnqueue,
   onToggleRead,
 }: {
   c: UpdateChapter
   rise?: CSSProperties
+  /** 折叠组展开后的子行：不重复封面与书名，只显示章节名 */
+  nested?: boolean
   queued: { progress: number; state: string } | undefined
   onEnqueue: () => void
   onToggleRead: () => void
@@ -325,26 +347,28 @@ function Row({
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       style={rise}
-      className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', rise && 'rise')}
+      className={cn('flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', nested ? 'py-1.5' : 'py-2.5', rise && 'rise')}
     >
-      <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md" aria-label={`${c.manga.title} 详情`}>
-        <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
-      </Link>
+      {nested ? (
+        <span className="w-[46px] flex-none" aria-hidden />
+      ) : (
+        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md" aria-label={`${c.manga.title} 详情`}>
+          <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
+        </Link>
+      )}
       <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} className="flex min-w-0 flex-1 flex-col text-text no-underline">
         <span className="flex min-w-0 items-baseline gap-2">
           {!c.isRead && <span className="size-2 flex-none rounded-full bg-accent" />}
-          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', c.isRead ? 'font-medium text-muted' : 'font-semibold')}>{c.manga.title}</span>
+          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>
         </span>
-        <span className="truncate text-xs text-muted">
-          {chapterLabel(c)}
-        </span>
+        {!nested && <span className="truncate text-xs text-muted">{chapterLabel(c)}</span>}
         {/* 手机把时间与下载状态放回文字区，给标题和章节名留出宽度。 */}
         <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted num sm:hidden">
           <span>{time}</span>
           {queued && <span>{downloadStatus}</span>}
         </span>
       </Link>
-      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
+      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
       <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden">{time}</span>
       <span className="flex w-11 flex-none justify-end sm:w-24">
         {queued ? (
@@ -375,6 +399,45 @@ function Row({
         title={c.isRead ? '标为未读' : '标为已读'}
       >
         {c.isRead ? <BookOpen className="size-5" strokeWidth={1.8} /> : <BookCheck className="size-5" strokeWidth={1.8} />}
+      </button>
+    </div>
+  )
+}
+
+/** 同一天同一部漫画的多话折叠行：显示最新一话，点开看全部 */
+function GroupRow({ rows, rise, expanded, onToggle }: { rows: UpdateChapter[]; rise?: CSSProperties; expanded: boolean; onToggle: () => void }) {
+  const c = rows[0]
+  const unread = rows.filter((r) => !r.isRead).length
+  const time = new Date(sec(c.fetchedAt)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const summary = `${chapterLabel(c)} 等 ${rows.length} 话${unread ? ` · ${unread} 话未读` : ''}`
+  return (
+    <div
+      data-sfw={sfwAttr(c.manga.source?.displayName)}
+      style={rise}
+      className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', rise && 'rise')}
+    >
+      {/* 封面后面露出两层，像叠在一起的几话；右下角的数字是话数 */}
+      <span className="relative mt-2 w-[46px] flex-none">
+        <span aria-hidden className="absolute inset-x-2 -top-2.5 h-full rounded-md bg-text/15" />
+        <span aria-hidden className="absolute inset-x-1 -top-[5px] h-full rounded-md bg-text/30" />
+        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv relative rounded-md" aria-label={`${c.manga.title} 详情`}>
+          <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
+        </Link>
+        <span aria-hidden className="pointer-events-none absolute -right-2 -bottom-2 grid h-[22px] min-w-[22px] place-items-center rounded-full bg-accent px-1.5 text-[12px] leading-none font-bold text-on-accent num">{rows.length}</span>
+      </span>
+      <button type="button" className="flex min-w-0 flex-1 cursor-pointer flex-col border-0 bg-transparent p-0 text-left text-text" aria-expanded={expanded} onClick={onToggle}>
+        <span className="flex min-w-0 items-baseline gap-2">
+          {unread > 0 && <span className="size-2 flex-none rounded-full bg-accent" />}
+          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', unread ? 'font-semibold' : 'font-medium text-muted')}>{c.manga.title}</span>
+        </span>
+        <span className="truncate text-xs text-muted">{summary}</span>
+        <span className="mt-0.5 text-xs text-muted num sm:hidden">{time}</span>
+      </button>
+      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
+      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden">{time}</span>
+      <span className="w-11 flex-none sm:w-24" aria-hidden />
+      <button type="button" className="gicon text-muted hover:text-text" onClick={onToggle} tabIndex={-1} aria-hidden>
+        <ChevronDown className={cn('size-5 transition-transform', expanded && 'rotate-180')} strokeWidth={1.8} />
       </button>
     </div>
   )
