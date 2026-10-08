@@ -11,7 +11,7 @@ import { cn } from '@/lib/cn'
 import { MangaTracks, Trackers, type Tracker, type TrackRecord } from './queries'
 import { Stars } from './Stars'
 import { TrackDialog } from './TrackPanel'
-import { scoreString, scoreValue, scoreWord, starScale, statusLabel } from './tracking'
+import { isRated, scoreString, scoreValue, scoreWord, starScale, statusLabel } from './tracking'
 import { useSaveTrack } from './useSaveTrack'
 
 const WIDE = '(min-width: 1280px)'
@@ -74,6 +74,7 @@ export function TrackSummary({ mangaId, title, placement, className, style }: { 
 
 function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el: HTMLElement) => void }) {
   const status = t.statuses.find((s) => s.value === r.status)
+  const rated = isRated(r.displayScore, t.scores)
   const score = scoreValue(r.displayScore)
   const scale = starScale(t.scores)
   const word = scoreWord(t.name, score)
@@ -85,7 +86,7 @@ function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el:
     <button
       type="button"
       onClick={(e) => onOpen(e.currentTarget)}
-      aria-label={`${t.name} 追踪：${status ? statusLabel(status.name) : '未设置'}，读到第 ${chapterNo(r.lastChapterRead)} 话，${score ? `${r.displayScore} 分` : '未评分'}。打开追踪设置`}
+      aria-label={`${t.name} 追踪：${status ? statusLabel(status.name) : '未设置'}，读到第 ${chapterNo(r.lastChapterRead)} 话，${rated ? `评分 ${r.displayScore}` : '未评分'}。打开追踪设置`}
       className="-mx-2 grid grid-cols-3 items-start rounded-2xl px-2 py-2.5 transition-colors hover:bg-hover active:bg-hover"
     >
       <span className={cell}>
@@ -103,8 +104,8 @@ function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el:
       </span>
       <span className={cell}>
         <span className={caption}>评分</span>
-        <span className={value}>{score > 0 ? r.displayScore : '—'}</span>
-        {score > 0 && scale ? <MiniStars value={score} max={scale} /> : <span className={sub}>{score > 0 ? word || '已评分' : '未评分'}</span>}
+        <span className={value}>{rated ? r.displayScore : '—'}</span>
+        {rated && scale && score > 0 ? <MiniStars value={score} max={scale} /> : <span className={sub}>{rated ? word || '已评分' : '未评分'}</span>}
       </span>
     </button>
   )

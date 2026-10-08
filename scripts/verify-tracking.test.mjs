@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, readProgress, scoreWord, starScale, statusLabel, toDateInput } from '../src/features/tracking/tracking.ts'
+import { fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, isRated, readProgress, scoreWord, starScale, statusLabel, toDateInput } from '../src/features/tracking/tracking.ts'
 
 test('授权地址带上可解析的 state，回调时能取回追踪服务', () => {
   const url = oauthUrl({ id: 2, name: 'AniList', authUrl: 'https://example.invalid/oauth?client_id=1&response_type=token' }, 'http://localhost:4567')
@@ -85,4 +85,14 @@ test('同步进度跳过贺图等异常编号', () => {
   assert.equal(readProgress(chapters(Array.from({ length: 1200 }, (_, i) => i + 1))), 1200)
   assert.equal(readProgress(chapters([])), 0)
   assert.equal(readProgress(chapters([12])), 12)
+})
+
+test('表情等非数字评分也算已评分', () => {
+  const emoji = ['', ':(', ':|', ':)']
+  const bgm = Array.from({ length: 11 }, (_, i) => String(i))
+  assert.equal(isRated(':)', emoji), true)
+  assert.equal(isRated('', emoji), false)
+  assert.equal(isRated('8', bgm), true)
+  assert.equal(isRated('0', bgm), false)
+  assert.equal(isRated('', bgm), false)
 })

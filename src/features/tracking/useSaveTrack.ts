@@ -3,6 +3,7 @@ import { useApolloClient } from '@apollo/client/react'
 import type { UpdateTrackInput } from '@/api/gql/graphql'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { toastError } from '@/components/ui/toast'
+import { TrackRecordFieldsFragmentDoc } from '@/api/gql/graphql'
 import { UpdateTrack, type TrackRecord } from './queries'
 import { scoreValue } from './tracking'
 
@@ -14,12 +15,17 @@ resetOnUserContext(() => queue.clear())
 
 /**
  * 按顺序写一条追踪记录；返回的记录带 id，直接改缓存。
- * 轮到发出时账号已经换了就放弃，抛出 StaleSessionError
+ * 轮到发出时账号已经换了就放弃，抛出 StaleSessionError。
+ * forwardOnly：自动同步用，轮到发出时再读一次最新进度（含排在前面的手动修改），已经不落后就不写，返回 null
  */
-export function updateTrackQueued(client: ApolloClient, input: UpdateTrackInput) {
+export function updateTrackQueued(client: ApolloClient, input: UpdateTrackInput, { forwardOnly = false } = {}) {
   const still = captureUser()
   const run = (queue.get(input.recordId) ?? Promise.resolve()).catch(() => {}).then(() => {
     still()
+    if (forwardOnly && input.lastChapterRead != null) {
+      const now = client.cache.readFragment({ fragment: TrackRecordFieldsFragmentDoc, id: client.cache.identify({ __typename: 'TrackRecordType', id: input.recordId }), optimistic: true })
+      if (now && now.lastChapterRead >= input.lastChapterRead) return null
+    }
     return client.mutate({ mutation: UpdateTrack, variables: { input } })
   })
   queue.set(input.recordId, run)

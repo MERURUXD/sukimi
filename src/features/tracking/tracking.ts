@@ -58,7 +58,10 @@ export function starScale(scores: readonly string[]): 5 | 10 | null {
   return max
 }
 
-/** 显示分数换成数字；空串、非数字都当作未评分 */
+/** 有没有评分：空串、'0' 和档位第一项（各网站的「未评分」）算没有；表情之类非数字也算有 */
+export const isRated = (display: string, scores: readonly string[]) => display !== '' && display !== '0' && display !== scores[0]
+
+/** 显示分数换成数字，只用于画星星；空串、非数字都得 0 */
 export const scoreValue = (display: string) => Number(display) || 0
 
 /** 星星选中的数字换回服务端要的档位字符串；0 用列表里表示「未评分」的那一项 */

@@ -16,9 +16,10 @@ async function push(client: ApolloClient, mangaId: number, still: () => void) {
   still()
   const read = readProgress(chapters.data?.chapters.nodes ?? [])
   const behind = records.filter((r) => read > r.lastChapterRead)
-  // 返回的记录带 id，直接改缓存，详情页的追踪信息跟着刷新
-  await Promise.all(behind.map((r) => updateTrackQueued(client, { recordId: r.id, lastChapterRead: read })))
-  return behind.length
+  // 这里的进度是开始同步时读到的，排队期间用户可能手动改得更高；
+  // forwardOnly 让队列轮到这次写入时再比一次，避免把手动改的 5 话退回 4 话
+  const written = await Promise.all(behind.map((r) => updateTrackQueued(client, { recordId: r.id, lastChapterRead: read }, { forwardOnly: true })))
+  return written.filter(Boolean).length
 }
 
 // 同一部漫画的同步排队执行：连读两话时，第二次要等第一次写完、看到新进度再比较，
