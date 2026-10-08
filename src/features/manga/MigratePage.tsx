@@ -229,7 +229,7 @@ function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
         setStep('标记已读')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
         // 新漫画若已绑定追踪，把复制过来的已读进度推过去
-        void syncTrackProgress(client, target.id)
+        void syncTrackProgress(client, target.id, still)
       }
       if (bookmarks && plan.bookmarked.length) {
         still()

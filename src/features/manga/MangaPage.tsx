@@ -69,7 +69,7 @@ export function MangaPage() {
     [all, id],
   )
   const noop = useCallback(() => {}, [])
-  const syncTracks = useCallback(() => void syncTrackProgress(client, id), [client, id])
+  const syncTracks = useCallback((still: () => void) => void syncTrackProgress(client, id, still), [client, id])
   const actions = useChapterActions(list ?? [], noop, afterDownloadChange, syncTracks)
 
   const downloadUnread = () => {

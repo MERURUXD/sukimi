@@ -30,6 +30,7 @@ import type { Chapter } from './queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { Can } from '@/features/auth/Can'
 import { useCan } from '@/api/auth'
+import { captureUser } from '@/api/userContext'
 import { useChapterView, type ChapterFilter } from './store'
 import { mangaIntro, mangaIntroDelay } from './intro'
 export interface QueueItem {
@@ -39,7 +40,7 @@ export interface QueueItem {
 
 /** 章节相关的变更操作，列表行菜单和批量栏共用 */
 /** onMarkedRead：标为已读后调用，用来把进度推到追踪网站 */
-export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () => void, onDownloadsDeleted: () => void, onMarkedRead?: () => void) {
+export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () => void, onDownloadsDeleted: () => void, onMarkedRead?: (still: () => void) => void) {
   const [update] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
   const [remove] = useMutation(DeleteDownloads)
@@ -60,9 +61,10 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
 
     return {
       setRead: wrap('标记', async (ids: number[], isRead: boolean) => {
+        const still = captureUser()
         // 标为未读时同时清掉页码，避免「继续阅读」停在最后一页
         await patch(ids, isRead ? { isRead } : { isRead, lastPageRead: 0 })
-        if (isRead) onMarkedRead?.()
+        if (isRead) onMarkedRead?.(still)
         if (ids.length > 1) return `已将 ${ids.length} 话标为${isRead ? '已读' : '未读'}`
       }),
       setBookmarked: wrap('书签', async (ids: number[], isBookmarked: boolean) => {
@@ -74,8 +76,9 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
         const max = Math.max(...all.filter((c) => ids.includes(c.id)).map((c) => c.sourceOrder))
         const targets = all.filter((c) => c.sourceOrder <= max && !c.isRead).map((c) => c.id)
         if (targets.length) {
+          const still = captureUser()
           await patch(targets, { isRead: true })
-          onMarkedRead?.()
+          onMarkedRead?.(still)
         }
         return `已将 ${targets.length} 话标为已读`
       }),

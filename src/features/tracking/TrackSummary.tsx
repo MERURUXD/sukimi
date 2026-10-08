@@ -142,6 +142,27 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
     const n = Math.max(0, read + d)
     save({ lastChapterRead: total > 0 ? Math.min(n, total) : n })
   }
+  // 退出登录或登录过期时绑定还在，但写不进网站：只读展示，引导去重新登录
+  if (!t.isLoggedIn || t.isTokenExpired) {
+    const status = t.statuses.find((x) => x.value === r.status)
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <div className="flex w-full items-center gap-2.5">
+          <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate font-semibold">{t.name}</span>
+            <span className="truncate text-xs text-muted">{r.title}</span>
+          </span>
+        </div>
+        <span className="text-sm text-muted num">
+          {[status ? statusLabel(status.name) : null, `读到 ${chapterNo(read)} 话`, isRated(r.displayScore, t.scores) ? `评分 ${r.displayScore}` : null].filter(Boolean).join(' · ')}
+        </span>
+        <Link to="/settings/tracking" className="text-[13px] font-semibold text-danger">
+          {t.isTokenExpired ? '登录已过期' : '已退出登录'}，去设置里重新登录后才能修改和同步
+        </Link>
+      </div>
+    )
+  }
   return (
     <div className="flex flex-col items-start gap-5">
       <div className="flex w-full items-center gap-2.5">
@@ -155,7 +176,6 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
           <ChevronRight className="size-4" />
         </button>
       </div>
-      {t.isTokenExpired && <Link to="/settings/tracking" className="-mt-2 text-[13px] font-semibold text-danger">登录已过期，去设置里重新登录</Link>}
 
       <div role="group" aria-label="阅读状态" className="flex flex-wrap gap-1.5">
         {t.statuses.map((s) => (

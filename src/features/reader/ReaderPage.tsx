@@ -10,6 +10,7 @@ import { MangaChapters, MangaDetail, type Chapter } from '@/features/manga/queri
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { isDemo } from '@/lib/demo'
+import { captureUser } from '@/api/userContext'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
@@ -225,11 +226,12 @@ function ReaderSession({
     const p = pending.current
     if (!p) return
     pending.current = null
+    const still = captureUser()
     save({ variables: { id: chapter.id, lastPageRead: p.page, isRead: p.read ? true : undefined } })
       .then(() => {
         setSynced(p.page)
         // 读完一话顺带推到追踪网站，详情页的追踪进度随之刷新
-        if (p.read) void syncTrackProgress(client, mangaId)
+        if (p.read) void syncTrackProgress(client, mangaId, still)
       })
       .catch((e) => toastError('进度同步失败', e))
   }, [save, chapter.id, client, mangaId])

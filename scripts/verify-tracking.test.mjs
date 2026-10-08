@@ -76,7 +76,12 @@ test('同步进度跳过贺图等异常编号', () => {
   assert.equal(readProgress(chapters([1, 2, 3, ...Array.from({ length: 12 }, (_, i) => 2015 + i)])), 3)
   // 来源只保留第 1 话和最新一百话
   assert.equal(readProgress(chapters([1, ...Array.from({ length: 101 }, (_, i) => i + 500)])), 600)
-  assert.equal(readProgress(chapters([...Array.from({ length: 55 }, (_, i) => i + 1), 2024, 2025, 2026, 9999])), 55)
+  assert.equal(readProgress(chapters([...Array.from({ length: 55 }, (_, i) => i + 1), 2024, 2025, 2026])), 55)
+  // 来源只保留第 1 话和最新几话：短段照常算（审核反馈）
+  assert.equal(readProgress(chapters([1, 50, 51])), 51)
+  assert.equal(readProgress(chapters([1, 500, 501, 502, 503, 504, 505])), 505)
+  // 长篇正好连续编到两千多话时不算年份贺图
+  assert.equal(readProgress(chapters(Array.from({ length: 2030 }, (_, i) => i + 1))), 2030)
   // 来源缺了中间几十话，后面的正常章节照常算
   assert.equal(readProgress(chapters([...Array.from({ length: 9 }, (_, i) => i + 1), ...Array.from({ length: 25 }, (_, i) => i + 31)])), 55)
   // 同一话有多个汉化组时不重复计数

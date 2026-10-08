@@ -48,21 +48,24 @@ export function pushTrackProgress(client: ApolloClient, mangaId: number, still =
   return next
 }
 
-/** 读完一话、标为已读后自动调用；失败只提示，不打断阅读；换了账号就安静放弃 */
-export async function syncTrackProgress(client: ApolloClient, mangaId: number) {
+/**
+ * 读完一话、标为已读后自动调用；失败只提示，不打断阅读；换了账号就安静放弃。
+ * still：在「标为已读」开始前用 captureUser() 记下，等标记请求回来再同步时仍按发起操作的账号核对
+ */
+export async function syncTrackProgress(client: ApolloClient, mangaId: number, still = captureUser()) {
   try {
-    await pushTrackProgress(client, mangaId)
+    await pushTrackProgress(client, mangaId, still)
   } catch (e) {
     if (!(e instanceof StaleSessionError)) toastError('追踪进度同步失败', e)
   }
 }
 
 /** 更新页、书库批量标为已读后调用：先一次查出哪些漫画绑定了追踪，只同步这些 */
-export async function syncTrackProgressMany(client: ApolloClient, mangaIds: readonly number[]) {
+export async function syncTrackProgressMany(client: ApolloClient, mangaIds: readonly number[], still = captureUser()) {
   const ids = [...new Set(mangaIds)]
   if (!ids.length) return
   try {
-    const still = captureUser()
+    still()
     const { data } = await client.query({ query: TrackedMangaIds, variables: { ids }, fetchPolicy: 'network-only' })
     still()
     const tracked = [...new Set(data?.trackRecords.nodes.map((r) => r.mangaId))]

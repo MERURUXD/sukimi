@@ -140,10 +140,11 @@ export function LibraryPage() {
 
   const markRead = () =>
     run('标为已读', async () => {
+      const still = captureUser()
       const cids = await chapterIds({ isRead: { equalTo: false } })
       if (cids.length) {
         await updateChapters({ variables: { ids: cids, patch: { isRead: true } } })
-        void syncTrackProgressMany(client, ids)
+        void syncTrackProgressMany(client, ids, still)
       }
       return `已将 ${count(cids.length)} 话标为已读`
     })
