@@ -6,6 +6,7 @@ import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { captureUser, StaleSessionError } from '@/api/userContext'
+import { syncTrackProgressMany } from '@/features/tracking/sync'
 import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
 import type { SegItem } from '@/components/ui/Seg'
@@ -139,8 +140,12 @@ export function LibraryPage() {
 
   const markRead = () =>
     run('标为已读', async () => {
+      const still = captureUser()
       const cids = await chapterIds({ isRead: { equalTo: false } })
-      if (cids.length) await updateChapters({ variables: { ids: cids, patch: { isRead: true } } })
+      if (cids.length) {
+        await updateChapters({ variables: { ids: cids, patch: { isRead: true } } })
+        void syncTrackProgressMany(client, ids, still)
+      }
       return `已将 ${count(cids.length)} 话标为已读`
     })
 

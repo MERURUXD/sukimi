@@ -56,8 +56,19 @@ interface DemoManga {
   unreadCount: number; downloadCount: number; bookmarkCount: number;
   firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null;
   latestFetchedChapter: DemoChapter; latestUploadedChapter: DemoChapter;
-  trackRecords: { nodes: never[]; totalCount: number };
+  trackRecords: { nodes: DemoTrack[]; totalCount: number };
   meta: { mangaId: number; key: string; value: string }[];
+}
+interface DemoTrack {
+  id: number; trackerId: number; mangaId: number; remoteId: string; remoteUrl: string; title: string; status: number;
+  lastChapterRead: number; totalChapters: number; score: number; displayScore: string; startDate: string; finishDate: string; private: boolean;
+}
+/** 虚构的 Bangumi 追踪：已「登录」，只在演示内存里改状态、进度和评分；搜索、绑定、登录仍走统一拒绝 */
+const TRACKER = {
+  id: 1, name: 'Bangumi（演示）', icon: '', isLoggedIn: true, isTokenExpired: false, authUrl: null,
+  supportsPrivateTracking: false, supportsReadingDates: true, supportsTrackDeletion: false,
+  scores: Array.from({ length: 11 }, (_, i) => String(i)),
+  statuses: [['Reading', 3], ['Completed', 2], ['On hold', 4], ['Dropped', 5], ['Plan to read', 1]].map(([name, value]) => ({ name, value })),
 }
 const SOURCE = { id: '9000', name: '演示画室', displayName: '演示画室', lang: 'zh', iconUrl: '/favicon.svg', supportsLatest: true, contentWarning: 'SAFE', homeUrl: null, filters: [] }
 const OPEN_SOURCE = { ...SOURCE, id: '9001', name: '开放漫画（本地缓存）', displayName: '开放漫画（本地缓存）' }
@@ -91,7 +102,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       description: '一封寄往远方的信，一趟不赶时间的旅程。在山间、森林与小城之间，发现那些被日常忽略的相遇。\n这是为 Sukimi 创作的虚构演示作品，封面和阅读页面均在本地生成。',
       genre: i % 2 ? ['日常', '治愈'] : ['冒险', '奇幻'], status: i % 3 ? 'ONGOING' : 'COMPLETED',
       realUrl: null, initialized: true, inLibrary: i < 10, inLibraryAt: String(Math.floor(now / 1000) - i * 86400),
-      source: SOURCE, categories: { nodes: [categories[i % 2]] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 }, meta: [],
+      source: SOURCE, categories: { nodes: [categories[i % 2]] }, chapters: { nodes: chapters }, meta: [],
+      get trackRecords() { return connection(tracks.filter((t) => t.mangaId === m.id)) },
       get unreadCount() { return chapters.filter((c) => !c.isRead).length },
       get downloadCount() { return chapters.filter((c) => c.isDownloaded).length },
       get bookmarkCount() { return chapters.filter((c) => c.isBookmarked).length },
@@ -118,7 +130,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       id: 1001 + w, title: work.title, thumbnailUrl: url(`${work.id}/${work.cover}`), author: work.author, artist: work.author,
       description: work.description, genre: work.genre, status: work.status,
       realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(Math.floor(now / 1000) - w * 86400),
-      source: OPEN_SOURCE, categories: { nodes: [] }, chapters: { nodes: chapters }, trackRecords: { nodes: [], totalCount: 0 }, meta: [],
+      source: OPEN_SOURCE, categories: { nodes: [] }, chapters: { nodes: chapters }, meta: [],
+      get trackRecords() { return connection(tracks.filter((t) => t.mangaId === m.id)) },
       get unreadCount() { return chapters.filter((c) => !c.isRead).length },
       get downloadCount() { return 0 },
       get bookmarkCount() { return chapters.filter((c) => c.isBookmarked).length },
@@ -137,6 +150,16 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     mangas.push(m)
   })
   const allChapters = mangas.flatMap((m) => m.chapters.nodes)
+  // 第一部已绑定，读过两话、打了 8 分
+  const tracks: DemoTrack[] = [{
+    id: 1, trackerId: TRACKER.id, mangaId: 1, remoteId: '1', remoteUrl: '#', title: TITLES[0], status: 3,
+    lastChapterRead: 2, totalChapters: 8, score: 8, displayScore: '8', startDate: String(now - 20 * 86400000), finishDate: '0', private: false,
+  }]
+  const findTrack = (id: number) => {
+    const t = tracks.find((t) => t.id === id)
+    if (!t) throw new Error('这条追踪不在演示数据中')
+    return t
+  }
   const findManga = (id: number) => {
     const m = mangas.find((m) => m.id === id)
     if (!m) throw new Error('这部漫画不在演示书库中')
@@ -193,7 +216,17 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     },
     sources: () => connection(openWorks.length ? [SOURCE, OPEN_SOURCE] : [SOURCE]), source: ({ id }: { id: string }) => id === OPEN_SOURCE.id ? OPEN_SOURCE : SOURCE,
     extensions: () => connection([]), fetchExtensions: () => ({ extensions: [] }),
-    trackers: () => connection([]), trackRecords: () => connection([]),
+    trackers: () => connection([TRACKER]), trackRecords: (args: ListArgs) => connection(tracks.filter((t) => matches(t, args.condition, args.filter)), args),
+    updateTrack: ({ input }: { input: { recordId: number; status?: number; lastChapterRead?: number; scoreString?: string; startDate?: string; finishDate?: string } }) => {
+      const t = findTrack(input.recordId)
+      if (input.status != null) t.status = input.status
+      if (input.lastChapterRead != null) t.lastChapterRead = input.lastChapterRead
+      if (input.scoreString != null) Object.assign(t, { displayScore: input.scoreString, score: Number(input.scoreString) || 0 })
+      if (input.startDate != null) t.startDate = input.startDate
+      if (input.finishDate != null) t.finishDate = input.finishDate
+      return { trackRecord: t }
+    },
+    fetchTrack: ({ input }: { input: { recordId: number } }) => ({ trackRecord: findTrack(input.recordId) }),
     lastUpdateTimestamp: () => ({ timestamp: String(now) }),
     // 按来源过滤：否则切到「开放漫画」时还是演示画室的作品
     fetchSourceManga: ({ input }: { input: { source: string; page: number; query?: string; type: string } }) => ({
