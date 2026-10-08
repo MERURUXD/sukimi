@@ -1,6 +1,7 @@
 import { ms, sec } from '@/lib/format'
 import { inCategory } from './category'
 import type { LibraryManga } from './queries'
+import { compareSortValues, libraryScore } from './sortValues'
 import type { FilterKey, SortKey, TriState } from './store'
 
 export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga) => boolean }[] = [
@@ -19,13 +20,20 @@ export const lastUpdated = (m: LibraryManga) =>
 
 const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 
-export const SORTS: { key: SortKey; label: string; value: (m: LibraryManga) => number | string }[] = [
+/** 排序需要的书库外数据：各追踪网站的评分档位（trackerId → 档位列表） */
+export interface SortContext {
+  scales: ReadonlyMap<number, readonly string[]>
+}
+
+/** value 返回 null 表示没有这项数据（如未评分），不论正序倒序都排在最后 */
+export const SORTS: { key: SortKey; label: string; value: (m: LibraryManga, ctx: SortContext) => number | string | null }[] = [
   { key: 'updated', label: '最近更新', value: lastUpdated },
   { key: 'read', label: '最近阅读', value: (m) => sec(m.lastReadChapter?.lastReadAt) },
   { key: 'added', label: '加入时间', value: (m) => sec(m.inLibraryAt) },
   { key: 'title', label: '标题', value: (m) => m.title },
   { key: 'unread', label: '未读数', value: (m) => m.unreadCount },
   { key: 'downloaded', label: '已下载数', value: (m) => m.downloadCount },
+  { key: 'score', label: '评分', value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales) },
 ]
 
 export function matchesSearch(m: LibraryManga, q: string) {
@@ -47,11 +55,11 @@ export function applyView(
     sort: SortKey
     desc: boolean
     query: string
+    scales?: SortContext['scales']
   },
 ) {
   const active = FILTERS.filter((f) => opts.filters[f.key] !== 0)
   const sort = SORTS.find((s) => s.key === opts.sort) ?? SORTS[0]
-  const dir = opts.desc ? -1 : 1
 
   const out = list.filter(
     (m) =>
@@ -60,11 +68,9 @@ export function applyView(
       active.every((f) => f.test(m) === (opts.filters[f.key] === 1)) &&
       matchesSearch(m, opts.query),
   )
-  const keyed = out.map((m) => [sort.value(m), m] as const)
-  keyed.sort(([a, ma], [b, mb]) => {
-    const c = typeof a === 'string' ? collator.compare(a, b as string) : a - (b as number)
-    return c !== 0 ? c * dir : collator.compare(ma.title, mb.title)
-  })
+  const ctx: SortContext = { scales: opts.scales ?? new Map() }
+  const keyed = out.map((m) => [sort.value(m, ctx), m] as const)
+  keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare) || collator.compare(ma.title, mb.title))
   return keyed.map(([, m]) => m)
 }
 

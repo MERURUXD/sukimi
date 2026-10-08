@@ -39,6 +39,14 @@ export const LibraryMangas = graphql(`
           id
           uploadDate
         }
+        # 按评分排序用；分制按追踪网站的评分档位折算
+        trackRecords {
+          nodes {
+            id
+            trackerId
+            displayScore
+          }
+        }
       }
     }
   }
