@@ -49,6 +49,13 @@ export const LibraryMangas = graphql(`
         }
       }
     }
+    # 评分档位跟书库一起进快照，离线用快照时也能按评分排序
+    trackers {
+      nodes {
+        id
+        scores
+      }
+    }
   }
 `)
 
