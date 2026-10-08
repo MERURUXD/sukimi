@@ -1,8 +1,9 @@
 import type { ApolloClient } from '@apollo/client'
 import { toastError } from '@/components/ui/toast'
 import { MangaChapters } from '@/features/manga/queries'
-import { MangaTracks, UpdateTrack } from './queries'
+import { MangaTracks } from './queries'
 import { readProgress } from './tracking'
+import { updateTrackQueued } from './useSaveTrack'
 
 async function push(client: ApolloClient, mangaId: number) {
   const tracks = await client.query({ query: MangaTracks, variables: { id: mangaId }, fetchPolicy: 'cache-first' })
@@ -12,7 +13,7 @@ async function push(client: ApolloClient, mangaId: number) {
   const read = readProgress(chapters.data?.chapters.nodes ?? [])
   const behind = records.filter((r) => read > r.lastChapterRead)
   // 返回的记录带 id，直接改缓存，详情页的追踪信息跟着刷新
-  await Promise.all(behind.map((r) => client.mutate({ mutation: UpdateTrack, variables: { input: { recordId: r.id, lastChapterRead: read } } })))
+  await Promise.all(behind.map((r) => updateTrackQueued(client, { recordId: r.id, lastChapterRead: read })))
   return behind.length
 }
 

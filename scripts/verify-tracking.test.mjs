@@ -72,6 +72,10 @@ test('同步进度跳过贺图等异常编号', () => {
   assert.equal(readProgress(chapters([1, 2, 4, 3, 5, 7, 6])), 7)
   // 连着几张年份贺图（审核反馈），以及贺图后面还有更高的异常编号
   assert.equal(readProgress(chapters([1, 2, 3, 2025, 2026])), 3)
+  assert.equal(readProgress(chapters([1, 2, 3, 2024, 2025, 2026])), 3)
+  assert.equal(readProgress(chapters([1, 2, 3, ...Array.from({ length: 12 }, (_, i) => 2015 + i)])), 3)
+  // 来源只保留第 1 话和最新一百话
+  assert.equal(readProgress(chapters([1, ...Array.from({ length: 101 }, (_, i) => i + 500)])), 600)
   assert.equal(readProgress(chapters([...Array.from({ length: 55 }, (_, i) => i + 1), 2024, 2025, 2026, 9999])), 55)
   // 来源缺了中间几十话，后面的正常章节照常算
   assert.equal(readProgress(chapters([...Array.from({ length: 9 }, (_, i) => i + 1), ...Array.from({ length: 25 }, (_, i) => i + 31)])), 55)

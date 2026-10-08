@@ -76,11 +76,17 @@ export const scoreWord = (trackerName: string, value: number) =>
 /** 相邻话数差得太远就断开：至少 10 话，长篇按 20% 放宽，容忍来源里缺几话 */
 const far = (n: number, prev: number) => n - prev > Math.max(10, prev * 0.2)
 
+/** 整段都是 1900–2100 的整数，像年份贺图 */
+const yearLike = (run: readonly number[]) => run.every((n) => Number.isInteger(n) && n >= 1900 && n <= 2100)
+
 /**
  * 已读章节里可以同步到追踪网站的话数。
  * 不能直接取最大话数：新年贺图、年份番外常编成「2026 话」，会把进度一下推到 2026，
  * 而且可能连着好几张（2024、2025、2026）。做法：把话数从小到大排好，在差得太远的地方断成几段；
- * 最高的一段如果话数很少（不到 3 个，或不到前面总数的十分之一），就当作番外丢掉，可以连着丢好几段
+ * 最高的一段满足任一条件就当作番外丢掉，可以连着丢好几段：
+ * - 话数很少：不到 3 个，或不到前面总数的十分之一；
+ * - 跳得极远（超过前面最大话数的 10 倍再加 100），且不到 10 个或整段像年份。
+ *   来源只保留最新几百话时（如 1、500–600）段落很长，不会被误丢
  */
 export function readProgress(chapters: readonly { chapterNumber: number; isRead: boolean }[]) {
   const nums = [...new Set(chapters.map((c) => c.chapterNumber).filter((n) => n > 0))].sort((a, b) => a - b)
@@ -94,7 +100,9 @@ export function readProgress(chapters: readonly { chapterNumber: number; isRead:
   while (runs.length > 1) {
     const top = runs.at(-1)!
     before -= top.length
-    if (top.length >= 3 && top.length * 10 >= before) break
+    const small = top.length < 3 || top.length * 10 < before
+    const leap = top[0] > runs.at(-2)!.at(-1)! * 10 + 100 && (top.length < 10 || yearLike(top))
+    if (!small && !leap) break
     runs.pop()
   }
   const cap = runs.at(-1)?.at(-1) ?? 0
