@@ -1,6 +1,8 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { ChevronLeft, Download, Globe, Loader2, PackagePlus, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { ChevronLeft, Download, Globe, Loader2, PackagePlus, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useSearchParams } from 'react-router'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -19,7 +21,8 @@ import { USER_KEYS } from '@/features/auth/userScope'
 import { Switch } from '@/features/settings/parts'
 import { cn } from '@/lib/cn'
 import { defaultLangs, langCounts, tabCounts, visibleExtensions, type Extension, type ExtensionTab } from './extensionList'
-import { Extensions, FetchExtensions, InstallExternalExtension, langLabel, UpdateExtension, UpdateExtensions } from './queries'
+import { ConfigurableSources, Extensions, FetchExtensions, InstallExternalExtension, langLabel, UpdateExtension, UpdateExtensions } from './queries'
+import { SourcePreferencesDialog, type PreferenceSource } from './SourcePreferences'
 import { SourceIcon } from './SourceIcon'
 
 /** 「未安装」的语言选择和成人扩展开关，记在本机 */
@@ -79,6 +82,18 @@ export function ExtensionsPage() {
   const [updateOne] = useMutation(UpdateExtension)
   const [updateAll] = useMutation(UpdateExtensions)
   const canInstall = useCan('INSTALL_EXTENSIONS')
+  const canConfigure = useCan('MANAGE_SOURCE_PREFERENCES')
+
+  // 已安装扩展里有可调偏好的来源，按扩展包名归组；没有权限就不查
+  const { data: sourceData } = useQuery(ConfigurableSources, { skip: !canConfigure })
+  const configurable = useMemo(() => {
+    const map = new Map<string, PreferenceSource[]>()
+    for (const s of sourceData?.sources.nodes ?? []) {
+      if (s.isConfigurable) map.set(s.extension.pkgName, [...(map.get(s.extension.pkgName) ?? []), s])
+    }
+    return map
+  }, [sourceData])
+  const [configuring, setConfiguring] = useState<Extension | null>(null)
 
   const counts = useMemo(() => tabCounts(list ?? []), [list])
   const tab = (params.get('tab') as ExtensionTab | null) ?? (counts.updates > 0 ? 'updates' : 'installed')
@@ -320,18 +335,27 @@ export function ExtensionsPage() {
           </h2>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(340px,100%),1fr))] gap-x-4">
             {g.items.map((e) => (
-              <ExtensionRow key={e.pkgName} e={e} showStore={stores > 1} busy={busy[e.pkgName]} onAction={(a) => void run(e, a)} />
+              <ExtensionRow key={e.pkgName} e={e} showStore={stores > 1} busy={busy[e.pkgName]} onAction={(a) => void run(e, a)} onConfigure={configurable.has(e.pkgName) ? () => setConfiguring(e) : undefined} />
             ))}
           </div>
         </section>
       ))}
+
+      {createPortal(
+        <AnimatePresence>
+          {configuring && configurable.has(configuring.pkgName) && (
+            <SourcePreferencesDialog title={displayName(configuring)} sources={configurable.get(configuring.pkgName)!} onClose={() => setConfiguring(null)} />
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
     </div>
   )
 }
 
 const WARNING: Record<Extension['contentWarning'], string | null> = { SAFE: null, MIXED: '部分成人内容', NSFW: '成人内容' }
 
-function ExtensionRow({ e, showStore, busy, onAction }: { e: Extension; showStore: boolean; busy?: Busy; onAction: (a: Busy) => void }) {
+function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extension; showStore: boolean; busy?: Busy; onAction: (a: Busy) => void; onConfigure?: () => void }) {
   const name = displayName(e)
   // 更新也算安装；没有对应权限的账号只看列表
   const canInstall = useCan('INSTALL_EXTENSIONS')
@@ -367,6 +391,11 @@ function ExtensionRow({ e, showStore, busy, onAction }: { e: Extension; showStor
           {e.hasUpdate && canInstall && (
             <button type="button" className="solid min-h-10 px-4" aria-label={`更新 ${name}`} onClick={() => onAction('update')}>
               更新
+            </button>
+          )}
+          {onConfigure && (
+            <button type="button" className="gicon size-10 text-muted hover:text-text" aria-label={`${name} 设置`} title="扩展设置" onClick={onConfigure}>
+              <Settings2 className="size-[18px]" strokeWidth={1.8} />
             </button>
           )}
           {canUninstall && (

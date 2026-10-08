@@ -38,6 +38,23 @@ function fixture() {
   )
 }
 
+/** 虚构的可配置来源：第 0 个扩展有两个来源，第 2 个有一个，其余没有设置 */
+const SOURCES = [
+  { __typename: 'SourceType', id: '9000', displayName: '测试来源 A', lang: 'zh', isConfigurable: true, extension: { __typename: 'ExtensionType', pkgName: 'dev.example.ext0' } },
+  { __typename: 'SourceType', id: '9001', displayName: '测试来源 A', lang: 'en', isConfigurable: true, extension: { __typename: 'ExtensionType', pkgName: 'dev.example.ext0' } },
+  { __typename: 'SourceType', id: '9002', displayName: '测试来源 B', lang: 'ja', isConfigurable: true, extension: { __typename: 'ExtensionType', pkgName: 'dev.example.ext2' } },
+  { __typename: 'SourceType', id: '9003', displayName: '测试来源 C', lang: 'ko', isConfigurable: false, extension: { __typename: 'ExtensionType', pkgName: 'dev.example.ext3' } },
+]
+const base = { visible: true, enabled: true, summary: null }
+const initialPrefs = () => [
+  { __typename: 'EditTextPreference', ...base, key: 'domain', title: '站点域名', summary: '访问漫画站点所用的地址', dialogTitle: null, dialogMessage: null, textDefault: 'https://example.invalid', textValue: null },
+  { __typename: 'SwitchPreference', ...base, key: 'lowres', title: '省流量模式', summary: '加载压缩后的图片', switchDefault: false, switchValue: null },
+  { __typename: 'ListPreference', ...base, key: 'quality', title: '图片质量', summary: '当前：%s', entries: ['原图', '高', '低'], entryValues: ['orig', 'high', 'low'], listDefault: 'high', listValue: null },
+  { __typename: 'MultiSelectListPreference', ...base, key: 'genres', title: '隐藏的分类', summary: '这些分类不出现在列表里', dialogTitle: null, dialogMessage: null, entries: ['恐怖', '悬疑', '成人'], entryValues: ['horror', 'mystery', 'adult'], multiDefault: [], multiValue: ['adult'] },
+  { __typename: 'CheckBoxPreference', ...base, key: 'hidden', title: '被隐藏的项', visible: false, checkDefault: false, checkValue: null },
+  { __typename: 'CheckBoxPreference', ...base, key: 'locked', title: '暂不可改的项', summary: '依赖其他设置', enabled: false, checkDefault: true, checkValue: null },
+]
+
 /** 只在开发路由挂载；所有请求在本机生成，不连接服务端，安装 / 卸载只改这页内存里的数据 */
 export function ExtensionsLab() {
   useApplyAppearance()
@@ -50,6 +67,8 @@ export function ExtensionsLab() {
       list = p.uninstall && e.isObsolete ? list.filter((x) => x !== e) : list.map((x) => (x === e ? next : x))
       return next
     }
+    const prefs = new Map<string, ReturnType<typeof initialPrefs>>()
+    const prefsOf = (id: string) => prefs.get(id) ?? prefs.set(id, initialPrefs()).get(id)!
     return new ApolloClient({
       cache: createCache(),
       link: new ApolloLink((op) => new Observable((observer) => {
@@ -70,6 +89,27 @@ export function ExtensionsLab() {
             case 'UpdateExtensions':
               observer.next({ data: { updateExtensions: { __typename: 'UpdateExtensionsPayload', extensions: (v.ids as string[]).map((id) => patch(id, { update: true })) } } })
               break
+            case 'ConfigurableSources':
+              observer.next({ data: { sources: { __typename: 'SourceNodeList', nodes: SOURCES } } })
+              break
+            case 'SourcePreferences':
+              observer.next({ data: { source: { __typename: 'SourceType', id: (v as unknown as { id: string }).id, displayName: '测试来源 A', preferences: prefsOf((v as unknown as { id: string }).id) } } })
+              break
+            case 'UpdateSourcePreference': {
+              const { source, change } = v as unknown as { source: string; change: Record<string, unknown> & { position: number } }
+              if (source === '9002' && change.switchState === true) {
+                observer.error(new Error('虚构的保存失败'))
+                return
+              }
+              const list = prefsOf(source)
+              const p = list[change.position] as Record<string, unknown>
+              if ('switchState' in change) p.switchValue = change.switchState
+              if ('listState' in change) p.listValue = change.listState
+              if ('editTextState' in change) p.textValue = change.editTextState
+              if ('multiSelectState' in change) p.multiValue = change.multiSelectState
+              observer.next({ data: { updateSourcePreference: { __typename: 'UpdateSourcePreferencePayload', source: { __typename: 'SourceType', id: source, preferences: list } } } })
+              break
+            }
             default:
               observer.error(new Error('扩展验收页不连接服务端'))
               return
