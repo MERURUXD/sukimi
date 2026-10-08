@@ -220,18 +220,24 @@ function ReaderSession({
 
   /* 进度回写：翻页后 0.6 秒写一次，读到最后一页标为已读；离开时立即写 */
   const [save] = useMutation(SaveProgress)
-  const pending = useRef<{ page: number; read: boolean } | null>(null)
+  // still：记下这次进度产生时的账号；0.6 秒后真正写入（或离开时补写）前账号换了就放弃，
+  // 否则旧阅读页的章节会带着新账号的令牌被标为已读、并同步到新账号的追踪
+  const pending = useRef<{ page: number; read: boolean; still: () => void } | null>(null)
   const [synced, setSynced] = useState<number | null>(null)
   const flush = useCallback(() => {
     const p = pending.current
     if (!p) return
     pending.current = null
-    const still = captureUser()
+    try {
+      p.still()
+    } catch {
+      return
+    }
     save({ variables: { id: chapter.id, lastPageRead: p.page, isRead: p.read ? true : undefined } })
       .then(() => {
         setSynced(p.page)
         // 读完一话顺带推到追踪网站，详情页的追踪进度随之刷新
-        if (p.read) void syncTrackProgress(client, mangaId, still)
+        if (p.read) void syncTrackProgress(client, mangaId, p.still)
       })
       .catch((e) => toastError('进度同步失败', e))
   }, [save, chapter.id, client, mangaId])
@@ -239,7 +245,7 @@ function ReaderSession({
   const reachedEnd = Math.max(...shown) >= last
   useEffect(() => {
     if (page === chapter.lastPageRead && !reachedEnd) return
-    pending.current = { page, read: reachedEnd && !chapter.isRead }
+    pending.current = { page, read: reachedEnd && !chapter.isRead, still: captureUser() }
     const t = setTimeout(flush, 600)
     return () => clearTimeout(t)
   }, [page, reachedEnd, chapter.lastPageRead, chapter.isRead, flush])
@@ -250,7 +256,7 @@ function ReaderSession({
     (c: Chapter | undefined) => {
       if (!c) return
       // 往后翻 = 这一话读完了（纵向模式自动进下一话时，页码状态可能还没来得及更新）
-      if (c.sourceOrder > chapter.sourceOrder) pending.current = { page: last, read: !chapter.isRead }
+      if (c.sourceOrder > chapter.sourceOrder) pending.current = { page: last, read: !chapter.isRead, still: captureUser() }
       flush()
       // 换话替换当前历史记录，并保留「从详情页进来」的标记
       navigate(`/manga/${mangaId}/chapter/${c.id}`, { replace: true, state: location.state })
