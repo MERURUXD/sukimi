@@ -88,6 +88,8 @@
     color: var(--text);
   }
   html {
+    /* 常驻预留滚动条位置：内容短的页面没有滚动条时，居中的顶栏不会比其他页横移半个滚动条宽 */
+    scrollbar-gutter: stable;
     /* 触屏点按时不闪系统的蓝色 / 灰色高亮块，按钮都有自己的按下样式 */
     -webkit-tap-highlight-color: transparent;
   }
@@ -547,6 +549,74 @@
 ::view-transition-new(root) {
   animation-duration: 0.2s;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+/* 主题切换（ThemeToggle，做法参考 BewlyCat 的 useDark）：新旧快照都不做淡入淡出，
+   深色那一层由脚本用 clip-path 从按钮处放大 / 缩小；切换期间关掉所有过渡，
+   免得新快照拍到颜色渐变到一半的画面，也少一份逐帧重绘。 */
+html[data-theme-vt] *,
+html[data-theme-vt] *::before,
+html[data-theme-vt] *::after {
+  transition: none !important;
+}
+html[data-theme-vt]::view-transition-group(root),
+html[data-theme-vt]::view-transition-old(root),
+html[data-theme-vt]::view-transition-new(root) {
+  animation: none !important;
+  mix-blend-mode: normal;
+}
+/* 动的那一层的起始状态直接写在样式里（圆心半径由 ThemeToggle 设变量），脚本挂上动画前不会闪一帧整屏 */
+html[data-theme-vt='dark']::view-transition-new(root) {
+  z-index: 9999;
+  clip-path: circle(0% at var(--vt-x) var(--vt-y));
+}
+html[data-theme-vt='light']::view-transition-old(root) {
+  z-index: 9999;
+  clip-path: circle(var(--vt-r) at var(--vt-x) var(--vt-y));
+}
+
+/* 主题按钮的悬停效果（参考 BewlyCat 的 Dock）：深色下浮出偏移的月光并让星星闪烁，浅色下太阳光芒自转 */
+.theme-halo {
+  opacity: 0;
+  filter: blur(12px);
+  transition:
+    opacity 0.3s,
+    translate 0.3s;
+}
+.theme-star {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.theme-rays {
+  transform-origin: 12px 12px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes theme-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes theme-twinkle {
+    0%,
+    100% {
+      opacity: 0.2;
+      transform: scale(0.5);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+  }
+  .theme-btn:hover .theme-rays {
+    animation: theme-spin 7s linear infinite;
+  }
+  .theme-btn[data-dark]:hover .theme-star {
+    animation: theme-twinkle 1.4s ease-in-out infinite;
+  }
+  .theme-btn[data-dark]:hover .theme-halo {
+    opacity: 0.28;
+    translate: -5px 4px;
+  }
 }
 ::view-transition-group(manga-cover) {
   animation-duration: 0.45s;

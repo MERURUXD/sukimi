@@ -10,6 +10,8 @@ import { cn } from '@/lib/cn'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { AppearanceMenu } from './AppearanceMenu'
+import { markNavDirection } from './navTabs'
+import { ThemeToggle } from './ThemeToggle'
 import { useHideOnScroll } from './useHideOnScroll'
 import { isDemo } from '@/lib/demo'
 import { DemoNotice } from '@/features/demo/DemoGate'
@@ -24,7 +26,8 @@ const LINKS = [
 export function TopNav() {
   const inManga = useMatch('/manga/:id/*')
   const navigate = useNavigate()
-  const { ref: pillRef, box: pillBox } = useNavPill(useLocation().pathname)
+  const { pathname } = useLocation()
+  const { ref: pillRef, box: pillBox } = useNavPill(pathname)
   // 从站内进来就后退，直接打开的详情页回书库
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/library'))
 
@@ -39,14 +42,16 @@ export function TopNav() {
       className={cn('fixed inset-x-0 top-0 z-40 transition-[translate] duration-300 ease-out', hidden && '-translate-y-full pointer-events-none')}
       inert={hidden || undefined}
     >
-      <div className="wrap flex h-[var(--nav-h)] items-center justify-between gap-4">
+      {/* 桌面用三栏网格，中间的胶囊永远居中；左右两侧宽度不同（标志 / 返回键、下载指示）也不会把它挤偏 */}
+      <div className="wrap flex h-[var(--nav-h)] items-center justify-between gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         {inManga ? (
-          <Glass as="button" type="button" className="gicon rounded-full" onClick={back} aria-label="返回">
+          // 网格项默认会拉满整列，要贴着一侧只占自身宽度
+          <Glass as="button" type="button" className="gicon rounded-full xl:justify-self-start" onClick={back} aria-label="返回">
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </Glass>
         ) : (
           // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏
-          <NavLink to="/" aria-label="Sukimi 首页" className="rounded-full text-text no-underline md:max-xl:hidden">
+          <NavLink to="/" aria-label="Sukimi 首页" className="rounded-full text-text no-underline md:max-xl:hidden xl:justify-self-start">
             <Glass as="span" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
               <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
               <span className="max-sm:hidden">Sukimi</span>
@@ -61,10 +66,13 @@ export function TopNav() {
               key={l.to}
               to={l.to}
               end={l.end}
+              viewTransition
+              onClick={() => markNavDirection(pathname, l.to)}
               className={({ isActive }) =>
                 cn(
                   'relative inline-flex min-h-10 items-center rounded-full px-4 font-semibold whitespace-nowrap no-underline transition-colors',
-                  isActive ? 'text-text' : 'text-muted hover:text-text',
+                  // 未选中项悬停时先垫一层淡玻璃底，选中块滑过来之前就有反馈；选中项有自己的选中块，不叠
+                  isActive ? 'text-text' : 'text-muted hover:bg-g-hi/50 hover:text-text',
                 )
               }
             >
@@ -74,9 +82,10 @@ export function TopNav() {
         </Glass>
 
         {/* 平板没有标志和导航胶囊，靠 ml-auto 推到右侧；桌面不能加，否则会吃掉 justify-between 让胶囊居中的空间 */}
-        <div className="flex items-center gap-2 max-xl:ml-auto">
+        <div className="flex items-center gap-2 max-xl:ml-auto xl:justify-end">
           {isDemo && <DemoNotice />}
           <DownloadIndicator />
+          <ThemeToggle />
           <AppearanceMenu />
         </div>
       </div>

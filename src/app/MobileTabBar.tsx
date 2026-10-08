@@ -4,12 +4,13 @@ import { Glass } from '@/components/glass/Glass'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
-import { TABS } from './navTabs'
+import { markNavDirection, TABS } from './navTabs'
 
 /** 手机（< 768px）底部标签栏；平板用左侧导航栏，桌面用顶部导航 */
 export function MobileTabBar() {
   const downloading = useLive((s) => s.queue.length)
-  const { ref: pillRef, box: pillBox } = useNavPill(useLocation().pathname)
+  const { pathname } = useLocation()
+  const { ref: pillRef, box: pillBox } = useNavPill(pathname)
   return (
     <div data-vt-bar="tabbar" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
       <Glass as="nav" ref={pillRef} dense aria-label="主导航" className="pointer-events-auto grid w-full max-w-[520px] grid-cols-5 rounded-[26px] p-1.5">
@@ -20,6 +21,7 @@ export function MobileTabBar() {
             to={t.to}
             end={t.end}
             viewTransition
+            onClick={() => markNavDirection(pathname, t.to)}
             className={({ isActive }) =>
               cn(
                 'relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[20px] text-[11px] font-semibold no-underline transition-colors',
