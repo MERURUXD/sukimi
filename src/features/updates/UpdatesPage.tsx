@@ -228,15 +228,24 @@ export function UpdatesPage() {
               </h2>
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
-                const row = (c: UpdateChapter, nested?: number) => (
-                  <Row key={c.id} rise={nested === undefined ? rise : riseStep(nested)} nested={nested !== undefined} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
+                const row = (c: UpdateChapter, nested = false) => (
+                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
                 )
                 if (g.rows.length === 1) return row(g.rows[0])
                 const expanded = open.has(g.key)
                 return (
-                  <div key={g.key} className={expanded ? 'mb-2' : undefined}>
+                  <div key={g.key}>
                     <GroupRow rows={g.rows} rise={rise} expanded={expanded} onToggle={() => toggleGroup(g.key)} />
-                    {expanded && g.rows.map((c, i) => row(c, i))}
+                    {/* 常驻渲染，用网格行高 0fr → 1fr 做展开收起，下面的记录才会顺滑让位；收起时 inert 让键盘与读屏跳过 */}
+                    <div
+                      className={cn('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]', expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
+                      inert={!expanded}
+                    >
+                      <div className="min-h-0 overflow-hidden">
+                        {g.rows.map((c) => row(c, true))}
+                        <div className="h-2" aria-hidden />
+                      </div>
+                    </div>
                   </div>
                 )
               })}
