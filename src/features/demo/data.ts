@@ -216,7 +216,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     },
     sources: () => connection(openWorks.length ? [SOURCE, OPEN_SOURCE] : [SOURCE]), source: ({ id }: { id: string }) => id === OPEN_SOURCE.id ? OPEN_SOURCE : SOURCE,
     extensions: () => connection([]), fetchExtensions: () => ({ extensions: [] }),
-    trackers: () => connection([TRACKER]), trackRecords: () => connection(tracks),
+    trackers: () => connection([TRACKER]), trackRecords: (args: ListArgs) => connection(tracks.filter((t) => matches(t, args.condition, args.filter)), args),
     updateTrack: ({ input }: { input: { recordId: number; status?: number; lastChapterRead?: number; scoreString?: string; startDate?: string; finishDate?: string } }) => {
       const t = findTrack(input.recordId)
       if (input.status != null) t.status = input.status

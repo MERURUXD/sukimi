@@ -1,6 +1,7 @@
 import type { ApolloClient } from '@apollo/client'
 import { useApolloClient } from '@apollo/client/react'
 import type { UpdateTrackInput } from '@/api/gql/graphql'
+import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { toastError } from '@/components/ui/toast'
 import { UpdateTrack, type TrackRecord } from './queries'
 import { scoreValue } from './tracking'
@@ -8,10 +9,19 @@ import { scoreValue } from './tracking'
 // 同一条记录的写入排队发出：连点两次状态或评分时，若两个请求同时在路上、旧的后返回，
 // 它带回的整条记录会把后选的值盖掉。手动修改和自动同步共用这条队列
 const queue = new Map<number, Promise<unknown>>()
+// 换账号后记录 id 可能与上一个账号重叠，排着的旧修改不能带新账号的令牌发出
+resetOnUserContext(() => queue.clear())
 
-/** 按顺序写一条追踪记录；返回的记录带 id，直接改缓存 */
+/**
+ * 按顺序写一条追踪记录；返回的记录带 id，直接改缓存。
+ * 轮到发出时账号已经换了就放弃，抛出 StaleSessionError
+ */
 export function updateTrackQueued(client: ApolloClient, input: UpdateTrackInput) {
-  const run = (queue.get(input.recordId) ?? Promise.resolve()).catch(() => {}).then(() => client.mutate({ mutation: UpdateTrack, variables: { input } }))
+  const still = captureUser()
+  const run = (queue.get(input.recordId) ?? Promise.resolve()).catch(() => {}).then(() => {
+    still()
+    return client.mutate({ mutation: UpdateTrack, variables: { input } })
+  })
   queue.set(input.recordId, run)
   const done = () => { if (queue.get(input.recordId) === run) queue.delete(input.recordId) }
   run.then(done, done)
@@ -36,7 +46,7 @@ export function useSaveTrack(r: TrackRecord) {
       cache.modify({ id: cache.identify({ __typename: 'TrackRecordType', id: r.id }), fields: Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, () => v])) })
     }, id)
     updateTrackQueued(client, { recordId: r.id, ...patch })
-      .catch((e) => toastError('保存失败', e))
+      .catch((e) => { if (!(e instanceof StaleSessionError)) toastError('保存失败', e) })
       .finally(() => client.cache.removeOptimistic(id))
   }
 }

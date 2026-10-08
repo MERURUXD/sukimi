@@ -81,6 +81,18 @@ export const MangaTracks = graphql(`
   }
 `)
 
+/** 批量标为已读时用：这些漫画里哪些绑定了追踪 */
+export const TrackedMangaIds = graphql(`
+  query TrackedMangaIds($ids: [Int!]!) {
+    trackRecords(filter: { mangaId: { in: $ids } }) {
+      nodes {
+        id
+        mangaId
+      }
+    }
+  }
+`)
+
 export const SearchTracker = graphql(`
   query SearchTracker($trackerId: Int!, $query: String!) {
     searchTracker(input: { trackerId: $trackerId, query: $query }) {

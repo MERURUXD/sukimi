@@ -1,7 +1,8 @@
-import { useMutation, useQuery } from '@apollo/client/react'
+import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { BookCheck, BookOpen, CircleCheck, Download, MoreHorizontal, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
+import { syncTrackProgressMany } from '@/features/tracking/sync'
 import { useSharedServer } from '@/api/auth'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
@@ -122,12 +123,15 @@ export function UpdatesPage() {
   const queue = useLive((s) => s.queue)
   const queued = useMemo(() => new Map(queue.map((d) => [d.chapter.id, d])), [queue])
 
+  const client = useApolloClient()
   const markAllRead = async () => {
-    const ids = list.filter((c) => !c.isRead).map((c) => c.id)
+    const unread = list.filter((c) => !c.isRead)
+    const ids = unread.map((c) => c.id)
     if (!ids.length) return toast('列表里没有未读章节')
     try {
       await update({ variables: { ids, patch: { isRead: true } } })
       toast(`已将 ${ids.length} 话标为已读`)
+      void syncTrackProgressMany(client, unread.map((c) => c.mangaId))
       if (filter === 'unread') void refetch({ offset: 0 })
     } catch (e) {
       toastError('标记失败', e)
@@ -213,7 +217,7 @@ export function UpdatesPage() {
                 <span className="text-[13px] font-medium text-muted">{d.rows.length} 话</span>
               </h2>
               {d.rows.map((c, ri) => (
-                <Row key={c.id} rise={intro ? riseStep(rowIndex(days, di, ri)) : undefined} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).catch((e) => toastError('标记失败', e))} />
+                <Row key={c.id} rise={intro ? riseStep(rowIndex(days, di, ri)) : undefined} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId]) }).catch((e) => toastError('标记失败', e))} />
               ))}
             </div>
           ))}
