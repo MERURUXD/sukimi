@@ -39,6 +39,21 @@ export const LibraryMangas = graphql(`
           id
           uploadDate
         }
+        # 按评分排序用；分制按追踪网站的评分档位折算
+        trackRecords {
+          nodes {
+            id
+            trackerId
+            displayScore
+          }
+        }
+      }
+    }
+    # 评分档位跟书库一起进快照，离线用快照时也能按评分排序
+    trackers {
+      nodes {
+        id
+        scores
       }
     }
   }

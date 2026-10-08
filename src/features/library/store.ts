@@ -6,7 +6,7 @@ import { USER_KEYS } from '@/features/auth/userScope'
 export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed'
 /** 0 不限 · 1 包含 · 2 排除 */
 export type TriState = 0 | 1 | 2
-export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded'
+export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded' | 'score'
 export type Density = 'comfy' | 'compact' | 'list'
 
 interface LibraryView {
