@@ -43,9 +43,12 @@ export function LibraryPage() {
   const all = useMemo(() => data?.mangas.nodes ?? [], [data])
   // 每个用户的默认分类 id 不同，不能写死 0
   const defaultCategoryId = catData?.categories.nodes.find((c) => c.default)?.id ?? 0
+  // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
+  const trackers = data?.trackers.nodes
+  const scales = useMemo(() => new Map(trackers?.map((t) => [t.id, t.scores] as const)), [trackers])
   const items = useMemo(
-    () => applyView(all, { ...view, defaultCategoryId, query: deferredQuery }),
-    [all, view, defaultCategoryId, deferredQuery],
+    () => applyView(all, { ...view, defaultCategoryId, query: deferredQuery, scales }),
+    [all, view, defaultCategoryId, deferredQuery, scales],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(all), [all])
