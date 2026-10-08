@@ -103,8 +103,8 @@ export function installCoverTransition(basePath = '') {
       update: async () => {
         await update?.()
         const to = pagePath()
-        // 仅跳过涉及详情页的转场，不影响其他页面及菜单动画。
-        if (!useAppearance.getState().mangaDetailMotion && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
+        // 仅跳过涉及详情页的换页转场，不影响其他页面、菜单动画，以及停在同一页的转场（如切换主题）。
+        if (!useAppearance.getState().mangaDetailMotion && from !== to && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
           t.skipTransition()
           return
         }
