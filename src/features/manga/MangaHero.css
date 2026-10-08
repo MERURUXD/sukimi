@@ -48,6 +48,8 @@
 }
 .manga-bottom-sheet-root { padding: 12px 12px max(12px, env(safe-area-inset-bottom)); }
 .manga-bottom-sheet { max-height: min(520px, calc(100dvh - 24px - env(safe-area-inset-bottom))); }
+/* 头部自成层叠上下文，需高于其后的章节列表，否则「更多」弹层会被盖住、点击穿透到章节行。 */
+.manga-hero { z-index: 1; }
 @media (min-width: 1024px) {
   .manga-hero-layout { grid-template-columns: 240px minmax(0, 1fr); column-gap: 36px; }
   .manga-hero-cover { width: 240px; }
@@ -55,7 +57,6 @@
 }
 /* 手机以封面和书名并排，正文与操作共享一条内容轴。 */
 @media (max-width: 767px) {
-  .manga-hero { z-index: 1; }
   .manga-hero-layout {
     grid-template-columns: 112px minmax(0, 1fr);
     gap: 16px;
