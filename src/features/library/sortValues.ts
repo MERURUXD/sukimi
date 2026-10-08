@@ -1,13 +1,18 @@
 /**
  * 书库按评分排序用的分数：各网站分制不同（Bangumi 十分制、AniList 百分制、表情三档），
  * 按分数在该网站评分档位里的位置折算到 0–10 再比较；第一档（'' 或 '0'）表示未评分。
+ * 网站改过分制、旧分数不在当前档位里时，按数值和档位里的最大数折算，不当成未评分。
  * 绑定多个网站时取已评分的平均；都没评分、或还不知道分制时返回 null，排序时放在最后
  */
 export function libraryScore(records: readonly { trackerId: number; displayScore: string }[], scales: ReadonlyMap<number, readonly string[]>) {
   const scores = records.flatMap((r) => {
     const list = scales.get(r.trackerId)
-    const i = list ? list.indexOf(r.displayScore) : -1
-    return list && i > 0 ? [(i / (list.length - 1)) * 10] : []
+    if (!list) return []
+    const i = list.indexOf(r.displayScore)
+    if (i >= 0) return i > 0 ? [(i / (list.length - 1)) * 10] : []
+    const n = Number(r.displayScore)
+    const max = Math.max(0, ...list.map(Number).filter(Number.isFinite))
+    return r.displayScore !== '' && n > 0 && max > 0 ? [Math.min(10, (n / max) * 10)] : []
   })
   return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null
 }

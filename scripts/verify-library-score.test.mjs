@@ -26,7 +26,17 @@ test('没评分、没绑定或不知道分制时为 null', () => {
   assert.equal(libraryScore([rec(3, '')], scales), null)
   assert.equal(libraryScore([], scales), null)
   assert.equal(libraryScore([rec(9, '8')], scales), null)
-  assert.equal(libraryScore([rec(1, '8.5')], scales), null)
+})
+
+test('旧分数不在当前档位里时按数值折算，不当成未评分', () => {
+  // 网站从小数分制改成整数分制后留下的 8.5
+  assert.equal(libraryScore([rec(1, '8.5')], scales), 8.5)
+  // 百分制网站上不在档位里的 8.5：按百分制的最大值折算
+  assert.ok(Math.abs(libraryScore([rec(2, '8.5')], scales) - 0.85) < 1e-9)
+  // 超出档位的按满分算；非数字（旧的表情）仍算未评分
+  assert.equal(libraryScore([rec(1, '12')], scales), 10)
+  assert.equal(libraryScore([rec(1, ':)')], scales), null)
+  assert.equal(libraryScore([rec(3, ':D')], scales), null)
 })
 
 test('没有评分的不论正序倒序都排在最后', () => {
