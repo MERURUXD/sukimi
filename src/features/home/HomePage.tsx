@@ -257,7 +257,7 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
                     onClick={(e) => {
                       if (e.ctrlKey || e.metaKey || e.shiftKey) return
                       e.preventDefault()
-                      navigate(`/manga/${m.id}`)
+                      navigate(`/manga/${m.id}`, { viewTransition: true })
                     }}
                   >
                     <span className="md:hidden">详情</span><span className="hidden md:inline">漫画详情</span>

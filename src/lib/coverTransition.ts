@@ -62,7 +62,8 @@ const pagePath = () => document.querySelector(`[${PAGE_PATH_ATTR}]`)?.getAttribu
  *
  * - 进入：全局点击监听，点了指向详情页的链接时，只给「被点的那个」封面挂上过渡名。
  *   不能按漫画 id 判断——同一部漫画可能在页面上出现多次（首页大图区和书架），
- *   两个元素同名会让浏览器直接放弃整个过渡。链接本身是 .cv，或者里面有 .cv，都算封面。
+ *   两个元素同名会让浏览器直接放弃整个过渡。链接本身是 .cv，或者里面有 .cv，都算封面；
+ *   都不是时借用同一区块里同一详情的封面。
  * - 返回：React Router 对用 viewTransition 进入的页面，后退时也会走过渡。
  *   包一层 document.startViewTransition，在新页面渲染完、浏览器截图之前，
  *   找到当初点的那个封面挂上过渡名，详情页的大封面就会飞回原来的格子。
@@ -79,7 +80,9 @@ export function installCoverTransition(basePath = '') {
       const link = (e.target as Element | null)?.closest?.(`a[href^="${basePath}/manga/"]`)
       const href = link?.getAttribute('href')
       if (!link || !href || /\/chapter\//.test(href)) return
-      const cover = (link.matches('.cv') ? link : link.querySelector('.cv')) as HTMLElement | null
+      // 本身不带封面的链接（如首页「漫画详情」按钮）借用同一区块里指向同一详情、正显示着的封面
+      const cover = ((link.matches('.cv') ? link : link.querySelector('.cv')) as HTMLElement | null)
+        ?? coversOf(href).find((el) => link.closest('section')?.contains(el) && el.getClientRects().length > 0)
       if (!cover) return
       mark(cover)
       const from = pagePath()
