@@ -136,8 +136,9 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
   const score = scoreValue(r.displayScore)
   const total = r.totalChapters
   const read = r.lastChapterRead
+  // 直接在原值上加减，3.5 话减一是 2.5，和完整设置里的加减一致
   const step = (d: number) => {
-    const n = Math.max(0, Math.floor(read) + d)
+    const n = Math.max(0, read + d)
     save({ lastChapterRead: total > 0 ? Math.min(n, total) : n })
   }
   return (

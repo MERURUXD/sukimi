@@ -73,28 +73,30 @@ const BGM_WORDS = ['', '不忍直视', '很差', '差', '较差', '不过不失'
 export const scoreWord = (trackerName: string, value: number) =>
   /bangumi/i.test(trackerName) ? (BGM_WORDS[value] ?? '') : ''
 
-/** 比参照话数大出一截：至少 10 话，长篇按 20% 放宽，容忍来源里轻微的顺序错乱 */
-const jumps = (n: number, ref: number) => n - ref > Math.max(10, ref * 0.2)
+/** 相邻话数差得太远就断开：至少 10 话，长篇按 20% 放宽，容忍来源里缺几话 */
+const far = (n: number, prev: number) => n - prev > Math.max(10, prev * 0.2)
 
 /**
  * 已读章节里可以同步到追踪网站的话数。
- * 不能直接取最大话数：新年贺图、年份番外常编成「2026 话」，会把进度一下推到 2026。
- * 按来源顺序（越新越大）比较：比后面所有章节都大出一截的视为异常编号；
- * 最新一话后面没有章节可比，改和前面的正常章节比
+ * 不能直接取最大话数：新年贺图、年份番外常编成「2026 话」，会把进度一下推到 2026，
+ * 而且可能连着好几张（2024、2025、2026）。做法：把话数从小到大排好，在差得太远的地方断成几段；
+ * 最高的一段如果话数很少（不到 3 个，或不到前面总数的十分之一），就当作番外丢掉，可以连着丢好几段
  */
-export function readProgress(chapters: readonly { chapterNumber: number; sourceOrder: number; isRead: boolean }[]) {
-  const list = chapters.filter((c) => c.chapterNumber > 0).sort((a, b) => a.sourceOrder - b.sourceOrder)
-  const normal = new Array<boolean>(list.length)
-  let laterMin = Infinity
-  for (let i = list.length - 1; i >= 0; i--) {
-    const n = list[i].chapterNumber
-    normal[i] = laterMin === Infinity || !jumps(n, laterMin)
-    laterMin = Math.min(laterMin, n)
+export function readProgress(chapters: readonly { chapterNumber: number; isRead: boolean }[]) {
+  const nums = [...new Set(chapters.map((c) => c.chapterNumber).filter((n) => n > 0))].sort((a, b) => a - b)
+  const runs: number[][] = []
+  for (const n of nums) {
+    const run = runs.at(-1)
+    if (run && !far(n, run.at(-1)!)) run.push(n)
+    else runs.push([n])
   }
-  const last = list.length - 1
-  if (last > 0) {
-    const before = Math.max(0, ...list.slice(0, last).filter((_, i) => normal[i]).map((c) => c.chapterNumber))
-    normal[last] = before === 0 || !jumps(list[last].chapterNumber, before)
+  let before = nums.length
+  while (runs.length > 1) {
+    const top = runs.at(-1)!
+    before -= top.length
+    if (top.length >= 3 && top.length * 10 >= before) break
+    runs.pop()
   }
-  return Math.max(0, ...list.filter((c, i) => c.isRead && normal[i]).map((c) => c.chapterNumber))
+  const cap = runs.at(-1)?.at(-1) ?? 0
+  return Math.max(0, ...chapters.filter((c) => c.isRead && c.chapterNumber > 0 && c.chapterNumber <= cap).map((c) => c.chapterNumber))
 }
