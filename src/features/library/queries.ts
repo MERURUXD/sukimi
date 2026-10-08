@@ -30,6 +30,15 @@ export const LibraryMangas = graphql(`
         lastReadChapter {
           id
           lastReadAt
+          # 首页「好久没看」按历史删除规则隐藏
+          meta {
+            key
+            value
+          }
+        }
+        # 首页「还没开始读」：Tachiyomi 时期导入的已读章节没有阅读时间，只有已读标记
+        latestReadChapter {
+          id
         }
         latestFetchedChapter {
           id

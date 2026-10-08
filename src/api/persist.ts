@@ -28,7 +28,7 @@ const entry = <R, V extends OperationVariables>(key: string, query: TypedDocumen
 })
 
 /** 改了这些查询的字段就把版本号加一，旧快照直接作废 */
-const VERSION = 5
+const VERSION = 7
 const ENTRIES = [
   entry('library', LibraryMangas),
   entry('categories', Categories),
