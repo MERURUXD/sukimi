@@ -9,9 +9,10 @@ export const mangaIntro = {
   tags: 300,
   actions: 460,
   recent: 600,
-  chapterTitle: 660,
-  chapterTools: 700,
-  chapterRow: 760,
+  track: 640,
+  chapterTitle: 700,
+  chapterTools: 740,
+  chapterRow: 800,
 } as const
 
 export const mangaIntroDelay = (ms: number): CSSProperties => ({ '--d': `${ms}ms` }) as CSSProperties

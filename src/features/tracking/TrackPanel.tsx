@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ExternalLink, ListChecks, Loader2, Minus, Plus, RefreshCw, Search, Unlink, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
-import type { UpdateTrackInput } from '@/api/gql/graphql'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
@@ -12,8 +11,11 @@ import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select, Switch } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
 import { cn } from '@/lib/cn'
-import { BindTrack, FetchTrack, MangaTracks, SearchTracker, TrackProgress, Trackers, UnbindTrack, UpdateTrack, type Tracker, type TrackRecord } from './queries'
-import { fromDateInput, statusLabel, toDateInput } from './tracking'
+import { BindTrack, FetchTrack, MangaTracks, SearchTracker, Trackers, UnbindTrack, type Tracker, type TrackRecord } from './queries'
+import { pushTrackProgress } from './sync'
+import { Stars } from './Stars'
+import { fromDateInput, scoreString, scoreValue, scoreWord, starScale, statusLabel, toDateInput } from './tracking'
+import { useSaveTrack } from './useSaveTrack'
 
 /** 详情页的「追踪」按钮：角标是已绑定的数量 */
 export function TrackButton({ mangaId, title }: { mangaId: number; title: string }) {
@@ -33,7 +35,8 @@ export function TrackButton({ mangaId, title }: { mangaId: number; title: string
 export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; title: string; onClose: () => void }) {
   const trackers = useQuery(Trackers).data?.trackers.nodes
   const records = useQuery(MangaTracks, { variables: { id: mangaId }, fetchPolicy: 'cache-and-network' }).data?.manga.trackRecords.nodes
-  const [sync, { loading: syncing }] = useMutation(TrackProgress)
+  const client = useApolloClient()
+  const [syncing, setSyncing] = useState(false)
   const loggedIn = trackers?.filter((t) => t.isLoggedIn) ?? []
 
   useEffect(() => {
@@ -43,11 +46,14 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
   }, [onClose])
 
   const pushProgress = async () => {
+    setSyncing(true)
     try {
-      await sync({ variables: { mangaId } })
-      toast('已把阅读进度同步到追踪网站')
+      const n = await pushTrackProgress(client, mangaId)
+      toast(n ? '已把阅读进度同步到追踪网站' : '追踪网站上的进度已是最新')
     } catch (e) {
       toastError('同步失败', e)
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -107,7 +113,7 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
 /* ───────── 已绑定：改状态、进度、评分、日期 ───────── */
 
 function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
-  const [update, { loading }] = useMutation(UpdateTrack)
+  const save = useSaveTrack(r)
   const [refresh, { loading: refreshing }] = useMutation(FetchTrack)
   const [unbind] = useMutation(UnbindTrack, {
     // 解除后从这部漫画的绑定列表里去掉
@@ -119,17 +125,10 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
   // 网站上的进度变了（刷新、同步后）由外面换 key 重新挂载，输入框跟着更新
   const [chapters, setChapters] = useState(String(r.lastChapterRead))
 
-  const save = async (patch: Omit<UpdateTrackInput, 'recordId'>) => {
-    try {
-      await update({ variables: { input: { recordId: r.id, ...patch } } })
-    } catch (e) {
-      toastError('保存失败', e)
-    }
-  }
   const saveChapters = (v: number) => {
     const n = Math.max(0, r.totalChapters > 0 ? Math.min(v, r.totalChapters) : v)
     setChapters(String(n))
-    if (n !== r.lastChapterRead) void save({ lastChapterRead: n })
+    if (n !== r.lastChapterRead) save({ lastChapterRead: n })
   }
 
   const remove = async () => {
@@ -148,6 +147,7 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
   }
 
   const statuses = t.statuses.map((s) => ({ value: s.value, label: statusLabel(s.name) }))
+  const scale = starScale(t.scores)
   return (
     <div className="flex flex-col gap-3.5 pl-[38px]">
       <div className="flex items-start gap-2">
@@ -165,7 +165,7 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
 
       <div role="group" aria-label="阅读状态" className="flex flex-wrap gap-1.5">
         {statuses.map((s) => (
-          <button key={s.value} type="button" className={cn('fopt', r.status === s.value && 'inc')} aria-pressed={r.status === s.value} disabled={loading} onClick={() => r.status !== s.value && void save({ status: s.value })}>
+          <button key={s.value} type="button" className={cn('fopt', r.status === s.value && 'inc')} aria-pressed={r.status === s.value} onClick={() => r.status !== s.value && save({ status: s.value })}>
             {s.label}
           </button>
         ))}
@@ -193,30 +193,36 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
           </button>
           <span className="text-sm text-muted num">/ {r.totalChapters > 0 ? r.totalChapters : '?'} 话</span>
         </span>
-        {t.scores.length > 0 && (
+        {!scale && t.scores.length > 0 && (
           <span className="flex items-center gap-2">
             <span className="text-sm text-muted">评分</span>
             <Select
               label="评分"
               value={r.displayScore}
               options={(t.scores.includes(r.displayScore) ? t.scores : [r.displayScore, ...t.scores]).map((s) => ({ value: s, label: s || '未评分' }))}
-              onChange={(scoreString) => void save({ scoreString })}
+              onChange={(scoreString) => save({ scoreString })}
               className="w-[110px]"
             />
           </span>
         )}
       </div>
+      {/* 能画成星星的评分单独一行，和详情页宽屏面板同一个控件 */}
+      {scale && (
+        <span className="-ml-1">
+          <Stars size="md" max={scale} value={Math.min(scoreValue(r.displayScore), scale)} word={(v) => scoreWord(t.name, v)} onChange={(v) => save({ scoreString: scoreString(t.scores, v) })} />
+        </span>
+      )}
 
       {t.supportsReadingDates && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-          <DateField label="开始" value={r.startDate} onChange={(startDate) => void save({ startDate })} />
-          <DateField label="读完" value={r.finishDate} onChange={(finishDate) => void save({ finishDate })} />
+          <DateField label="开始" value={r.startDate} onChange={(startDate) => save({ startDate })} />
+          <DateField label="读完" value={r.finishDate} onChange={(finishDate) => save({ finishDate })} />
         </div>
       )}
       {t.supportsPrivateTracking && (
         <label className="flex items-center gap-3 text-sm">
           <span className="flex-1 text-muted">不公开（只有自己能看到）</span>
-          <Switch on={r.private} onChange={(v) => void save({ private: v })} label="不公开" />
+          <Switch on={r.private} onChange={(v) => save({ private: v })} label="不公开" />
         </label>
       )}
     </div>

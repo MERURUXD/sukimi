@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DeleteDownloads, UpdateChapters } from '@/api/chapters'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
+import { syncTrackProgress } from '@/features/tracking/sync'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { Seg } from '@/components/ui/Seg'
@@ -227,6 +228,8 @@ function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
         still()
         setStep('标记已读')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
+        // 新漫画若已绑定追踪，把复制过来的已读进度推过去
+        void syncTrackProgress(client, target.id, still)
       }
       if (bookmarks && plan.bookmarked.length) {
         still()

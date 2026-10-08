@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
 import { toast, toastError } from '@/components/ui/toast'
 import { justLeftReader } from '@/features/reader/nav'
+import { syncTrackProgress } from '@/features/tracking/sync'
 import { sfwAttr } from '@/lib/devSafe'
 import { useIntro } from '@/lib/intro'
 import { ChapterList, useChapterActions } from './ChapterList'
@@ -68,7 +69,8 @@ export function MangaPage() {
     [all, id],
   )
   const noop = useCallback(() => {}, [])
-  const actions = useChapterActions(list ?? [], noop, afterDownloadChange)
+  const syncTracks = useCallback((still: () => void) => void syncTrackProgress(client, id, still), [client, id])
+  const actions = useChapterActions(list ?? [], noop, afterDownloadChange, syncTracks)
 
   const downloadUnread = () => {
     const ids = (list ?? []).filter((c) => !c.isRead && !c.isDownloaded).map((c) => c.id)
