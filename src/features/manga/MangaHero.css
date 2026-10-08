@@ -55,6 +55,11 @@
   .manga-hero-cover { width: 240px; }
   .manga-hero-title { font-size: 40px; }
 }
+/* 宽屏有追踪时多一栏，面板顶端与书名对齐，占右侧空白而不是往下撑 */
+@media (min-width: 1280px) {
+  .manga-hero-layout:has(> .manga-hero-side) { grid-template-columns: 240px minmax(0, 1fr) 320px; column-gap: 48px; }
+  .manga-hero-side { align-self: start; }
+}
 /* 手机以封面和书名并排，正文与操作共享一条内容轴。 */
 @media (max-width: 767px) {
   .manga-hero-layout {
@@ -78,6 +83,7 @@
     margin-top: -8px;
     font-size: 12px;
   }
+  .manga-hero-track { grid-column: 1 / -1; order: 5; margin-top: -4px; }
 }
 @media (min-width: 480px) and (max-width: 767px) {
   .manga-hero-actions { grid-template-columns: minmax(0, max-content) repeat(3, 44px); justify-content: start; }

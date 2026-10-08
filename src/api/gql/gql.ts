@@ -114,12 +114,12 @@ type Documents = {
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": typeof types.TrackSearchFieldsFragmentDoc,
     "\n  query Trackers {\n    trackers {\n      nodes {\n        ...TrackerFields\n      }\n    }\n  }\n": typeof types.TrackersDocument,
     "\n  query MangaTracks($id: Int!) {\n    manga(id: $id) {\n      id\n      trackRecords {\n        nodes {\n          ...TrackRecordFields\n        }\n      }\n    }\n  }\n": typeof types.MangaTracksDocument,
+    "\n  query TrackedMangaIds($ids: [Int!]!) {\n    trackRecords(filter: { mangaId: { in: $ids } }) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n": typeof types.TrackedMangaIdsDocument,
     "\n  query SearchTracker($trackerId: Int!, $query: String!) {\n    searchTracker(input: { trackerId: $trackerId, query: $query }) {\n      trackSearches {\n        ...TrackSearchFields\n      }\n    }\n  }\n": typeof types.SearchTrackerDocument,
     "\n  mutation BindTrack($mangaId: Int!, $trackerId: Int!, $remoteId: LongString!, $private: Boolean) {\n    bindTrack(input: { mangaId: $mangaId, trackerId: $trackerId, remoteId: $remoteId, private: $private }) {\n      trackRecord {\n        ...TrackRecordFields\n      }\n    }\n  }\n": typeof types.BindTrackDocument,
     "\n  mutation UpdateTrack($input: UpdateTrackInput!) {\n    updateTrack(input: $input) {\n      trackRecord {\n        ...TrackRecordFields\n      }\n    }\n  }\n": typeof types.UpdateTrackDocument,
     "\n  mutation FetchTrack($recordId: Int!) {\n    fetchTrack(input: { recordId: $recordId }) {\n      trackRecord {\n        ...TrackRecordFields\n      }\n    }\n  }\n": typeof types.FetchTrackDocument,
     "\n  mutation UnbindTrack($recordId: Int!, $deleteRemoteTrack: Boolean) {\n    unbindTrack(input: { recordId: $recordId, deleteRemoteTrack: $deleteRemoteTrack }) {\n      trackRecord {\n        id\n      }\n    }\n  }\n": typeof types.UnbindTrackDocument,
-    "\n  mutation TrackProgress($mangaId: Int!) {\n    trackProgress(input: { mangaId: $mangaId }) {\n      trackRecords {\n        ...TrackRecordFields\n      }\n    }\n  }\n": typeof types.TrackProgressDocument,
     "\n  mutation LoginTrackerOAuth($trackerId: Int!, $callbackUrl: String!) {\n    loginTrackerOAuth(input: { trackerId: $trackerId, callbackUrl: $callbackUrl }) {\n      isLoggedIn\n      tracker {\n        ...TrackerFields\n      }\n    }\n  }\n": typeof types.LoginTrackerOAuthDocument,
     "\n  mutation LoginTrackerCredentials($trackerId: Int!, $username: String!, $password: String!) {\n    loginTrackerCredentials(input: { trackerId: $trackerId, username: $username, password: $password }) {\n      isLoggedIn\n      tracker {\n        ...TrackerFields\n      }\n    }\n  }\n": typeof types.LoginTrackerCredentialsDocument,
     "\n  mutation LogoutTracker($trackerId: Int!) {\n    logoutTracker(input: { trackerId: $trackerId }) {\n      isLoggedIn\n      tracker {\n        ...TrackerFields\n      }\n    }\n  }\n": typeof types.LogoutTrackerDocument,
@@ -226,12 +226,12 @@ const documents: Documents = {
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": types.TrackSearchFieldsFragmentDoc,
     "\n  query Trackers {\n    trackers {\n      nodes {\n        ...TrackerFields\n      }\n    }\n  }\n": types.TrackersDocument,
     "\n  query MangaTracks($id: Int!) {\n    manga(id: $id) {\n      id\n      trackRecords {\n        nodes {\n          ...TrackRecordFields\n        }\n      }\n    }\n  }\n": types.MangaTracksDocument,
+    "\n  query TrackedMangaIds($ids: [Int!]!) {\n    trackRecords(filter: { mangaId: { in: $ids } }) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n": types.TrackedMangaIdsDocument,
     "\n  query SearchTracker($trackerId: Int!, $query: String!) {\n    searchTracker(input: { trackerId: $trackerId, query: $query }) {\n      trackSearches {\n        ...TrackSearchFields\n      }\n    }\n  }\n": types.SearchTrackerDocument,
     "\n  mutation BindTrack($mangaId: Int!, $trackerId: Int!, $remoteId: LongString!, $private: Boolean) {\n    bindTrack(input: { mangaId: $mangaId, trackerId: $trackerId, remoteId: $remoteId, private: $private }) {\n      trackRecord {\n        ...TrackRecordFields\n      }\n    }\n  }\n": types.BindTrackDocument,
     "\n  mutation UpdateTrack($input: UpdateTrackInput!) {\n    updateTrack(input: $input) {\n      trackRecord {\n        ...TrackRecordFields\n      }\n    }\n  }\n": types.UpdateTrackDocument,
     "\n  mutation FetchTrack($recordId: Int!) {\n    fetchTrack(input: { recordId: $recordId }) {\n      trackRecord {\n        ...TrackRecordFields\n      }\n    }\n  }\n": types.FetchTrackDocument,
     "\n  mutation UnbindTrack($recordId: Int!, $deleteRemoteTrack: Boolean) {\n    unbindTrack(input: { recordId: $recordId, deleteRemoteTrack: $deleteRemoteTrack }) {\n      trackRecord {\n        id\n      }\n    }\n  }\n": types.UnbindTrackDocument,
-    "\n  mutation TrackProgress($mangaId: Int!) {\n    trackProgress(input: { mangaId: $mangaId }) {\n      trackRecords {\n        ...TrackRecordFields\n      }\n    }\n  }\n": types.TrackProgressDocument,
     "\n  mutation LoginTrackerOAuth($trackerId: Int!, $callbackUrl: String!) {\n    loginTrackerOAuth(input: { trackerId: $trackerId, callbackUrl: $callbackUrl }) {\n      isLoggedIn\n      tracker {\n        ...TrackerFields\n      }\n    }\n  }\n": types.LoginTrackerOAuthDocument,
     "\n  mutation LoginTrackerCredentials($trackerId: Int!, $username: String!, $password: String!) {\n    loginTrackerCredentials(input: { trackerId: $trackerId, username: $username, password: $password }) {\n      isLoggedIn\n      tracker {\n        ...TrackerFields\n      }\n    }\n  }\n": types.LoginTrackerCredentialsDocument,
     "\n  mutation LogoutTracker($trackerId: Int!) {\n    logoutTracker(input: { trackerId: $trackerId }) {\n      isLoggedIn\n      tracker {\n        ...TrackerFields\n      }\n    }\n  }\n": types.LogoutTrackerDocument,
@@ -655,6 +655,10 @@ export function graphql(source: "\n  query MangaTracks($id: Int!) {\n    manga(i
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
+export function graphql(source: "\n  query TrackedMangaIds($ids: [Int!]!) {\n    trackRecords(filter: { mangaId: { in: $ids } }) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n"): (typeof documents)["\n  query TrackedMangaIds($ids: [Int!]!) {\n    trackRecords(filter: { mangaId: { in: $ids } }) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
 export function graphql(source: "\n  query SearchTracker($trackerId: Int!, $query: String!) {\n    searchTracker(input: { trackerId: $trackerId, query: $query }) {\n      trackSearches {\n        ...TrackSearchFields\n      }\n    }\n  }\n"): (typeof documents)["\n  query SearchTracker($trackerId: Int!, $query: String!) {\n    searchTracker(input: { trackerId: $trackerId, query: $query }) {\n      trackSearches {\n        ...TrackSearchFields\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
@@ -672,10 +676,6 @@ export function graphql(source: "\n  mutation FetchTrack($recordId: Int!) {\n   
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation UnbindTrack($recordId: Int!, $deleteRemoteTrack: Boolean) {\n    unbindTrack(input: { recordId: $recordId, deleteRemoteTrack: $deleteRemoteTrack }) {\n      trackRecord {\n        id\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation UnbindTrack($recordId: Int!, $deleteRemoteTrack: Boolean) {\n    unbindTrack(input: { recordId: $recordId, deleteRemoteTrack: $deleteRemoteTrack }) {\n      trackRecord {\n        id\n      }\n    }\n  }\n"];
-/**
- * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
- */
-export function graphql(source: "\n  mutation TrackProgress($mangaId: Int!) {\n    trackProgress(input: { mangaId: $mangaId }) {\n      trackRecords {\n        ...TrackRecordFields\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation TrackProgress($mangaId: Int!) {\n    trackProgress(input: { mangaId: $mangaId }) {\n      trackRecords {\n        ...TrackRecordFields\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

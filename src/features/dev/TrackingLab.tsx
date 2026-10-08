@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
 import { TrackingTab } from '@/features/settings/tabs/TrackingTab'
 import { TrackButton } from '@/features/tracking/TrackPanel'
+import { TrackSummary } from '@/features/tracking/TrackSummary'
 
 const MANGA = -6000
 const statuses = (names: string[]) => names.map((name, i) => ({ __typename: 'TrackStatusType', name, value: i + 1 }))
@@ -23,13 +24,15 @@ export function TrackingLab() {
   const [log, setLog] = useState<string[]>([])
   const [client] = useState(() => {
     const trackers = [
-      tracker(1, '测试追踪 A（OAuth，已登录）', { isLoggedIn: true, authUrl: 'https://example.invalid/a?x=1', supportsPrivateTracking: true, supportsReadingDates: true, supportsTrackDeletion: true }),
+      tracker(1, 'Bangumi（测试）', { isLoggedIn: true, authUrl: 'https://example.invalid/a?x=1', supportsPrivateTracking: true, supportsReadingDates: true, supportsTrackDeletion: true }),
       tracker(2, '测试追踪 B（OAuth）', { authUrl: 'https://example.invalid/b?x=1' }),
       tracker(3, '测试追踪 C（账号密码）', {}),
-      tracker(4, '测试追踪 D（已过期）', { isLoggedIn: true, isTokenExpired: true }),
+      // 百分制画不成星星，退回下拉框
+      tracker(4, '测试追踪 D（已过期）', { isLoggedIn: true, isTokenExpired: true, scores: Array.from({ length: 101 }, (_, i) => String(i)) }),
     ]
     let records = [
       { __typename: 'TrackRecordType', id: 70, trackerId: 1, mangaId: MANGA, remoteId: '501', remoteUrl: 'https://example.invalid/501', title: '虚构条目：测试漫画', status: 1, lastChapterRead: 12, totalChapters: 40, score: 8, displayScore: '8', startDate: String(new Date(2026, 0, 5).getTime()), finishDate: '0', private: false },
+      { __typename: 'TrackRecordType', id: 69, trackerId: 4, mangaId: MANGA, remoteId: '77', remoteUrl: 'https://example.invalid/77', title: '虚构条目：测试漫画', status: 5, lastChapterRead: 3.5, totalChapters: 0, score: 72, displayScore: '72', startDate: '0', finishDate: '0', private: false },
     ]
     const find = (id: number) => trackers.find((t) => t.id === id)!
     return new ApolloClient({
@@ -71,8 +74,12 @@ export function TrackingLab() {
               records = records.filter((r) => r.id !== v.recordId)
               observer.next({ data: { unbindTrack: { __typename: 'UnbindTrackPayload', trackRecord: { __typename: 'TrackRecordType', id: v.recordId } } } })
               break
-            case 'TrackProgress':
-              observer.next({ data: { trackProgress: { __typename: 'TrackProgressPayload', trackRecords: records } } })
+            case 'MangaChapters':
+              // 第 30 话后插了一张编成「2026 话」的贺图，同步时应跳过
+              observer.next({ data: { chapters: { __typename: 'ChapterNodeList', nodes: [...Array.from({ length: 30 }, (_, i) => i + 1), 2026, 31, 32].map((n, i) => ({
+                __typename: 'ChapterType', id: 9000 + i, name: n === 2026 ? '新年贺图' : `第 ${n} 话`, chapterNumber: n, sourceOrder: i + 1, scanlator: null,
+                uploadDate: '0', isRead: n <= 20 || n === 2026, isBookmarked: false, isDownloaded: false, lastPageRead: 0, pageCount: 1, lastReadAt: '0',
+              })) } } })
               break
             case 'LoginTrackerCredentials':
             case 'LogoutTracker': {
@@ -100,6 +107,12 @@ export function TrackingLab() {
         <div className="my-6 flex items-center gap-3">
           <span className="font-semibold">详情页按钮：</span>
           <TrackButton mangaId={MANGA} title="测试漫画" />
+        </div>
+        <div className="mb-8 flex flex-col gap-3">
+          <span className="font-semibold">详情页正文：</span>
+          {/* 两处按宽度只显示其一：宽屏为展开面板，较窄时为三栏信息条 */}
+          <TrackSummary placement="inline" mangaId={MANGA} title="测试漫画" />
+          <TrackSummary placement="side" mangaId={MANGA} title="测试漫画" className="max-w-[300px]" />
         </div>
         <TrackingTab />
       </ApolloProvider>
