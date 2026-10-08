@@ -6,7 +6,7 @@ import { getMainDefinition } from '@apollo/client/utilities'
 import { OperationTypeNode } from 'graphql'
 import { createClient } from 'graphql-ws'
 import { from, mergeMap } from 'rxjs'
-import { getAccessToken, getSessionEpoch, refreshAccessToken, useAuth } from './auth'
+import { getAccessToken, getSessionEpoch, refreshAccessToken, sessionReady, useAuth } from './auth'
 import { isDemo } from '@/lib/demo'
 import { clearSnapshots } from './persist'
 import { resetUserContext } from './userContext'
@@ -32,10 +32,16 @@ const retryOnUnauthorized = new ErrorLink(({ error, operation, forward }) => {
   )
 })
 
-const withToken = new SetContextLink((prev) => {
+const tokenContext = (prev: Readonly<ApolloLink.OperationContext>) => {
   const token = getAccessToken()
   // 记下发出时的会话，401 之后重放前核对
   return { sessionEpoch: getSessionEpoch(), ...(token && { headers: { ...prev.headers, authorization: `Bearer ${token}` } }) }
+}
+
+const withToken = new SetContextLink((prev) => {
+  // 启动时页面先用快照显示，请求要等恢复会话拿到令牌
+  const waiting = sessionReady()
+  return waiting ? waiting.then(() => tokenContext(prev)) : tokenContext(prev)
 })
 
 // 订阅走 WebSocket（graphql-transport-ws）。
@@ -71,7 +77,8 @@ useAuth.subscribe((s, prev) => {
   // 启动时发现登录已过期（checking → signedOut）也要清掉本地快照
   void clearSnapshots()
   resetUserContext()
-  if (prev.status === 'signedIn') {
+  // 验证期间书库等页面已用快照显示并发出请求、建立订阅（checking → signedOut），同样要断开清空
+  if (prev.status === 'signedIn' || prev.status === 'checking') {
     wsClient.terminate()
     void apollo.clearStore()
   }

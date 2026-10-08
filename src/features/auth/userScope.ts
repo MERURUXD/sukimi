@@ -41,3 +41,16 @@ export function claimLegacyData(storage: KeyValueStore, userId: number, bases: r
 /** 快照只给保存它的那个用户用；版本不符的旧快照也作废 */
 export const snapshotUsable = (snap: { v: number; userId: number } | undefined, version: number, userId: number | undefined) =>
   !!snap && userId !== undefined && snap.v === version && snap.userId === userId
+
+/** 有本地快照、且不按权限跳转的页面：登录验证完成前就先用快照显示 */
+const EARLY_PATHS = new Set(['/', '/library', '/updates'])
+
+/**
+ * 重开页面时是否不等登录验证、先显示上次的内容。
+ * 只给本机记得上次是谁登录的情况（验证在后台进行，失败照常跳登录页），
+ * 并且要等快照读完，否则先渲染的空页面不会再换成快照
+ */
+export function showBeforeVerified(status: string, userId: number | undefined, snapshotsLoaded: boolean, pathname: string) {
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  return status === 'checking' && userId !== undefined && snapshotsLoaded && EARLY_PATHS.has(path)
+}
