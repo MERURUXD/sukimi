@@ -3,6 +3,8 @@ import { Navigate, Outlet, useLocation, useMatch } from 'react-router'
 import { cn } from '@/lib/cn'
 import { restoreSession, useAuth } from '@/api/auth'
 import { LiveStatus } from '@/api/live'
+import { useSnapshots } from '@/api/persist'
+import { showBeforeVerified } from '@/features/auth/userScope'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
@@ -19,8 +21,11 @@ export function AuthGate() {
   const status = useAuth((s) => s.status)
   const userId = useAuth((s) => s.user?.id)
   const location = useLocation()
+  const snapshotsLoaded = useSnapshots((s) => s.loaded)
+  // 重开页面时首页、书库、更新页先用上次的快照显示，登录验证在后台进行（往返服务端要零点几秒到一秒多）
+  const early = showBeforeVerified(status, userId, snapshotsLoaded, location.pathname)
 
-  if (status === 'checking') return null
+  if (status === 'checking' && !early) return null
   if (status === 'signedOut') return <Navigate to="/login" replace state={{ from: location }} />
   if (status === 'unreachable') {
     return (
@@ -41,7 +46,8 @@ export function AuthGate() {
       <Outlet key={userId} />
       <Toaster />
       <ConfirmHost />
-      <LiveStatus key={userId} />
+      {/* 和上面的 Outlet 同在一层，key 不能重复 */}
+      <LiveStatus key={`live-${userId}`} />
     </>
   )
 }

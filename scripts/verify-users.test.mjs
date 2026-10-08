@@ -134,3 +134,19 @@ test('演示里有两个虚构用户与未使用的码，改账号的操作明�
   const write = run(docs.CreateRegistrationCodeDocument)
   assert.equal(write.errors?.[0]?.message, DEMO_ACCOUNT_REJECT)
 })
+
+test('重开页面时只在记得上次的用户、快照已读完时提前显示首页、书库和更新页', async () => {
+  const { showBeforeVerified } = await import('../src/features/auth/userScope.ts')
+  assert.equal(showBeforeVerified('checking', 1, true, '/library'), true)
+  assert.equal(showBeforeVerified('checking', 1, true, '/library/'), true)
+  assert.equal(showBeforeVerified('checking', 0, true, '/'), true)
+  assert.equal(showBeforeVerified('checking', 1, true, '/updates'), true)
+  // 验证完成后照常渲染，不再走提前显示
+  assert.equal(showBeforeVerified('signedIn', 1, true, '/library'), false)
+  // 不知道是谁、快照还没读完
+  assert.equal(showBeforeVerified('checking', undefined, true, '/library'), false)
+  assert.equal(showBeforeVerified('checking', 1, false, '/library'), false)
+  // 按权限显示的页面要等真实权限
+  assert.equal(showBeforeVerified('checking', 1, true, '/settings/server'), false)
+  assert.equal(showBeforeVerified('checking', 1, true, '/manga/3'), false)
+})

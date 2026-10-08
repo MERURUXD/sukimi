@@ -287,6 +287,18 @@ export function refreshAccessToken(): Promise<string> {
   return request
 }
 
+/**
+ * 启动时恢复会话还没完成：返回进行中的续期（成败都 resolve）。
+ * 书库等页面在验证完之前就先用快照显示，它们发出的请求等令牌到了再走，免得先吃一次 401
+ */
+export function sessionReady(): Promise<void> | null {
+  if (accessToken || !inflight || useAuth.getState().status !== 'checking') return null
+  return inflight.then(
+    () => {},
+    () => {},
+  )
+}
+
 /** 启动时恢复会话 */
 export async function restoreSession() {
   if (!localStorage.getItem(REFRESH_KEY)) {

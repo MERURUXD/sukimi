@@ -7,6 +7,7 @@
  * - 退出登录、换账号时清空；每条记录还带用户 id，读到别人的就丢弃，双重避免串书库。
  */
 import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode } from '@apollo/client'
+import { create } from 'zustand'
 import { IN_LIBRARY, RecentReads, RecentUpdates } from '@/features/home/queries'
 import { Categories, LibraryMangas } from '@/features/library/queries'
 import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE } from '@/features/updates/queries'
@@ -76,6 +77,12 @@ interface Snapshot {
 const snapshots = new Map<string, unknown>()
 
 /**
+ * 快照是否已读完（读不出来也算）。登录验证完成前，书库等页面要等它读完才提前显示：
+ * 快照不是响应式的，先渲染了空页面，之后读出的快照不会再显示
+ */
+export const useSnapshots = create(() => ({ loaded: false }))
+
+/**
  * 启动时调用：读出快照，然后开始监听这些查询的变化并延迟保存。
  * 读库失败（隐私模式等）就当没有缓存，不影响使用。
  */
@@ -96,6 +103,7 @@ export async function loadSnapshots(client: ApolloClient) {
       }
     }),
   )
+  useSnapshots.setState({ loaded: true })
   for (const e of ENTRIES) watch(client, e)
 }
 
