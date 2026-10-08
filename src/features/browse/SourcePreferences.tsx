@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@apollo/client/react'
 import { useState } from 'react'
+import { useSharedServer } from '@/api/auth'
 import type { SourcePreferenceChangeInput, SourcePreferenceFieldsFragment } from '@/api/gql/graphql'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toastError } from '@/components/ui/toast'
@@ -37,10 +38,13 @@ function changeOf(p: Preference, position: number, v: Value): SourcePreferenceCh
 /** 扩展设置：按来源显示扩展自己提供的偏好（站点域名、图片质量、登录信息等） */
 export function SourcePreferencesDialog({ title, sources, onClose }: { title: string; sources: PreferenceSource[]; onClose: () => void }) {
   const [sourceId, setSourceId] = useState(sources[0].id)
+  // 来源偏好存在服务端、按来源保存，所有账号共用一份
+  const shared = useSharedServer()
   const options = sources.map((s) => ({ value: s.id, label: `${s.displayName} · ${langLabel(s.lang)}` }))
   return (
     <BottomSheet id="source-preferences" label={`${title} 设置`} closeLabel="关闭扩展设置" onClose={onClose}>
       <div className="flex flex-col gap-5 px-3 pt-3 pb-4">
+        {shared && <p className="m-0 text-xs text-muted">这里的设置保存在服务端，对所有用户生效。</p>}
         {sources.length > 1 && <Select value={sourceId} options={options} onChange={setSourceId} label="选择来源" />}
         <PreferenceList key={sourceId} sourceId={sourceId} />
       </div>
