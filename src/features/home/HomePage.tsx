@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { ChevronLeft, ChevronRight, Download, Heart, History, Play } from 'lucide-react'
-import { useMemo, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
+import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
@@ -12,7 +12,8 @@ import { Glass } from '@/components/glass/Glass'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { toast, toastError } from '@/components/ui/toast'
-import { ChapterIds } from '@/features/library/queries'
+import { ChapterIds, LibraryMangas } from '@/features/library/queries'
+import type { LibraryMangasQuery } from '@/api/gql/graphql'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -20,6 +21,7 @@ import { useAppearance } from '@/design/settings'
 import { isDemo } from '@/lib/demo'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { IN_LIBRARY, RecentReads, RecentUpdates, type ReadChapter, type UpdateChapter } from './queries'
+import { isRecent, isStale, notStarted, pickBatch } from './picks'
 import { readingTarget } from './reading'
 import { useHeroSwipe } from './useHeroSwipe'
 
@@ -38,8 +40,33 @@ function resume(c: ReadChapter) {
 const progressOf = (c: ReadChapter) =>
   c.isRead ? 100 : c.pageCount > 0 ? Math.round(((c.lastPageRead + 1) / c.pageCount) * 100) : 0
 
+type LibManga = LibraryMangasQuery['mangas']['nodes'][number]
+
+/** 大图区从最近在读的这么多部里随机挑 HERO_COUNT 部 */
+const HERO_POOL = 20
+const HERO_COUNT = 4
+const SHELF_COUNT = 12
+
+/** 每次打开或刷新网页换一个随机种子；页面里的切换仍按同一种子挑，网络数据替换快照时不会整批跳动 */
+const session = Math.random().toString(36).slice(2)
+/** 每个区块「换一批」的次数；放在模块里，从详情页返回时还是同一批 */
+const batches = new Map<string, number>()
+
+function useBatch(key: string) {
+  const [n, setN] = useState(() => batches.get(key) ?? 0)
+  // 以模块里的计数为准：大图区切换时淡出中的旧按钮还能被点到，它闭包里的 n 是旧的
+  const next = () => {
+    const v = (batches.get(key) ?? 0) + 1
+    batches.set(key, v)
+    setN(v)
+  }
+  return [`${key}:${session}`, n, next] as const
+}
+
 export function HomePage() {
   const reads = useQuery(RecentReads, { fetchPolicy: 'cache-and-network' })
+  // 和书库页共用同一份查询与快照，之后打开书库也不用再等
+  const lib = useQuery(LibraryMangas)
   const updates = useQuery(RecentUpdates, {
     variables: { first: 200, offset: 0, filter: IN_LIBRARY },
     fetchPolicy: 'cache-and-network',
@@ -47,19 +74,44 @@ export function HomePage() {
   // 刷新页面后先用上次保存的数据，网络数据到了再替换
   const readsData = withSnapshot('recentReads', reads.data)
   const updatesData = withSnapshot('recentUpdates', updates.data)
+  const libData = withSnapshot('library', lib.data)
   const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter(isVisible)), [readsData])
-  // 大图区优先放还有得读的漫画，都读完了才退回最近读过的
-  const heroItems = useMemo(() => {
+  const [heroSeed, heroBatch, nextHero] = useBatch('hero')
+  // 大图区从两周内读过、还有得读的漫画里随机挑；没有就退回还有得读的，再退回最近读过的。
+  // 顺序也随机，换一批时第一部一定会变
+  const hero = useMemo(() => {
+    const now = Date.now() / 1000
     const open = recent.filter((c) => resume(c))
-    return (open.length ? open : recent).slice(0, 4)
-  }, [recent])
+    const fresh = open.filter((c) => isRecent(c.lastReadAt, now))
+    const pool = (fresh.length ? fresh : open.length ? open : recent).slice(0, HERO_POOL)
+    return { items: pickBatch(pool, HERO_COUNT, heroSeed, heroBatch, (c) => c.manga.id), more: pool.length > HERO_COUNT }
+  }, [recent, heroSeed, heroBatch])
+  const shelves = useMemo(() => {
+    const library = libData?.mangas.nodes
+    if (!library) return null
+    const now = Date.now() / 1000
+    // 大图区正在展示的不再重复出现
+    const shown = new Set(hero.items.map((c) => c.manga.id))
+    return {
+      stale: library.filter((m) => isStale(m, now) && !shown.has(m.id)),
+      fresh: library.filter(notStarted),
+    }
+  }, [libData, hero.items])
 
   return (
     <>
-      <Hero items={heroItems} loading={!readsData} />
+      <Hero items={hero.items} loading={!readsData} onShuffle={hero.more ? nextHero : undefined} />
       <div className="wrap pb-20">
         <UpdatesShelf chapters={updatesData?.chapters.nodes} />
-        <RecentList items={recent.slice(0, 10)} />
+        <MangaShelf
+          id="stale"
+          title="好久没看"
+          note={(n) => `${n} 部读到一半，超过两周没打开`}
+          mangas={shelves?.stale}
+          sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`}
+        />
+        <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`} mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />
+        <RecentList items={recent.slice(0, 3)} />
       </div>
     </>
   )
@@ -70,9 +122,10 @@ export function HomePage() {
 let lastHeroManga: number | null = null
 resetOnUserContext(() => {
   lastHeroManga = null
+  batches.clear()
 })
 
-function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
+function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: boolean; onShuffle?: () => void }) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
@@ -86,6 +139,12 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
     const id = items[i]?.manga.id ?? null
     lastHeroManga = id
     setSelId(id)
+  }
+  // 换一批后回到新一批的第一部；不清掉的话，上一批选中的那部若又被挑中会一直停在它上面
+  const shuffle = () => {
+    lastHeroManga = null
+    setSelId(null)
+    onShuffle?.()
   }
   const cur = items[activeIdx]
   const reducedMotion = useReducedMotion()
@@ -272,6 +331,12 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
                       <Download className="size-5" strokeWidth={1.8} />
                     </Glass>
                   </Can>
+                  {/* 手机的换一批在切换圆点旁边 */}
+                  {onShuffle && (
+                    <Glass as="button" type="button" className="gicon rounded-full max-md:hidden" onClick={shuffle} aria-label="换一批继续阅读" title="换一批">
+                      <Shuffle className="size-5" strokeWidth={1.8} />
+                    </Glass>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -279,19 +344,32 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
         </div>
 
         {items.length > 1 && (
-          <div role="group" aria-label="切换继续阅读漫画" className="flex justify-center pb-1 md:hidden">
-            {items.map((c, i) => (
+          <div className="flex items-center justify-center pb-1 md:hidden">
+            <div role="group" aria-label="切换继续阅读漫画" className="flex">
+              {items.map((c, i) => (
+                <button
+                  key={c.manga.id}
+                  type="button"
+                  aria-label={`切换到第 ${i + 1} 部：${c.manga.title}`}
+                  aria-pressed={i === activeIdx}
+                  onClick={() => setIdx(i)}
+                  className="flex size-11 flex-none items-center justify-center rounded-full text-text hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
+                >
+                  <span aria-hidden className={cn('h-1.5 rounded-full bg-current transition-[width,opacity] duration-200 motion-reduce:transition-none', i === activeIdx ? 'w-6 opacity-100' : 'w-1.5 opacity-35')} />
+                </button>
+              ))}
+            </div>
+            {onShuffle && (
               <button
-                key={c.manga.id}
                 type="button"
-                aria-label={`切换到第 ${i + 1} 部：${c.manga.title}`}
-                aria-pressed={i === activeIdx}
-                onClick={() => setIdx(i)}
-                className="flex size-11 flex-none items-center justify-center rounded-full text-text hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
+                onClick={shuffle}
+                aria-label="换一批继续阅读"
+                title="换一批"
+                className="flex size-11 flex-none items-center justify-center rounded-full text-muted hover:bg-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
               >
-                <span aria-hidden className={cn('h-1.5 rounded-full bg-current transition-[width,opacity] duration-200 motion-reduce:transition-none', i === activeIdx ? 'w-6 opacity-100' : 'w-1.5 opacity-35')} />
+                <Shuffle className="size-[18px]" strokeWidth={1.8} />
               </button>
-            ))}
+            )}
           </div>
         )}
         {items.length > 1 && (
@@ -332,9 +410,93 @@ function Hero({ items, loading }: { items: ReadChapter[]; loading: boolean }) {
   )
 }
 
+/* ───────── 横向书架 ───────── */
+function Shelf({ id, title, note, actions, children }: { id: string; title: string; note: string; actions?: ReactNode; children: ReactNode }) {
+  const shelf = useRef<HTMLDivElement>(null)
+  const scroll = (d: number) => shelf.current?.scrollBy({ left: d * shelf.current.clientWidth * 0.8, behavior: 'smooth' })
+  return (
+    <section aria-labelledby={`h-${id}`} className="pt-11">
+      <div className="mb-[18px] flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h2 id={`h-${id}`} className="m-0 text-[26px] font-bold">
+            {title}
+          </h2>
+          <span className="text-sm text-muted">{note}</span>
+        </div>
+        <div className="flex flex-none items-center gap-2">
+          {actions}
+          <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
+            <ChevronLeft className="size-5" strokeWidth={1.8} />
+          </Glass>
+          <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
+            <ChevronRight className="size-5" strokeWidth={1.8} />
+          </Glass>
+        </div>
+      </div>
+      <div ref={shelf} className="-mx-1 grid snap-x auto-cols-[140px] grid-flow-col gap-[22px] overflow-x-auto px-1 pt-1 pb-3 [scrollbar-width:none] sm:auto-cols-[176px]">
+        {children}
+      </div>
+    </section>
+  )
+}
+
+type ShelfManga = { id: number; title: string; thumbnailUrl?: string | null; source?: { displayName: string } | null }
+
+/** 书架上的一部漫画：封面、标题和一行说明，badge 显示在封面右上角 */
+function ShelfItem({ manga, sub, badge }: { manga: ShelfManga; sub: string; badge?: string }) {
+  const prefetch = usePrefetchManga(manga.id)
+  return (
+    <Link
+      to={`/manga/${manga.id}`}
+      viewTransition
+      {...prefetch}
+      data-sfw={sfwAttr(manga.source?.displayName)}
+      className="group flex min-w-0 snap-start flex-col gap-2.5 text-text no-underline"
+    >
+      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-1">
+        <CoverImg src={manga.thumbnailUrl} loading="lazy" />
+        {badge && (
+          <Glass as="span" dense className="absolute top-2 right-2 z-[2] inline-flex min-h-[26px] items-center rounded-full px-2.5 text-xs font-bold num" suspendRefract>
+            {badge}
+          </Glass>
+        )}
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-[15px] font-semibold">{manga.title}</span>
+        <span className="truncate text-[13px] text-muted">{sub}</span>
+      </span>
+    </Link>
+  )
+}
+
+/* ───────── 好久没看 / 还没开始读 ───────── */
+function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: string; note: (n: number) => string; mangas: LibManga[] | undefined; sub: (m: LibManga) => string }) {
+  const [seed, batch, next] = useBatch(id)
+  const shown = useMemo(() => (mangas ? pickBatch(mangas, SHELF_COUNT, seed, batch, (m) => m.id) : []), [mangas, seed, batch])
+  if (!mangas?.length) return null
+  return (
+    <Shelf
+      id={id}
+      title={title}
+      note={note(mangas.length)}
+      actions={
+        mangas.length > SHELF_COUNT && (
+          <Glass as="button" type="button" className="gbtn mr-1 rounded-full" onClick={next} aria-label={`换一批${title}`}>
+            <Shuffle className="size-[18px]" strokeWidth={1.8} />
+            <span className="max-sm:hidden">换一批</span>
+          </Glass>
+        )
+      }
+    >
+      {shown.map((m) => (
+        <ShelfItem key={m.id} manga={m} sub={sub(m)} />
+      ))}
+    </Shelf>
+  )
+}
+
 /* ───────── 最近更新书架 ───────── */
 function UpdatesShelf({ chapters }: { chapters: UpdateChapter[] | undefined }) {
-  const shelf = useRef<HTMLDivElement>(null)
   // 按漫画聚合：新章节数 = 这批里未读的话数
   const groups = useMemo(() => {
     const map = new Map<number, { latest: UpdateChapter; unread: number }>()
@@ -348,64 +510,22 @@ function UpdatesShelf({ chapters }: { chapters: UpdateChapter[] | undefined }) {
   const newCount = groups.reduce((n, g) => n + g.unread, 0)
   const withNew = groups.filter((g) => g.unread > 0).length
 
-  const scroll = (d: number) => shelf.current?.scrollBy({ left: d * shelf.current.clientWidth * 0.8, behavior: 'smooth' })
-
   if (chapters && groups.length === 0) return null
   return (
-    <section aria-labelledby="h-up" className="pt-11">
-      <div className="mb-[18px] flex items-end justify-between gap-4">
-        <div>
-          <h2 id="h-up" className="m-0 text-[26px] font-bold">
-            最近更新
-          </h2>
-          <span className="text-sm text-muted">{chapters ? (withNew ? `${withNew} 部漫画有 ${newCount} 话新章节` : '新章节都读过了') : ' '}</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link to="/updates" className="mr-2 font-semibold text-muted no-underline hover:text-text">
-            查看全部
-          </Link>
-          <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
-            <ChevronLeft className="size-5" strokeWidth={1.8} />
-          </Glass>
-          <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
-            <ChevronRight className="size-5" strokeWidth={1.8} />
-          </Glass>
-        </div>
-      </div>
-      <div ref={shelf} className="-mx-1 grid snap-x auto-cols-[140px] grid-flow-col gap-[22px] overflow-x-auto px-1 pt-1 pb-3 [scrollbar-width:none] sm:auto-cols-[176px]">
-        {groups.map(({ latest: c, unread }) => (
-          <ShelfItem key={c.mangaId} c={c} unread={unread} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function ShelfItem({ c, unread }: { c: UpdateChapter; unread: number }) {
-  const prefetch = usePrefetchManga(c.mangaId)
-  return (
-    <Link
-      to={`/manga/${c.mangaId}`}
-      viewTransition
-      {...prefetch}
-      data-sfw={sfwAttr(c.manga.source?.displayName)}
-      className="group flex min-w-0 snap-start flex-col gap-2.5 text-text no-underline"
+    <Shelf
+      id="up"
+      title="最近更新"
+      note={chapters ? (withNew ? `${withNew} 部漫画有 ${newCount} 话新章节` : '新章节都读过了') : ' '}
+      actions={
+        <Link to="/updates" className="mr-2 font-semibold text-muted no-underline hover:text-text">
+          查看全部
+        </Link>
+      }
     >
-      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-1">
-        <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
-        {unread > 0 && (
-          <Glass as="span" dense className="absolute top-2 right-2 z-[2] inline-flex min-h-[26px] items-center rounded-full px-2.5 text-xs font-bold num" suspendRefract>
-            +{unread > 99 ? '99+' : unread}
-          </Glass>
-        )}
-      </span>
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate text-[15px] font-semibold">{c.manga.title}</span>
-        <span className="truncate text-[13px] text-muted">
-          {chapterLabel(c)} · {timeAgo(sec(c.fetchedAt))}
-        </span>
-      </span>
-    </Link>
+      {groups.map(({ latest: c, unread }) => (
+        <ShelfItem key={c.mangaId} manga={c.manga} sub={`${chapterLabel(c)} · ${timeAgo(sec(c.fetchedAt))}`} badge={unread > 0 ? `+${unread > 99 ? '99+' : unread}` : undefined} />
+      ))}
+    </Shelf>
   )
 }
 

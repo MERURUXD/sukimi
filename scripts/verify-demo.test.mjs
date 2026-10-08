@@ -28,6 +28,11 @@ test('演示数据符合正式首页、书库、详情、历史和发现查询',
   assert.equal(lib.mangas.totalCount, 10)
   assert.equal(lib.mangas.nodes[0].title, '云海邮局')
   assert.ok(lib.mangas.nodes.every((m) => m.thumbnailUrl.startsWith('data:image/svg+xml')))
+  // 第 10 部像 Tachiyomi 导入：有已读标记、没有阅读时间
+  const imported = lib.mangas.nodes.find((m) => m.id === 10)
+  assert.equal(imported.lastReadChapter.lastReadAt, '0')
+  assert.equal(imported.latestReadChapter.id, 1002)
+  assert.equal(lib.mangas.nodes.find((m) => m.id === 9).latestReadChapter, null)
   const page = ok(root, docs.RecentUpdatesDocument, { first: 2, offset: 0, filter: { isRead: { equalTo: false }, inLibrary: { equalTo: true } } })
   assert.equal(page.chapters.nodes.length, 2)
   assert.ok(page.chapters.pageInfo.hasNextPage)

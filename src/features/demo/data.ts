@@ -54,7 +54,7 @@ interface DemoManga {
   genre: string[]; status: string; realUrl: null; initialized: boolean; inLibrary: boolean; inLibraryAt: string;
   source: typeof SOURCE; categories: { nodes: Category[] }; chapters: { nodes: DemoChapter[] };
   unreadCount: number; downloadCount: number; bookmarkCount: number;
-  firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null;
+  firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null; latestReadChapter: DemoChapter | null;
   latestFetchedChapter: DemoChapter; latestUploadedChapter: DemoChapter;
   trackRecords: { nodes: DemoTrack[]; totalCount: number };
   meta: { mangaId: number; key: string; value: string }[];
@@ -110,16 +110,21 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       get firstUnreadChapter() { return chapters.find((c) => !c.isRead) ?? null },
       // 与真实服务端一致：没读过时也会返回第一话，只是阅读时间为 0
       get lastReadChapter() { return [...chapters].sort((a, b) => Number(b.lastReadAt) - Number(a.lastReadAt) || a.sourceOrder - b.sourceOrder)[0] ?? null },
+      get latestReadChapter() { return chapters.filter((c) => c.isRead).sort((a, b) => b.sourceOrder - a.sourceOrder)[0] ?? null },
       get latestFetchedChapter() { return chapters[chapters.length - 1] },
       get latestUploadedChapter() { return chapters[chapters.length - 1] },
     }
-    // 最后一部从没读过，用来演示「开始阅读」
-    const fresh = i === TITLES.length - 1
+    // 第 9 部（在书库）和最后一部（不在书库）从没读过，演示「开始阅读」与首页「还没开始读」
+    const fresh = i === 8 || i === TITLES.length - 1
+    // 第 10 部像 Tachiyomi 时期导入的：前两话标了已读、没有阅读时间，不能算「还没开始读」
+    const imported = i === 9
+    // 第 6～8 部三到五周前读过，演示首页「好久没看」
+    const away = i >= 5 && i <= 7 ? (i - 2) * 7 * 86400 : 0
     for (let n = 1; n <= 8; n++) chapters.push({
       id: m.id * 100 + n, mangaId: m.id, manga: m, name: ['出发', '山间的风', '一封来信', '森林站台', '远方的灯', '雨过天晴', '新的朋友', '下一段旅途'][n - 1],
       chapterNumber: n, sourceOrder: n, pageCount: 6, lastPageRead: fresh ? 0 : n < 3 ? 5 : n === 3 ? 1 : 0,
       isRead: !fresh && n < 3, isBookmarked: !fresh && n === 3, isDownloaded: n < 4, scanlator: '演示画室', meta: [],
-      lastReadAt: !fresh && n <= 3 ? String(Math.floor(now / 1000) - i * 7200 - (3 - n) * 300) : '0',
+      lastReadAt: !fresh && !imported && n <= 3 ? String(Math.floor(now / 1000) - away - i * 7200 - (3 - n) * 300) : '0',
       fetchedAt: String(Math.floor(now / 1000) - (8 - n) * 86400 - i * 600), uploadDate: String(now - (8 - n) * 86400000 - i * 600000),
     })
     return m
@@ -138,6 +143,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       get firstUnreadChapter() { return chapters.find((c) => !c.isRead) ?? null },
       // 与真实服务端一致：没读过时也会返回第一话，只是阅读时间为 0
       get lastReadChapter() { return [...chapters].sort((a, b) => Number(b.lastReadAt) - Number(a.lastReadAt) || a.sourceOrder - b.sourceOrder)[0] ?? null },
+      get latestReadChapter() { return chapters.filter((c) => c.isRead).sort((a, b) => b.sourceOrder - a.sourceOrder)[0] ?? null },
       get latestFetchedChapter() { return chapters[chapters.length - 1] },
       get latestUploadedChapter() { return chapters[chapters.length - 1] },
     }
