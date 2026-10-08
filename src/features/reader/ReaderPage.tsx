@@ -20,7 +20,7 @@ import { ReaderChrome } from './ReaderChrome'
 import { ScrollView } from './ScrollView'
 import { SettingsPanel } from './SettingsPanel'
 import { BGS, FITS, MODES, cycle, useMigrateReaderPrefs, useReaderMetaSync, useReaderSettings } from './settings'
-import { buildSpreads, spreadOf } from './spreads'
+import { buildSpreads, nextOf, pickSpread, prevOf } from './spreads'
 
 export function ReaderPage() {
   const mangaId = Number(useParams().id)
@@ -201,10 +201,21 @@ function ReaderSession({
   /* 双页拼版（宽图独占一屏，随图片加载更新） */
   // 竖屏窄屏（手机）上双页太小，自动按单页显示
   const narrow = useNarrow()
-  const spreads = buildSpreads(pages.length, settings.mode === 'double' && !narrow, settings.offsetFirst, pages.map(aspectOf))
-  const si = spreadOf(spreads, page)
-  const shown = paged ? spreads[si] : [page]
+  const double = settings.mode === 'double' && !narrow
+  const aspects = pages.map(aspectOf)
+  const spreads = buildSpreads(pages.length, double, settings.offsetFirst, aspects)
+  // 已显示的拼版钉住：前面的页后加载出横页时，全局配对会整体错位，正在看的这一屏不能因此被换掉
+  const [pin, setPin] = useState<number[] | null>(null)
+  const shown = paged ? pickSpread(spreads, page, double ? pin : null, aspects, pages.length) : [page]
+  const prevSpread = paged ? prevOf(spreads, shown) : undefined
+  const nextSpread = paged ? nextOf(pages.length, double, shown, aspects) : undefined
   const onAspect = useCallback(() => bump((n) => n + 1), [])
+  // 这一屏和下一页的宽高比都知道了才钉：没加载完时按竖页算的配对随时可能变
+  const settled = [...shown, Math.max(...shown) + 1].every((i) => i >= pages.length || aspects[i] !== undefined)
+  const shownKey = shown.join('-')
+  useEffect(() => {
+    if (double && settled && pin?.join('-') !== shownKey) setPin(shownKey.split('-').map(Number))
+  }, [double, settled, shownKey, pin])
 
   /* 预加载后面几页；快读完时预取下一话 */
   useEffect(() => {
@@ -271,14 +282,15 @@ function ReaderSession({
         else if (next && settings.autoNext) goChapter(next)
         return
       }
-      if (d > 0) {
-        if (si >= spreads.length - 1) setAtEnd(true)
-        else setPage(spreads[si + 1][0])
-      } else if (si > 0) setPage(spreads[si - 1][0])
+      const to = d > 0 ? nextSpread : prevSpread
+      if (to) {
+        setPage(to[0])
+        setPin(to)
+      } else if (d > 0) setAtEnd(true)
       else if (prev) goChapter(prev)
       setUi(false)
     },
-    [atEnd, next, prev, settings.autoNext, goChapter, si, spreads],
+    [atEnd, next, prev, settings.autoNext, goChapter, nextSpread, prevSpread],
   )
 
   // 屏幕左右：RTL 时左边是下一页
@@ -365,8 +377,8 @@ function ReaderSession({
           <PagedView
             pages={pages}
             spread={shown}
-            prevSpread={spreads[si - 1]}
-            nextSpread={spreads[si + 1]}
+            prevSpread={prevSpread}
+            nextSpread={nextSpread}
             settings={settings}
             onLeft={left}
             onRight={right}
