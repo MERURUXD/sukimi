@@ -177,6 +177,7 @@ export function LibraryToolbar({
       {/* 书库里的封面一起飞上画廊那面墙（见 gallery/readMorph 的 enterGalleryFromLibrary） */}
       <GlassLink
         to="/library/gallery"
+        state={{ from: 'library' }}
         viewTransition
         onClick={(e) => plainClick(e) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && enterGalleryFromLibrary()}
         // 指到按钮上就先载入画廊页的代码：第一次点开时过场不用边飞边等下载和解析

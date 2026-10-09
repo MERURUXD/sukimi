@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { hasSnapshot } from '@/api/persist'
 import { inCategory } from '@/features/library/category'
@@ -7,10 +7,10 @@ import { LibraryGrid, LibrarySkeleton } from '@/features/library/LibraryGrid'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useForceDark } from '@/design/settings'
-import { HeroWall } from './HeroWall'
+import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { galleryOrder, isCompleted, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { libraryCoversForEntry } from './readMorph'
+import { armLibraryFade, libraryCoversForEntry, libraryCoversForReturn } from './readMorph'
 import './gallery.css'
 
 type FilterValue = 'all' | 'done' | number
@@ -82,9 +82,32 @@ export function GalleryPage() {
   const empty = !loading && !error && all.length === 0
   const ordered = useMemo(() => galleryOrder(all), [all])
 
-  /* 进入画布：量出首屏此刻在屏幕上的位置一起带过去，画布第一帧按原位摆出同一份面板，不会跳 */
-  const hero = useRef<HTMLElement>(null)
+  /*
+   * 回书库：从书库点进来、后退回同一个书库页面时，墙停下来，中间那块封面飞回书库的原位、墙转平，
+   * 文字淡掉，再换页（书库那一页在下面、画廊在上面淡出，封面不动）。直接打开画廊的没有原位可回，普通换页。
+   */
+  const location = useLocation()
   const navigate = useNavigate()
+  const hero = useRef<HTMLElement>(null)
+  const leaving = useRef(false)
+  const toLibrary = useCallback(() => {
+    if (leaving.current) return
+    leaving.current = true
+    const fromLibrary = (location.state as { from?: string } | null)?.from === 'library' && (window.history.state?.idx ?? 0) > 0
+    const go = () => {
+      armLibraryFade()
+      if (fromLibrary) navigate(-1)
+      else navigate('/library', { viewTransition: true })
+    }
+    const rects = fromLibrary ? libraryCoversForReturn() : null
+    if (reduced || !rects || window.scrollY > 2) return go()
+    hero.current?.querySelectorAll<HTMLElement>('[data-hero-ui]').forEach((el) =>
+      el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 380, easing: 'ease-out', fill: 'forwards' }),
+    )
+    if (!flyWallToLibrary(rects, go)) go()
+  }, [location.state, navigate, reduced])
+
+  /* 进入画布：量出首屏此刻在屏幕上的位置一起带过去，画布第一帧按原位摆出同一份面板，不会跳 */
   const enterCanvas = (e: MouseEvent) => {
     const link = (e.target as Element).closest('a[data-enter-canvas]')
     if (!link || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !hero.current) return
@@ -99,9 +122,9 @@ export function GalleryPage() {
       <section ref={hero} aria-label="书库画廊" className={cn(HERO_BOX, 'isolate -mt-[var(--nav-h)] overflow-hidden')} onClickCapture={enterCanvas}>
         {!empty && <HeroWall items={ordered} mobile={mobile} entry={entry} className="-z-20" />}
         {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
-        <div aria-hidden className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />
+        <div aria-hidden data-hero-ui className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />
 
-        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} onBrowse={toGrid} />
+        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} onBrowse={toGrid} onLibrary={toLibrary} />
       </section>
 
       {/* 第二页至少占满一屏：切过来时停在它的顶部，内容少也不会切不到位；顶栏的高度留在它自己的上边距里，墙不会从顶栏下面露出来 */}

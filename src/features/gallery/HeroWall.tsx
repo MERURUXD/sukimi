@@ -10,7 +10,17 @@ import { activeViewTransition, type CoverRect } from './readMorph'
  * 倒放回首页时画布写回来，首页从那里继续流动。整个页面会话内有效。
  * 记的是相对屏幕中心的偏移（ox - 宽 / 2）：首页和画布量到的宽度可能差一个滚动条，按左边记会错开半个滚动条宽。
  */
-export const wallState: { cx: number; cy: number; grid: Grid | null; order: number[] | null } = { cx: NaN, cy: NaN, grid: null, order: null }
+export const wallState: {
+  cx: number
+  cy: number
+  grid: Grid | null
+  order: number[] | null
+  /**
+   * 从书库进来时书库封面落在墙上的哪一块（格子编号）、落地时墙在哪。回书库时墙先倒回这个位置，
+   * 原来那一块封面回到屏幕中间，再由这些格子本身飞回书库，不会换成别的封面。from 是当时记下的书库封面位置
+   */
+  landing: { cx: number; cy: number; keys: ReadonlyMap<string, CoverRect>; from: ReadonlyMap<number, CoverRect> } | null
+} = { cx: NaN, cy: NaN, grid: null, order: null, landing: null }
 
 /**
  * 第 (c, r) 格放第几部。默认按收藏先后（cellIndex）；从书库进来时换过几格（wallState.order，见 placeOrder），
@@ -31,6 +41,16 @@ export function wallPosOf(i: number, n: number) {
 /** 从书库进来的过场：先停一下（书库的标题和工具栏在上面淡出），再飞上墙 */
 const ENTRY_HOLD = 260
 const ENTRY_DUR = 1500
+/** 回书库的倒放稍快一点 */
+const EXIT_DUR = 1100
+
+/** 首页墙挂着时可用：把中间那块封面飞回书库的原位、墙转平，放完调 done（见 GalleryPage 的「返回书库」） */
+let exitToLibrary: ((rects: ReadonlyMap<number, CoverRect>, done: () => void) => void) | null = null
+export function flyWallToLibrary(rects: ReadonlyMap<number, CoverRect>, done: () => void) {
+  if (!exitToLibrary || !rects.size) return false
+  exitToLibrary(rects, done)
+  return true
+}
 
 /** 仅开发环境：控制台 __heroWall.freeze(0.4) 把从书库进来的过场停在某个进度逐帧检查，freeze(null) 继续 */
 let devFreeze: number | null = null
@@ -96,47 +116,72 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       Object.assign(wallState, { cx: c.x - w / 2, cy: c.y - h / 2, grid })
     }
 
+    /**
+     * 书库那一块封面对应墙上的哪一块格子：按原来的行列（x / y 聚类）落到墙上同样行列的一块，
+     * 整块的中心对准书库那块封面的中心（墙的奇数列错开半格）。
+     */
+    const blockFor = (from: ReadonlyMap<number, CoverRect>, box: DOMRect) => {
+      const covers = [...from].map(([id, r]) => ({ ...r, id }))
+      const rank = (vals: number[]) => {
+        const uniq = [...new Set(vals.map((v) => Math.round(v / 4)))].sort((p, q) => p - q)
+        return (v: number) => uniq.indexOf(Math.round(v / 4))
+      }
+      const colOf = rank(covers.map((r) => r.x))
+      const rowOf = rank(covers.map((r) => r.y))
+      const cols = Math.max(...covers.map((r) => colOf(r.x))) + 1
+      const rows = Math.max(...covers.map((r) => rowOf(r.y))) + 1
+      const lx = covers.reduce((n, r) => n + r.x + r.w / 2, 0) / covers.length - box.left
+      const ly = covers.reduce((n, r) => n + r.y + r.h / 2, 0) / covers.length - box.top
+      const ox = wallState.cx + w / 2 + HOME_WALL.slide
+      const oy = wallState.cy + h / 2
+      const c0 = Math.round((lx - ox - grid.cw / 2) / grid.px - (cols - 1) / 2)
+      const r0 = Math.round((ly - oy - grid.ch / 2) / grid.py - (rows - 1) / 2)
+      return new Map(covers.map((r) => [`${c0 + colOf(r.x)}:${r0 + rowOf(r.y)}`, r]))
+    }
+    type Fly = Map<string, { x: number; y: number; s: number; src: string | null }>
+    const flyFrom = (keys: ReadonlyMap<string, CoverRect>, box: DOMRect): Fly =>
+      new Map([...keys].map(([key, r]) => [key, { x: r.x - box.left, y: r.y - box.top, s: r.w / grid.cw, src: r.src }]))
+
     /*
-     * 过场：书库的封面按原来的行列整块落到墙中间同样行列的一块格子上（墙的奇数列错开半格），
-     * 整齐地一起倾斜进墙里。墙的显示顺序换几格（placeOrder），让这些格子放的正好是同一部，落地后还是那张封面；
-     * 书太少、两格撞到同一个位置换不了的，飞到后段由书库的封面淡成格子自己的封面。
+     * 进场（从书库来）：书库的封面整块落到墙上，整齐地一起倾斜进墙里。墙的显示顺序换几格（placeOrder），
+     * 让这些格子放的正好是同一部，落地后还是那张封面；书太少、两格撞到同一个位置换不了的，飞到后段由书库的封面淡成格子自己的封面。
      */
     const it = intro.current
-    let origins: Map<string, { x: number; y: number; s: number; src: string | null }> | null = null
+    let origins: Fly | null = null
     if (it) {
       // 封面位置记的是屏幕坐标，按墙此刻的位置换算（尺寸变了墙会挪）
       const box = el.getBoundingClientRect()
       if (!it.keys) {
-        const covers = [...it.from].map(([id, r]) => ({ ...r, id }))
-        const rank = (vals: number[]) => {
-          const uniq = [...new Set(vals.map((v) => Math.round(v / 4)))].sort((p, q) => p - q)
-          return (v: number) => uniq.indexOf(Math.round(v / 4))
-        }
-        const colOf = rank(covers.map((r) => r.x))
-        const rowOf = rank(covers.map((r) => r.y))
-        const cols = Math.max(...covers.map((r) => colOf(r.x))) + 1
-        const rows = Math.max(...covers.map((r) => rowOf(r.y))) + 1
-        // 整块的中心对准书库那一块封面的中心
-        const lx = covers.reduce((n, r) => n + r.x + r.w / 2, 0) / covers.length - box.left
-        const ly = covers.reduce((n, r) => n + r.y + r.h / 2, 0) / covers.length - box.top
-        const ox = wallState.cx + w / 2 + HOME_WALL.slide
-        const oy = wallState.cy + h / 2
-        const c0 = Math.round((lx - ox - grid.cw / 2) / grid.px - (cols - 1) / 2)
-        const r0 = Math.round((ly - oy - grid.ch / 2) / grid.py - (rows - 1) / 2)
-        it.keys = new Map(covers.map((r) => [`${c0 + colOf(r.x)}:${r0 + rowOf(r.y)}`, r]))
-        // 换墙的显示顺序：这些格子放书库里那一部
+        it.keys = blockFor(it.from, box)
         const indexOf = new Map(items.map((m, i) => [m.id, i]))
         const wants = [...it.keys].map(([key, r]) => {
           const [c, rr] = key.split(':').map(Number)
           return [cellIndex(c, rr, items.length), indexOf.get(r.id) ?? -1] as const
         })
         wallState.order = placeOrder(items.length, wants).order
+        wallState.landing = { cx: wallState.cx, cy: wallState.cy, keys: it.keys, from: it.from }
       }
-      origins = new Map()
-      for (const [key, r] of it.keys) origins.set(key, { x: r.x - box.left, y: r.y - box.top, s: r.w / grid.cw, src: r.src })
+      origins = flyFrom(it.keys, box)
     }
 
-    const paint = (k = 1) => {
+    /*
+     * 出场（回书库）：倒着播。墙停止流动，中间那块格子先淡成书库的封面，再一起飞回书库的原位、墙同时转平，
+     * 其余格子淡掉；书库页面出来时封面已经在原位（见 GalleryPage 的「返回书库」）。
+     */
+    let leave: {
+      fly: Fly
+      start: number
+      dur: number
+      done: () => void
+      fired: boolean
+      /** 墙从哪倒回哪；没有时（不知道落在哪）不倒 */
+      rewind: { from: [number, number]; to: [number, number] } | null
+    } | null = null
+
+    /** k：进场时 0 = 书库、1 = 墙；出场时 0 = 墙、1 = 书库 */
+    const paint = (k = 1, fly: Fly | null = null, out = false) => {
+      // 墙的程度：1 是倾斜的墙，0 是平铺在书库原位
+      const e = fly ? (out ? 1 - k : k) : 1
       // 和画布过渡第一帧同样的偏移与范围
       const cells = visibleCells(wallState.cx + w / 2 + HOME_WALL.slide, wallState.cy + h / 2, w, h, grid, { scale: HOME_WALL.scale, ...homeWallExtra(w, h) })
       const next = assignSlots(assigned.current, cells.map((c) => c.key), pool)
@@ -158,26 +203,27 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
           else img.removeAttribute('src')
         }
         s.style.visibility = ''
-        const o = origins && k < 1 ? origins.get(cell.key) : undefined
+        const o = fly && e < 1 ? fly.get(cell.key) : undefined
         const over = s.lastElementChild as HTMLImageElement
-        if (o && o.src) {
+        if (o && o.src && o.src !== m.thumbnailUrl) {
+          // 格子放的不是书库那一部：进场时后段淡成格子自己的封面，出场时一开始先淡成书库的封面
           if (over.getAttribute('src') !== o.src) over.src = o.src
-          over.style.opacity = (1 - clamp01((k - 0.62) / 0.33)).toFixed(3)
+          over.style.opacity = (out ? clamp01(k / 0.3) : 1 - clamp01((k - 0.62) / 0.33)).toFixed(3)
         } else if (over.style.opacity !== '0') over.style.opacity = '0'
         if (o) {
-          const x = o.x + (cell.x - o.x) * k
-          const y = o.y + (cell.y - o.y) * k
-          s.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0px) scale(${(o.s + (1 - o.s) * k).toFixed(4)})`
+          const x = o.x + (cell.x - o.x) * e
+          const y = o.y + (cell.y - o.y) * e
+          s.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0px) scale(${(o.s + (1 - o.s) * e).toFixed(4)})`
           s.style.opacity = ''
           s.style.zIndex = '1'
         } else {
           s.style.transform = `translate3d(${cell.x.toFixed(1)}px, ${cell.y.toFixed(1)}px, 0px)`
-          // 过场里其余格子在墙倾斜的途中淡入
-          s.style.opacity = origins && k < 1 ? clamp01((k - 0.25) / 0.55).toFixed(3) : ''
+          // 其余格子进场时在墙倾斜的途中淡入，出场时先淡掉
+          s.style.opacity = fly && e < 1 ? (out ? 1 - clamp01(k / 0.45) : clamp01((k - 0.25) / 0.55)).toFixed(3) : ''
           s.style.zIndex = ''
         }
       }
-      if (plane.current) plane.current.style.transform = wallTransform(origins ? k : 1)
+      if (plane.current) plane.current.style.transform = wallTransform(e)
     }
 
     let raf = 0
@@ -186,15 +232,38 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     const step = (now: number) => {
       const dt = last ? Math.min(48, now - last) : 16
       last = now
+      if (leave) {
+        leave.start ||= now
+        const p = devFreeze ?? clamp01((now - leave.start) / leave.dur)
+        let k = easeInOut(p)
+        if (leave.rewind) {
+          // 前半段墙倒回落地时的位置（那一块封面回到中间），稍后封面开始飞回书库、墙转平
+          const r = easeInOut(clamp01(p / 0.55))
+          const { from, to } = leave.rewind
+          wallState.cx = from[0] + (to[0] - from[0]) * r
+          wallState.cy = from[1] + (to[1] - from[1]) * r
+          k = easeInOut(clamp01((p - 0.22) / 0.78))
+        }
+        paint(k, leave.fly, true)
+        if (p >= 1 && !leave.fired) {
+          // 停在书库原位那一帧，等换页
+          leave.fired = true
+          leave.done()
+        }
+        if (p < 1) raf = requestAnimationFrame(step)
+        return
+      }
       if (origins && it) {
         // 过场：停一下再飞，飞的同时墙也在流动
         it.start ||= now
         const k = devFreeze ?? easeInOut(clamp01((now - it.start - ENTRY_HOLD) / ENTRY_DUR))
         if (!reduced) wallState.cx -= dt * HOME_WALL.drift * k
-        paint(k)
+        paint(k, origins)
         if (k >= 1) {
           origins = null
           intro.current = null
+          // 落地时墙的位置（过场途中墙在流动）
+          if (wallState.landing) wallState.landing.cx = wallState.cx
         }
         raf = requestAnimationFrame(step)
         return
@@ -211,10 +280,41 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       cancelAnimationFrame(raf)
       raf = 0
       last = 0
-      if (origins || (visible && !document.hidden && !reduced)) raf = requestAnimationFrame(step)
+      if (leave || origins || (visible && !document.hidden && !reduced)) raf = requestAnimationFrame(step)
     }
     // 重跑时过场可能已经播了一段，从当前进度接着画
-    paint(origins && it ? (it.start ? (devFreeze ?? easeInOut(clamp01((performance.now() - it.start - ENTRY_HOLD) / ENTRY_DUR))) : 0) : 1)
+    paint(origins && it ? (it.start ? (devFreeze ?? easeInOut(clamp01((performance.now() - it.start - ENTRY_HOLD) / ENTRY_DUR))) : 0) : 1, origins)
+    exitToLibrary = (rects, done) => {
+      if (leave) return
+      origins = null
+      intro.current = null
+      const box = el.getBoundingClientRect()
+      const land = wallState.landing
+      if (land && land.from === rects) {
+        // 倒回落地的位置，再由原来那一块格子飞回去；墙流动得越远，倒回去多给一点时间
+        const dist = Math.hypot(wallState.cx - land.cx, wallState.cy - land.cy)
+        leave = {
+          fly: flyFrom(land.keys, box),
+          start: 0,
+          dur: EXIT_DUR + Math.min(500, dist * 0.12),
+          done,
+          fired: false,
+          rewind: { from: [wallState.cx, wallState.cy], to: [land.cx, land.cy] },
+        }
+      } else {
+        // 不知道落在哪（换过书库页面等）：在墙此刻的中间取一块，先淡成书库的封面再飞
+        leave = { fly: flyFrom(blockFor(rects, box), box), start: 0, dur: EXIT_DUR, done, fired: false, rewind: null }
+      }
+      sync()
+      // 标签页在后台时动画帧会停，到时间照样换页
+      window.setTimeout(() => {
+        // 开发时用 __heroWall.freeze 停住检查的不算
+        if (leave && !leave.fired && devFreeze === null) {
+          leave.fired = true
+          leave.done()
+        }
+      }, leave.dur + 400)
+    }
     const io = new IntersectionObserver(([e]) => {
       visible = e.isIntersecting
       sync()
@@ -226,6 +326,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       cancelAnimationFrame(raf)
       io.disconnect()
       document.removeEventListener('visibilitychange', sync)
+      exitToLibrary = null
     }
   }, [items, size, grid, pool, reduced])
 

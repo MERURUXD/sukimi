@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight } from 'lucide-react'
+import { ArrowDown, ArrowRight, ChevronLeft } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { count } from '@/lib/format'
@@ -36,6 +36,7 @@ export function HeroCopy({
   intro,
   late,
   onBrowse,
+  onLibrary,
 }: {
   stats: HeroStats
   mobile: boolean
@@ -43,8 +44,10 @@ export function HeroCopy({
   intro?: boolean
   /** 从书库飞进来时：等封面上了墙再淡入 */
   late?: boolean
-  /** 全部作品还收着时，点「浏览全部」展开并滑过去 */
+  /** 点「浏览全部」切到全部作品那一页 */
   onBrowse?: () => void
+  /** 回书库（墙上那块封面飞回书库的原位） */
+  onLibrary?: () => void
 }) {
   const chapterText = stats.chapters == null ? '—' : count(stats.chapters)
   const fx = cn(decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]', late ? 'gallery-late' : intro && 'rise')
@@ -65,6 +68,13 @@ export function HeroCopy({
       <ArrowDown className={cn('size-4', onBrowse && !decorative && 'gallery-nudge')} strokeWidth={2} />
     </a>
   )
+  // 回书库：放在最上面那行小字前面，不抢两扇门的风头
+  const library = (
+    <button type="button" tabIndex={tab} onClick={onLibrary} className="-ml-1 flex items-center gap-0.5 rounded-full py-1 pr-2 pl-0.5 font-medium text-muted hover:text-text">
+      <ChevronLeft className="size-4" strokeWidth={2} />
+      书库
+    </button>
+  )
   const door = <ReadDoor read={stats.read} mobile={mobile} decorative={decorative} className={fx} style={d(mobile ? 120 : 160)} />
   const canvas = (
     <Link
@@ -81,8 +91,11 @@ export function HeroCopy({
   if (mobile) {
     return (
       // 底部留出标签栏的高度：首屏占满一屏，标签栏浮在上面
-      <div className="wrap mt-auto flex flex-col gap-3 pb-[calc(var(--tabbar-h)+14px)]" aria-hidden={decorative || undefined} inert={decorative || undefined}>
-        <p className={cn('m-0 text-xs font-medium tracking-[.3em] text-muted', fx)}>书库画廊</p>
+      <div data-hero-ui className="wrap mt-auto flex flex-col gap-3 pb-[calc(var(--tabbar-h)+14px)]" aria-hidden={decorative || undefined} inert={decorative || undefined}>
+        <div className={cn('flex items-center gap-3 text-xs', fx)}>
+          {library}
+          <p className="m-0 font-medium tracking-[.3em] text-muted">书库画廊</p>
+        </div>
         <h1 className={cn('m-0 font-cjk text-[34px] leading-[1.15] font-black tracking-[-0.01em]', fx)} style={d(40)}>
           每一部收藏，
           <br />
@@ -105,12 +118,16 @@ export function HeroCopy({
   }
   return (
     <div
+      data-hero-ui
       className="wrap mt-auto flex flex-wrap items-end justify-between gap-x-16 gap-y-10 pb-[clamp(40px,7vh,76px)]"
       aria-hidden={decorative || undefined}
       inert={decorative || undefined}
     >
       <div className="flex max-w-[660px] flex-col gap-5">
-        <p className={cn('m-0 text-[13px] font-medium tracking-[.32em] text-muted', fx)}>{monthLabel()}</p>
+        <div className={cn('flex items-center gap-4 text-[13px]', fx)}>
+          {library}
+          <p className="m-0 font-medium tracking-[.32em] text-muted">{monthLabel()}</p>
+        </div>
         <h1 className={cn('m-0 font-cjk text-[clamp(44px,5.2vw,84px)] leading-[1.06] font-black tracking-[-0.02em]', fx)} style={d(40)}>
           每一部收藏，
           <br />

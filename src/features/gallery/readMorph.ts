@@ -46,10 +46,20 @@ export function enterGalleryFromLibrary() {
     rects.set(id, { x: r.left, y: r.top, w: r.width, h: r.height, src: cv.querySelector('img')?.getAttribute('src') ?? null })
   }
   libraryCovers = { at: performance.now(), rects }
+  returnCovers = rects
+  armLibraryFade()
+}
+
+/** 书库 ⇄ 画廊换页时，旧页面在上面淡出、新页面直接在下面（index.css 的 data-gallery-enter） */
+export function armLibraryFade() {
   document.documentElement.dataset.galleryEnter = ''
   window.clearTimeout(enterTimer)
   enterTimer = window.setTimeout(() => delete document.documentElement.dataset.galleryEnter, 1200)
 }
+
+/** 进画廊时记下的书库封面位置，回书库时封面照原位飞回去（从书库进来、后退回同一个书库页面时才对得上） */
+let returnCovers: Map<number, CoverRect> | null = null
+export const libraryCoversForReturn = () => returnCovers
 
 /** 画廊首页挂上时取刚才记下的封面位置；过了一会儿的不算（开发模式的严格模式会挂两次，所以不在这里清掉） */
 export const libraryCoversForEntry = () => (libraryCovers && performance.now() - libraryCovers.at < 2000 ? libraryCovers.rects : null)
