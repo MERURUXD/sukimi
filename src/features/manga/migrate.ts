@@ -62,3 +62,13 @@ export function migrationSources<S extends { id: string; lang: string }>(sources
     return l === 'all' || l === lang || l.split('-')[0] === base
   })
 }
+
+/** 标题比较用：统一全半角和大小写，去掉空白与标点，「Foo Bar！」和「foo-bar」算同名 */
+export const titleKey = (title: string) => title.normalize('NFKC').toLowerCase().replace(/[\p{P}\p{S}\s]+/gu, '')
+
+/** 书库里和 manga 同名、但不是同一部（换了来源）的漫画；标题去掉标点后为空的不比较 */
+export function findSameTitle<T extends { id: number; title: string }>(library: readonly T[], manga: { id: number; title: string }): T[] {
+  const key = titleKey(manga.title)
+  if (!key) return []
+  return library.filter((m) => m.id !== manga.id && titleKey(m.title) === key)
+}

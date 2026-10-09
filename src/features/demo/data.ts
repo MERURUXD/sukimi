@@ -71,6 +71,8 @@ const TRACKER = {
   statuses: [['Reading', 3], ['Completed', 2], ['On hold', 4], ['Dropped', 5], ['Plan to read', 1]].map(([name, value]) => ({ name, value })),
 }
 const SOURCE = { id: '9000', name: '演示画室', displayName: '演示画室', lang: 'zh', iconUrl: '/favicon.svg', supportsLatest: true, contentWarning: 'SAFE', homeUrl: null, filters: [] }
+/** 只给「同名漫画迁移」演示用：不出现在来源列表里，只作为漫画自带的来源 */
+const ALT_SOURCE = { ...SOURCE, id: '9002', name: '演示图书馆', displayName: '演示图书馆' }
 const OPEN_SOURCE = { ...SOURCE, id: '9001', name: '开放漫画（本地缓存）', displayName: '开放漫画（本地缓存）' }
 
 /** `pnpm fetch:comics` 生成的 manifest 结构；只在开发环境从本地缓存读取，不进仓库与构建产物。 */
@@ -209,6 +211,23 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     })
     return m
   })
+  // 书库第 1 部在另一个来源的同名版本，没加入书库：从它的详情页点收藏会提示迁移
+  {
+    const chapters: DemoChapter[] = []
+    const m = makeManga({
+      id: 2001, title: TITLES[0], thumbnailUrl: cover(TITLES[0], 0), author: 'Sukimi 演示画室', artist: 'Sukimi 演示画室',
+      description: '书库里《云海邮局》在另一个来源的同名版本，用来演示加入书库时迁移阅读进度。',
+      genre: ['冒险', '奇幻'], status: 'ONGOING', realUrl: null, initialized: true, inLibrary: false, inLibraryAt: '0',
+      source: ALT_SOURCE, categories: { nodes: [] }, meta: [],
+    }, chapters)
+    // 比书库里那一版多两话，看得出话数对应
+    for (let n = 1; n <= 10; n++) chapters.push({
+      id: m.id * 100 + n, mangaId: m.id, manga: m, name: `第 ${n} 话`, chapterNumber: n, sourceOrder: n, pageCount: 6, lastPageRead: 0,
+      isRead: false, isBookmarked: false, isDownloaded: false, scanlator: '演示图书馆', meta: [], lastReadAt: '0',
+      fetchedAt: String(Math.floor(now / 1000) - (10 - n) * 86400), uploadDate: String(now - (10 - n) * 86400000),
+    })
+    mangas.push(m)
+  }
   openWorks.forEach(({ work, url }, w) => {
     const chapters: DemoChapter[] = []
     const m = makeManga({

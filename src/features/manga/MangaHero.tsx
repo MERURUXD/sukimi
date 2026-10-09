@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@apollo/client/react'
+import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
 import { ArrowLeftRight, ChevronLeft, Download, ExternalLink, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
@@ -10,7 +10,7 @@ import { COVER_VT } from '@/lib/coverTransition'
 import { Popover } from '@/components/ui/Popover'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toast, toastError } from '@/components/ui/toast'
-import { Categories } from '@/features/library/queries'
+import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -18,6 +18,8 @@ import { TrackDialog } from '@/features/tracking/TrackPanel'
 import { TrackSummary } from '@/features/tracking/TrackSummary'
 import { Can } from '@/features/auth/Can'
 import { MangaTracks } from '@/features/tracking/queries'
+import { findSameTitle } from './migrate'
+import { SameTitleDialog } from './SameTitleDialog'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
@@ -51,7 +53,28 @@ export function MangaHero({
     ? `上次${last.isRead ? '读完' : '停在'} ${chapterLabel(last)}${!last.isRead && last.lastPageRead > 0 ? ` · 第 ${last.lastPageRead + 1} 页` : ''} · ${timeAgo(sec(last.lastReadAt))}`
     : '还没有开始阅读'
 
+  const client = useApolloClient()
+  const [checking, setChecking] = useState(false)
+  // 加入书库前发现书库里已有同名漫画：先问迁移还是照常加入
+  const [same, setSame] = useState<LibraryManga[] | null>(null)
+
   const toggleLibrary = async () => {
+    if (!manga.inLibrary) {
+      setChecking(true)
+      try {
+        // 书库列表多半已在缓存里；取不到就当没有同名的，不拦着加入
+        const lib = await client.query({ query: LibraryMangas }).then((r) => r.data?.mangas.nodes ?? [], () => [])
+        const matches = findSameTitle(lib, manga)
+        if (matches.length) return setSame(matches)
+      } finally {
+        setChecking(false)
+      }
+    }
+    await applyLibrary()
+  }
+
+  const applyLibrary = async () => {
+    setSame(null)
     try {
       await setInLibrary({ variables: { id: manga.id, inLibrary: !manga.inLibrary }, refetchQueries: ['LibraryMangas'] })
       toast(manga.inLibrary ? '已移出书库' : '已加入书库')
@@ -104,7 +127,7 @@ export function MangaHero({
                 <span className="truncate">{target.verb}<span className="manga-hero-chapter-label"> · {chapterLabel(target.chapter)}</span></span>
               </Link>
             ) : <span style={delay(mangaIntro.actions)} className={cn('solid opacity-50', animate && 'rise')}><span className="truncate">{fetching ? '正在获取章节…' : '暂无章节'}</span></span>}
-            <Glass as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
+            <Glass as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
             <Can permission="DOWNLOAD_CHAPTERS">
@@ -112,6 +135,20 @@ export function MangaHero({
             </Can>
             <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} intro={animate} />
           </div>
+          {createPortal(
+            <AnimatePresence>
+              {same && (
+                <SameTitleDialog
+                  target={{ id: manga.id, title: manga.title, thumbnailUrl: manga.thumbnailUrl, author: manga.author, source: { displayName: manga.source?.displayName ?? '当前来源' } }}
+                  matches={same}
+                  onAdd={() => void applyLibrary()}
+                  onClose={() => setSame(null)}
+                  onMigrated={() => setSame(null)}
+                />
+              )}
+            </AnimatePresence>,
+            document.body,
+          )}
           <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label="阅读记录">{recent}</p>
           {manga.inLibrary && !placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
         </div>
