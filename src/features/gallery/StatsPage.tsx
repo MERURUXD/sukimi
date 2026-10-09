@@ -302,12 +302,18 @@ function DesktopStats(p: BodyProps) {
   )
 }
 
+/**
+ * 时钟下面小结和三项数据占的高度。加载中和加载完都占这么高：整块是垂直居中的，
+ * 下面变高的话中间的数字会跟着上移，第一次打开时从首页飞过来的数字落地后就会再挪一下
+ */
+const LOWER_H = 168
+
 /** 左边的主角：一圈阅读时钟，正中是已读话数（从首页飞过来的那个数字）；下面是小结和三项数据 */
 function ReadHero({ stats, read, ranked, works, t, reduced, loadingText, error, retry, left, top, width, height }: BodyProps & { left: number; top: number; width: number; height: number }) {
   const [tip, setTip] = useState<Tip>(null)
   const text = read == null ? '—' : count(read)
   // 时钟占住左上，下面留给小结和三项数据；数字按位数缩放，放得进时钟的内圈
-  const ring = Math.round(Math.max(220, Math.min(width, height - 210, 520)))
+  const ring = Math.round(Math.max(220, Math.min(width, height - LOWER_H - 42, 520)))
   const size = Math.round(Math.max(36, Math.min(150, (ring * 0.6 - 36) / ([...text].length * 0.56))))
   const peak = stats && stats.peak >= 0 ? stats.peak : -1
   return (
@@ -329,7 +335,7 @@ function ReadHero({ stats, read, ranked, works, t, reduced, loadingText, error, 
         </div>
       </div>
       {stats ? (
-        <div className="relative flex flex-col gap-6">
+        <div className="relative flex flex-col gap-6" style={{ height: LOWER_H }}>
           <div style={upStyle(t, 0.3)}>
             <Ticker stats={stats} top={ranked[0]} reduced={reduced} plain />
           </div>
@@ -338,7 +344,7 @@ function ReadHero({ stats, read, ranked, works, t, reduced, loadingText, error, 
           </div>
         </div>
       ) : (
-        <div className="relative flex flex-col items-start gap-4">
+        <div className="relative flex flex-col items-start gap-4" style={{ height: LOWER_H }}>
           {error ? (
             <>
               <p className="m-0 text-danger">阅读记录加载失败</p>
