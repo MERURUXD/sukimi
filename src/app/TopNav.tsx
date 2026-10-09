@@ -10,6 +10,7 @@ import { cn } from '@/lib/cn'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { AppearanceMenu } from './AppearanceMenu'
+import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection } from './navTabs'
 import { ThemeToggle } from './ThemeToggle'
 import { useHideOnScroll } from './useHideOnScroll'
@@ -67,7 +68,11 @@ export function TopNav() {
               to={l.to}
               end={l.end}
               viewTransition
-              onClick={() => markNavDirection(pathname, l.to)}
+              onClick={(e) => {
+                // 在画廊首页点「书库」：播放封面飞回书库的动画，由画廊自己换页
+                if (l.to === '/library' && exitGalleryToLibrary(e)) return e.preventDefault()
+                markNavDirection(pathname, l.to)
+              }}
               className={({ isActive }) =>
                 cn(
                   'relative inline-flex min-h-10 items-center rounded-full px-4 font-semibold whitespace-nowrap no-underline transition-colors',

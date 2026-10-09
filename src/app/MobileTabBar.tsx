@@ -4,6 +4,7 @@ import { Glass } from '@/components/glass/Glass'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
+import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection, TABS } from './navTabs'
 
 /** 手机（< 768px）底部标签栏；平板用左侧导航栏，桌面用顶部导航 */
@@ -21,7 +22,10 @@ export function MobileTabBar() {
             to={t.to}
             end={t.end}
             viewTransition
-            onClick={() => markNavDirection(pathname, t.to)}
+            onClick={(e) => {
+              if (t.to === '/library' && exitGalleryToLibrary(e)) return e.preventDefault()
+              markNavDirection(pathname, t.to)
+            }}
             className={({ isActive }) =>
               cn(
                 'relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[20px] text-[11px] font-semibold no-underline transition-colors',

@@ -4,6 +4,7 @@ import { Glass } from '@/components/glass/Glass'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
+import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection, TABS } from './navTabs'
 
 /**
@@ -31,7 +32,10 @@ export function SideNav() {
             to={t.to}
             end={t.end}
             viewTransition
-            onClick={() => markNavDirection(pathname, t.to)}
+            onClick={(e) => {
+              if (t.to === '/library' && exitGalleryToLibrary(e)) return e.preventDefault()
+              markNavDirection(pathname, t.to)
+            }}
             className={({ isActive }) =>
               cn(
                 'relative flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[20px] text-[11px] font-semibold no-underline transition-colors',
