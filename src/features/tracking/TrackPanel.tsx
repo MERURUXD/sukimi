@@ -1,18 +1,19 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence, motion } from 'motion/react'
-import { ExternalLink, ListChecks, Loader2, Minus, Plus, RefreshCw, Search, Unlink, X } from 'lucide-react'
+import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, ListChecks, Loader2, Minus, Plus, RefreshCw, Search, Unlink, X } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
+import { StaleSessionError } from '@/api/userContext'
 import { spring } from '@/design/motion'
 import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select, Switch } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { BindTrack, FetchTrack, MangaTracks, SearchTracker, Trackers, UnbindTrack, type Tracker, type TrackRecord } from './queries'
-import { pushTrackProgress } from './sync'
+import { pullTrackProgress, pushTrackProgress } from './sync'
 import { Stars } from './Stars'
 import { fromDateInput, scoreString, scoreValue, scoreWord, starScale, statusLabel, toDateInput } from './tracking'
 import { useSaveTrack } from './useSaveTrack'
@@ -36,7 +37,7 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
   const trackers = useQuery(Trackers).data?.trackers.nodes
   const records = useQuery(MangaTracks, { variables: { id: mangaId }, fetchPolicy: 'cache-and-network' }).data?.manga.trackRecords.nodes
   const client = useApolloClient()
-  const [syncing, setSyncing] = useState(false)
+  const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null)
   const loggedIn = trackers?.filter((t) => t.isLoggedIn) ?? []
 
   useEffect(() => {
@@ -45,15 +46,20 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const pushProgress = async () => {
-    setSyncing(true)
+  const sync = async (dir: 'push' | 'pull') => {
+    setSyncing(dir)
     try {
-      const n = await pushTrackProgress(client, mangaId)
-      toast(n ? '已把阅读进度同步到追踪网站' : '追踪网站上的进度已是最新')
+      if (dir === 'push') {
+        const n = await pushTrackProgress(client, mangaId)
+        toast(n ? '已把阅读进度同步到追踪网站' : '追踪网站上的进度已是最新')
+      } else {
+        const n = await pullTrackProgress(client, mangaId)
+        toast(n ? `已把网站上的进度同步到本地，新标 ${n} 话为已读` : '本地已读章节已是最新')
+      }
     } catch (e) {
-      toastError('同步失败', e)
+      if (!(e instanceof StaleSessionError)) toastError('同步失败', e)
     } finally {
-      setSyncing(false)
+      setSyncing(null)
     }
   }
 
@@ -73,16 +79,23 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
       >
         <div className="flex items-center gap-3">
           <h2 className="m-0 flex-1 text-lg font-bold">追踪</h2>
-          {records && records.length > 0 && (
-            <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={syncing} onClick={() => void pushProgress()} title="按本地已读章节更新各网站上的进度">
-              <RefreshCw className={cn('size-4', syncing && 'animate-spin')} />
-              同步进度
-            </button>
-          )}
           <button type="button" className="gicon size-10" aria-label="关闭" onClick={onClose}>
             <X className="size-5" />
           </button>
         </div>
+
+        {records && records.length > 0 && (
+          <div className="-mt-2 flex flex-wrap gap-2">
+            <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('pull')} title="按网站上的进度，把本地对应章节标为已读">
+              <ArrowDownToLine className={cn('size-4', syncing === 'pull' && 'animate-pulse')} />
+              同步到本地
+            </button>
+            <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('push')} title="按本地已读章节更新各网站上的进度">
+              <ArrowUpFromLine className={cn('size-4', syncing === 'push' && 'animate-pulse')} />
+              同步到网站
+            </button>
+          </div>
+        )}
 
         {!trackers && <span className="text-sm text-muted">正在加载…</span>}
         {trackers && loggedIn.length === 0 && (

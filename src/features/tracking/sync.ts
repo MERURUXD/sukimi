@@ -1,8 +1,9 @@
 import type { ApolloClient } from '@apollo/client'
+import { UpdateChapters } from '@/api/chapters'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { toastError } from '@/components/ui/toast'
 import { MangaChapters } from '@/features/manga/queries'
-import { MangaTracks, TrackedMangaIds, Trackers } from './queries'
+import { FetchTrack, MangaTracks, TrackedMangaIds, Trackers } from './queries'
 import { readProgress } from './tracking'
 import { updateTrackQueued } from './useSaveTrack'
 
@@ -46,6 +47,36 @@ export function pushTrackProgress(client: ApolloClient, mangaId: number, still =
   const done = () => { if (queue.get(mangaId) === next) queue.delete(mangaId) }
   next.then(done, done)
   return next
+}
+
+/**
+ * 把追踪网站上的进度拉到本地：先刷新各网站的记录，取最高的「读到第几话」，
+ * 再把本地话数不超过它的章节全部标为已读，返回新标了几话。
+ * 只往已读方向改，不取消已有的已读；编号不是正数的章节（番外、未知话数）不动。
+ * 服务端自己不会做这一步：绑定和刷新都只更新追踪记录，不碰章节
+ */
+export async function pullTrackProgress(client: ApolloClient, mangaId: number, still = captureUser()) {
+  still()
+  const tracks = await client.query({ query: MangaTracks, variables: { id: mangaId }, fetchPolicy: 'network-only' })
+  still()
+  const trackers = (await client.query({ query: Trackers, fetchPolicy: 'cache-first' })).data?.trackers.nodes ?? []
+  still()
+  const usable = new Set(trackers.filter((t) => t.isLoggedIn && !t.isTokenExpired).map((t) => t.id))
+  const records = (tracks.data?.manga.trackRecords.nodes ?? []).filter((r) => usable.has(r.trackerId))
+  if (!records.length) return 0
+  // 先从网站刷新，拿到的才是网站上最新的进度；一个网站失败不拖累其他网站
+  const results = await Promise.allSettled(records.map((r) => client.mutate({ mutation: FetchTrack, variables: { recordId: r.id } })))
+  still()
+  const fresh = results.flatMap((x) => (x.status === 'fulfilled' && x.value.data ? [x.value.data.fetchTrack.trackRecord.lastChapterRead] : []))
+  if (!fresh.length) throw (results.find((x) => x.status === 'rejected') as PromiseRejectedResult | undefined)?.reason ?? new Error('刷新追踪记录失败')
+  const remote = Math.max(...fresh)
+  if (remote <= 0) return 0
+  const chapters = await client.query({ query: MangaChapters, variables: { mangaId }, fetchPolicy: 'network-only' })
+  still()
+  const ids = (chapters.data?.chapters.nodes ?? []).filter((c) => !c.isRead && c.chapterNumber > 0 && c.chapterNumber <= remote).map((c) => c.id)
+  if (!ids.length) return 0
+  await client.mutate({ mutation: UpdateChapters, variables: { ids, patch: { isRead: true } } })
+  return ids.length
 }
 
 /**
