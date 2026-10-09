@@ -3,6 +3,7 @@ import { ArrowRight, ChevronLeft, Crown, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { BACK_SLOT, GalleryBack } from './GalleryBack'
 import { CoverImg } from '@/components/manga/CoverImg'
 import type { LibraryManga } from '@/features/library/queries'
 import { NEUTRAL, coverColor, rgbCss } from '@/lib/coverColor'
@@ -292,11 +293,8 @@ function DesktopStats(p: BodyProps) {
         empty={!!p.stats && !p.ranked.length}
       />
 
-      <header className="absolute top-5 z-10 flex items-center gap-4" style={{ left: side - 6 }}>
-        <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" title="返回画廊首页（Esc）" className="flex items-center gap-2.5 rounded-full py-[5px] pr-[18px] pl-[5px] text-[17px] font-bold text-text">
-          <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
-          Sukimi
-        </Glass>
+      <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
+        <GalleryBack onClick={p.onExit} title="返回画廊首页（Esc）" />
         <div className="flex flex-col gap-0.5">
           <h1 className="m-0 font-cjk text-xl font-black">阅读档案</h1>
           <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)}</span>

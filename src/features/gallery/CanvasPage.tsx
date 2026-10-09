@@ -37,6 +37,7 @@ import {
 } from './canvasMath'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { wallItem, wallPosOf, wallState } from './HeroWall'
+import { BACK_SLOT, GalleryBack } from './GalleryBack'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { useForceDark } from '@/design/settings'
 import { galleryOrder, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
@@ -95,8 +96,8 @@ export function CanvasPage() {
   const field = useRef<HTMLDivElement>(null)
   const stage = useRef<HTMLDivElement>(null)
   const hud = useRef<HTMLDivElement>(null)
-  const introVig = useRef<HTMLDivElement>(null)
   const reticle = useRef<HTMLDivElement>(null)
+  const introVig = useRef<HTMLDivElement>(null)
   const domeVig = useRef<HTMLDivElement>(null)
   const slots = useRef<(HTMLButtonElement | null)[]>([])
   const slotMeta = useRef<({ key: string; idx: number; url: string | null } & TilePose)[]>([])
@@ -137,10 +138,10 @@ export function CanvasPage() {
     lastInput: 0,
     last: 0,
     panTo: null as null | { x: number; y: number },
-  })
     /** 取景框当前的位置（框中心的屏幕坐标与放大倍数）和它要去的位置 */
     ret: { x: NaN, y: 0, k: 1 },
     retTo: null as null | { x: number; y: number; k: number },
+  })
   const assigned = useRef(new Map<string, number>())
   /** 正在倒放过渡回首页：不再重放进入过渡，也不记住位置 */
   const leaving = useRef(false)
@@ -163,7 +164,6 @@ export function CanvasPage() {
     return cells.length + 24
   }, [size, grid])
 
-  /** 把当前状态画到 DOM 上 */
   /** 取景框只改位置和大小，居中的偏移放在 translate 里 */
   const drawReticle = useCallback(() => {
     const el = reticle.current
@@ -174,6 +174,7 @@ export function CanvasPage() {
     el.style.transform = `translate3d(${(r.x - bw / 2).toFixed(1)}px, ${(r.y - bh / 2).toFixed(1)}px, 0) scale(${r.k.toFixed(4)})`
   }, [grid])
 
+  /** 把当前状态画到 DOM 上 */
   const paint = useCallback(() => {
     const v = view.current
     const list = itemsRef.current
@@ -328,7 +329,6 @@ export function CanvasPage() {
         }
       }
       paint()
-      if (active) raf.current = requestAnimationFrame((t) => tickRef.current(t))
       // 取景框吸附到最近的封面：拖动时一格一格跳着套，停稳后随画面吸附回中心
       const r = v.ret
       const to = v.retTo
@@ -341,6 +341,7 @@ export function CanvasPage() {
         else active = true
         drawReticle()
       }
+      if (active) raf.current = requestAnimationFrame((t) => tickRef.current(t))
       else v.last = 0
     },
     [paint, drawReticle, reduced, size, grid],
@@ -768,8 +769,8 @@ export function CanvasPage() {
       {/* --hud 由每个元素各自读成透明度，容器本身不带透明度；之后由 paint 逐帧改，React 不再覆盖 */}
       <div ref={hud} className="pointer-events-none absolute inset-0" style={{ '--hud': hudStart } as CSSProperties}>
         <div
-          aria-hidden
           ref={reticle}
+          aria-hidden
           className="absolute top-0 left-0 transition-opacity duration-500 [opacity:var(--hud)]"
           style={{ width: grid.cw + 54, height: grid.ch + 54, transform: `translate3d(${(size.w - grid.cw - 54) / 2}px, ${(size.h - grid.ch - 54) / 2}px, 0)` }}
         >
@@ -789,16 +790,12 @@ export function CanvasPage() {
           </div>
         )}
 
-        <div className="pointer-events-auto absolute top-[max(14px,env(safe-area-inset-top))] left-4 flex items-center gap-4 md:top-5 md:left-7" onPointerDown={(e) => e.stopPropagation()}>
-          <Glass as="button" type="button" onClick={goHome} aria-label="回到画廊首页" className="flex items-center gap-2.5 rounded-full py-[5px] pr-[18px] pl-[5px] text-[17px] font-bold [opacity:var(--hud)] max-md:size-11 max-md:justify-center max-md:p-0">
-            <ChevronLeft className="size-6 md:hidden" strokeWidth={1.8} />
-            <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid max-md:hidden">S</span>
-            <span className="max-md:hidden">Sukimi</span>
-          </Glass>
+        <div className={cn('pointer-events-auto absolute top-[max(14px,env(safe-area-inset-top))] left-4 flex items-center gap-4', BACK_SLOT)} onPointerDown={(e) => e.stopPropagation()}>
+          <GalleryBack onClick={goHome} className="[opacity:var(--hud)]" />
           <div className="flex flex-col gap-0.5 [opacity:var(--hud)]">
             <span className="font-cjk text-base font-black md:text-xl">书库画廊</span>
             <span className="text-xs text-muted md:text-[13px]">
-              {count(n)} 部作品<span className="max-md:hidden"> · 拖动、甩动或滚动 · 点左侧标志回首页</span>
+              {count(n)} 部作品<span className="max-md:hidden"> · 拖动、甩动或滚动 · 点左侧「画廊」返回</span>
             </span>
           </div>
         </div>
