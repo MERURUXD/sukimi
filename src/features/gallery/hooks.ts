@@ -59,6 +59,9 @@ export function useGalleryLibrary() {
     loading: lib.loading && !data,
     error: data ? undefined : lib.error,
     refetch: lib.refetch,
+    // 总话数取失败且没有缓存时，档案页要能显示错误并重试，不能一直停在「正在汇总」
+    countsError: counts.data ? undefined : counts.error,
+    refetchCounts: counts.refetch,
   }
 }
 

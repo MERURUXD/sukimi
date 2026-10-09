@@ -124,7 +124,7 @@ const dateLabel = (t: number) => {
  */
 export function StatsPage() {
   useForceDark()
-  const { all, totals, stats: lib, loading: libLoading } = useGalleryLibrary()
+  const { all, totals, stats: lib, loading: libLoading, error: libError, countsError, refetch, refetchCounts } = useGalleryLibrary()
   const reads = useReadChapters()
   const mobile = useMobile()
   const reduced = useReducedMotionPref()
@@ -189,7 +189,14 @@ export function StatsPage() {
     }
   }, [exit])
 
-  const loadingText = reads.error ? null : `正在汇总阅读记录…${reads.fetched ? `已取 ${count(reads.fetched)} 话` : ''}`
+  // 章节、书库、总话数任何一个失败都要给出错误和重试，否则会一直停在「正在汇总」
+  const error = reads.error ?? libError ?? countsError
+  const retry = useCallback(() => {
+    if (reads.error) reads.retry()
+    if (libError) void refetch()
+    if (countsError) void refetchCounts()
+  }, [reads, libError, countsError, refetch, refetchCounts])
+  const loadingText = error ? null : `正在汇总阅读记录…${reads.fetched ? `已取 ${count(reads.fetched)} 话` : ''}`
   const body: BodyProps = {
     stats,
     // 汇总出来之前先用书库里的「总话数 − 未读」，和首页那个数字一样，飞过来落地时不跳
@@ -200,8 +207,8 @@ export function StatsPage() {
     reduced,
     glow,
     loadingText: stats ? null : libLoading ? '正在加载书库…' : loadingText,
-    error: reads.error,
-    retry: reads.retry,
+    error,
+    retry,
     now,
     back,
     onExit: exit,
