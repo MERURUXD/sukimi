@@ -10,7 +10,7 @@ import { useForceDark } from '@/design/settings'
 import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { galleryOrder, isCompleted, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { armLibraryFade, libraryCoversForEntry, libraryCoversForReturn } from './readMorph'
+import { armLibraryFade, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit } from './readMorph'
 import './gallery.css'
 
 type FilterValue = 'all' | 'done' | number
@@ -106,6 +106,11 @@ export function GalleryPage() {
     )
     if (!flyWallToLibrary(rects, go)) go()
   }, [location.state, navigate, reduced])
+
+  useEffect(() => {
+    setLibraryExit(toLibrary)
+    return () => setLibraryExit(null)
+  }, [toLibrary])
 
   /* 进入画布：量出首屏此刻在屏幕上的位置一起带过去，画布第一帧按原位摆出同一份面板，不会跳 */
   const enterCanvas = (e: MouseEvent) => {

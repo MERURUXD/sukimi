@@ -64,6 +64,20 @@ export const libraryCoversForReturn = () => returnCovers
 /** 画廊首页挂上时取刚才记下的封面位置；过了一会儿的不算（开发模式的严格模式会挂两次，所以不在这里清掉） */
 export const libraryCoversForEntry = () => (libraryCovers && performance.now() - libraryCovers.at < 2000 ? libraryCovers.rects : null)
 
+let libraryExit: (() => void) | null = null
+
+/** 画廊首页挂上时登记它的「回书库」动画；导航栏的「书库」按钮靠它也能播放飞回动画 */
+export function setLibraryExit(fn: (() => void) | null) {
+  libraryExit = fn
+}
+
+/** 导航栏点「书库」：画廊首页在的话由它播放飞回动画并换页，返回 true（调用方取消默认跳转） */
+export function exitGalleryToLibrary(e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) {
+  if (!libraryExit || !plainClick(e)) return false
+  libraryExit()
+  return true
+}
+
 /** 点击时按住修饰键（新标签页打开）不算换页 */
 export const plainClick = (e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) =>
   e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey
