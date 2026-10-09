@@ -30,6 +30,7 @@ import {
   introPhases,
   nearestCell,
   nearestCellOf,
+  reticleTarget,
   snapTarget,
   visibleCells,
   type Grid,
@@ -95,6 +96,7 @@ export function CanvasPage() {
   const stage = useRef<HTMLDivElement>(null)
   const hud = useRef<HTMLDivElement>(null)
   const introVig = useRef<HTMLDivElement>(null)
+  const reticle = useRef<HTMLDivElement>(null)
   const domeVig = useRef<HTMLDivElement>(null)
   const slots = useRef<(HTMLButtonElement | null)[]>([])
   const slotMeta = useRef<({ key: string; idx: number; url: string | null } & TilePose)[]>([])
@@ -136,6 +138,9 @@ export function CanvasPage() {
     last: 0,
     panTo: null as null | { x: number; y: number },
   })
+    /** 取景框当前的位置（框中心的屏幕坐标与放大倍数）和它要去的位置 */
+    ret: { x: NaN, y: 0, k: 1 },
+    retTo: null as null | { x: number; y: number; k: number },
   const assigned = useRef(new Map<string, number>())
   /** 正在倒放过渡回首页：不再重放进入过渡，也不记住位置 */
   const leaving = useRef(false)
@@ -159,6 +164,16 @@ export function CanvasPage() {
   }, [size, grid])
 
   /** 把当前状态画到 DOM 上 */
+  /** 取景框只改位置和大小，居中的偏移放在 translate 里 */
+  const drawReticle = useCallback(() => {
+    const el = reticle.current
+    const r = view.current.ret
+    if (!el || Number.isNaN(r.x)) return
+    const bw = grid.cw + 54
+    const bh = grid.ch + 54
+    el.style.transform = `translate3d(${(r.x - bw / 2).toFixed(1)}px, ${(r.y - bh / 2).toFixed(1)}px, 0) scale(${r.k.toFixed(4)})`
+  }, [grid])
+
   const paint = useCallback(() => {
     const v = view.current
     const list = itemsRef.current
@@ -250,8 +265,16 @@ export function CanvasPage() {
       hud.current.style.setProperty('--hud', s || pl ? '0' : p.hud.toFixed(3))
       hud.current.style.pointerEvents = !s && !pl && p.hud > 0.5 ? '' : 'none'
     }
-    if (center) setFocus(wallItem(center.c, center.r, list.length))
-  }, [size, grid, poolSize, hero, fromGallery])
+    if (center) {
+      v.retTo = reticleTarget(center, grid, w, h, p.dome, scale, PERSPECTIVE)
+      // 第一次出现和进入过渡中（取景框还看不见）直接就位，之后由 tick 滑过去
+      if (Number.isNaN(v.ret.x) || v.t < 1 || reduced) {
+        v.ret = { ...v.retTo }
+        drawReticle()
+      }
+      setFocus(wallItem(center.c, center.r, list.length))
+    }
+  }, [size, grid, poolSize, hero, fromGallery, reduced, drawReticle])
 
   /** 推进一帧：过渡补间、惯性、吸附、平移动画 */
   const tick = useCallback(
@@ -306,9 +329,21 @@ export function CanvasPage() {
       }
       paint()
       if (active) raf.current = requestAnimationFrame((t) => tickRef.current(t))
+      // 取景框吸附到最近的封面：拖动时一格一格跳着套，停稳后随画面吸附回中心
+      const r = v.ret
+      const to = v.retTo
+      if (to && v.t >= 1 && !reduced && (r.x !== to.x || r.y !== to.y || r.k !== to.k)) {
+        const e = 1 - Math.exp(-dt / 70)
+        r.x += (to.x - r.x) * e
+        r.y += (to.y - r.y) * e
+        r.k += (to.k - r.k) * e
+        if (Math.abs(to.x - r.x) + Math.abs(to.y - r.y) < 0.3 && Math.abs(to.k - r.k) < 0.002) Object.assign(r, to)
+        else active = true
+        drawReticle()
+      }
       else v.last = 0
     },
-    [paint, reduced, size, grid],
+    [paint, drawReticle, reduced, size, grid],
   )
 
   // 下一帧总是用最新的 tick（尺寸、格距变了以后闭包会换）
@@ -734,8 +769,9 @@ export function CanvasPage() {
       <div ref={hud} className="pointer-events-none absolute inset-0" style={{ '--hud': hudStart } as CSSProperties}>
         <div
           aria-hidden
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-opacity duration-500 [opacity:var(--hud)]"
-          style={{ width: grid.cw + 54, height: grid.ch + 54 }}
+          ref={reticle}
+          className="absolute top-0 left-0 transition-opacity duration-500 [opacity:var(--hud)]"
+          style={{ width: grid.cw + 54, height: grid.ch + 54, transform: `translate3d(${(size.w - grid.cw - 54) / 2}px, ${(size.h - grid.ch - 54) / 2}px, 0)` }}
         >
           {['top-0 left-0 border-t-2 border-l-2 rounded-tl-2xl', 'top-0 right-0 border-t-2 border-r-2 rounded-tr-2xl', 'bottom-0 left-0 border-b-2 border-l-2 rounded-bl-2xl', 'bottom-0 right-0 border-b-2 border-r-2 rounded-br-2xl'].map((c) => (
             <span key={c} className={cn('absolute size-[30px] border-white/90', c)} />

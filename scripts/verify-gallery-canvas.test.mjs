@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  DESKTOP_GRID, MOBILE_GRID, assignSlots, cellIndex, placeOrder, centerOn, columnStep, decay, domePose, introPhases, nearestCell, nearestCellOf, snapTarget, visibleCells,
+  DESKTOP_GRID, MOBILE_GRID, assignSlots, cellIndex, placeOrder, centerOn, columnStep, decay, domePose, introPhases, nearestCell, nearestCellOf, reticleTarget, snapTarget, visibleCells,
 } from '../src/features/gallery/canvasMath.ts'
 import { fit, hfit, mostlyLatin, textWidth, vfit } from '../src/features/gallery/titleFit.ts'
 
@@ -128,4 +128,24 @@ test('墙的显示顺序：要的位置换上指定的那部，仍是排列，�
     }
   }
   assert.deepEqual(placeOrder(5, []).order, [0, 1, 2, 3, 4])
+})
+
+test('画布：取景框套住最近那一格，停稳时正好在屏幕中心', () => {
+  const w = 1440
+  const h = 900
+  const g = DESKTOP_GRID
+  const o = centerOn(2, 3, w, h, g)
+  const cells = visibleCells(o.x, o.y, w, h, g)
+  const center = nearestCell(cells)
+  const rest = reticleTarget(center, g, w, h, 1, 1, 1800)
+  assert.ok(Math.abs(rest.x - w / 2) < 1e-6 && Math.abs(rest.y - h / 2) < 1e-6)
+  // 顶起来的那一格被透视放大
+  assert.ok(rest.k > 1)
+  // 拖偏一点：框跟着那一格走，离中心更远的格子被放得更多
+  const off = visibleCells(o.x + 90, o.y - 60, w, h, g)
+  const near = nearestCell(off)
+  const t = reticleTarget(near, g, w, h, 1, 1, 1800)
+  assert.ok(t.x > w / 2 === near.x + g.cw / 2 > w / 2)
+  // 球面程度为 0（过渡开始）没有透视放大
+  assert.equal(reticleTarget(center, g, w, h, 0, 1, 1800).k, 1)
 })

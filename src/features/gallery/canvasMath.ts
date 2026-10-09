@@ -108,6 +108,15 @@ export function domePose(nx: number, ny: number, curve: number, focused: boolean
   }
 }
 
+/**
+ * 取景框要套住的位置：最近那一格在屏幕上的中心与放大倍数。
+ * 那一格往前顶了一点（domePose 的 z），透视让它比平放时大一圈、离屏幕中心更远；scale 是整面墙当前的缩放。
+ */
+export function reticleTarget(cell: Cell, g: Grid, w: number, h: number, dome: number, scale: number, perspective: number) {
+  const k = (scale * perspective) / (perspective - domePose(cell.nx, cell.ny, dome, true).z)
+  return { x: w / 2 + (cell.x + g.cw / 2 - w / 2) * k, y: h / 2 + (cell.y + g.ch / 2 - h / 2) * k, k }
+}
+
 /** 停下后吸附到的位置：让最近的一格正好在屏幕中心 */
 export function snapTarget(ox: number, oy: number, w: number, h: number, g: Grid) {
   const cc = Math.round((w / 2 - ox - g.cw / 2) / g.px)
