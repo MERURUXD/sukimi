@@ -1,6 +1,6 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
 import { useDrag } from '@use-gesture/react'
-import { BookOpen, ChevronLeft, ChevronRight, Play, Search, Shuffle, X } from 'lucide-react'
+import { BookOpen, Play, Search, Shuffle, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
@@ -792,7 +792,7 @@ export function CanvasPage() {
             <p className="m-0 mb-2 ml-1 text-xs font-medium tracking-[.3em] num md:text-[15px]">
               {[`No.${pad(focus)} / ${count(n)}`, focused.author, `${chapterCount(focused)} 话`, status(focused)].filter(Boolean).join('　')}
             </p>
-            <p key={focus} className="gallery-title-in m-0 line-clamp-3 font-cjk leading-[1.02] font-black tracking-[-0.03em] [overflow-wrap:anywhere]" style={{ fontSize: titleSize }}>
+            <p key={focus} className="gallery-title-in m-0 -mb-[.14em] line-clamp-3 pb-[.14em] font-cjk leading-[1.02] font-black tracking-[-0.03em] [overflow-wrap:anywhere]" style={{ fontSize: titleSize }}>
               {focused.title}
             </p>
           </div>
@@ -876,7 +876,6 @@ export function CanvasPage() {
           tileW={grid.cw}
           onClose={close}
           onClosed={closed}
-          onStep={step}
         />
       )}
     </div>
@@ -950,7 +949,6 @@ function CanvasDetail({
   tileW,
   onClose,
   onClosed,
-  onStep,
 }: {
   sel: Selection
   manga: LibraryManga
@@ -965,7 +963,6 @@ function CanvasDetail({
   tileW: number
   onClose: () => void
   onClosed: () => void
-  onStep: (d: number) => void
 }) {
   const cover = useRef<HTMLAnchorElement>(null)
   const [color, setColor] = useState<Rgb>(NEUTRAL)
@@ -1089,7 +1086,7 @@ function CanvasDetail({
             No.{pad(sel.index)} / {count(total)}
             {status && `　${status}`}
           </p>
-          <h2 className="gallery-up m-0 line-clamp-3 font-cjk leading-[1.06] font-black tracking-[-0.03em] [overflow-wrap:anywhere]" style={{ ...up(1), fontSize: titleSize }}>
+          <h2 className="gallery-up m-0 -mb-[.14em] line-clamp-3 pb-[.14em] font-cjk leading-[1.06] font-black tracking-[-0.03em] [overflow-wrap:anywhere]" style={{ ...up(1), fontSize: titleSize }}>
             {manga.title}
           </h2>
           <p className="gallery-up m-0 text-base font-bold md:text-[22px]" style={up(2)}>
@@ -1119,12 +1116,6 @@ function CanvasDetail({
       </section>
 
       <div className="absolute top-[max(14px,env(safe-area-inset-top))] right-4 flex gap-2.5 md:top-5 md:right-7 [&>*]:transition-opacity [&>*]:duration-300" style={{ '--info': info ? 1 : 0, pointerEvents: info ? undefined : 'none' } as CSSProperties}>
-        <Glass as="button" type="button" onClick={() => onStep(-1)} aria-label="上一部" className="gicon size-11 rounded-full [opacity:var(--info)] md:size-[50px]">
-          <ChevronLeft className="size-5" strokeWidth={2} />
-        </Glass>
-        <Glass as="button" type="button" onClick={() => onStep(1)} aria-label="下一部" className="gicon size-11 rounded-full [opacity:var(--info)] md:size-[50px]">
-          <ChevronRight className="size-5" strokeWidth={2} />
-        </Glass>
         <Glass as="button" type="button" onClick={onClose} className="gbtn h-11 rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--info)] md:h-[50px]" autoFocus>
           <X className="size-[18px]" strokeWidth={2} />
           <span className="max-md:sr">回到画布</span>
