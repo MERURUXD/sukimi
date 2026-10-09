@@ -934,6 +934,10 @@ function RankWall({
     }
   }
 
+  // 进场的先后按「离当前停靠的那一列有几列」算，不按列号：返回时墙停在第 14 列，列号算下来的延迟早超过整段动画，那些列会一直半透明、话数停在 0。
+  // 上限 6：再远的列在屏幕外，也保证 t 到 1 时每一列都已到位
+  const base = Math.round(s / pitch) - 1
+  const lagOf = (j: number) => Math.max(0, Math.min(6, j - base))
   const items: { j: number; x: number; z: number; ry: number; o: number; zi: number }[] = []
   for (let j = -1; j < cols; j++) {
     const d = j * pitch - s
@@ -949,7 +953,7 @@ function RankWall({
       o = (1 - 0.4 * k) * clamp01((x - plateW / 2 - (left - pitch * 0.5)) / (pitch * 0.5))
     }
     // 进场：各列依次从右侧翻转着飞入；出场时倒放
-    const ej = easeOut((t - 0.12 - (j + 1) * 0.05) / 0.5)
+    const ej = easeOut((t - 0.12 - lagOf(j) * 0.05) / 0.5)
     x += (1 - ej) * 260
     o *= ej
     ry -= (1 - ej) * 80
@@ -990,7 +994,7 @@ function RankWall({
                     <div aria-hidden className="flex flex-col items-center justify-end gap-2" style={{ height: head }}>
                       <span className="text-xs font-semibold tracking-[.24em] text-faint">No.{a.rank}</span>
                       <span className="flex items-baseline gap-1.5 leading-none">
-                        <span className="text-[44px] font-bold tracking-[-0.03em] num">{count(Math.round(a.read * easeOut((t - 0.3 - j * 0.05) / 0.6)))}</span>
+                        <span className="text-[44px] font-bold tracking-[-0.03em] num">{count(Math.round(a.read * easeOut((t - 0.3 - Math.min(2, Math.max(0, lagOf(j) - 1)) * 0.05) / 0.6)))}</span>
                         <span className="font-cjk text-lg font-bold text-white/75">话</span>
                       </span>
                       <span className="h-[18px] w-px bg-white/40" />
