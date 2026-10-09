@@ -308,23 +308,77 @@ function DesktopStats(p: BodyProps) {
 }
 
 /**
- * 时钟下面小结和三项数据占的高度。加载中和加载完都占这么高：整块是垂直居中的，
+ * 时钟下面三项数据占的高度。加载中和加载完都占这么高：整块是垂直居中的，
  * 下面变高的话中间的数字会跟着上移，第一次打开时从首页飞过来的数字落地后就会再挪一下
  */
-const LOWER_H = 168
+const LOWER_H = 96
 
-/** 左边的主角：一圈阅读时钟，正中是已读话数（从首页飞过来的那个数字）；下面是小结和三项数据 */
-function ReadHero({ stats, read, ranked, works, t, reduced, loadingText, error, retry, left, top, width, height }: BodyProps & { left: number; top: number; width: number; height: number }) {
+/** 时钟环朝鼠标最多倾斜多少度 */
+const CLOCK_TILT = 24
+
+/** 左边的主角：一圈阅读时钟，正中是已读话数（从首页飞过来的那个数字）；下面是三项数据 */
+function ReadHero({ stats, read, works, t, reduced, loadingText, error, retry, left, top, width, height }: BodyProps & { left: number; top: number; width: number; height: number }) {
   const [tip, setTip] = useState<Tip>(null)
   const text = read == null ? '—' : count(read)
-  // 时钟占住左上，下面留给小结和三项数据；数字按位数缩放，放得进时钟的内圈
+  // 时钟占住左上，下面留给三项数据；数字按位数缩放，放得进时钟的内圈
   const ring = Math.round(Math.max(220, Math.min(width, height - LOWER_H - 42, 520)))
   const size = Math.round(Math.max(36, Math.min(150, (ring * 0.6 - 36) / ([...text].length * 0.56))))
   const peak = stats && stats.peak >= 0 ? stats.peak : -1
+
+  // 时钟环朝着鼠标在窗口里的位置倾斜（大数字不动，错开一点有层次）；只在鼠标下生效，减少动态效果时不动。
+  // 直接写 transform，不进 React 状态，免得每次移动都重绘；cur / to 存的是倾角（度），x 绕竖轴、y 绕横轴
+  const clockWrap = useRef<HTMLDivElement>(null)
+  const hasClock = !!stats
+  useEffect(() => {
+    const el = clockWrap.current
+    if (!el || reduced) return
+    const cur = { x: 0, y: 0 }
+    const to = { x: 0, y: 0 }
+    let raf = 0
+    let last = 0
+    const frame = (now: number) => {
+      const k = 1 - Math.exp(-Math.min(48, now - last) / 150)
+      last = now
+      cur.x += (to.x - cur.x) * k
+      cur.y += (to.y - cur.y) * k
+      // 法线朝向鼠标：鼠标在右，右边缘退后；鼠标在下，下边缘退后
+      el.style.transform = `rotateX(${(-cur.y).toFixed(2)}deg) rotateY(${cur.x.toFixed(2)}deg)`
+      raf = Math.abs(to.x - cur.x) > 0.02 || Math.abs(to.y - cur.y) > 0.02 ? requestAnimationFrame(frame) : 0
+    }
+    const kick = () => {
+      if (raf) return
+      last = performance.now()
+      raf = requestAnimationFrame(frame)
+    }
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return
+      to.x = (e.clientX / window.innerWidth - 0.5) * 2 * CLOCK_TILT
+      to.y = (e.clientY / window.innerHeight - 0.5) * 2 * CLOCK_TILT
+      kick()
+    }
+    const onLeave = () => {
+      to.x = 0
+      to.y = 0
+      kick()
+    }
+    window.addEventListener('pointermove', onMove)
+    document.documentElement.addEventListener('pointerleave', onLeave)
+    return () => {
+      window.removeEventListener('pointermove', onMove)
+      document.documentElement.removeEventListener('pointerleave', onLeave)
+      cancelAnimationFrame(raf)
+      el.style.transform = ''
+    }
+  }, [reduced, hasClock])
+
   return (
     <section aria-label="阅读概览" className="absolute z-10 flex flex-col justify-center gap-6" style={{ left, top, width, height }}>
-      <div className="relative flex-none" style={{ width: ring, height: ring }}>
-        {stats && <Clock stats={stats} t={t} size={ring} tip={tip} onTip={setTip} faint className="absolute inset-0" />}
+      <div className="relative flex-none" style={{ width: ring, height: ring, perspective: 900 }}>
+        {stats && (
+          <div ref={clockWrap} className="absolute inset-0 [transform-style:preserve-3d]">
+            <Clock stats={stats} t={t} size={ring} tip={tip} onTip={setTip} faint className="absolute inset-0" />
+          </div>
+        )}
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
           <span className="text-[13px] font-semibold tracking-[.32em] text-muted">已读章节</span>
           <span className="flex items-baseline gap-1.5">
@@ -340,10 +394,7 @@ function ReadHero({ stats, read, ranked, works, t, reduced, loadingText, error, 
         </div>
       </div>
       {stats ? (
-        <div className="relative flex flex-col gap-6" style={{ height: LOWER_H }}>
-          <div style={upStyle(t, 0.3)}>
-            <Ticker stats={stats} top={ranked[0]} reduced={reduced} plain />
-          </div>
+        <div className="relative flex flex-col justify-start" style={{ height: LOWER_H }}>
           <div style={upStyle(t, 0.38)}>
             <Kpis stats={stats} works={works} e={easeOut((t - 0.38) / 0.6)} plain />
           </div>
@@ -444,23 +495,39 @@ function Clock({
   const hourTip = tip?.kind === 'hour' ? tip.h : -1
   const barLen = (n: number) => (6 + (n / max) * 44) * k
   const ringIn = easeOut((t - 0.05) / 0.5)
+  // 桌面（faint）上时钟是几层叠在不同深度的平面：底光、外圈与辐条在最后，刻度居中，越高的刻度越往前浮，「现在」和读得最多的那格最前。
+  // 鼠标带动整体倾斜时，各层错开，才有立体感；手机上不倾斜，不分层
+  const z = (px: number) => (faint ? `translateZ(${(px * k).toFixed(1)}px)` : '')
   return (
     <div
       role="img"
       aria-label={`24 小时阅读时钟：有阅读时间的 ${timed} 话${stats.peak >= 0 ? `，${stats.peak} 点读得最多` : ''}`}
       className={cn('flex-none', className ?? 'relative')}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, transformStyle: faint ? 'preserve-3d' : undefined }}
       onMouseLeave={() => onTip(null)}
     >
+      {faint && (
+        <>
+          <div aria-hidden className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_66%)]" style={{ transform: z(-90), opacity: ringIn }} />
+          <div aria-hidden className="absolute rounded-full border border-white/9" style={{ inset: -8 * k, transform: z(-64), opacity: ringIn }} />
+          <div aria-hidden className="absolute rounded-full border border-white/7" style={{ inset: 64 * k, transform: z(-36), opacity: ringIn }} />
+          {/* 每三小时一根辐条，夹在两根刻度之间，从内圈向外淡出 */}
+          {Array.from({ length: 8 }, (_, i) => (
+            <div key={i} aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${i * 45 + 7.5}deg) ${z(-48)}`, opacity: ringIn }}>
+              <span className="absolute w-px bg-[linear-gradient(to_top,transparent,rgba(255,255,255,.16))]" style={{ left: -0.5, bottom: 78 * k, height: 90 * k }} />
+            </div>
+          ))}
+        </>
+      )}
       {!faint && <div aria-hidden className="absolute rounded-full border border-white/12 bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_70%)]" style={{ inset: 76 * k }} />}
-      <div aria-hidden className="absolute rounded-full border border-dashed border-white/10" style={{ inset: 14 * k, opacity: ringIn, rotate: `${(1 - ringIn) * -40}deg` }} />
+      <div aria-hidden className="absolute rounded-full border border-dashed border-white/10" style={{ inset: 14 * k, opacity: ringIn, rotate: `${(1 - ringIn) * -40}deg`, transform: z(-24) }} />
       {stats.hours.map((n, h) => {
         const grow = easeOut((t - 0.08 - h * 0.022) / 0.4)
         const hot = h === stats.peak
         const on = h === hourTip
         const idle = faint ? (n ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.1)') : 'rgba(255,255,255,.38)'
         return (
-          <div key={h} className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${h * 15}deg)` }}>
+          <div key={h} className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${h * 15}deg) ${z((n / max) * 34 + (hot ? 12 : 0))}` }}>
             <span
               className="absolute flex items-end justify-center"
               style={{ left: -11 * k, bottom: radius, width: 22 * k, height: 52 * k }}
@@ -481,7 +548,7 @@ function Clock({
         )
       })}
       {/* 现在几点 */}
-      <div aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${nowDeg}deg)`, opacity: ringIn }}>
+      <div aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${nowDeg}deg) ${z(54)}`, opacity: ringIn }}>
         <span className="gallery-ping absolute size-3 rounded-full border-[1.5px] border-white" style={{ left: -6, bottom: radius + 54 * k }} />
         <span className="absolute size-2.5 rounded-full bg-white shadow-[0_0_14px_#fff]" style={{ left: -5, bottom: radius + 55 * k }} />
       </div>
@@ -491,7 +558,7 @@ function Clock({
         ['12', { left: c, bottom: 0, transform: 'translateX(-50%)' }],
         ['18', { left: 0, top: c, transform: 'translateY(-50%)' }],
       ].map(([label, style]) => (
-        <span key={label as string} aria-hidden className="absolute text-[11px] text-faint" style={{ ...(style as CSSProperties), opacity: ringIn }}>
+        <span key={label as string} aria-hidden className="absolute text-[11px] text-faint" style={{ ...(style as CSSProperties), transform: `${(style as CSSProperties).transform ?? ''} ${z(22)}`, opacity: ringIn }}>
           {label as string}
         </span>
       ))}
@@ -520,24 +587,24 @@ function Kpis({ stats, works, e, plain }: { stats: ReadingStats; works: number; 
   const pct = stats.total ? (stats.read / stats.total) * 100 : 0
   const past = stats.days.filter((d) => !d.future).length
   const items = [
-    { value: `${Math.round(pct * e)}`, unit: '%', label: '书库已读', aria: `${Math.round(pct)}%`, w: pct * e },
-    { value: `${Math.round(stats.caughtUp * e)}/${works}`, unit: '部', label: '已追平', aria: `${stats.caughtUp} / ${works} 部`, w: works ? (stats.caughtUp / works) * 100 * e : 0 },
-    { value: `${Math.round(stats.activeDays * e)}`, unit: '天', label: '近半年有阅读', aria: `${stats.activeDays} / ${past} 天`, w: past ? (stats.activeDays / past) * 100 * e : 0 },
+    { value: `${Math.round(pct * e)}`, unit: '%', word: '已读', label: '书库已读', aria: `${Math.round(pct)}%`, w: pct * e },
+    { value: `${Math.round(stats.caughtUp * e)}/${works}`, unit: '部', word: '已追平', label: '已追平', aria: `${stats.caughtUp} / ${works} 部`, w: works ? (stats.caughtUp / works) * 100 * e : 0 },
+    { value: `${Math.round(stats.activeDays * e)}`, unit: '天', word: '近半年有阅读', label: '近半年有阅读', aria: `${stats.activeDays} / ${past} 天`, w: past ? (stats.activeDays / past) * 100 * e : 0 },
   ]
   if (plain) {
-    // 桌面：只用文字，不加框也不加进度条
+    // 桌面：只用文字，不加框也不加进度条。数字、单位和一个词排在同一条基线上，不再另起一行小字
     return (
-      <dl className="m-0 flex flex-wrap gap-x-12 gap-y-4">
+      <ul className="m-0 flex list-none flex-wrap gap-x-9 gap-y-3 p-0">
         {items.map((it) => (
-          <div key={it.label} className="flex flex-col-reverse gap-1.5">
-            <dt className="text-[13px] text-muted">{it.label}</dt>
-            <dd aria-label={`${it.label} ${it.aria}`} className="m-0 flex items-baseline gap-1 leading-none">
-              <span className="text-[34px] font-bold tracking-[-0.02em] num">{it.value}</span>
-              <span className="font-cjk text-sm font-semibold text-white/70">{it.unit}</span>
-            </dd>
-          </div>
+          <li key={it.label} aria-label={`${it.label} ${it.aria}`} className="flex items-baseline gap-1.5 leading-none whitespace-nowrap">
+            <span aria-hidden className="text-[34px] font-bold tracking-[-0.02em] num">{it.value}</span>
+            <span aria-hidden className="font-cjk text-sm font-semibold text-white/75">
+              {it.unit}
+              <span className="ml-1 font-medium text-white/60">{it.word}</span>
+            </span>
+          </li>
         ))}
-      </dl>
+      </ul>
     )
   }
   return (
@@ -630,12 +697,10 @@ function Timeline({ stats, t, left, top, width }: { stats: ReadingStats; t: numb
   return (
     <section aria-labelledby="gallery-line" className="absolute z-10" style={{ left, top, width }}>
       <div className="flex items-baseline justify-between gap-4" style={upStyle(t, 0.42)}>
-        <h2 id="gallery-line" className="m-0 font-cjk text-[15px] font-bold">
+        <h2 id="gallery-line" className="sr">
           近半年 · 每天读了几话
         </h2>
-        <span className="text-xs text-muted num">
-          {stats.activeDays} 天有阅读{stats.streak > 1 && ` · 历来最长连续 ${stats.streak} 天`}
-        </span>
+        <span className="ml-auto text-xs text-muted num">{stats.streak > 1 && `历来最长连续 ${stats.streak} 天`}</span>
       </div>
       <div
         role="img"
@@ -753,7 +818,11 @@ function Heatmap({ stats, t, cell, tip, onTip }: { stats: ReadingStats; t: numbe
 }
 
 /* ───────── 排行封面 ───────── */
-function Plate({ it, width, best, onClick, className, style, showRank }: { it: Ranked; width: number; best?: boolean; onClick?: (e: MouseEvent) => void; className?: string; style?: CSSProperties; showRank?: boolean }) {
+/** 无框封面下面那行文字（书名 + 已读）的高度，含和封面的间距；排行墙按它算尺寸 */
+const PLATE_CAP = 50
+
+/** bare：桌面排行墙用，不套框和底，封面只靠投影浮起，书名与已读话数一直写在封面下面 */
+function Plate({ it, width, best, onClick, className, style, showRank, bare }: { it: Ranked; width: number; best?: boolean; onClick?: (e: MouseEvent) => void; className?: string; style?: CSSProperties; showRank?: boolean; bare?: boolean }) {
   const [color, setColor] = useState<Rgb>(NEUTRAL)
   useEffect(() => {
     if (!best) return
@@ -763,6 +832,39 @@ function Plate({ it, width, best, onClick, className, style, showRank }: { it: R
       alive = false
     }
   }, [best, it.manga.thumbnailUrl])
+  if (bare) {
+    return (
+      <Link
+        to={`/manga/${it.manga.id}`}
+        viewTransition
+        draggable={false}
+        onClick={onClick}
+        aria-label={`第 ${it.rank} 名：${it.manga.title}，已读 ${it.read} 话`}
+        className={cn('gallery-plate block text-text no-underline', className)}
+        style={{ width, ...style, '--c': rgbCss(color) } as CSSProperties}
+      >
+        <span className="relative block">
+          {best && <span aria-hidden className="gallery-glow absolute -inset-[46px] -z-10 rounded-[60px] blur-[8px]" style={{ background: `radial-gradient(closest-side, ${rgbCss(color)} 0%, ${rgbCss(color, 0.4)} 55%, transparent 100%)` }} />}
+          <span className="gallery-plate-cover cv rounded-[14px] shadow-[0_30px_54px_-24px_rgba(0,0,0,.95)]">
+            <CoverImg src={it.manga.thumbnailUrl} loading="lazy" />
+            {best && <span aria-hidden className="gallery-sheen pointer-events-none absolute inset-0 z-[1]" />}
+          </span>
+          {best && (
+            <span className="absolute -top-4 -right-4 z-[4] flex h-[34px] rotate-6 items-center gap-1.5 rounded-full bg-[#f4f4f5] pr-3.5 pl-[11px] text-[13px] font-bold text-[#0b0b0d] shadow-[0_10px_24px_rgba(0,0,0,.5)]">
+              <Crown className="size-[15px]" strokeWidth={2} />
+              读得最多
+            </span>
+          )}
+        </span>
+        <span className="mt-2.5 flex flex-col gap-0.5 overflow-hidden px-0.5" style={{ height: PLATE_CAP - 10 }}>
+          <span className="truncate font-cjk text-sm leading-[1.35] font-bold">{it.manga.title}</span>
+          <span className="truncate text-xs text-white/65 num">
+            {showRank && `No.${it.rank} · `}已读 {count(it.read)} / {it.total == null ? '—' : count(it.total)} 话
+          </span>
+        </span>
+      </Link>
+    )
+  }
   return (
     // 不走封面过渡：排行墙在 3D 透视里，给里面的封面挂换页动画的过渡名，浏览器会整个中止
     <Link
@@ -830,13 +932,13 @@ function RankWall({
   empty: boolean
 }) {
   const cols = Math.ceil(ranked.length / 2)
-  // 尺寸按可用高度算：列头、两张封面、间距和底部刻度放得下
+  // 尺寸按可用高度算：列头、两张封面（连同下面的文字）、间距和底部刻度放得下
   const top = 92
   const head = 88
-  const coverW = Math.round(Math.max(72, Math.min(190, ((bottom - top - head - 22 - 30) / 2 - 16) / 1.5)))
-  const plateW = coverW + 16
-  const plateH = Math.round(coverW * 1.5 + 16)
-  const pitch = plateW + 30
+  const coverW = Math.round(Math.max(72, Math.min(200, ((bottom - top - head - 22 - 30) / 2 - PLATE_CAP) / 1.5)))
+  const plateW = coverW
+  const plateH = Math.round(coverW * 1.5 + PLATE_CAP)
+  const pitch = plateW + 44
   // 第一列（「已读排行」）贴着左边界，第一名在它右边一列
   const pivot = left + plateW / 2 + pitch
   const persp = 1300
@@ -977,7 +1079,7 @@ function RankWall({
             <div key={j} className="absolute" style={{ left: x - plateW / 2, top, width: plateW, zIndex: zi, opacity: o, transform: `translateZ(${z.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg)` }}>
               <div className="gallery-float" style={{ animationDelay: `${-(j + 1) * 0.7}s` }}>
                 {j < 0 ? (
-                  <div className="flex flex-col justify-between rounded-[18px] border border-white/24 bg-white/7 px-6 py-[26px] shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_30px_60px_-28px_rgba(0,0,0,.9)]" style={{ marginTop: head, height: plateH * 2 + 22 }}>
+                  <div className="flex flex-col justify-between py-1.5 pr-3" style={{ marginTop: head, height: plateH * 2 + 22 }}>
                     <span className="text-[13px] font-medium tracking-[.3em] text-white/70">TOP {ranked.length || works}</span>
                     <span className="flex flex-col gap-3.5">
                       <span className="font-cjk leading-[1.08] font-black" style={{ fontSize: Math.round(Math.min(46, plateW * 0.26)) }}>
@@ -999,8 +1101,8 @@ function RankWall({
                       </span>
                       <span className="h-[18px] w-px bg-white/40" />
                     </div>
-                    <Plate it={a} width={plateW} best={a.rank === 1} onClick={onPlate(j)} style={a.rank === 1 ? { transform: 'scale(1.04)' } : undefined} />
-                    {b && <Plate it={b} width={plateW} onClick={onPlate(j)} showRank className="mt-[22px]" />}
+                    <Plate bare it={a} width={plateW} best={a.rank === 1} onClick={onPlate(j)} style={a.rank === 1 ? { transform: 'scale(1.04)' } : undefined} />
+                    {b && <Plate bare it={b} width={plateW} onClick={onPlate(j)} showRank className="mt-[22px]" />}
                   </>
                 )}
               </div>
@@ -1011,7 +1113,6 @@ function RankWall({
 
       <div aria-hidden className="pointer-events-none absolute inset-x-0 h-[40px]" style={{ top: ticksY - 12, opacity: easeOut((t - 0.2) / 0.5) }}>
         <div className="absolute top-3 right-10 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,.3)_12%,rgba(255,255,255,.3))]" style={{ left: left + 28 }} />
-        <div className="absolute -top-[2px] -ml-[110px] h-5 w-[220px] rounded-[50%] bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,.95),transparent_70%)] blur-[3px]" style={{ left: pivot }} />
         {ticks.map((tk) => (
           <span key={tk.j} className="absolute top-[7px] h-[13px] w-px bg-white/60" style={{ left: tk.x, opacity: tk.o }} />
         ))}
