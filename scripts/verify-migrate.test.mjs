@@ -46,3 +46,13 @@ test('候选来源：排除本地和当前来源，同语言包含多语言和�
   assert.deepEqual(migrationSources(sources, { id: '1', lang: 'zh' }, 'all').map((s) => s.id), ['2', '3', '4', '5'])
   assert.deepEqual(migrationSources(sources, null, 'lang').map((s) => s.id), ['1', '2', '3', '4', '5'])
 })
+
+test('同名判断：忽略大小写、全半角、空白与标点，排除自己', async () => {
+  const { findSameTitle, titleKey } = await import('../src/features/manga/migrate.ts')
+  assert.equal(titleKey('Ｆoo Bar！'), titleKey('foo-bar'))
+  const library = [{ id: 1, title: '云海 邮局' }, { id: 2, title: '云海邮局！' }, { id: 3, title: '月台尽头' }, { id: 4, title: '！？' }]
+  assert.deepEqual(findSameTitle(library, { id: 9, title: '云海邮局' }).map((m) => m.id), [1, 2])
+  assert.deepEqual(findSameTitle(library, { id: 1, title: '云海邮局' }).map((m) => m.id), [2])
+  // 标题只剩标点时不比较，免得误判
+  assert.deepEqual(findSameTitle(library, { id: 9, title: '？！' }), [])
+})

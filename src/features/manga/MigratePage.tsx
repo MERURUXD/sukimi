@@ -174,10 +174,19 @@ function CandidateTile({ m, source, onPick }: { m: SourceManga; source: Source; 
 
 type Target = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; chapters: { id: number; chapterNumber: number; isRead: boolean; isBookmarked: boolean }[] }
 
-function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
+/** 迁移对话框要的目标漫画信息：候选和详情页的漫画都满足 */
+export interface MigrateTarget {
+  id: number
+  title: string
+  thumbnailUrl: string | null
+  author: string | null
+  source: { displayName: string }
+}
+
+export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   from: NonNullable<Manga>
   fromChapters: readonly Chapter[]
-  target: Candidate
+  target: MigrateTarget
   onClose: () => void
   onDone: (to: number) => void
 }) {
