@@ -276,6 +276,8 @@ function usePaging(grid: React.RefObject<HTMLElement | null>, reduced: boolean) 
     const onKey = (e: KeyboardEvent) => {
       const t = e.target
       if (e.ctrlKey || e.metaKey || e.altKey || (t instanceof Element && t.closest('input, textarea, select, [contenteditable]'))) return
+      // 空格是按钮和链接自己的激活键，焦点在它们上面时不当成翻页
+      if (e.key === ' ' && t instanceof Element && t.closest('button, a[href], summary, [role="button"]')) return
       const { hero, gridTop } = where()
       const down = ['ArrowDown', 'PageDown', ' '].includes(e.key) && !e.shiftKey
       const up = ['ArrowUp', 'PageUp'].includes(e.key) || (e.key === ' ' && e.shiftKey)

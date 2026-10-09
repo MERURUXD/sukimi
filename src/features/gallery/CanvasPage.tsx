@@ -66,7 +66,7 @@ interface PlayState extends PlayEntry {
 }
 
 /** 离开画布（进详情页）时记下位置、打开的详情和放映到的那一部，返回时原样恢复，封面才能飞回来 */
-let memory: { ox: number; oy: number; sel: Selection | null; playId: number | null; mobile: boolean } | null = null
+let memory: { ox: number; oy: number; sel: Selection | null; selId: number | null; playId: number | null; mobile: boolean } | null = null
 
 const pad = (i: number) => String(i + 1).padStart(2, '0')
 
@@ -74,7 +74,7 @@ const pad = (i: number) => String(i + 1).padStart(2, '0')
 /** 无限画布：整个书库铺成一颗可以拖动的球面。固定深色、全屏，不在 AppShell 里。 */
 export function CanvasPage() {
   useForceDark()
-  const { all, totals, stats, categories, loading } = useGalleryLibrary()
+  const { all, totals, stats, categories, loading, error, refetch } = useGalleryLibrary()
   const items = useMemo(() => galleryOrder(all), [all])
   const n = items.length
   const mobile = useMobile()
@@ -105,7 +105,8 @@ export function CanvasPage() {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [focus, setFocus] = useState(-1)
   const [ready, setReady] = useState(!fromGallery || reduced || !!restoring)
-  const [sel, setSel] = useState<Selection | null>(restoring?.sel ?? null)
+  // 返回时那一部可能已被移出书库（排序下标对不上了）：对不上就不恢复详情层
+  const [sel, setSel] = useState<Selection | null>(restoring?.sel && items[restoring.sel.index]?.id === restoring.selId ? restoring.sel : null)
   const [hudStart] = useState(ready ? 1 : 0)
   const [closing, setClosing] = useState(false)
   // 关闭动画期间仍算「打开」：输入照样屏蔽，那一格要等封面飞回去才露出来
@@ -591,7 +592,14 @@ export function CanvasPage() {
     () => () => {
       // 不记格子位置：返回时封面由视图过渡飞回，详情层直接摆在终点，免得两段动画叠在一起
       if (!leaving.current)
-        memory = { ox: view.current.ox, oy: view.current.oy, sel: selRef.current && { ...selRef.current, tile: null }, playId: playRef.current && playCur.current, mobile }
+        memory = {
+          ox: view.current.ox,
+          oy: view.current.oy,
+          sel: selRef.current && { ...selRef.current, tile: null },
+          selId: selRef.current && (itemsRef.current[selRef.current.index]?.id ?? null),
+          playId: playRef.current && playCur.current,
+          mobile,
+        }
     },
     [mobile],
   )
@@ -816,9 +824,18 @@ export function CanvasPage() {
       {!n && (
         <div className="absolute inset-0 grid place-items-center p-6 text-center">
           <div className="flex flex-col items-center gap-4">
-            <p className="m-0 text-muted">{loading ? '正在加载书库…' : '书库是空的，去「发现」页添加漫画吧。'}</p>
+            {error ? (
+              <>
+                <p className="m-0 text-danger">加载失败：{error.message.split('\n')[0]}</p>
+                <button type="button" className="solid" onClick={() => void refetch()}>
+                  重试
+                </button>
+              </>
+            ) : (
+              <p className="m-0 text-muted">{loading ? '正在加载书库…' : '书库是空的，去「发现」页添加漫画吧。'}</p>
+            )}
             {!loading && (
-              <Link to={GALLERY} className="solid no-underline">
+              <Link to={GALLERY} className={error ? 'gbtn no-underline' : 'solid no-underline'}>
                 回到画廊
               </Link>
             )}
