@@ -16,6 +16,8 @@ interface AppearanceState {
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
   homeMotionBg: boolean
+  /** 画廊放映每部停留的秒数 */
+  galleryInterval: number
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
   setMangaDetailMotion: (on: boolean) => void
@@ -23,6 +25,7 @@ interface AppearanceState {
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
   setHomeMotionBg: (on: boolean) => void
+  setGalleryInterval: (seconds: number) => void
 }
 
 // 键名与 index.html 里防闪烁脚本一致
@@ -40,6 +43,8 @@ export const useAppearance = create<AppearanceState>()(
       homeDesktopLayout: 'poster',
       // 旧偏好里没有这个字段，合并默认值后开启
       homeMotionBg: true,
+      // 旧偏好里没有这个字段，合并默认值后为 7 秒
+      galleryInterval: 7,
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
@@ -47,11 +52,12 @@ export const useAppearance = create<AppearanceState>()(
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
       setHomeMotionBg: (homeMotionBg) => set({ homeMotionBg }),
+      setGalleryInterval: (galleryInterval) => set({ galleryInterval }),
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg }) =>
-        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg }),
+      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval }) =>
+        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval }),
     },
   ),
 )

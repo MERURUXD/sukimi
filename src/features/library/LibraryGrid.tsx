@@ -24,6 +24,8 @@ interface Props {
   onToggle: (id: number, index: number, e: MouseEvent) => void
   /** 触屏长按某一部：进入多选 */
   onLongPress: (id: number, index: number) => void
+  /** 封面最小宽度，缺省按密度取；画廊手机版用更小的值排成三列 */
+  minTile?: number
 }
 
 const GAP_X = 20
@@ -89,10 +91,10 @@ export function LibrarySkeleton({ density }: { density: Density }) {
 }
 
 /* ───────── 封面网格（按行虚拟化）───────── */
-function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress }: Props) {
+function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile }: Props) {
   const [ref, width, top] = useBox()
   const initialOffset = useRestoredOffset()
-  const minW = density === 'compact' ? 120 : 160
+  const minW = minTile ?? (density === 'compact' ? 120 : 160)
   const cols = Math.max(2, Math.floor((width + GAP_X) / (minW + GAP_X)))
   const tileW = width ? (width - GAP_X * (cols - 1)) / cols : minW
   const textH = density === 'compact' ? 30 : 48

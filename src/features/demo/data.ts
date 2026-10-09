@@ -7,13 +7,13 @@ const COLORS = ['#23475d', '#563c66', '#365f50', '#303e70', '#705047', '#526a70'
 /** 原创几何风景封面，不引用书库或外部图片。 */
 function cover(title: string, i: number) {
   return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="840" viewBox="0 0 600 840">
-    <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="${COLORS[i]}"/><stop offset="1" stop-color="#162630"/></linearGradient></defs>
+    <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="${COLORS[i % COLORS.length]}"/><stop offset="1" stop-color="#162630"/></linearGradient></defs>
     <rect width="600" height="840" fill="url(#sky)"/>
     <circle cx="${180 + i % 4 * 65}" cy="240" r="105" fill="#f2ddaf" opacity=".85"/>
     <path d="M0 490 180 300 350 495 480 370 600 500V840H0Z" fill="#aec9c4" opacity=".4"/>
     <path d="M0 580 240 425 420 570 600 470V840H0Z" fill="#233c43"/>
     <path d="M0 695Q250 500 600 660V840H0Z" fill="#112832"/>
-    <path d="M${190 + i * 7} 840Q260 680 310 595" fill="none" stroke="#a9beb2" stroke-width="18" opacity=".5"/>
+    <path d="M${190 + i % 12 * 7} 840Q260 680 310 595" fill="none" stroke="#a9beb2" stroke-width="18" opacity=".5"/>
     <g fill="#f4f1e6" font-family="sans-serif"><text x="48" y="84" font-size="16" letter-spacing="5">SUKIMI · 演示作品</text>
     <text x="48" y="160" font-size="48" font-weight="700">${title}</text><text x="48" y="790" font-size="18">一段关于旅途与相遇的故事 · ${String(i + 1).padStart(2, '0')}</text></g>
   </svg>`)
@@ -52,7 +52,7 @@ interface DemoChapter {
 interface DemoManga {
   id: number; title: string; thumbnailUrl: string; author: string; artist: string; description: string;
   genre: string[]; status: string; realUrl: null; initialized: boolean; inLibrary: boolean; inLibraryAt: string;
-  source: typeof SOURCE; categories: { nodes: Category[] }; chapters: { nodes: DemoChapter[] };
+  source: typeof SOURCE; categories: { nodes: Category[] }; chapters: { nodes: DemoChapter[]; totalCount: number };
   unreadCount: number; downloadCount: number; bookmarkCount: number;
   firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null; latestReadChapter: DemoChapter | null;
   latestFetchedChapter: DemoChapter; latestUploadedChapter: DemoChapter;
@@ -79,30 +79,98 @@ export interface OpenWork {
   license: { name: string; url: string }; cover: string
   chapters: { name: string; number: number; pages: string[] }[]
 }
-type Condition = Record<string, { equalTo?: unknown; in?: unknown[]; greaterThan?: string }>
-interface ListArgs { condition?: Record<string, unknown>; filter?: Condition; first?: number; offset?: number; order?: { by: string; byType?: string }[] }
-function matches(item: object, condition: Record<string, unknown> = {}, filter: Condition = {}) {
-  const record = item as Record<string, unknown>
-  return Object.entries(condition).every(([k, v]) => record[k] === v) && Object.entries(filter).every(([k, v]) => {
+type Condition = { equalTo?: unknown; in?: unknown[]; greaterThan?: string }
+/** 与服务端的筛选输入同形：字段条件之外还有 and / or / not 组合 */
+type Filter = { and?: Filter[]; or?: Filter[]; not?: Filter } & { [field: string]: Condition | Filter[] | Filter | undefined }
+interface ListArgs { condition?: Record<string, unknown>; filter?: Filter; first?: number; offset?: number; order?: { by: string; byType?: string }[] }
+function passes(record: Record<string, unknown>, filter: Filter): boolean {
+  return Object.entries(filter).every(([k, v]) => {
+    if (v === undefined) return true
+    if (k === 'and') return (v as Filter[]).every((f) => passes(record, f))
+    if (k === 'or') return (v as Filter[]).some((f) => passes(record, f))
+    if (k === 'not') return !passes(record, v as Filter)
+    const c = v as Condition
     const value = k === 'inLibrary' && 'manga' in record ? (record.manga as DemoManga).inLibrary : record[k]
-    return (v.equalTo === undefined || value === v.equalTo) && (!v.in || v.in.includes(value)) && (v.greaterThan === undefined || Number(value) > Number(v.greaterThan))
+    return (c.equalTo === undefined || value === c.equalTo) && (!c.in || c.in.includes(value)) && (c.greaterThan === undefined || Number(value) > Number(c.greaterThan))
   })
+}
+function matches(item: object, condition: Record<string, unknown> = {}, filter: Filter = {}) {
+  const record = item as Record<string, unknown>
+  return Object.entries(condition).every(([k, v]) => record[k] === v) && passes(record, filter)
 }
 function connection<T>(nodes: T[], { first = nodes.length, offset = 0 }: ListArgs = {}) {
   return { nodes: nodes.slice(offset, offset + first), totalCount: nodes.length, pageInfo: { hasNextPage: offset + first < nodes.length, hasPreviousPage: offset > 0 } }
 }
 
-/** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
-export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = []) {
-  const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }]
-  const mangas: DemoManga[] = TITLES.map((title, i) => {
+type MangaFields = Omit<DemoManga, 'chapters' | 'trackRecords' | 'unreadCount' | 'downloadCount' | 'bookmarkCount' | 'firstUnreadChapter' | 'lastReadChapter' | 'latestReadChapter' | 'latestFetchedChapter' | 'latestUploadedChapter'>
+type MakeManga = (fields: MangaFields, chapters: DemoChapter[]) => DemoManga
+
+/** 固定种子的伪随机数，同样的规模每次生成同一份书库 */
+function seeded(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+/** 一天里各小时的阅读权重：午休和晚上读得多，凌晨少 */
+const HOUR_WEIGHTS = [3, 2, 1, 1, 0, 0, 0, 1, 2, 2, 2, 3, 5, 4, 2, 2, 2, 3, 4, 5, 7, 9, 9, 6]
+
+/**
+ * 仅开发环境 `?scale=N`：再生成 N 部虚构作品、上万话，测画廊和书库在大书库下的性能。
+ * 漫画 id 从 5001 起；章节 id 用 1000 万 + 序号 × 1000 + 话数，与原有「漫画 id × 100 + 话数」不会重叠。
+ */
+function scaledLibrary(scale: number, now: number, categories: Category[], makeManga: MakeManga) {
+  const rand = seeded(scale)
+  const nowSec = Math.floor(now / 1000)
+  const hourSum = HOUR_WEIGHTS.reduce((a, b) => a + b, 0)
+  const pickHour = () => {
+    let r = rand() * hourSum
+    for (let h = 0; h < 24; h++) if ((r -= HOUR_WEIGHTS[h]) < 0) return h
+    return 21
+  }
+  // 按浏览器本地零点生成，阅读高峰才会落在本地的晚上
+  const today = Math.floor(new Date(now).setHours(0, 0, 0, 0) / 1000)
+  return Array.from({ length: Math.min(scale, 5000) }, (_, k) => {
+    const title = `${TITLES[k % TITLES.length]} ${Math.floor(k / TITLES.length) + 2}`
     const chapters: DemoChapter[] = []
+    const m = makeManga({
+      id: 5001 + k, title, thumbnailUrl: cover(title, k), author: 'Sukimi 演示画室', artist: 'Sukimi 演示画室',
+      description: '为性能测试生成的虚构作品。', genre: k % 2 ? ['日常'] : ['冒险'], status: k % 4 ? 'ONGOING' : 'COMPLETED',
+      realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(nowSec - Math.floor(rand() * 400) * 86400),
+      source: SOURCE, categories: { nodes: [categories[k % 2]] }, meta: [],
+    }, chapters)
+    const total = 3 + Math.floor(rand() * 150)
+    const r = rand()
+    // 约两成已追平，一成半没开始读，其余读到一半
+    const read = r < 0.2 ? total : r < 0.35 ? 0 : Math.floor(total * rand())
+    const imported = rand() < 0.05
+    // 最后一次读这部在多少天前；越靠前的话读得越早，每天读四话左右
+    const last = Math.floor(rand() ** 2 * 200)
+    for (let n = 1; n <= total; n++) {
+      const isRead = n <= read
+      const at = isRead && !imported ? today - (last + Math.floor((read - n) / 4)) * 86400 + pickHour() * 3600 + Math.floor(rand() * 3600) : 0
+      chapters.push({
+        id: 10_000_000 + k * 1000 + n, mangaId: m.id, manga: m, name: `第 ${n} 话`, chapterNumber: n, sourceOrder: n,
+        pageCount: rand() < 0.05 ? 0 : 18 + Math.floor(rand() * 30), lastPageRead: 0,
+        isRead, isBookmarked: false, isDownloaded: false, scanlator: '演示画室', meta: [],
+        lastReadAt: String(Math.min(at, nowSec)),
+        fetchedAt: String(nowSec - (total - n) * 86400 * 3), uploadDate: String(now - (total - n) * 86400000 * 3),
+      })
+    }
+    return m
+  })
+}
+
+/** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
+export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0 }: { scale?: number } = {}) {
+  const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }]
+  /** 各项统计都按章节现算，改了已读、书签后跟着变 */
+  const makeManga: MakeManga = (fields, chapters) => {
     const m: DemoManga = {
-      id: i + 1, title, thumbnailUrl: cover(title, i), author: 'Sukimi 演示画室', artist: 'Sukimi 演示画室',
-      description: '一封寄往远方的信，一趟不赶时间的旅程。在山间、森林与小城之间，发现那些被日常忽略的相遇。\n这是为 Sukimi 创作的虚构演示作品，封面和阅读页面均在本地生成。',
-      genre: i % 2 ? ['日常', '治愈'] : ['冒险', '奇幻'], status: i % 3 ? 'ONGOING' : 'COMPLETED',
-      realUrl: null, initialized: true, inLibrary: i < 10, inLibraryAt: String(Math.floor(now / 1000) - i * 86400),
-      source: SOURCE, categories: { nodes: [categories[i % 2]] }, chapters: { nodes: chapters }, meta: [],
+      ...fields,
+      chapters: { nodes: chapters, get totalCount() { return chapters.length } },
       get trackRecords() { return connection(tracks.filter((t) => t.mangaId === m.id)) },
       get unreadCount() { return chapters.filter((c) => !c.isRead).length },
       get downloadCount() { return chapters.filter((c) => c.isDownloaded).length },
@@ -114,6 +182,17 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       get latestFetchedChapter() { return chapters[chapters.length - 1] },
       get latestUploadedChapter() { return chapters[chapters.length - 1] },
     }
+    return m
+  }
+  const mangas: DemoManga[] = TITLES.map((title, i) => {
+    const chapters: DemoChapter[] = []
+    const m = makeManga({
+      id: i + 1, title, thumbnailUrl: cover(title, i), author: 'Sukimi 演示画室', artist: 'Sukimi 演示画室',
+      description: '一封寄往远方的信，一趟不赶时间的旅程。在山间、森林与小城之间，发现那些被日常忽略的相遇。\n这是为 Sukimi 创作的虚构演示作品，封面和阅读页面均在本地生成。',
+      genre: i % 2 ? ['日常', '治愈'] : ['冒险', '奇幻'], status: i % 3 ? 'ONGOING' : 'COMPLETED',
+      realUrl: null, initialized: true, inLibrary: i < 10, inLibraryAt: String(Math.floor(now / 1000) - i * 86400),
+      source: SOURCE, categories: { nodes: [categories[i % 2]] }, meta: [],
+    }, chapters)
     // 第 9 部（在书库）和最后一部（不在书库）从没读过，演示「开始阅读」与首页「还没开始读」
     const fresh = i === 8 || i === TITLES.length - 1
     // 第 10 部像 Tachiyomi 时期导入的：前两话标了已读、没有阅读时间，不能算「还没开始读」
@@ -132,22 +211,12 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
   })
   openWorks.forEach(({ work, url }, w) => {
     const chapters: DemoChapter[] = []
-    const m: DemoManga = {
+    const m = makeManga({
       id: 1001 + w, title: work.title, thumbnailUrl: url(`${work.id}/${work.cover}`), author: work.author, artist: work.author,
       description: work.description, genre: work.genre, status: work.status,
       realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(Math.floor(now / 1000) - w * 86400),
-      source: OPEN_SOURCE, categories: { nodes: [] }, chapters: { nodes: chapters }, meta: [],
-      get trackRecords() { return connection(tracks.filter((t) => t.mangaId === m.id)) },
-      get unreadCount() { return chapters.filter((c) => !c.isRead).length },
-      get downloadCount() { return 0 },
-      get bookmarkCount() { return chapters.filter((c) => c.isBookmarked).length },
-      get firstUnreadChapter() { return chapters.find((c) => !c.isRead) ?? null },
-      // 与真实服务端一致：没读过时也会返回第一话，只是阅读时间为 0
-      get lastReadChapter() { return [...chapters].sort((a, b) => Number(b.lastReadAt) - Number(a.lastReadAt) || a.sourceOrder - b.sourceOrder)[0] ?? null },
-      get latestReadChapter() { return chapters.filter((c) => c.isRead).sort((a, b) => b.sourceOrder - a.sourceOrder)[0] ?? null },
-      get latestFetchedChapter() { return chapters[chapters.length - 1] },
-      get latestUploadedChapter() { return chapters[chapters.length - 1] },
-    }
+      source: OPEN_SOURCE, categories: { nodes: [] }, meta: [],
+    }, chapters)
     for (const c of work.chapters) chapters.push({
       id: m.id * 100 + c.number, mangaId: m.id, manga: m, name: c.name, chapterNumber: c.number, sourceOrder: c.number,
       pageCount: c.pages.length, lastPageRead: 0, lastReadAt: '0', isRead: false, isBookmarked: false, isDownloaded: false,
@@ -156,6 +225,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     })
     mangas.push(m)
   })
+  if (scale > 0) mangas.push(...scaledLibrary(scale, now, categories, makeManga))
   const allChapters = mangas.flatMap((m) => m.chapters.nodes)
   // 第一部已绑定，读过两话、打了 8 分
   const tracks: DemoTrack[] = [{
@@ -172,8 +242,9 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     if (!m) throw new Error('这部漫画不在演示书库中')
     return m
   }
+  const chapterById = new Map(allChapters.map((c) => [c.id, c]))
   const findChapter = (id: number) => {
-    const c = allChapters.find((c) => c.id === id)
+    const c = chapterById.get(id)
     if (!c) throw new Error('这一话不在演示书库中')
     return c
   }
@@ -210,7 +281,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     categories: () => connection(categories),
     chapters: (args: ListArgs) => {
       const nodes = allChapters.filter((c) => matches(c, args.condition, args.filter))
-      const fields: Record<string, keyof DemoChapter> = { LAST_READ_AT: 'lastReadAt', FETCHED_AT: 'fetchedAt', SOURCE_ORDER: 'sourceOrder' }
+      const fields: Record<string, keyof DemoChapter> = { ID: 'id', LAST_READ_AT: 'lastReadAt', FETCHED_AT: 'fetchedAt', SOURCE_ORDER: 'sourceOrder' }
       nodes.sort((a, b) => {
         for (const order of args.order ?? []) {
           const key = fields[order.by]
