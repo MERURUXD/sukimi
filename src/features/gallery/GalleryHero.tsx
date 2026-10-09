@@ -18,8 +18,8 @@ export interface HeroStats {
   done: number
 }
 
-/** 首屏封面墙区域的类名：首页和画布过渡的第一帧共用，两边排版才完全一致 */
-export const HERO_BOX = 'relative flex h-[480px] flex-col pt-[var(--nav-h)] md:h-[min(880px,100svh)] md:min-h-[680px]'
+/** 首屏封面墙区域的类名：首页和画布过渡的第一帧共用，两边排版才完全一致。占满一屏：下面的全部作品默认收起 */
+export const HERO_BOX = 'relative flex h-svh min-h-[560px] flex-col pt-[var(--nav-h)] md:min-h-[680px]'
 
 /**
  * 首屏的文字和两扇「门」，直接放在封面墙上，不再套玻璃面板：
@@ -29,11 +29,42 @@ export const HERO_BOX = 'relative flex h-[480px] flex-col pt-[var(--nav-h)] md:h
  * 画布的进入过渡会在原位置摆出同一份（decorative），再让它淡出、上移。透明度和位移由外层的
  * CSS 变量 --fade、--lift 给出，只读在每个元素自身上（和画布上其他界面的写法一致）。
  */
-export function HeroCopy({ stats, mobile, decorative, intro }: { stats: HeroStats; mobile: boolean; decorative?: boolean; intro?: boolean }) {
+export function HeroCopy({
+  stats,
+  mobile,
+  decorative,
+  intro,
+  late,
+  onBrowse,
+}: {
+  stats: HeroStats
+  mobile: boolean
+  decorative?: boolean
+  intro?: boolean
+  /** 从书库飞进来时：等封面上了墙再淡入 */
+  late?: boolean
+  /** 全部作品还收着时，点「浏览全部」展开并滑过去 */
+  onBrowse?: () => void
+}) {
   const chapterText = stats.chapters == null ? '—' : count(stats.chapters)
-  const fx = cn(decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]', intro && 'rise')
+  const fx = cn(decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]', late ? 'gallery-late' : intro && 'rise')
   const d = (ms: number) => ({ '--d': `${ms}ms` }) as CSSProperties
   const tab = decorative ? -1 : undefined
+  const browse = (
+    <a
+      href="#all"
+      tabIndex={tab}
+      onClick={(e) => {
+        if (!onBrowse) return
+        e.preventDefault()
+        onBrowse()
+      }}
+      className={cn('flex items-center gap-1.5 font-medium text-muted no-underline hover:text-text', mobile ? 'text-[13px]' : 'text-sm')}
+    >
+      浏览全部 {count(stats.works)} 部
+      <ArrowDown className={cn('size-4', onBrowse && !decorative && 'gallery-nudge')} strokeWidth={2} />
+    </a>
+  )
   const door = <ReadDoor read={stats.read} mobile={mobile} decorative={decorative} className={fx} style={d(mobile ? 120 : 160)} />
   const canvas = (
     <Link
@@ -49,7 +80,8 @@ export function HeroCopy({ stats, mobile, decorative, intro }: { stats: HeroStat
   )
   if (mobile) {
     return (
-      <div className="wrap mt-auto flex flex-col gap-3 pb-5" aria-hidden={decorative || undefined} inert={decorative || undefined}>
+      // 底部留出标签栏的高度：首屏占满一屏，标签栏浮在上面
+      <div className="wrap mt-auto flex flex-col gap-3 pb-[calc(var(--tabbar-h)+14px)]" aria-hidden={decorative || undefined} inert={decorative || undefined}>
         <p className={cn('m-0 text-xs font-medium tracking-[.3em] text-muted', fx)}>书库画廊</p>
         <h1 className={cn('m-0 font-cjk text-[34px] leading-[1.15] font-black tracking-[-0.01em]', fx)} style={d(40)}>
           每一部收藏，
@@ -64,6 +96,9 @@ export function HeroCopy({ stats, mobile, decorative, intro }: { stats: HeroStat
             {canvas}
           </span>
           {door}
+        </div>
+        <div className={cn('flex justify-center pt-1', fx)} style={d(160)}>
+          {browse}
         </div>
       </div>
     )
@@ -86,10 +121,7 @@ export function HeroCopy({ stats, mobile, decorative, intro }: { stats: HeroStat
         </p>
         <div className={cn('mt-2 flex items-center gap-7', fx)} style={d(120)}>
           {canvas}
-          <a href="#all" tabIndex={tab} className="flex items-center gap-1.5 text-sm font-medium text-muted no-underline hover:text-text">
-            浏览全部 {count(stats.works)} 部
-            <ArrowDown className="size-4" strokeWidth={2} />
-          </a>
+          {browse}
         </div>
       </div>
       {door}

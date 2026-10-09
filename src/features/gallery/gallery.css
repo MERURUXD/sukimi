@@ -325,3 +325,33 @@ html[data-gallery-morph] .gallery-blob-a,
 html[data-gallery-morph] .gallery-blob-b {
   animation-play-state: paused;
 }
+/* 首页「浏览全部」的箭头：全部作品还收着时轻轻往下点，提示可以往下滚 */
+@keyframes gallery-nudge {
+  0%,
+  60%,
+  100% {
+    translate: 0 0;
+  }
+  30% {
+    translate: 0 4px;
+  }
+}
+.gallery-nudge {
+  animation: gallery-nudge 2.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gallery-nudge {
+    animation: none;
+  }
+}
+/* 从书库飞进画廊首页：封面上了墙以后，标题、入口和暗角才淡入上移（--d 是各段的错开） */
+@keyframes gallery-late {
+  from {
+    opacity: 0;
+    translate: 0 18px;
+  }
+}
+.gallery-late {
+  animation: gallery-late 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(1.05s + var(--d, 0ms));
+}

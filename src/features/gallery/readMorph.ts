@@ -15,6 +15,45 @@ export function armReadMorph() {
   timer = window.setTimeout(() => delete document.documentElement.dataset.galleryMorph, 1400)
 }
 
+let enterTimer = 0
+
+/** 书库里一张封面在屏幕上的位置 */
+export interface CoverRect {
+  x: number
+  y: number
+  w: number
+  h: number
+  /** 书库里那张封面的图 */
+  src: string | null
+}
+
+let libraryCovers: { at: number; rects: Map<number, CoverRect> } | null = null
+
+/**
+ * 从书库点「画廊」：记下书库里看得见的封面在屏幕上的位置和图，画廊首页的墙从这些位置开始，
+ * 把同一批封面平着摆在原处，再整块飞到墙上、倾斜成墙（见 HeroWall）。同时挂上 data-gallery-enter：
+ * 换页时书库的标题、工具栏和底色从上面淡出（index.css），底下画廊的封面已经在原位，看起来就是同一批封面飞走。
+ */
+export function enterGalleryFromLibrary() {
+  const rects = new Map<number, CoverRect>()
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('main a[href*="/manga/"]')) {
+    const id = Number(/\/manga\/(\d+)$/.exec(a.getAttribute('href') ?? '')?.[1])
+    if (!id || rects.has(id)) continue
+    const cv = a.matches('.cv') ? a : a.querySelector<HTMLElement>('.cv')
+    if (!cv) continue
+    const r = cv.getBoundingClientRect()
+    if (r.width < 8 || r.bottom < 0 || r.top > window.innerHeight) continue
+    rects.set(id, { x: r.left, y: r.top, w: r.width, h: r.height, src: cv.querySelector('img')?.getAttribute('src') ?? null })
+  }
+  libraryCovers = { at: performance.now(), rects }
+  document.documentElement.dataset.galleryEnter = ''
+  window.clearTimeout(enterTimer)
+  enterTimer = window.setTimeout(() => delete document.documentElement.dataset.galleryEnter, 1200)
+}
+
+/** 画廊首页挂上时取刚才记下的封面位置；过了一会儿的不算（开发模式的严格模式会挂两次，所以不在这里清掉） */
+export const libraryCoversForEntry = () => (libraryCovers && performance.now() - libraryCovers.at < 2000 ? libraryCovers.rects : null)
+
 /** 点击时按住修饰键（新标签页打开）不算换页 */
 export const plainClick = (e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) =>
   e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey

@@ -207,3 +207,26 @@ export const homeWallExtra = (w: number, h: number, wall = 0) => ({
   extraX: (w / 2 / HOME_WALL.scale) * 0.25 * (1 - wall),
   extraY: (h / 2 / HOME_WALL.scale) * 0.5 * (1 - wall),
 })
+
+/**
+ * 墙上的显示顺序：cellIndex 算出的位置 p 放第 order[p] 部，默认 order[p] = p（按收藏先后）。
+ * 从书库进画廊时，书库的封面整块落到墙上一块格子里，要让这些格子正好放着同一部：
+ * 把 wants 里的「位置 → 第几部」逐个用交换换进去。交换后仍是一个排列，相邻格子照样不会是同一部；
+ * 同一个位置被要两次（书少、格子重复）时后来的作罢。fixed 是实际换上的位置。
+ */
+export function placeOrder(n: number, wants: readonly (readonly [number, number])[]) {
+  const order = Array.from({ length: n }, (_, i) => i)
+  const posOf = order.slice()
+  const fixed = new Set<number>()
+  const placed = new Set<number>()
+  for (const [p, item] of wants) {
+    if (p < 0 || p >= n || item < 0 || item >= n || fixed.has(p) || placed.has(item)) continue
+    const q = posOf[item]
+    ;[order[p], order[q]] = [order[q], order[p]]
+    posOf[order[p]] = p
+    posOf[order[q]] = q
+    fixed.add(p)
+    placed.add(item)
+  }
+  return { order, fixed }
+}

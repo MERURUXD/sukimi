@@ -22,7 +22,6 @@ import {
   homeWallExtra,
   DESKTOP_GRID,
   MOBILE_GRID,
-  cellIndex,
   centerOn,
   clamp01,
   clampSpeed,
@@ -36,7 +35,7 @@ import {
   type Grid,
 } from './canvasMath'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
-import { wallState } from './HeroWall'
+import { wallItem, wallPosOf, wallState } from './HeroWall'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { useForceDark } from '@/design/settings'
 import { galleryOrder, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
@@ -201,7 +200,7 @@ export function CanvasPage() {
       const el = slots.current[i]
       const cell = byKey.get(key)
       if (!el || !cell) continue
-      const idx = cellIndex(cell.c, cell.r, list.length)
+      const idx = wallItem(cell.c, cell.r, list.length)
       const m = list[idx]
       const meta = (slotMeta.current[i] ??= { key: '', idx: -1, x: 0, y: 0, z: 0, rx: 0, ry: 0, url: null })
       if (meta.idx !== idx || meta.url !== m.thumbnailUrl) {
@@ -251,7 +250,7 @@ export function CanvasPage() {
       hud.current.style.setProperty('--hud', s || pl ? '0' : p.hud.toFixed(3))
       hud.current.style.pointerEvents = !s && !pl && p.hud > 0.5 ? '' : 'none'
     }
-    if (center) setFocus(cellIndex(center.c, center.r, list.length))
+    if (center) setFocus(wallItem(center.c, center.r, list.length))
   }, [size, grid, poolSize, hero, fromGallery])
 
   /** 推进一帧：过渡补间、惯性、吸附、平移动画 */
@@ -574,7 +573,7 @@ export function CanvasPage() {
     const id = playCur.current ?? playRef.current?.id
     const idx = items.findIndex((m) => m.id === id)
     const c = centerCell()
-    const target = idx >= 0 && c ? nearestCellOf(idx, n, c) : null
+    const target = idx >= 0 && c ? nearestCellOf(wallPosOf(idx, n), n, c) : null
     let landing: TilePose | null = null
     if (target) {
       // 放映盖着画布，直接把这一部摆到中心，不用平移过去
@@ -622,7 +621,7 @@ export function CanvasPage() {
   const jumpTo = (index: number) => {
     setSearching(false)
     const c = centerCell()
-    const target = c && nearestCellOf(index, n, c)
+    const target = c && nearestCellOf(wallPosOf(index, n), n, c)
     if (target) panToCell(target.c, target.r)
   }
 

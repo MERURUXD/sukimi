@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  DESKTOP_GRID, MOBILE_GRID, assignSlots, cellIndex, centerOn, columnStep, decay, domePose, introPhases, nearestCell, nearestCellOf, snapTarget, visibleCells,
+  DESKTOP_GRID, MOBILE_GRID, assignSlots, cellIndex, placeOrder, centerOn, columnStep, decay, domePose, introPhases, nearestCell, nearestCellOf, snapTarget, visibleCells,
 } from '../src/features/gallery/canvasMath.ts'
 import { fit, hfit, mostlyLatin, textWidth, vfit } from '../src/features/gallery/titleFit.ts'
 
@@ -111,4 +111,21 @@ test('格子池：留下的格子沿用原来的元素，新格子填空位，�
   const c = assignSlots(b, ['x', 'y', 'z', '0:1', '1:0'], 3)
   assert.equal(c.size, 3)
   assert.equal(c.get('0:1'), 1)
+})
+
+test('墙的显示顺序：要的位置换上指定的那部，仍是排列，相邻格子不重复', () => {
+  const n = 30
+  const wants = [[3, 17], [4, 2], [10, 3], [3, 9], [11, 17]]
+  const { order, fixed } = placeOrder(n, wants)
+  assert.deepEqual([order[3], order[4], order[10]], [17, 2, 3])
+  // 同一位置第二次、同一部第二次都作罢
+  assert.deepEqual([...fixed].sort((a, b) => a - b), [3, 4, 10])
+  assert.deepEqual([...order].sort((a, b) => a - b), Array.from({ length: n }, (_, i) => i))
+  for (let c = -5; c <= 5; c++) {
+    for (let r = -5; r <= 5; r++) {
+      assert.notEqual(order[cellIndex(c, r, n)], order[cellIndex(c, r + 1, n)])
+      assert.notEqual(order[cellIndex(c, r, n)], order[cellIndex(c + 1, r, n)])
+    }
+  }
+  assert.deepEqual(placeOrder(5, []).order, [0, 1, 2, 3, 4])
 })
