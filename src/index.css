@@ -634,6 +634,22 @@ html[data-theme-vt='light']::view-transition-old(root) {
   display: none;
 }
 
+/* 从书库进画廊：书库那一页（标题、工具栏、底色，封面也在里面）在上面很快淡出；底下画廊首页的墙
+   已经把同一批封面摆在书库的原位，所以封面看起来不动，接着由墙自己飞上去（gallery/HeroWall）。
+   data-gallery-enter 只在这一次换页期间挂（gallery/readMorph 的 enterGalleryFromLibrary） */
+html[data-gallery-enter]::view-transition-old(root) {
+  z-index: 1;
+  animation: gallery-fade-out 0.3s ease-out both;
+}
+html[data-gallery-enter]::view-transition-new(root) {
+  animation: none;
+}
+@keyframes gallery-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),

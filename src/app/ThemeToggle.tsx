@@ -2,8 +2,9 @@ import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useId, useState, type MouseEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { Glass } from '@/components/glass/Glass'
+import { toast } from '@/components/ui/toast'
 import { spring } from '@/design/motion'
-import { useAppearance } from '@/design/settings'
+import { themeForced, useAppearance } from '@/design/settings'
 
 const RAYS = Array.from({ length: 8 }, (_, i) => i * 45)
 /** 月牙缺口里的两颗星：x、y、大小、闪烁错开的延迟（样式在 index.css 的 .theme-star，只在悬停时闪） */
@@ -76,6 +77,12 @@ export function ThemeToggle() {
     const apply = () => {
       root.dataset.theme = next
       flushSync(() => setTheme(next))
+    }
+    // 书库画廊固定深色：只记下选择，离开画廊后生效，页面颜色不动
+    if (themeForced()) {
+      setTheme(next)
+      toast(`书库画廊固定深色，离开画廊后换成${next === 'dark' ? '深色' : '浅色'}`)
+      return
     }
     if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return apply()
 

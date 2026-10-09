@@ -20,6 +20,7 @@ test('演示数据符合正式首页、书库、详情、历史和发现查询',
     ['LibraryMangas', {}], ['Categories', {}], ['MangaDetail', { id: 1 }], ['MangaChapters', { mangaId: 1 }],
     ['History', { first: 100, offset: 0 }], ['LastUpdate', {}], ['Sources', {}], ['SourceFilters', { id: '9000' }],
     ['ExtensionUpdateCount', {}], ['MangaTracks', { id: 1 }],
+    ['GalleryCounts', {}], ['GalleryReadChapters', { first: 2000, offset: 0 }],
   ]) {
     assert.ok(docs[`${name}Document`], `${name} 查询存在`)
     ok(root, docs[`${name}Document`], variables)
@@ -37,6 +38,42 @@ test('演示数据符合正式首页、书库、详情、历史和发现查询',
   assert.equal(page.chapters.nodes.length, 2)
   assert.ok(page.chapters.pageInfo.hasNextPage)
   assert.ok(page.chapters.nodes.every((c) => !c.isRead))
+})
+
+test('画廊：总话数与读过的章节按组合条件筛出', () => {
+  const root = createDemoData()
+  const counts = ok(root, docs.GalleryCountsDocument).mangas.nodes
+  assert.equal(counts.length, 10)
+  assert.ok(counts.every((m) => m.chapters.totalCount === 8))
+  const read = ok(root, docs.GalleryReadChaptersDocument, { first: 2000, offset: 0 }).chapters
+  // 已读或有阅读时间：第 9 部没读过、第 10 部只有已读标记、第 12 部不在书库
+  assert.ok(read.nodes.every((c) => c.isRead || Number(c.lastReadAt) > 0))
+  assert.ok(read.nodes.every((c) => c.mangaId !== 9 && c.mangaId !== 12))
+  assert.deepEqual(read.nodes.filter((c) => c.mangaId === 10).map((c) => [c.id, c.lastReadAt]), [[1001, '0'], [1002, '0']])
+  assert.deepEqual(read.nodes.map((c) => c.id), [...read.nodes.map((c) => c.id)].sort((a, b) => a - b))
+  const page = ok(root, docs.GalleryReadChaptersDocument, { first: 5, offset: 5 }).chapters
+  assert.equal(page.nodes.length, 5)
+  assert.deepEqual(page.nodes.map((c) => c.id), read.nodes.slice(5, 10).map((c) => c.id))
+})
+
+test('开发用大书库：规模可控、编号不冲突、结果稳定', () => {
+  const now = Date.UTC(2026, 9, 9, 12)
+  const root = createDemoData(now, [], { scale: 50 })
+  const lib = ok(root, docs.LibraryMangasDocument).mangas.nodes
+  assert.equal(lib.length, 60)
+  assert.equal(new Set(lib.map((m) => m.thumbnailUrl)).size, 60)
+  assert.ok(lib.every((m) => !m.thumbnailUrl.includes('undefined')))
+  const ids = []
+  for (let offset = 0, more = true; more; offset += 2000) {
+    const page = ok(root, docs.GalleryReadChaptersDocument, { first: 2000, offset }).chapters
+    ids.push(...page.nodes.map((c) => c.id))
+    more = page.pageInfo.hasNextPage
+  }
+  assert.equal(new Set(ids).size, ids.length)
+  assert.ok(ids.length > 500)
+  const again = createDemoData(now, [], { scale: 50 })
+  assert.equal(ok(again, docs.GalleryReadChaptersDocument, { first: 1, offset: 300 }).chapters.nodes[0].lastReadAt,
+    ok(root, docs.GalleryReadChaptersDocument, { first: 1, offset: 300 }).chapters.nodes[0].lastReadAt)
 })
 
 test('阅读页生成本地图片，进度修改只影响当前演示实例', () => {

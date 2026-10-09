@@ -21,16 +21,8 @@ import { MangaTracks } from '@/features/tracking/queries'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
+import { STATUS } from './status'
 import './MangaHero.css'
-
-const STATUS: Record<string, string> = {
-  ONGOING: '连载中',
-  COMPLETED: '已完结',
-  PUBLISHING_FINISHED: '连载结束',
-  ON_HIATUS: '休刊',
-  CANCELLED: '已腰斩',
-  LICENSED: '已授权',
-}
 
 export function MangaHero({
   manga,

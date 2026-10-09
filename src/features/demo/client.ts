@@ -17,10 +17,16 @@ async function loadOpenWorks() {
   } catch { return [] }
 }
 
+/** 仅开发环境：`/demo/…?scale=600` 再生成几百部虚构作品测性能；进入演示时读一次，之后切页不再看网址 */
+function devScale() {
+  if (!import.meta.env.DEV) return 0
+  return Math.max(0, Number(new URLSearchParams(window.location.search).get('scale')) || 0)
+}
+
 /** 只执行本地虚构数据；没有 HTTP、订阅或回退到服务端的链路。 */
 export async function createDemoClient() {
   const schema = buildSchema(schemaText)
-  const rootValue = createDemoData(Date.now(), await loadOpenWorks())
+  const rootValue = createDemoData(Date.now(), await loadOpenWorks(), { scale: devScale() })
   return new ApolloClient({
     cache: createCache(),
     link: new ApolloLink((operation) => new Observable((observer) => {
