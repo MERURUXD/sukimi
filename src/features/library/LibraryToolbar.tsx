@@ -1,11 +1,15 @@
-import { ArrowDown, ArrowUp, Check, CheckSquare, Minus, Plus, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, CheckSquare, Images, Minus, Plus, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useState } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { Popover } from '@/components/ui/Popover'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { cn } from '@/lib/cn'
+import { GlassLink } from '@/components/glass/GlassLink'
+import { enterGalleryFromLibrary, plainClick } from '@/features/gallery/readMorph'
 import { FILTERS, SORTS } from './filtering'
 import { useLibraryView, type Density } from './store'
+
+const prefetchGallery = () => void import('@/features/gallery/GalleryPage')
 
 const DENSITIES: SegItem<Density>[] = [
   { value: 'comfy', label: '舒适网格' },
@@ -169,6 +173,23 @@ export function LibraryToolbar({
           <Seg label="显示方式" glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
         </div>
       </Popover>
+
+      {/* 书库里的封面一起飞上画廊那面墙（见 gallery/readMorph 的 enterGalleryFromLibrary） */}
+      <GlassLink
+        to="/library/gallery"
+        state={{ from: 'library' }}
+        viewTransition
+        onClick={(e) => plainClick(e) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && enterGalleryFromLibrary()}
+        // 指到按钮上就先载入画廊页的代码：第一次点开时过场不用边飞边等下载和解析
+        onPointerEnter={prefetchGallery}
+        onFocus={prefetchGallery}
+        className="gbtn rounded-full no-underline max-sm:size-11 max-sm:px-0"
+        aria-label="书库画廊"
+        title="书库画廊"
+      >
+        <Images className="size-[18px]" strokeWidth={1.8} />
+        <span className="max-sm:hidden" aria-hidden>画廊</span>
+      </GlassLink>
 
       <Glass as="button" type="button" className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', selecting && 'bg-g-hi')} aria-pressed={selecting} onClick={onToggleSelect}>
         {selecting ? <Check className="size-[18px]" strokeWidth={2} /> : <CheckSquare className="size-[18px]" strokeWidth={1.8} />}

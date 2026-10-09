@@ -16,14 +16,26 @@ const page = <K extends string>(load: () => Promise<Record<K, React.ComponentTyp
   lazy: async () => ({ Component: (await load())[name] }),
 })
 
+/** 书库画廊的全屏页（固定深色），和阅读器一样不带导航 */
+const galleryRoutes = [
+  // 画布和放映是同一个页面：放映叠在画布上，进出放映时画布不卸载，封面在页面里直接飞出飞回
+  {
+    ...page(() => import('@/features/gallery/CanvasPage'), 'CanvasPage'),
+    children: [{ path: 'library/gallery/canvas' }, { path: 'library/gallery/play' }],
+  },
+  { path: 'library/gallery/stats', ...page(() => import('@/features/gallery/StatsPage'), 'StatsPage') },
+]
+
 const demoRoutes = [{
   element: <DemoGate />,
   errorElement: <RouteError />,
   children: [
     { path: 'manga/:id/chapter/:chapterId', ...page(() => import('@/features/reader/ReaderPage'), 'ReaderPage') },
+    ...galleryRoutes,
     { element: <AppShell />, children: [
       { index: true, element: <HomePage /> },
       { path: 'library', element: <LibraryPage /> },
+      { path: 'library/gallery', ...page(() => import('@/features/gallery/GalleryPage'), 'GalleryPage') },
       { path: 'manga/:id', element: <MangaPage /> },
       { path: 'updates', ...page(() => import('@/features/updates/UpdatesPage'), 'UpdatesPage') },
       { path: 'browse', ...page(() => import('@/features/browse/BrowsePage'), 'BrowsePage') },
@@ -57,11 +69,13 @@ export const router = createBrowserRouter(isDemo ? demoRoutes : [
     children: [
       // 阅读器全屏，不带顶部导航
       { path: 'manga/:id/chapter/:chapterId', ...page(() => import('@/features/reader/ReaderPage'), 'ReaderPage') },
+      ...galleryRoutes,
       {
         element: <AppShell />,
         children: [
           { index: true, element: <HomePage /> },
           { path: 'library', element: <LibraryPage /> },
+          { path: 'library/gallery', ...page(() => import('@/features/gallery/GalleryPage'), 'GalleryPage') },
           { path: 'manga/:id', element: <MangaPage /> },
           { path: 'manga/:id/migrate', ...page(() => import('@/features/manga/MigratePage'), 'MigratePage') },
           { path: 'updates', ...page(() => import('@/features/updates/UpdatesPage'), 'UpdatesPage') },
