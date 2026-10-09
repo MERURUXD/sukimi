@@ -499,7 +499,14 @@ export function CanvasPage() {
   }
 
   const close = useCallback(() => {
-    if (!selRef.current) return
+    const s = selRef.current
+    if (!s) return
+    // 从作品详情页返回时详情层是直接摆好的，不知道从哪一格来：画布已恢复到原来的位置，按格子编号找回那一格，封面照样飞回去
+    if (!s.tile && s.key && s.index === s.origin) {
+      const slot = assigned.current.get(s.key)
+      const meta = slot === undefined ? undefined : slotMeta.current[slot]
+      if (meta && meta.idx === s.index) setSel({ ...s, tile: { x: meta.x, y: meta.y, z: meta.z, rx: meta.rx, ry: meta.ry } })
+    }
     setClosing(true)
   }, [])
   const closed = useCallback(() => {
