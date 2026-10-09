@@ -2,6 +2,7 @@ import type { ApolloClient } from '@apollo/client'
 import { useApolloClient } from '@apollo/client/react'
 import { useCallback, useEffect, useState } from 'react'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
+import { afterViewTransition } from './readMorph'
 import { GalleryReadChapters, type ReadChapter } from './queries'
 
 const PAGE = 2000
@@ -35,6 +36,9 @@ export function useReadChapters() {
     void (async () => {
       const all: ReadChapter[] = []
       try {
+        // 已读话数正在飞的时候先不取：几千话的结果要解析（演示数据还要在本页现算），会让飞行一顿一顿的
+        await afterViewTransition()
+        if (!alive) return
         for (let offset = 0; ; offset += PAGE) {
           const { data } = await client.query({ query: GalleryReadChapters, variables: { first: PAGE, offset }, fetchPolicy: 'no-cache' })
           // 取的过程中换了账号：这些是上一个账号的阅读记录，丢掉

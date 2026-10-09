@@ -3,6 +3,7 @@ import type { LibraryManga } from '@/features/library/queries'
 import { cn } from '@/lib/cn'
 import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, centerOn, homeWallExtra, visibleCells, type Grid } from './canvasMath'
 import { useReducedMotionPref } from './hooks'
+import { activeViewTransition } from './readMorph'
 
 /**
  * 首页墙的位置，首页和画布之间交接用：首页一直在写，进画布时画布从这里接着画；
@@ -89,8 +90,11 @@ export function HeroWall({ items, mobile, className }: { items: readonly Library
     const step = (now: number) => {
       const dt = last ? Math.min(48, now - last) : 16
       last = now
-      wallState.cx -= dt * HOME_WALL.drift
-      paint()
+      // 换页动画期间不动：新页面是实时画面，墙每帧挪一下整页都要重画，飞行中的数字会卡；0.75 秒只差几个像素
+      if (!activeViewTransition()) {
+        wallState.cx -= dt * HOME_WALL.drift
+        paint()
+      }
       raf = requestAnimationFrame(step)
     }
     const sync = () => {

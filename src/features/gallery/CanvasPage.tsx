@@ -38,6 +38,7 @@ import {
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { wallState } from './HeroWall'
 import { GlassLink } from '@/components/glass/GlassLink'
+import { useForceDark } from '@/design/settings'
 import { galleryOrder, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { GalleryPeek } from './queries'
 import { PERSPECTIVE, poseTransform, screenCenter, tileTransform, type TilePose } from './coverPose'
@@ -71,6 +72,7 @@ const pad = (i: number) => String(i + 1).padStart(2, '0')
 
 /** 无限画布：整个书库铺成一颗可以拖动的球面。固定深色、全屏，不在 AppShell 里。 */
 export function CanvasPage() {
+  useForceDark()
   const { all, totals, stats, categories, loading } = useGalleryLibrary()
   const items = useMemo(() => galleryOrder(all), [all])
   const n = items.length
@@ -85,8 +87,6 @@ export function CanvasPage() {
   const fromGallery = navState?.from === 'gallery'
   // 首页首屏在屏幕上的位置；直接打开网址时没有，按首页没滚动时的样子摆
   const hero = fromGallery ? navState?.layout : undefined
-  // 过渡第一帧的首屏文字和顶栏要和首页同一主题，画布本身固定深色
-  const [appTheme] = useState(() => document.documentElement.dataset.theme ?? 'dark')
   const restoring = navType === 'POP' && memory?.mobile === mobile ? memory : null
   // 放映和画布是同一个页面（见 router）：放映叠在画布上，封面在页面里直接飞，不靠换页动画
   const atPlay = location.pathname === `${GALLERY}/play`
@@ -679,8 +679,8 @@ export function CanvasPage() {
         </div>
       </div>
 
-      {/* 首页的暗角，和首页同一主题、同一位置；首屏以外是首页的底色（手机上墙只占上半屏）。过渡中淡出 */}
-      <div ref={introVig} aria-hidden data-theme={appTheme} className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* 首页的暗角，和首页同一位置（画廊固定深色）；首屏以外是首页的底色（手机上墙只占上半屏）。过渡中淡出 */}
+      <div ref={introVig} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute"
           style={{
@@ -700,7 +700,7 @@ export function CanvasPage() {
       {/* 进入过渡的第一帧：在首页原来的位置摆出同一份首屏和导航，随后文字淡出上移、导航滑出。
           纯装饰，读屏跳过、点不到；app-shell 带上导航和内容需要的尺寸变量 */}
       {!ready && (
-        <div ref={stage} aria-hidden inert data-theme={appTheme} className="app-shell has-tabbar pointer-events-none absolute inset-0">
+        <div ref={stage} aria-hidden inert className="app-shell has-tabbar pointer-events-none absolute inset-0">
           <div
             className={HERO_BOX}
             style={{ position: 'absolute', ...(hero ? { left: hero.left, top: hero.top, width: hero.width, height: hero.height, minHeight: 0 } : { left: 0, right: 0, top: 0 }) }}

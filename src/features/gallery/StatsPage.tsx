@@ -10,10 +10,11 @@ import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { PAGE_PATH_ATTR } from '@/lib/coverTransition'
 import type { Rgb } from '@/lib/palette'
+import { useForceDark } from '@/design/settings'
 import { clamp01 } from './canvasMath'
 import { GALLERY } from './GalleryHero'
 import { useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { armReadMorph } from './readMorph'
+import { afterViewTransition, armReadMorph } from './readMorph'
 import { heatLevel, summarize, type ReadingStats } from './stats'
 import { useReadChapters } from './useReadChapters'
 import './gallery.css'
@@ -55,15 +56,23 @@ function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur =
       setT(1)
       return
     }
-    const start = performance.now()
+    let start = 0
+    let alive = true
     const step = (now: number) => {
+      start ||= now
       const k = clamp01((now - start) / dur)
       setT(k)
       if (k < 1) raf.current = requestAnimationFrame(step)
       else memory.shown = true
     }
-    raf.current = requestAnimationFrame(step)
-    return () => cancelAnimationFrame(raf.current)
+    // 从首页飞数字进来时，等数字落地再开始：进场每帧都要重画整页，和飞行抢主线程，数字会一顿一顿的
+    void afterViewTransition().then(() => {
+      if (alive) raf.current = requestAnimationFrame(step)
+    })
+    return () => {
+      alive = false
+      cancelAnimationFrame(raf.current)
+    }
   }, [ready, reduced, dur])
 
   const leave = useCallback(
@@ -114,6 +123,7 @@ const dateLabel = (t: number) => {
  * 从画廊首页点「已读话数」进来时，那个数字由换页动画飞成这里的大数字；返回时再飞回去（见 readMorph）。
  */
 export function StatsPage() {
+  useForceDark()
   const { all, totals, stats: lib, loading: libLoading } = useGalleryLibrary()
   const reads = useReadChapters()
   const mobile = useMobile()
@@ -145,7 +155,10 @@ export function StatsPage() {
   const secondCover = ranked[1]?.manga.thumbnailUrl
   useEffect(() => {
     let alive = true
-    void Promise.all([coverColor(firstCover), coverColor(secondCover ?? firstCover)]).then((c) => alive && setGlow(c))
+    // 取主色要读封面像素，等飞行落地再做
+    void afterViewTransition()
+      .then(() => Promise.all([coverColor(firstCover), coverColor(secondCover ?? firstCover)]))
+      .then((c) => alive && setGlow(c))
     return () => {
       alive = false
     }

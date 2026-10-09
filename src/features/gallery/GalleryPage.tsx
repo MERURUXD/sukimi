@@ -6,6 +6,7 @@ import { inCategory } from '@/features/library/category'
 import { LibraryGrid, LibrarySkeleton } from '@/features/library/LibraryGrid'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { useForceDark } from '@/design/settings'
 import { HeroWall } from './HeroWall'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { galleryOrder, isCompleted, useGalleryLibrary, useMobile } from './hooks'
@@ -17,6 +18,7 @@ const parseFilter = (v: string | null): FilterValue => (v === 'done' ? 'done' : 
 
 /** 书库画廊首页：倾斜封面墙上的标题与两扇门（画布、阅读档案），下面是全部作品。跟随主题。 */
 export function GalleryPage() {
+  useForceDark()
   const { all, stats, categories, loading, error } = useGalleryLibrary()
   const mobile = useMobile()
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画

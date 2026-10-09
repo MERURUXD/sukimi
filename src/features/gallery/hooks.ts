@@ -4,6 +4,7 @@ import { withSnapshot } from '@/api/persist'
 import { FILTERS } from '@/features/library/filtering'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { GalleryCounts } from './queries'
+import { useLanded } from './readMorph'
 
 export function useMedia(query: string) {
   return useSyncExternalStore(
@@ -30,7 +31,9 @@ export function useGalleryLibrary() {
   const cats = useQuery(Categories)
   const data = withSnapshot('library', lib.data)
   const catData = withSnapshot('categories', cats.data)
-  const counts = useQuery(GalleryCounts, { fetchPolicy: 'cache-and-network' })
+  // 换页动画期间只读缓存，落地后再去网络刷新（见 useLanded）
+  const landed = useLanded()
+  const counts = useQuery(GalleryCounts, { fetchPolicy: landed ? 'cache-and-network' : 'cache-only' })
   const all = useMemo<LibraryManga[]>(() => data?.mangas.nodes ?? [], [data])
   const totals = useMemo(
     () => (counts.data ? new Map(counts.data.mangas.nodes.map((m) => [m.id, m.chapters.totalCount])) : null),

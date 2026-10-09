@@ -320,3 +320,8 @@ html[data-gallery-morph]::view-transition-old(root),
 html[data-gallery-morph]::view-transition-new(root) {
   animation-duration: 0.5s;
 }
+/* 飞行期间停住档案页背景里大块模糊光晕的漂移：新页面是实时画面，光晕每帧重绘很耗 GPU */
+html[data-gallery-morph] .gallery-blob-a,
+html[data-gallery-morph] .gallery-blob-b {
+  animation-play-state: paused;
+}
