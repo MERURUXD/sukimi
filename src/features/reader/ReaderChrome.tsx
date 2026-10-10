@@ -78,6 +78,7 @@ export function ReaderChrome({
   onNextChapter: () => void
 }) {
   const paged = settings.mode === 'single' || settings.mode === 'double'
+  const rtl = paged && settings.dir === 'rtl'
   const first = Math.min(...shown)
   const last = Math.max(...shown)
   const manyPages = pageCount > 60
@@ -164,8 +165,9 @@ export function ReaderChrome({
               dense
               className="pointer-events-auto flex w-[min(920px,100%)] items-center gap-3 rounded-full px-2.5 py-2 max-sm:gap-1.5"
             >
-              <button type="button" className={tb} disabled={!hasPrev} onClick={onPrevChapter} title="上一话（[）">
-                <ChevronLeft className="size-[18px]" strokeWidth={1.8} />
+              {/* 从右往左读时，下一话在左、上一话在右，和翻页方向一致；用 order 换位，中间的页码与进度条不动 */}
+              <button type="button" className={cn(tb, rtl && 'order-last')} disabled={!hasPrev} onClick={onPrevChapter} title="上一话（[）">
+                {rtl ? <ChevronRight className="size-[18px]" strokeWidth={1.8} /> : <ChevronLeft className="size-[18px]" strokeWidth={1.8} />}
                 <span className="max-sm:hidden">上一话</span>
               </button>
               <span className="w-[72px] flex-none text-center text-[13px] font-bold num max-sm:w-auto">{pageLabel}</span>
@@ -210,9 +212,10 @@ export function ReaderChrome({
                 style={{ direction: paged && settings.dir === 'rtl' ? 'rtl' : 'ltr' }}
               />
               <span className="text-xs whitespace-nowrap text-muted max-md:hidden">预加载 {settings.preload} 页</span>
-              <button type="button" className={tb} disabled={!hasNext} onClick={onNextChapter} title="下一话（]）">
+              <button type="button" className={cn(tb, rtl && '-order-1')} disabled={!hasNext} onClick={onNextChapter} title="下一话（]）">
+                {rtl ? <ChevronLeft className="size-[18px]" strokeWidth={1.8} /> : null}
                 <span className="max-sm:hidden">下一话</span>
-                <ChevronRight className="size-[18px]" strokeWidth={1.8} />
+                {rtl ? null : <ChevronRight className="size-[18px]" strokeWidth={1.8} />}
               </button>
             </MotionGlass>
           </div>
