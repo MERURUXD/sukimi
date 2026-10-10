@@ -1,6 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router'
+import { LoadError } from '@/components/ui/LoadError'
 import { toast, toastError } from '@/components/ui/toast'
 import { justLeftReader } from '@/features/reader/nav'
 import { syncTrackProgress } from '@/features/tracking/sync'
@@ -79,7 +80,7 @@ export function MangaPage() {
   }
 
   if (manga.error) {
-    return <p className="wrap pt-10 text-danger">加载失败：{manga.error.message.split('\n')[0]}</p>
+    return <LoadError className="wrap pt-10" message={manga.error.message} onRetry={() => void refetchManga().catch(() => {})} />
   }
   // 从列表点进来时缓存里已有封面和标题：先画骨架，封面过渡动画才有落点。
   // 完整信息就绪后才播放内容进场，缓存再次进入也沿用相同顺序。

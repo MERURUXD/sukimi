@@ -12,6 +12,7 @@ import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { DownloadPill } from '@/components/manga/DownloadPill'
 import { confirm } from '@/components/ui/Confirm'
+import { LoadError } from '@/components/ui/LoadError'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { toast, toastError } from '@/components/ui/toast'
@@ -253,6 +254,7 @@ export function UpdatesPage() {
           ))}
           <div ref={sentinel} />
           {loading && !data && <RowsSkeleton />}
+          {updates.error && !data && <LoadError message={updates.error.message} onRetry={() => void refetch().catch(() => {})} />}
           {loading && data && !syncing && <p className="py-6 text-center text-muted">正在加载…</p>}
         </section>
 

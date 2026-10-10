@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { LoadError } from '@/components/ui/LoadError'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { hasSnapshot } from '@/api/persist'
 import { inCategory } from '@/features/library/category'
@@ -29,7 +30,7 @@ export function GalleryPage() {
   const from = (location.state as { from?: string } | null)?.from
   const origin = from === 'library' || from === 'home' ? from : null
   const sharedWall = origin === 'home'
-  const { all, stats, categories, loading, error } = useGalleryLibrary()
+  const { all, stats, categories, loading, error, refetch } = useGalleryLibrary()
   const mobile = useMobile()
   const homeWindowVisible = useAppearance((s) => s.homeGallery)
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
@@ -196,7 +197,7 @@ export function GalleryPage() {
           </div>
 
           {loading && <LibrarySkeleton density={mobile ? 'compact' : 'comfy'} />}
-          {error && <p className="text-danger">加载失败：{error.message.split('\n')[0]}</p>}
+          {error && <LoadError message={error.message} onRetry={() => void refetch()} />}
           {empty && <p className="px-6 py-20 text-center text-muted">书库是空的，去「发现」页添加漫画吧。</p>}
           <LibraryGrid
             items={items}
