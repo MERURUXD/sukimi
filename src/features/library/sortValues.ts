@@ -17,9 +17,22 @@ export function libraryScore(records: readonly { trackerId: number; displayScore
   return scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null
 }
 
-/** 两个排序值比大小；null（没有这项数据）不论正序倒序都排在最后，相等返回 0 由调用方再按标题排 */
-export function compareSortValues(a: number | string | null, b: number | string | null, desc: boolean, collate: (a: string, b: string) => number) {
-  if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1
+/**
+ * 两个排序值比大小；null（没有这项数据）默认不论正序倒序都排在最后，相等返回 0 由调用方再按标题排。
+ * nullsHigh 为真时把 null 当作最大值：倒序排在最前、正序排在最后（评分排序用，方便先找出没打分的）
+ */
+export function compareSortValues(
+  a: number | string | null,
+  b: number | string | null,
+  desc: boolean,
+  collate: (a: string, b: string) => number,
+  nullsHigh = false,
+) {
+  if (a === null || b === null) {
+    if (a === b) return 0
+    const aFirst = nullsHigh ? desc : false
+    return (a === null) === aFirst ? -1 : 1
+  }
   const c = typeof a === 'string' ? collate(a, b as string) : a - (b as number)
   return c === 0 ? 0 : desc ? -c : c
 }
