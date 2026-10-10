@@ -1,0 +1,71 @@
+/* 书库页头的「画廊」入口（GalleryPill.tsx）。按钮本身保持安静，只有图标在指上去 / 键盘聚焦时动：
+   后面那张照片向左下滑开，前面那张向右上抬起、微微转一下，太阳弹一下，山重新画一遍。
+   只用 transform 和描边偏移，不会让按钮重绘整块玻璃。 */
+.gallery-pill {
+  width: 112px;
+}
+@media (max-width: 639.98px) {
+  .gallery-pill {
+    width: 44px;
+  }
+}
+
+.gallery-icon {
+  overflow: visible;
+}
+.gallery-icon .gi-back,
+.gallery-icon .gi-front {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+.gallery-icon .gi-sun {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.gallery-icon .gi-hill {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+@media (hover: hover) {
+  .gallery-pill:hover .gi-back,
+  .gallery-pill:focus-visible .gi-back {
+    transform: translate(-1.4px, 1.4px);
+  }
+  .gallery-pill:hover .gi-front,
+  .gallery-pill:focus-visible .gi-front {
+    transform: translate(1.2px, -1.2px) rotate(4deg);
+  }
+  .gallery-pill:hover .gi-sun,
+  .gallery-pill:focus-visible .gi-sun {
+    animation: gallery-icon-sun 0.6s cubic-bezier(0.3, 1.4, 0.5, 1) 0.1s both;
+  }
+  .gallery-pill:hover .gi-hill,
+  .gallery-pill:focus-visible .gi-hill {
+    animation: gallery-icon-hill 0.6s cubic-bezier(0.3, 0.7, 0.3, 1) 0.05s both;
+  }
+}
+
+@keyframes gallery-icon-sun {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.55);
+  }
+  70% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes gallery-icon-hill {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

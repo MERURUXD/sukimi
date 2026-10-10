@@ -8,8 +8,8 @@ import { Row, Section, Switch } from '../parts'
 
 export function AppearanceTab() {
   const {
-    theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg,
-    setTheme, setGlass, setMangaDetailMotion, setAutoHideNav, setHomeMobileLayout, setHomeDesktopLayout, setHomeMotionBg,
+    theme, glass, mangaDetailMotion, autoHideNav, homeMotionBg,
+    setTheme, setGlass, setMangaDetailMotion, setAutoHideNav, setHomeMotionBg,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const canRefract = supportsRefract()
@@ -48,35 +48,6 @@ export function AppearanceTab() {
         </Row>
         <Row label="自动隐藏顶栏" hint="向下滚动时隐藏顶部的导航与按钮，向上滚动再出现，避免盖住正文。关闭后顶栏始终悬浮。">
           <Switch on={autoHideNav} onChange={setAutoHideNav} label="自动隐藏顶栏" />
-        </Row>
-      </Section>
-
-      <Section title="首页展示" desc="手机与桌面分别选择，自动保存到当前浏览器。">
-        <Row label="手机首页布局" hint="居中海报保留完整封面，全幅封面突出画面与人物。">
-          <Seg
-            glass={false}
-            label="手机首页布局"
-            className="max-md:[&_button]:min-h-11"
-            items={[
-              { value: 'poster', label: '居中海报' },
-              { value: 'cover', label: '全幅封面' },
-            ]}
-            value={homeMobileLayout}
-            onChange={setHomeMobileLayout}
-          />
-        </Row>
-        <Row label="桌面首页布局" hint="封面与文字并排展示，或将封面铺满背景。全幅模式会裁切画面。">
-          <Seg
-            glass={false}
-            label="桌面首页布局"
-            className="max-md:[&_button]:min-h-11"
-            items={[
-              { value: 'poster', label: '封面与文字' },
-              { value: 'cover', label: '全幅封面' },
-            ]}
-            value={homeDesktopLayout}
-            onChange={setHomeDesktopLayout}
-          />
         </Row>
         <Row label="动态背景" hint="首页（「封面与文字」「居中海报」布局）和漫画详情页的背景取封面主色缓慢流动，详情页更慢。关闭后首页显示静态模糊封面、详情页色块静止；系统开启「减弱动态效果」时同样静止。">
           <Switch on={homeMotionBg} onChange={setHomeMotionBg} label="动态背景" />

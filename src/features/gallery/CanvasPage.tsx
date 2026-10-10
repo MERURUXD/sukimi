@@ -36,8 +36,9 @@ import {
   type Grid,
 } from './canvasMath'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
-import { wallItem, wallPosOf, wallState } from './HeroWall'
+import { wallItem, wallPosOf, wallState } from './wall'
 import { BACK_SLOT, GalleryBack } from './GalleryBack'
+import { armCanvasBack } from './readMorph'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { useForceDark } from '@/design/settings'
 import { galleryOrder, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
@@ -407,6 +408,7 @@ export function CanvasPage() {
     const back = () => {
       if (gone) return
       gone = true
+      if (fromGallery && !reduced) armCanvasBack()
       if (fromGallery && (window.history.state?.idx ?? 0) > 0) navigate(-1)
       else navigate(GALLERY)
     }

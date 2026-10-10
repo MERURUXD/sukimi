@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useApplyGlassTuning } from './glassTuning'
 import { preferenceKey } from '@/lib/demo'
+import { normalizeHomeOrder, normalizeHomePreferences, type HomeContentSection, type HomeSection } from '@/features/home/preferences'
 
 export type ThemePref = 'system' | 'dark' | 'light'
 export type GlassMode = 'refract' | 'frosted' | 'solid'
@@ -16,6 +17,9 @@ interface AppearanceState {
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
   homeMotionBg: boolean
+  homeSections: Record<HomeContentSection, boolean>
+  homeSectionOrder: HomeSection[]
+  homeGallery: boolean
   /** 画廊放映每部停留的秒数 */
   galleryInterval: number
   setTheme: (theme: ThemePref) => void
@@ -25,6 +29,9 @@ interface AppearanceState {
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
   setHomeMotionBg: (on: boolean) => void
+  setHomeSection: (id: HomeContentSection, on: boolean) => void
+  setHomeSectionOrder: (order: readonly HomeSection[]) => void
+  setHomeGallery: (on: boolean) => void
   setGalleryInterval: (seconds: number) => void
 }
 
@@ -43,6 +50,7 @@ export const useAppearance = create<AppearanceState>()(
       homeDesktopLayout: 'poster',
       // 旧偏好里没有这个字段，合并默认值后开启
       homeMotionBg: true,
+      ...normalizeHomePreferences(null),
       // 旧偏好里没有这个字段，合并默认值后为 7 秒
       galleryInterval: 7,
       setTheme: (theme) => set({ theme }),
@@ -52,12 +60,18 @@ export const useAppearance = create<AppearanceState>()(
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
       setHomeMotionBg: (homeMotionBg) => set({ homeMotionBg }),
+      setHomeSection: (id, on) => set((s) => ({ homeSections: { ...s.homeSections, [id]: on } })),
+      setHomeSectionOrder: (order) => set({ homeSectionOrder: normalizeHomeOrder(order) }),
+      setHomeGallery: (homeGallery) => set({ homeGallery }),
       setGalleryInterval: (galleryInterval) => set({ galleryInterval }),
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval }) =>
-        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval }),
+      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+        homeSections, homeSectionOrder, homeGallery }) =>
+        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+          homeSections, homeSectionOrder, homeGallery }),
+      merge: (saved, current) => ({ ...current, ...saved as Partial<AppearanceState>, ...normalizeHomePreferences(saved) }),
     },
   ),
 )

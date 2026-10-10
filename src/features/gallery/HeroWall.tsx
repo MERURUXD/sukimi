@@ -1,49 +1,16 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { LibraryManga } from '@/features/library/queries'
 import { cn } from '@/lib/cn'
-import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, centerOn, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells, type Grid } from './canvasMath'
+import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells } from './canvasMath'
 import { useReducedMotionPref } from './hooks'
-import { activeViewTransition, type CoverRect } from './readMorph'
-
-/**
- * 首页墙的位置，首页和画布之间交接用：首页一直在写，进画布时画布从这里接着画；
- * 倒放回首页时画布写回来，首页从那里继续流动。整个页面会话内有效。
- * 记的是相对屏幕中心的偏移（ox - 宽 / 2）：首页和画布量到的宽度可能差一个滚动条，按左边记会错开半个滚动条宽。
- */
-export const wallState: {
-  cx: number
-  cy: number
-  grid: Grid | null
-  order: number[] | null
-  /**
-   * 从书库进来时书库封面落在墙上的哪一块（格子编号）、落地时墙在哪。回书库时墙先倒回这个位置，
-   * 原来那一块封面回到屏幕中间，再由这些格子本身飞回书库，不会换成别的封面。from 是当时记下的书库封面位置
-   */
-  landing: { cx: number; cy: number; keys: ReadonlyMap<string, CoverRect>; from: ReadonlyMap<number, CoverRect> } | null
-} = { cx: NaN, cy: NaN, grid: null, order: null, landing: null }
-
-/**
- * 第 (c, r) 格放第几部。默认按收藏先后（cellIndex）；从书库进来时换过几格（wallState.order，见 placeOrder），
- * 首页的墙和画布都按它画，进画布时内容才接得上。编号、放映顺序、搜索仍按收藏先后。
- */
-export function wallItem(c: number, r: number, n: number) {
-  const p = cellIndex(c, r, n)
-  const o = wallState.order
-  return o && o.length === n && p >= 0 ? o[p] : p
-}
-
-/** 第 i 部在墙上的位置（cellIndex 的值），找最近放着它的格子用 */
-export function wallPosOf(i: number, n: number) {
-  const o = wallState.order
-  return o && o.length === n ? o.indexOf(i) : i
-}
+import { libraryCoversForReturn, type CoverRect } from './readMorph'
+import { ensureWall, wallItem, wallState, wallTransform } from './wall'
 
 /** 从书库进来的过场：先停一下（书库的标题和工具栏在上面淡出），再飞上墙 */
 const ENTRY_HOLD = 260
 const ENTRY_DUR = 1500
 /** 回书库的倒放稍快一点 */
 const EXIT_DUR = 1100
-
 /** 首页墙挂着时可用：把中间那块封面飞回书库的原位、墙转平，放完调 done（见 GalleryPage 的「返回书库」） */
 let exitToLibrary: ((rects: ReadonlyMap<number, CoverRect>, done: () => void) => void) | null = null
 export function flyWallToLibrary(rects: ReadonlyMap<number, CoverRect>, done: () => void) {
@@ -55,9 +22,6 @@ export function flyWallToLibrary(rects: ReadonlyMap<number, CoverRect>, done: ()
 /** 仅开发环境：控制台 __heroWall.freeze(0.4) 把从书库进来的过场停在某个进度逐帧检查，freeze(null) 继续 */
 let devFreeze: number | null = null
 if (import.meta.env.DEV) (window as unknown as { __heroWall?: object }).__heroWall = { freeze: (k: number | null) => (devFreeze = k) }
-
-const wallTransform = (k: number) =>
-  `perspective(1800px) rotateX(${(HOME_WALL.rotateX * k).toFixed(3)}deg) rotateZ(${(HOME_WALL.rotateZ * k).toFixed(3)}deg) scale(${(1 + (HOME_WALL.scale - 1) * k).toFixed(4)})`
 
 /**
  * 画廊首页的倾斜封面墙。和画布进入过渡的第一帧完全一样：同一张交错网格、同样的排列（按收藏先后取模）、
@@ -94,6 +58,8 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     () => visibleCells(0, 0, size.w, size.h, grid, { scale: HOME_WALL.scale, ...homeWallExtra(size.w, size.h) }).length + 24,
     [size, grid],
   )
+  // 书库来的才有叠在上面的书库封面（飞入、飞回用），其余的不渲染，少一半图片元素
+  const overlay = !!entry || !!libraryCoversForReturn()
 
   const slots = useRef<(HTMLSpanElement | null)[]>([])
   const shown = useRef<(string | null)[]>([])
@@ -111,10 +77,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     const el = root.current
     if (!el || !items.length) return
     const { w, h } = size
-    if (wallState.grid !== grid || Number.isNaN(wallState.cx)) {
-      const c = centerOn(0, 0, w, h, grid)
-      Object.assign(wallState, { cx: c.x - w / 2, cy: c.y - h / 2, grid })
-    }
+    ensureWall(w, h, grid)
 
     /**
      * 书库那一块封面对应墙上的哪一块格子：按原来的行列（x / y 聚类）落到墙上同样行列的一块，
@@ -182,7 +145,6 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     const paint = (k = 1, fly: Fly | null = null, out = false) => {
       // 墙的程度：1 是倾斜的墙，0 是平铺在书库原位
       const e = fly ? (out ? 1 - k : k) : 1
-      // 和画布过渡第一帧同样的偏移与范围
       const cells = visibleCells(wallState.cx + w / 2 + HOME_WALL.slide, wallState.cy + h / 2, w, h, grid, { scale: HOME_WALL.scale, ...homeWallExtra(w, h) })
       const next = assignSlots(assigned.current, cells.map((c) => c.key), pool)
       assigned.current = next
@@ -204,12 +166,14 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
         }
         s.style.visibility = ''
         const o = fly && e < 1 ? fly.get(cell.key) : undefined
-        const over = s.lastElementChild as HTMLImageElement
-        if (o && o.src && o.src !== m.thumbnailUrl) {
-          // 格子放的不是书库那一部：进场时后段淡成格子自己的封面，出场时一开始先淡成书库的封面
-          if (over.getAttribute('src') !== o.src) over.src = o.src
-          over.style.opacity = (out ? clamp01(k / 0.3) : 1 - clamp01((k - 0.62) / 0.33)).toFixed(3)
-        } else if (over.style.opacity !== '0') over.style.opacity = '0'
+        const over = s.children[1] as HTMLImageElement | undefined
+        if (over) {
+          if (o && o.src && o.src !== m.thumbnailUrl) {
+            // 格子放的不是书库那一部：进场时后段淡成格子自己的封面，出场时一开始先淡成书库的封面
+            if (over.getAttribute('src') !== o.src) over.src = o.src
+            over.style.opacity = (out ? clamp01(k / 0.3) : 1 - clamp01((k - 0.62) / 0.33)).toFixed(3)
+          } else if (over.style.opacity !== '0') over.style.opacity = '0'
+        }
         if (o) {
           const x = o.x + (cell.x - o.x) * e
           const y = o.y + (cell.y - o.y) * e
@@ -269,11 +233,9 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
         return
       }
       if (reduced) return
-      // 换页动画期间不动：新页面是实时画面，墙每帧挪一下整页都要重画，飞行中的数字会卡；0.75 秒只差几个像素
-      if (!activeViewTransition()) {
-        wallState.cx -= dt * HOME_WALL.drift
-        paint()
-      }
+      // 从画布和阅读档案回来时，墙在换页动画里就接着流动，避免落地后停一下。
+      wallState.cx -= dt * HOME_WALL.drift
+      paint()
       raf = requestAnimationFrame(step)
     }
     const sync = () => {
@@ -332,7 +294,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
 
   return (
     <div ref={root} aria-hidden className={cn('pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className)} style={{ width: size.w, height: size.h }}>
-      <div ref={plane} className="absolute inset-0 origin-center" style={{ perspective: 1100, transform: wallTransform(intro.current ? 0 : 1) }}>
+      <div ref={plane} className="absolute inset-0 origin-center" style={{ perspective: 1100, transform: intro.current ? wallTransform(0) : wallTransform(1) }}>
         {Array.from({ length: items.length ? pool : 0 }, (_, i) => (
           <span
             key={i}
@@ -344,7 +306,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
           >
             <img alt="" draggable={false} decoding="async" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
             {/* 从书库飞进来时叠在上面的书库封面，飞到后段淡掉 */}
-            <img alt="" draggable={false} decoding="async" className="absolute inset-0" style={{ opacity: 0 }} />
+            {overlay && <img alt="" draggable={false} decoding="async" className="absolute inset-0" style={{ opacity: 0 }} />}
           </span>
         ))}
       </div>
