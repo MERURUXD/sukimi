@@ -7,6 +7,7 @@ import {
   DatabaseBackup,
   Download,
   Info,
+  House,
   LibraryBig,
   ListChecks,
   Palette,
@@ -28,6 +29,7 @@ import { ReaderDefaults } from './ReaderDefaults'
 import { usePendingRestart } from './server'
 import { AboutTab } from './tabs/AboutTab'
 import { AppearanceTab } from './tabs/AppearanceTab'
+import { HomeTab } from './tabs/HomeTab'
 import { BackupTab } from './tabs/BackupTab'
 import { BrowseTab } from './tabs/BrowseTab'
 import { DownloadsTab } from './tabs/DownloadsTab'
@@ -56,7 +58,8 @@ interface Tab {
 }
 
 const TABS: Tab[] = [
-  { id: 'appearance', label: '外观', icon: Palette, desc: '主题、玻璃效果、首页布局', Component: AppearanceTab },
+  { id: 'appearance', label: '外观', icon: Palette, desc: '主题、玻璃效果、动态背景', Component: AppearanceTab },
+  { id: 'home', label: '首页', icon: House, desc: '首页布局、内容开关、显示顺序', Component: HomeTab },
   { id: 'reading', label: '阅读', icon: BookOpen, desc: '阅读模式、翻页、点击分区', Component: ReadingTab },
   { id: 'library', label: '书库', icon: LibraryBig, desc: '分类、自动检查更新', Component: LibraryTab },
   { id: 'downloads', label: '下载', icon: Download, desc: '下载目录、自动下载、格式转换', Component: DownloadsTab },

@@ -6,7 +6,7 @@ import { inCategory } from '@/features/library/category'
 import { LibraryGrid, LibrarySkeleton } from '@/features/library/LibraryGrid'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
-import { useForceDark } from '@/design/settings'
+import { useAppearance, useForceDark } from '@/design/settings'
 import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
@@ -31,6 +31,7 @@ export function GalleryPage() {
   const sharedWall = origin === 'home'
   const { all, stats, categories, loading, error } = useGalleryLibrary()
   const mobile = useMobile()
+  const homeWindowVisible = useAppearance((s) => s.homeGallery)
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
   const [intro] = useState(() => !hasSnapshot('library') && all.length === 0)
 
@@ -135,7 +136,8 @@ export function GalleryPage() {
         hero.current?.querySelectorAll<HTMLElement>(only).forEach((el) =>
           el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration, easing: 'ease-out', fill: 'forwards' }),
         )
-      if (backHome && canBack && !reduced && window.scrollY <= 2 && armWindowBack()) {
+      // 首页橱窗关闭时走普通返回，不等待不存在的取景窗。
+      if (backHome && canBack && homeWindowVisible && !reduced && window.scrollY <= 2 && armWindowBack()) {
         // 文字和墙同步收尾，不先等待一次淡出；导航独立于墙层。
         navigate(-1)
         return
@@ -145,7 +147,7 @@ export function GalleryPage() {
       fadeUi()
       if (!flyWallToLibrary(rects, go)) go()
     },
-    [origin, navigate, reduced],
+    [origin, navigate, reduced, homeWindowVisible],
   )
   const toBack = useCallback(() => leave('back'), [leave])
 
