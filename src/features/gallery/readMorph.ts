@@ -105,6 +105,30 @@ export const activeViewTransition = () => (document as Document & { activeViewTr
 /** 正在进行的换页动画结束后（没有就立刻） */
 export const afterViewTransition = () => (activeViewTransition()?.finished ?? Promise.resolve()).catch(() => {})
 
+let canvasBackAt = -Infinity
+let canvasBackTimer = 0
+
+/** 画布已倒放到画廊的姿态，换页直接接上实时墙，不再叠一层静止快照淡化。 */
+export function armCanvasBack() {
+  canvasBackAt = performance.now()
+  const at = canvasBackAt
+  libraryCovers = null
+  windowEntry = null
+  document.documentElement.dataset.galleryCanvasBack = ''
+  window.clearTimeout(canvasBackTimer)
+  canvasBackTimer = window.setTimeout(() => finishCanvasBack(at), 8000)
+}
+
+export const canvasBackForEntry = () => performance.now() - canvasBackAt < 2000 ? canvasBackAt : null
+
+export function finishCanvasBack(at: number) {
+  // 上一次换页迟到的 finished 不能清掉下一次返回的样式。
+  if (canvasBackAt !== at) return
+  canvasBackAt = -Infinity
+  window.clearTimeout(canvasBackTimer)
+  delete document.documentElement.dataset.galleryCanvasBack
+}
+
 /**
  * 挂上时如果正在换页动画（已读话数在飞），返回 false，落地后变 true。
  * 用来把网络刷新推迟到落地以后：结果要解析（演示数据还要在本页现算），和飞行抢主线程会一顿一顿的。

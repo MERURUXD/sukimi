@@ -650,6 +650,15 @@ html[data-gallery-enter]::view-transition-new(root) {
   }
 }
 
+/* 画布先在页面内倒放到墙的姿态，返回时直接显示实时墙，避免静止旧快照再次淡化。 */
+html[data-gallery-canvas-back]::view-transition-group(root),
+html[data-gallery-canvas-back]::view-transition-old(root),
+html[data-gallery-canvas-back]::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-gallery-canvas-back]::view-transition-old(root) { display: none; }
+
 /* 首页橱窗 ⇄ 画廊：只展开封面墙，页面和导航保持各自的坐标系。
    样式一直保留到 ViewTransition.finished，避免结束前恢复默认交叉淡化。 */
 html:is([data-gallery-window], [data-gallery-window-back])::view-transition-group(root),

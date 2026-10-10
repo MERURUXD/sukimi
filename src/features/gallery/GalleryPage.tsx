@@ -12,7 +12,7 @@ import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { galleryOrder, isCompleted, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { armLibraryFade, armWindowBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry } from './readMorph'
+import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry } from './readMorph'
 import './gallery.css'
 
 type FilterValue = 'all' | 'done' | number
@@ -41,19 +41,24 @@ export function GalleryPage() {
   const [entry] = useState(libraryCoversForEntry)
   // 首页来路保留同一面墙，取景范围和标题一起展开。
   const [reveal] = useState(windowEntryForEntry)
+  const [canvasBack] = useState(canvasBackForEntry)
+  useEffect(() => {
+    if (canvasBack !== null) void afterViewTransition().then(() => finishCanvasBack(canvasBack))
+  }, [canvasBack])
 
   /* 像幻灯片一样分两页：首屏的墙、全部作品（见 usePaging） */
   const reduced = useReducedMotionPref()
   const grid = useRef<HTMLElement>(null)
   const page = usePaging(grid, reduced)
   // 从书库飞进来时，第二页（几百部的网格）等封面上了墙再挂：一起挂的话第一帧要多渲染一百多毫秒，过场开头会顿一下
-  const [gridReady, setGridReady] = useState(!entry && !reveal)
+  const [gridReady, setGridReady] = useState(!entry && !reveal && canvasBack === null)
   useEffect(() => {
     if (gridReady) return
-    if (reveal) {
+    if (reveal || canvasBack !== null) {
       let alive = true
       let idle = 0
-      void afterWindowWall().then(() => {
+      // 画布已回到墙的姿态，先交接首屏，下面的作品网格等换页结束后空闲挂载。
+      void (reveal ? afterWindowWall() : afterViewTransition()).then(() => {
         if (!alive) return
         const mount = () => alive && setGridReady(true)
         idle = typeof requestIdleCallback === 'function' ? requestIdleCallback(mount, { timeout: 1000 }) : window.setTimeout(mount, 80)
@@ -66,7 +71,7 @@ export function GalleryPage() {
     }
     const t = setTimeout(() => setGridReady(true), 1900)
     return () => clearTimeout(t)
-  }, [gridReady, reveal])
+  }, [gridReady, reveal, canvasBack])
   const toGrid = useCallback(() => {
     if (gridReady) return page('grid')
     setGridReady(true)
