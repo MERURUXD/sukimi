@@ -20,6 +20,7 @@ import { DemoNotice } from '@/features/demo/DemoGate'
 const LINKS = [
   { to: '/', label: '首页', end: true },
   { to: '/library', label: '书库' },
+  { to: '/history', label: '历史' },
   { to: '/updates', label: '更新' },
   { to: '/browse', label: '发现' },
 ]
