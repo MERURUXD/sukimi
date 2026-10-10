@@ -17,7 +17,9 @@ import { useSelection } from '@/lib/useSelection'
 import { applyView, inCategory, librarySources, SORTS } from './filtering'
 import { LibraryGrid, LibrarySkeleton } from './LibraryGrid'
 import { LibraryToolbar } from './LibraryToolbar'
+import { libraryScore } from './sortValues'
 import {
+  type LibraryManga,
   Categories,
   ChapterIds,
   LibraryMangas,
@@ -47,6 +49,11 @@ export function LibraryPage() {
   // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
   const trackers = data?.trackers.nodes
   const scales = useMemo(() => new Map(trackers?.map((t) => [t.id, t.scores] as const)), [trackers])
+  // 按评分排序时，封面上标出分数
+  const scoreOf = useMemo(
+    () => (view.sort === 'score' ? (m: LibraryManga) => libraryScore(m.trackRecords.nodes, scales) : undefined),
+    [view.sort, scales],
+  )
   const items = useMemo(
     () => applyView(all, { ...view, defaultCategoryId, query: deferredQuery, scales }),
     [all, view, defaultCategoryId, deferredQuery, scales],
@@ -228,6 +235,7 @@ export function LibraryPage() {
           <LibraryGrid
             items={items}
             intro={intro}
+            scoreOf={scoreOf}
             density={view.density}
             selecting={selecting}
             selected={sel.selected}

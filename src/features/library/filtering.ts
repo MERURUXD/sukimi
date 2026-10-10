@@ -25,17 +25,21 @@ export interface SortContext {
   scales: ReadonlyMap<number, readonly string[]>
 }
 
-/** value 返回 null 表示没有这项数据（如未评分），不论正序倒序都排在最后 */
-export const SORTS: { key: SortKey; label: string; value: (m: LibraryManga, ctx: SortContext) => number | string | null }[] = [
+/** value 返回 null 表示没有这项数据（如未评分），默认不论正序倒序都排在最后；nullsHigh 的排序把 null 当最大值，倒序时排在最前 */
+export const SORTS: {
+  key: SortKey
+  label: string
+  value: (m: LibraryManga, ctx: SortContext) => number | string | null
+  nullsHigh?: boolean
+}[] = [
   { key: 'updated', label: '最近更新', value: lastUpdated },
   { key: 'read', label: '最近阅读', value: (m) => sec(m.lastReadChapter?.lastReadAt) },
   { key: 'added', label: '加入时间', value: (m) => sec(m.inLibraryAt) },
   { key: 'title', label: '标题', value: (m) => m.title },
   { key: 'unread', label: '未读数', value: (m) => m.unreadCount },
   { key: 'downloaded', label: '已下载数', value: (m) => m.downloadCount },
-  { key: 'score', label: '评分', value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales) },
+  { key: 'score', label: '评分', value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsHigh: true },
 ]
-
 export function matchesSearch(m: LibraryManga, q: string) {
   if (!q) return true
   const hay = [m.title, m.author, m.artist, m.source?.displayName, ...m.genre].filter(Boolean).join('\n').toLowerCase()
@@ -70,7 +74,7 @@ export function applyView(
   )
   const ctx: SortContext = { scales: opts.scales ?? new Map() }
   const keyed = out.map((m) => [sort.value(m, ctx), m] as const)
-  keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare) || collator.compare(ma.title, mb.title))
+  keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare, sort.nullsHigh) || collator.compare(ma.title, mb.title))
   return keyed.map(([, m]) => m)
 }
 

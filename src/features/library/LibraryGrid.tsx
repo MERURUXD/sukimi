@@ -1,5 +1,5 @@
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { Check, Download } from 'lucide-react'
+import { Check, Download, Star } from 'lucide-react'
 import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -26,6 +26,8 @@ interface Props {
   onLongPress: (id: number, index: number) => void
   /** 封面最小宽度，缺省按密度取；画廊手机版用更小的值排成三列 */
   minTile?: number
+  /** 提供时在封面角标显示评分（书库按评分排序时传入）；返回 null 表示未评分，不显示 */
+  scoreOf?: (m: LibraryManga) => number | null
 }
 
 const GAP_X = 20
@@ -91,7 +93,7 @@ export function LibrarySkeleton({ density }: { density: Density }) {
 }
 
 /* ───────── 封面网格（按行虚拟化）───────── */
-function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile }: Props) {
+function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf }: Props) {
   const [ref, width, top] = useBox()
   const initialOffset = useRestoredOffset()
   const minW = minTile ?? (density === 'compact' ? 120 : 160)
@@ -132,6 +134,7 @@ function GridView({ items, intro, density, selecting, selected, onToggle, onLong
                 index={row.index * cols + i}
                 rise={intro ? riseDelay(row.index - all[0].index, i) : undefined}
                 compact={density === 'compact'}
+                score={scoreOf?.(m)}
                 selecting={selecting}
                 selected={selected.has(m.id)}
                 onToggle={onToggle}
@@ -149,6 +152,7 @@ function Tile({
   index,
   rise,
   compact,
+  score,
   selecting,
   selected,
   onToggle,
@@ -158,6 +162,7 @@ function Tile({
   index: number
   rise?: CSSProperties
   compact: boolean
+  score?: number | null
   selecting: boolean
   selected: boolean
   onToggle: Props['onToggle']
@@ -183,6 +188,12 @@ function Tile({
           <span className="absolute top-2 right-2 z-[2] inline-flex h-6 items-center gap-[3px] rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-md num">
             <Download className="size-3" strokeWidth={2.4} />
             {m.downloadCount}
+          </span>
+        )}
+        {score != null && (
+          <span className="absolute bottom-2 left-2 z-[2] inline-flex h-6 items-center gap-[3px] rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-md num">
+            <Star className="size-3" strokeWidth={2.4} />
+            {score.toFixed(1)}
           </span>
         )}
         {selected && (
@@ -217,7 +228,7 @@ function Tile({
 /* ───────── 列表视图 ───────── */
 const LIST_ROW = 68
 
-function ListView({ items, intro, selecting, selected, onToggle }: Props) {
+function ListView({ items, intro, selecting, selected, onToggle, scoreOf }: Props) {
   const [ref, , top] = useBox()
   const initialOffset = useRestoredOffset()
   const v = useWindowVirtualizer({
@@ -259,6 +270,7 @@ function ListView({ items, intro, selecting, selected, onToggle }: Props) {
                 {[m.author, m.source?.displayName].filter(Boolean).join(' · ')}
               </span>
             </span>
+            {scoreOf && <span className="w-10 text-right text-xs text-muted num">{scoreOf(m)?.toFixed(1) ?? '—'}</span>}
             <span className="w-[100px] text-xs text-muted max-md:hidden">{timeAgo(lastUpdated(m))}</span>
             <span className="w-[72px] text-right text-xs text-muted num">未读 {m.unreadCount}</span>
             <span className="w-[72px] text-right text-xs text-muted num max-sm:hidden">下载 {m.downloadCount}</span>
