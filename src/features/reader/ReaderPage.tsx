@@ -30,6 +30,8 @@ export function ReaderPage() {
   const chapters = useQuery(MangaChapters, { variables: { mangaId } })
   const [pages, setPages] = useState<{ id: number; urls: string[] } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // 加载失败后点「重试」递增，重新拉取本话页面
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let alive = true
@@ -40,7 +42,7 @@ export function ReaderPage() {
     return () => {
       alive = false
     }
-  }, [client, chapterId])
+  }, [client, chapterId, attempt])
 
   const list = chapters.data?.chapters.nodes
   const idx = list?.findIndex((c) => c.id === chapterId) ?? -1
@@ -61,9 +63,14 @@ export function ReaderPage() {
       {error ? (
         <Center>
           <p className="text-danger">无法加载本话：{error}</p>
-          <button type="button" onClick={back} className="gbtn mt-4">
-            返回详情
-          </button>
+          <div className="mt-4 flex justify-center gap-3">
+            <button type="button" onClick={() => setAttempt((n) => n + 1)} className="gbtn bg-accent-soft">
+              重试
+            </button>
+            <button type="button" onClick={back} className="gbtn">
+              返回详情
+            </button>
+          </div>
         </Center>
       ) : !chapter || !list || pages?.id !== chapterId || !manga.data || !settingsReady ? (
         <Center>

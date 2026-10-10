@@ -10,6 +10,7 @@ import { captureUser, StaleSessionError } from '@/api/userContext'
 import { syncTrackProgressMany } from '@/features/tracking/sync'
 import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
+import { LoadError } from '@/components/ui/LoadError'
 import type { SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { count } from '@/lib/format'
@@ -224,7 +225,7 @@ export function LibraryPage() {
         />
 
         {loading && !data && <LibrarySkeleton density={view.density} />}
-        {error && <p className="text-danger">加载失败：{error.message.split('\n')[0]}</p>}
+        {error && <LoadError message={error.message} onRetry={() => void refetch().catch(() => {})} />}
         {data && items.length === 0 && (
           <p className="px-6 py-20 text-center text-muted">
             {all.length === 0 ? '书库是空的，去「发现」页添加漫画吧。' : '没有符合筛选条件的漫画。'}

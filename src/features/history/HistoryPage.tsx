@@ -6,6 +6,7 @@ import type { Reference } from '@apollo/client'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
+import { LoadError } from '@/components/ui/LoadError'
 import { toast, toastError } from '@/components/ui/toast'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
@@ -113,7 +114,7 @@ export function HistoryPage() {
         </Glass>
       </div>
 
-      {error && !data && <p className="py-16 text-center text-muted">无法读取阅读历史：{error.message.split('\n')[0]}</p>}
+      {error && !data && <LoadError className="py-16" prefix="无法读取阅读历史" message={error.message} onRetry={() => void history.refetch().catch(() => {})} />}
       {!data && !error && <HistorySkeleton />}
       {data && shown === 0 && !hasMore && <p className="py-16 text-center text-muted">{q ? '没有匹配的记录' : '还没有阅读记录'}</p>}
 
