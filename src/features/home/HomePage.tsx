@@ -85,13 +85,14 @@ export function HomePage() {
   const libData = withSnapshot('library', lib.data)
   const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter(isVisible)), [readsData])
   const [heroSeed, heroBatch, nextHero] = useBatch('hero')
-  // 大图区从两周内读过、还有得读的漫画里随机挑；没有就退回还有得读的，再退回最近读过的。
+  // 大图区只从书库里的漫画中挑：两周内读过、还有得读的随机挑；没有就退回还有得读的，再退回最近读过的。
   // 顺序也随机，换一批时第一部一定会变
   const hero = useMemo(() => {
     const now = Date.now() / 1000
-    const open = recent.filter((c) => resume(c))
+    const inLib = recent.filter((c) => c.manga.inLibrary)
+    const open = inLib.filter((c) => resume(c))
     const fresh = open.filter((c) => isRecent(c.lastReadAt, now))
-    const pool = (fresh.length ? fresh : open.length ? open : recent).slice(0, HERO_POOL)
+    const pool = (fresh.length ? fresh : open.length ? open : inLib).slice(0, HERO_POOL)
     return { items: pickBatch(pool, HERO_COUNT, heroSeed, heroBatch, (c) => c.manga.id), more: pool.length > HERO_COUNT }
   }, [recent, heroSeed, heroBatch])
   const shelves = useMemo(() => {

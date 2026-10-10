@@ -19,18 +19,18 @@ export function libraryScore(records: readonly { trackerId: number; displayScore
 
 /**
  * 两个排序值比大小；null（没有这项数据）默认不论正序倒序都排在最后，相等返回 0 由调用方再按标题排。
- * nullsHigh 为真时把 null 当作最大值：倒序排在最前、正序排在最后（评分排序用，方便先找出没打分的）
+ * nullsLow 为真时把 null 当作最小值：正序排在最前、倒序排在最后（评分排序用，未评分就是最低分）
  */
 export function compareSortValues(
   a: number | string | null,
   b: number | string | null,
   desc: boolean,
   collate: (a: string, b: string) => number,
-  nullsHigh = false,
+  nullsLow = false,
 ) {
   if (a === null || b === null) {
     if (a === b) return 0
-    const aFirst = nullsHigh ? desc : false
+    const aFirst = nullsLow ? !desc : false
     return (a === null) === aFirst ? -1 : 1
   }
   const c = typeof a === 'string' ? collate(a, b as string) : a - (b as number)

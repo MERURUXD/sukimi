@@ -25,12 +25,12 @@ export interface SortContext {
   scales: ReadonlyMap<number, readonly string[]>
 }
 
-/** value 返回 null 表示没有这项数据（如未评分），默认不论正序倒序都排在最后；nullsHigh 的排序把 null 当最大值，倒序时排在最前 */
+/** value 返回 null 表示没有这项数据（如未评分），默认不论正序倒序都排在最后；nullsLow 的排序把 null 当最小值，正序时排在最前 */
 export const SORTS: {
   key: SortKey
   label: string
   value: (m: LibraryManga, ctx: SortContext) => number | string | null
-  nullsHigh?: boolean
+  nullsLow?: boolean
 }[] = [
   { key: 'updated', label: '最近更新', value: lastUpdated },
   { key: 'read', label: '最近阅读', value: (m) => sec(m.lastReadChapter?.lastReadAt) },
@@ -38,7 +38,7 @@ export const SORTS: {
   { key: 'title', label: '标题', value: (m) => m.title },
   { key: 'unread', label: '未读数', value: (m) => m.unreadCount },
   { key: 'downloaded', label: '已下载数', value: (m) => m.downloadCount },
-  { key: 'score', label: '评分', value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsHigh: true },
+  { key: 'score', label: '评分', value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsLow: true },
 ]
 export function matchesSearch(m: LibraryManga, q: string) {
   if (!q) return true
@@ -74,7 +74,7 @@ export function applyView(
   )
   const ctx: SortContext = { scales: opts.scales ?? new Map() }
   const keyed = out.map((m) => [sort.value(m, ctx), m] as const)
-  keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare, sort.nullsHigh) || collator.compare(ma.title, mb.title))
+  keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare, sort.nullsLow) || collator.compare(ma.title, mb.title))
   return keyed.map(([, m]) => m)
 }
 

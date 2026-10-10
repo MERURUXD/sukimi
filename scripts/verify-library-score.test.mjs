@@ -47,9 +47,9 @@ test('没有评分的不论正序倒序都排在最后', () => {
   assert.equal(compareSortValues('甲', '甲', true, (x, y) => x.localeCompare(y)), 0)
 })
 
-test('评分排序把未评分当最大值：倒序排最前，正序排最后', () => {
+test('评分排序把未评分当最小值：正序排最前，倒序排最后', () => {
   const values = [7, null, 9, 8.5, null]
   const sorted = (desc) => [...values].sort((a, b) => compareSortValues(a, b, desc, (x, y) => x.localeCompare(y), true))
-  assert.deepEqual(sorted(true), [null, null, 9, 8.5, 7])
-  assert.deepEqual(sorted(false), [7, 8.5, 9, null, null])
+  assert.deepEqual(sorted(true), [9, 8.5, 7, null, null])
+  assert.deepEqual(sorted(false), [null, null, 7, 8.5, 9])
 })
