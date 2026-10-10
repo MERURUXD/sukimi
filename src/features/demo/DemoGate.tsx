@@ -22,7 +22,7 @@ export function DemoUnavailable() {
 }
 
 export function DemoNotice() {
-  return <Glass className="flex items-center gap-2 rounded-full px-3 py-2 text-xs">
+  return <Glass data-vt-glass="topnav-demo" className="flex items-center gap-2 rounded-full px-3 py-2 text-xs">
     <span className="font-semibold">演示模式</span>
     <a href="/login" className="text-muted no-underline hover:text-text">退出演示</a>
   </Glass>

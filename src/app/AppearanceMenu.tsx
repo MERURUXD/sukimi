@@ -69,13 +69,14 @@ export function AppearanceMenu() {
 
   return (
     <div ref={root} className="relative">
-      <Glass as="button" className="gicon rounded-full" aria-label="外观设置" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+      <Glass as="button" data-vt-glass="topnav-appearance" className="gicon rounded-full" aria-label="外观设置" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <Settings2 className="size-5" strokeWidth={1.8} />
       </Glass>
 
       <AnimatePresence>
         {open && (
           <MotionGlass
+            data-vt-glass="topnav-appearance-panel"
             initial={{ opacity: 0, scale: 0.94, y: -6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -4 }}
