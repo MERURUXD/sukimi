@@ -1,0 +1,166 @@
+/* 首页底部的画廊橱窗（GalleryWindow.tsx）。窗始终是深色，颜色写死，不跟主题走。 */
+.gwin {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  height: 380px;
+  --window-radius: 28px;
+  border-radius: var(--window-radius);
+  /* 三维封面和遮罩共用圆角裁切，避免合成层在边角显出细亮边。 */
+  clip-path: inset(0 round var(--window-radius));
+  background: #0b0b0d;
+  color: #f4f4f5;
+  touch-action: pan-y;
+  --tx: 0;
+}
+@media (max-width: 767.98px) {
+  .gwin {
+    height: 480px;
+    --window-radius: 24px;
+  }
+}
+
+/* 墙：平时黑白半透明的底纹，指上去 / 按住 / 键盘聚焦才显出颜色 */
+.gwin-wall {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  filter: grayscale(1);
+  opacity: 0.5;
+  transition:
+    filter 0.6s ease,
+    opacity 0.6s ease;
+}
+.gwin[data-on] .gwin-wall,
+.gwin:has(:focus-visible) .gwin-wall {
+  filter: none;
+  opacity: 1;
+}
+/* 倾斜姿态：静止是更斜更小的 --wall-rest，指上去往画廊里的姿态 --wall-on 靠，再随横向位置转一点 */
+.gwin-plane {
+  transform: var(--wall-rest) rotateY(calc(var(--tx) * 4deg)); /* 4 = wall.ts 的 WINDOW_TILT */
+  transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.gwin[data-on] .gwin-plane,
+.gwin:has(:focus-visible) .gwin-plane {
+  transform: var(--wall-on) rotateY(calc(var(--tx) * 4deg));
+}
+
+/* 文字压在左侧（手机压在下半部分），带一层往右（往上）渐隐的深色遮罩 */
+.gwin-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, #0b0b0d 0%, rgba(11, 11, 13, 0.94) 28%, rgba(11, 11, 13, 0.55) 52%, rgba(11, 11, 13, 0) 80%),
+    linear-gradient(180deg, rgba(11, 11, 13, 0.55) 0%, rgba(11, 11, 13, 0) 22%, rgba(11, 11, 13, 0) 78%, rgba(11, 11, 13, 0.6) 100%);
+}
+@media (max-width: 767.98px) {
+  .gwin-shade {
+    background: linear-gradient(0deg, #0b0b0d 0%, rgba(11, 11, 13, 0.96) 34%, rgba(11, 11, 13, 0.5) 62%, rgba(11, 11, 13, 0) 88%);
+  }
+}
+
+.gwin-copy {
+  position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 24px;
+  padding: 48px;
+}
+@media (max-width: 767.98px) {
+  .gwin-copy {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 24px 20px;
+  }
+}
+.gwin-kicker {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.32em;
+  color: rgba(244, 244, 245, 0.62);
+}
+/* 和画廊首页的标题（GalleryHero）同样的字体、字重、行距、字距，换页时才能一个位移过去 */
+.gwin-title {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 900;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+}
+.gwin-stats {
+  margin: 14px 0 0;
+  font-size: 15px;
+  color: rgba(244, 244, 245, 0.62);
+}
+@media (max-width: 767.98px) {
+  .gwin-kicker {
+    margin-bottom: 8px;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+  }
+  .gwin-title {
+    font-size: 22px;
+  }
+  .gwin-stats {
+    margin-top: 10px;
+    font-size: 13px;
+  }
+}
+
+/* 实心的「进入画廊」：窗里始终是深色，按钮固定白底黑字（.solid 的颜色会跟主题翻转） */
+.gwin-cta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: #f4f4f5;
+  color: #0b0b0d;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
+}
+.gwin-cta:hover {
+  opacity: 0.9;
+}
+.gwin-cta:active {
+  transform: scale(0.98);
+}
+.gwin-cta:focus-visible {
+  outline: 2px solid #f4f4f5;
+  outline-offset: 3px;
+}
+@media (max-width: 767.98px) {
+  .gwin-cta {
+    height: 44px;
+    padding: 0 18px;
+    font-size: 15px;
+  }
+}
+
+/* 场景归墙所有：路由只提供取景框，过渡时同一批封面暂时移到视口坐标系。 */
+.gw-scene, .gw-frame, .gw-shift, .gw-plane, .gw-hero-shade {
+  position: absolute;
+  inset: 0;
+}
+.gw-frame { overflow: hidden; isolation: isolate; background: #0b0b0d; }
+.gw-flying { position: fixed; inset: 0 auto auto 0; z-index: 40; pointer-events: none; }
+.gw-tone { z-index: 0; }
+.gw-home-shade, .gw-hero-shade { z-index: 1; transform-origin: top left; }
+.gw-cover { position: absolute; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 34px #0005; }
+.gw-cover img { width: 100%; height: 100%; object-fit: cover; }

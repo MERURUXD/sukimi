@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
@@ -14,6 +14,8 @@ import { CoverImg } from '@/components/manga/CoverImg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
 import type { LibraryMangasQuery } from '@/api/gql/graphql'
+import { GalleryWindow } from '@/features/gallery/GalleryWindow'
+import { useLanded } from '@/features/gallery/readMorph'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -64,12 +66,18 @@ function useBatch(key: string) {
 }
 
 export function HomePage() {
-  const reads = useQuery(RecentReads, { fetchPolicy: 'cache-and-network' })
+  const homeSections = useAppearance((s) => s.homeSections)
+  const homeSectionOrder = useAppearance((s) => s.homeSectionOrder)
+  const showGallery = useAppearance((s) => s.homeGallery)
+  // 换页动画期间有缓存就只用缓存，落地后再去网络刷新：结果一到整页要重新渲染，和动画抢主线程会一顿一顿的（见 useLanded）
+  const landed = useLanded()
+  const reads = useQuery(RecentReads, { fetchPolicy: landed ? 'cache-and-network' : 'cache-first' })
   // 和书库页共用同一份查询与快照，之后打开书库也不用再等
   const lib = useQuery(LibraryMangas)
   const updates = useQuery(RecentUpdates, {
     variables: { first: 200, offset: 0, filter: IN_LIBRARY },
-    fetchPolicy: 'cache-and-network',
+    fetchPolicy: landed ? 'cache-and-network' : 'cache-first',
+    skip: !homeSections.updates,
   })
   // 刷新页面后先用上次保存的数据，网络数据到了再替换
   const readsData = withSnapshot('recentReads', reads.data)
@@ -98,20 +106,24 @@ export function HomePage() {
     }
   }, [libData, hero.items])
 
+  // 首页别处已经出现的作品：橱窗里尽量不重复它们（大图区正在展示的、最近阅读那三条）
+  const onPage = useMemo(() => new Set([...hero.items, ...(homeSections.recent ? recent.slice(0, 3) : [])].map((c) => c.manga.id)), [hero.items, recent, homeSections.recent])
+
+  const content = {
+    updates: homeSections.updates && <UpdatesShelf chapters={updatesData?.chapters.nodes} />,
+    stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}
+      mangas={shelves?.stale} sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`} />,
+    fresh: homeSections.fresh && <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`}
+      mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />,
+    recent: homeSections.recent && <RecentList items={recent.slice(0, 3)} />,
+    gallery: showGallery && <GalleryWindow library={libData?.mangas.nodes} exclude={readsData ? onPage : undefined} />,
+  }
+
   return (
     <>
       <Hero items={hero.items} loading={!readsData} onShuffle={hero.more ? nextHero : undefined} />
       <div className="wrap pb-20">
-        <UpdatesShelf chapters={updatesData?.chapters.nodes} />
-        <MangaShelf
-          id="stale"
-          title="好久没看"
-          note={(n) => `${n} 部读到一半，超过两周没打开`}
-          mangas={shelves?.stale}
-          sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`}
-        />
-        <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`} mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />
-        <RecentList items={recent.slice(0, 3)} />
+        {homeSectionOrder.map((id) => <Fragment key={id}>{content[id]}</Fragment>)}
       </div>
     </>
   )

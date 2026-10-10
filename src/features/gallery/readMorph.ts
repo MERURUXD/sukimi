@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { closeWindowWall, openWindowWall } from './windowScene'
 
 /*
  * 「已读话数」在画廊首页和阅读档案之间飞来飞去。两页各有一个带 data-gallery-read 的数字，
@@ -47,8 +48,22 @@ export function enterGalleryFromLibrary() {
   }
   libraryCovers = { at: performance.now(), rects }
   returnCovers = rects
+  windowEntry = null
   armLibraryFade()
 }
+
+/** 首页来路只登记本次入口，墙本身由 windowScene 跨路由保留。 */
+let windowEntry: { at: number } | null = null
+
+export function enterGalleryFromHome(win: HTMLElement) {
+  if (!openWindowWall(win)) return
+  windowEntry = { at: performance.now() }
+  libraryCovers = null
+  returnCovers = null
+}
+
+export const windowEntryForEntry = () => (windowEntry && performance.now() - windowEntry.at < 2000 ? windowEntry : null)
+export const armWindowBack = closeWindowWall
 
 /** 书库 ⇄ 画廊换页时，旧页面在上面淡出、新页面直接在下面（index.css 的 data-gallery-enter） */
 export function armLibraryFade() {
@@ -78,6 +93,9 @@ export function exitGalleryToLibrary(e: { button: number; ctrlKey: boolean; meta
   return true
 }
 
+/** 指到入口上先把画廊页的代码载进来：第一次点开时过场不用边飞边等下载和解析 */
+export const prefetchGallery = () => void import('./GalleryPage')
+
 /** 点击时按住修饰键（新标签页打开）不算换页 */
 export const plainClick = (e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) =>
   e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey
@@ -86,6 +104,30 @@ export const activeViewTransition = () => (document as Document & { activeViewTr
 
 /** 正在进行的换页动画结束后（没有就立刻） */
 export const afterViewTransition = () => (activeViewTransition()?.finished ?? Promise.resolve()).catch(() => {})
+
+let canvasBackAt = -Infinity
+let canvasBackTimer = 0
+
+/** 画布已倒放到画廊的姿态，换页直接接上实时墙，不再叠一层静止快照淡化。 */
+export function armCanvasBack() {
+  canvasBackAt = performance.now()
+  const at = canvasBackAt
+  libraryCovers = null
+  windowEntry = null
+  document.documentElement.dataset.galleryCanvasBack = ''
+  window.clearTimeout(canvasBackTimer)
+  canvasBackTimer = window.setTimeout(() => finishCanvasBack(at), 8000)
+}
+
+export const canvasBackForEntry = () => performance.now() - canvasBackAt < 2000 ? canvasBackAt : null
+
+export function finishCanvasBack(at: number) {
+  // 上一次换页迟到的 finished 不能清掉下一次返回的样式。
+  if (canvasBackAt !== at) return
+  canvasBackAt = -Infinity
+  window.clearTimeout(canvasBackTimer)
+  delete document.documentElement.dataset.galleryCanvasBack
+}
 
 /**
  * 挂上时如果正在换页动画（已读话数在飞），返回 false，落地后变 true。

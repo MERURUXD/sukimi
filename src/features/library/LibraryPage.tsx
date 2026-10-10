@@ -3,6 +3,7 @@ import { BookCheck, Download, FolderInput, LibraryBig } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
+import { GalleryPill } from '@/features/gallery/GalleryPill'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { captureUser, StaleSessionError } from '@/api/userContext'
@@ -188,16 +189,20 @@ export function LibraryPage() {
   return (
     <>
       <div className="wrap">
-        <div className="pt-7 pb-[22px]">
-          <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">书库</h1>
-          {data && (
-            <p className="mt-1.5 mb-0 text-muted num">
-              {count(all.length)} 部 · 未读 {count(unreadTotal)} 话 · 已下载 {count(dlTotal)} 话
-              {items.length !== all.length && ` · 当前显示 ${count(items.length)} 部`}，按{sortLabel}
-              {view.desc ? ' ↓' : ' ↑'}
-              {syncing && ' · 正在同步…'}
-            </p>
-          )}
+        {/* 画廊入口是「去另一个页面」，放在标题这一行的右侧（44px 高，和 h1 的一行对齐），不混进下面对列表做操作的工具栏 */}
+        <div className="flex items-start justify-between gap-4 pt-7 pb-[22px]">
+          <div className="min-w-0">
+            <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">书库</h1>
+            {data && (
+              <p className="mt-1.5 mb-0 text-muted num">
+                {count(all.length)} 部 · 未读 {count(unreadTotal)} 话 · 已下载 {count(dlTotal)} 话
+                {items.length !== all.length && ` · 当前显示 ${count(items.length)} 部`}，按{sortLabel}
+                {view.desc ? ' ↓' : ' ↑'}
+                {syncing && ' · 正在同步…'}
+              </p>
+            )}
+          </div>
+          <GalleryPill />
         </div>
 
         <LibraryToolbar
