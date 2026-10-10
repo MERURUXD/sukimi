@@ -14,6 +14,7 @@ import { CoverImg } from '@/components/manga/CoverImg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
 import type { LibraryMangasQuery } from '@/api/gql/graphql'
+import { GalleryWindow } from '@/features/gallery/GalleryWindow'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -98,6 +99,9 @@ export function HomePage() {
     }
   }, [libData, hero.items])
 
+  // 首页别处已经出现的作品：橱窗里尽量不重复它们（大图区正在展示的、最近阅读那三条）
+  const onPage = useMemo(() => new Set([...hero.items, ...recent.slice(0, 3)].map((c) => c.manga.id)), [hero.items, recent])
+
   return (
     <>
       <Hero items={hero.items} loading={!readsData} onShuffle={hero.more ? nextHero : undefined} />
@@ -112,6 +116,7 @@ export function HomePage() {
         />
         <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`} mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />
         <RecentList items={recent.slice(0, 3)} />
+        <GalleryWindow library={libData?.mangas.nodes} exclude={onPage} />
       </div>
     </>
   )

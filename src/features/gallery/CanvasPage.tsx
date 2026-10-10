@@ -36,7 +36,7 @@ import {
   type Grid,
 } from './canvasMath'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
-import { wallItem, wallPosOf, wallState } from './HeroWall'
+import { wallItem, wallPosOf, wallState } from './wall'
 import { BACK_SLOT, GalleryBack } from './GalleryBack'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { useForceDark } from '@/design/settings'

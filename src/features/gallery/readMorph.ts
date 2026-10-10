@@ -78,6 +78,9 @@ export function exitGalleryToLibrary(e: { button: number; ctrlKey: boolean; meta
   return true
 }
 
+/** 指到入口上先把画廊页的代码载进来：第一次点开时过场不用边飞边等下载和解析 */
+export const prefetchGallery = () => void import('./GalleryPage')
+
 /** 点击时按住修饰键（新标签页打开）不算换页 */
 export const plainClick = (e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) =>
   e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey

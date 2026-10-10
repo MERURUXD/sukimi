@@ -83,34 +83,45 @@ export function GalleryPage() {
   const ordered = useMemo(() => galleryOrder(all), [all])
 
   /*
-   * 回书库：从书库点进来、后退回同一个书库页面时，墙停下来，中间那块封面飞回书库的原位、墙转平，
-   * 文字淡掉，再换页（书库那一页在下面、画廊在上面淡出，封面不动）。直接打开画廊的没有原位可回，普通换页。
+   * 离开画廊首页，来路决定去路（state.from，直接打开、刷新的没有来路）：
+   * - 返回键：回来路。从书库点进来、后退回同一个书库页面时，墙停下来，中间那块封面飞回书库的原位、墙转平，
+   *   文字淡掉，再换页（书库那一页在下面、画廊在上面淡出，封面不动）；从首页来的回首页；没有来路回书库。
+   * - 导航栏的「书库」：一定去书库。来路是书库才飞回，其余都是普通换页。
    */
   const location = useLocation()
   const navigate = useNavigate()
   const hero = useRef<HTMLElement>(null)
   const leaving = useRef(false)
-  const toLibrary = useCallback(() => {
-    if (leaving.current) return
-    leaving.current = true
-    const fromLibrary = (location.state as { from?: string } | null)?.from === 'library' && (window.history.state?.idx ?? 0) > 0
-    const go = () => {
-      armLibraryFade()
-      if (fromLibrary) navigate(-1)
-      else navigate('/library', { viewTransition: true })
-    }
-    const rects = fromLibrary ? libraryCoversForReturn() : null
-    if (reduced || !rects || window.scrollY > 2) return go()
-    hero.current?.querySelectorAll<HTMLElement>('[data-hero-ui]').forEach((el) =>
-      el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 380, easing: 'ease-out', fill: 'forwards' }),
-    )
-    if (!flyWallToLibrary(rects, go)) go()
-  }, [location.state, navigate, reduced])
+  const from = (location.state as { from?: string } | null)?.from
+  const origin = from === 'library' || from === 'home' ? from : null
+  const leave = useCallback(
+    (to: 'back' | 'library') => {
+      if (leaving.current) return
+      leaving.current = true
+      // 上一条历史记录就是来路页时才能 navigate(-1)（刷新、新标签页打开的没有）
+      const canBack = (window.history.state?.idx ?? 0) > 0
+      const fromLibrary = origin === 'library' && canBack
+      const backHome = to === 'back' && origin === 'home'
+      const go = () => {
+        armLibraryFade()
+        if (fromLibrary || (backHome && canBack)) navigate(-1)
+        else navigate(backHome ? '/' : '/library', { viewTransition: true })
+      }
+      const rects = fromLibrary ? libraryCoversForReturn() : null
+      if (reduced || !rects || window.scrollY > 2) return go()
+      hero.current?.querySelectorAll<HTMLElement>('[data-hero-ui]').forEach((el) =>
+        el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 380, easing: 'ease-out', fill: 'forwards' }),
+      )
+      if (!flyWallToLibrary(rects, go)) go()
+    },
+    [origin, navigate, reduced],
+  )
+  const toBack = useCallback(() => leave('back'), [leave])
 
   useEffect(() => {
-    setLibraryExit(toLibrary)
+    setLibraryExit(() => leave('library'))
     return () => setLibraryExit(null)
-  }, [toLibrary])
+  }, [leave])
 
   /* 进入画布：量出首屏此刻在屏幕上的位置一起带过去，画布第一帧按原位摆出同一份面板，不会跳 */
   const enterCanvas = (e: MouseEvent) => {
@@ -129,7 +140,7 @@ export function GalleryPage() {
         {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
         <div aria-hidden data-hero-ui className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />
 
-        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} onBrowse={toGrid} onLibrary={toLibrary} />
+        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} />
       </section>
 
       {/* 第二页至少占满一屏：切过来时停在它的顶部，内容少也不会切不到位；顶栏的高度留在它自己的上边距里，墙不会从顶栏下面露出来 */}

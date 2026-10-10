@@ -1,8 +1,6 @@
 import { GlassLink } from '@/components/glass/GlassLink'
-import { enterGalleryFromLibrary, plainClick } from './readMorph'
+import { enterGalleryFromLibrary, plainClick, prefetchGallery } from './readMorph'
 import './pill.css'
-
-const prefetchGallery = () => void import('./GalleryPage')
 
 /**
  * 书库页头右侧的「画廊」入口。玻璃和链接是同一个元素；

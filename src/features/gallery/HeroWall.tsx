@@ -1,42 +1,10 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { LibraryManga } from '@/features/library/queries'
 import { cn } from '@/lib/cn'
-import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, centerOn, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells, type Grid } from './canvasMath'
+import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells } from './canvasMath'
 import { useReducedMotionPref } from './hooks'
 import { activeViewTransition, type CoverRect } from './readMorph'
-
-/**
- * 首页墙的位置，首页和画布之间交接用：首页一直在写，进画布时画布从这里接着画；
- * 倒放回首页时画布写回来，首页从那里继续流动。整个页面会话内有效。
- * 记的是相对屏幕中心的偏移（ox - 宽 / 2）：首页和画布量到的宽度可能差一个滚动条，按左边记会错开半个滚动条宽。
- */
-export const wallState: {
-  cx: number
-  cy: number
-  grid: Grid | null
-  order: number[] | null
-  /**
-   * 从书库进来时书库封面落在墙上的哪一块（格子编号）、落地时墙在哪。回书库时墙先倒回这个位置，
-   * 原来那一块封面回到屏幕中间，再由这些格子本身飞回书库，不会换成别的封面。from 是当时记下的书库封面位置
-   */
-  landing: { cx: number; cy: number; keys: ReadonlyMap<string, CoverRect>; from: ReadonlyMap<number, CoverRect> } | null
-} = { cx: NaN, cy: NaN, grid: null, order: null, landing: null }
-
-/**
- * 第 (c, r) 格放第几部。默认按收藏先后（cellIndex）；从书库进来时换过几格（wallState.order，见 placeOrder），
- * 首页的墙和画布都按它画，进画布时内容才接得上。编号、放映顺序、搜索仍按收藏先后。
- */
-export function wallItem(c: number, r: number, n: number) {
-  const p = cellIndex(c, r, n)
-  const o = wallState.order
-  return o && o.length === n && p >= 0 ? o[p] : p
-}
-
-/** 第 i 部在墙上的位置（cellIndex 的值），找最近放着它的格子用 */
-export function wallPosOf(i: number, n: number) {
-  const o = wallState.order
-  return o && o.length === n ? o.indexOf(i) : i
-}
+import { ensureWall, wallItem, wallState, wallTransform } from './wall'
 
 /** 从书库进来的过场：先停一下（书库的标题和工具栏在上面淡出），再飞上墙 */
 const ENTRY_HOLD = 260
@@ -55,9 +23,6 @@ export function flyWallToLibrary(rects: ReadonlyMap<number, CoverRect>, done: ()
 /** 仅开发环境：控制台 __heroWall.freeze(0.4) 把从书库进来的过场停在某个进度逐帧检查，freeze(null) 继续 */
 let devFreeze: number | null = null
 if (import.meta.env.DEV) (window as unknown as { __heroWall?: object }).__heroWall = { freeze: (k: number | null) => (devFreeze = k) }
-
-const wallTransform = (k: number) =>
-  `perspective(1800px) rotateX(${(HOME_WALL.rotateX * k).toFixed(3)}deg) rotateZ(${(HOME_WALL.rotateZ * k).toFixed(3)}deg) scale(${(1 + (HOME_WALL.scale - 1) * k).toFixed(4)})`
 
 /**
  * 画廊首页的倾斜封面墙。和画布进入过渡的第一帧完全一样：同一张交错网格、同样的排列（按收藏先后取模）、
@@ -111,10 +76,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     const el = root.current
     if (!el || !items.length) return
     const { w, h } = size
-    if (wallState.grid !== grid || Number.isNaN(wallState.cx)) {
-      const c = centerOn(0, 0, w, h, grid)
-      Object.assign(wallState, { cx: c.x - w / 2, cy: c.y - h / 2, grid })
-    }
+    ensureWall(w, h, grid)
 
     /**
      * 书库那一块封面对应墙上的哪一块格子：按原来的行列（x / y 聚类）落到墙上同样行列的一块，
