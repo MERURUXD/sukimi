@@ -48,20 +48,20 @@ export function TopNav() {
       <div className="wrap flex h-[var(--nav-h)] items-center justify-between gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         {inManga ? (
           // 网格项默认会拉满整列，要贴着一侧只占自身宽度
-          <Glass as="button" type="button" className="gicon rounded-full xl:justify-self-start" onClick={back} aria-label="返回">
+          <Glass as="button" data-vt-glass="topnav-back" type="button" className="gicon rounded-full xl:justify-self-start" onClick={back} aria-label="返回">
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </Glass>
         ) : (
           // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏
           <NavLink to="/" aria-label="Sukimi 首页" className="rounded-full text-text no-underline md:max-xl:hidden xl:justify-self-start">
-            <Glass as="span" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
+            <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
               <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
               <span className="max-sm:hidden">Sukimi</span>
             </Glass>
           </NavLink>
         )}
 
-        <Glass as="nav" ref={pillRef} className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[5px] max-xl:hidden">
+        <Glass as="nav" data-vt-glass="topnav-tabs" ref={pillRef} className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[5px] max-xl:hidden">
           <NavPill box={pillBox} className="rounded-full" />
           {LINKS.map((l) => (
             <NavLink
@@ -114,6 +114,7 @@ function DownloadIndicator() {
         <NavLink to="/downloads" className="rounded-full text-text no-underline" aria-label={`下载队列：${running ? '正在下载' : '已暂停'}，${queue.length} 话`} title="下载队列">
           <MotionGlass
             as="span"
+            data-vt-glass="topnav-downloads"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}

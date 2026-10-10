@@ -135,7 +135,7 @@ export function ThemeToggle() {
     <div className="theme-btn relative" data-dark={dark || undefined}>
       {/* 月光：只在深色悬停时浮出，略偏向左下，隔着玻璃只透出一团柔光（样式在 index.css） */}
       <span className="theme-halo pointer-events-none absolute inset-0 rounded-full bg-solid" aria-hidden />
-      <Glass as="button" type="button" className="gicon rounded-full" onClick={toggle} aria-label={`切换到${dark ? '浅色' : '深色'}主题`} title={`切换到${dark ? '浅色' : '深色'}`}>
+      <Glass as="button" data-vt-glass="topnav-theme" type="button" className="gicon rounded-full" onClick={toggle} aria-label={`切换到${dark ? '浅色' : '深色'}主题`} title={`切换到${dark ? '浅色' : '深色'}`}>
         <SunMoon dark={dark} />
       </Glass>
     </div>
