@@ -542,9 +542,7 @@
 
 /* ───────── 页面切换（View Transitions）─────────
    整页淡入淡出很短；封面从列表「飞」到详情页。
-   注意：不要给导航栏这类「含玻璃的容器」常驻 view-transition-name——
-   带这个属性的元素会成为 backdrop root，里面的玻璃只能采到容器自身（透明），折射和模糊全部失效。
-   导航在前后两页完全相同，跟着整页交叉淡化看起来也是静止的。 */
+   导航转场名只加在实际玻璃上，不能加在其透明祖先上，否则子玻璃采不到页面背景。 */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 0.2s;
@@ -619,6 +617,7 @@ html[data-theme-vt='light']::view-transition-old(root) {
   }
 }
 ::view-transition-group(manga-cover) {
+  z-index: 2;
   animation-duration: 0.45s;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -704,13 +703,33 @@ html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="b
 ::view-transition-new(hero-read), ::view-transition-new(hero-browse) { animation: gallery-copy-in 0.45s 0.2s ease-out both; mix-blend-mode: normal; }
 @keyframes gallery-copy-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* 固定栏独立于墙，收回时不会被墙的姿态带着缩小。 */
-html:is([data-gallery-window], [data-gallery-window-back]) [data-vt-bar="topnav"] { view-transition-name: gallery-topnav; }
-html:is([data-gallery-window], [data-gallery-window-back]) [data-vt-bar="sidenav"] { view-transition-name: gallery-sidenav; }
-html:is([data-gallery-window], [data-gallery-window-back]) [data-vt-bar="tabbar"] { view-transition-name: gallery-tabbar; }
-::view-transition-group(gallery-topnav), ::view-transition-group(gallery-sidenav), ::view-transition-group(gallery-tabbar) { animation: none; z-index: 3; }
-::view-transition-old(gallery-topnav), ::view-transition-old(gallery-sidenav), ::view-transition-old(gallery-tabbar) { display: none; }
-::view-transition-new(gallery-topnav), ::view-transition-new(gallery-sidenav), ::view-transition-new(gallery-tabbar) { animation: none; mix-blend-mode: normal; height: 100%; }
+/* 每块导航玻璃独立于封面和墙；命名节点自身的滤镜由浏览器复制到 group。
+   group 的圆角也约束背景滤镜，避免胶囊外出现矩形模糊。 */
+.glass[data-vt-glass] { view-transition-class: nav-glass; }
+html:is([data-gallery-window], [data-gallery-window-back]) {
+  [data-vt-glass="topnav-brand"] { view-transition-name: nav-topnav-brand; }
+  [data-vt-glass="topnav-back"] { view-transition-name: nav-topnav-back; }
+  [data-vt-glass="topnav-tabs"] { view-transition-name: nav-topnav-tabs; }
+  [data-vt-glass="topnav-downloads"] { view-transition-name: nav-topnav-downloads; }
+  [data-vt-glass="topnav-demo"] { view-transition-name: nav-topnav-demo; }
+  [data-vt-glass="topnav-theme"] { view-transition-name: nav-topnav-theme; }
+  [data-vt-glass="topnav-appearance"] { view-transition-name: nav-topnav-appearance; }
+  [data-vt-glass="topnav-appearance-panel"] { view-transition-name: nav-topnav-appearance-panel; }
+  [data-vt-glass="sidenav-brand"] { view-transition-name: nav-sidenav-brand; }
+  [data-vt-glass="sidenav-tabs"] { view-transition-name: nav-sidenav-tabs; }
+  [data-vt-glass="tabbar-tabs"] { view-transition-name: nav-tabbar-tabs; }
+}
+::view-transition-group(.nav-glass) { animation: none; z-index: 3; border-radius: 999px; }
+::view-transition-group(nav-sidenav-tabs), ::view-transition-group(nav-tabbar-tabs) { border-radius: 26px; }
+::view-transition-group(nav-topnav-appearance-panel) { border-radius: 22px; }
+::view-transition-old(.nav-glass) { display: none; }
+::view-transition-new(.nav-glass) { animation: none; mix-blend-mode: normal; height: 100%; }
+/* 只有旧快照的分组也要隐藏：即使 old 图片不画，group 的背景滤镜仍会留下玻璃残影。 */
+html:not(:has([data-vt-glass="topnav-brand"]))::view-transition-group(nav-topnav-brand),
+html:not(:has([data-vt-glass="topnav-back"]))::view-transition-group(nav-topnav-back),
+html:not(:has([data-vt-glass="topnav-downloads"]))::view-transition-group(nav-topnav-downloads),
+html:not(:has([data-vt-glass="topnav-appearance-panel"]))::view-transition-group(nav-topnav-appearance-panel),
+html:not(:has([data-vt-glass="tabbar-tabs"]))::view-transition-group(nav-tabbar-tabs) { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),

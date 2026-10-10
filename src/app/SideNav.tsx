@@ -19,12 +19,12 @@ export function SideNav() {
     <div data-vt-bar="sidenav" className="pointer-events-none fixed top-0 left-0 z-40 hidden w-[var(--side-w)] flex-col items-end md:max-xl:flex">
       <div className="flex h-[var(--nav-h)] w-[72px] items-center justify-center">
         <NavLink to="/" aria-label="Sukimi 首页" className="pointer-events-auto rounded-full text-text no-underline">
-          <Glass as="span" className="flex rounded-full p-[5px] text-[17px] font-bold">
+          <Glass as="span" data-vt-glass="sidenav-brand" className="flex rounded-full p-[5px] text-[17px] font-bold">
             <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
           </Glass>
         </NavLink>
       </div>
-      <Glass as="nav" ref={pillRef} dense aria-label="主导航" className="pointer-events-auto flex w-[72px] flex-col gap-1 rounded-[26px] p-1.5">
+      <Glass as="nav" data-vt-glass="sidenav-tabs" ref={pillRef} dense aria-label="主导航" className="pointer-events-auto flex w-[72px] flex-col gap-1 rounded-[26px] p-1.5">
         <NavPill box={pillBox} className="rounded-[20px]" />
         {TABS.map((t) => (
           <NavLink
