@@ -15,6 +15,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
 import type { LibraryMangasQuery } from '@/api/gql/graphql'
 import { GalleryWindow } from '@/features/gallery/GalleryWindow'
+import { useLanded } from '@/features/gallery/readMorph'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -65,12 +66,14 @@ function useBatch(key: string) {
 }
 
 export function HomePage() {
-  const reads = useQuery(RecentReads, { fetchPolicy: 'cache-and-network' })
+  // 换页动画期间有缓存就只用缓存，落地后再去网络刷新：结果一到整页要重新渲染，和动画抢主线程会一顿一顿的（见 useLanded）
+  const landed = useLanded()
+  const reads = useQuery(RecentReads, { fetchPolicy: landed ? 'cache-and-network' : 'cache-first' })
   // 和书库页共用同一份查询与快照，之后打开书库也不用再等
   const lib = useQuery(LibraryMangas)
   const updates = useQuery(RecentUpdates, {
     variables: { first: 200, offset: 0, filter: IN_LIBRARY },
-    fetchPolicy: 'cache-and-network',
+    fetchPolicy: landed ? 'cache-and-network' : 'cache-first',
   })
   // 刷新页面后先用上次保存的数据，网络数据到了再替换
   const readsData = withSnapshot('recentReads', reads.data)
@@ -116,7 +119,7 @@ export function HomePage() {
         />
         <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`} mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />
         <RecentList items={recent.slice(0, 3)} />
-        <GalleryWindow library={libData?.mangas.nodes} exclude={onPage} />
+        <GalleryWindow library={libData?.mangas.nodes} exclude={readsData ? onPage : undefined} />
       </div>
     </>
   )

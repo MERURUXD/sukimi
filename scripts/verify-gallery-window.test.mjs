@@ -55,3 +55,64 @@ test('橱窗：按排列取封面，排列长度对不上时退回默认', () =>
   assert.equal(wallItem(1, 2, 11), cellIndex(1, 2, 11))
   wallState.order = null
 })
+
+test('橱窗：屏幕取景框保留负边距，部分在屏外仍能连续裁切', async () => {
+  const { windowClip, galleryPose, shadeTransform } = await import('../src/features/gallery/windowMotion.ts')
+  assert.equal(windowClip({ left: 32, top: 640, width: 1216, height: 380 }, 28, 1280, 900), 'inset(640px 32px -120px 32px round 28px)')
+  const pose = galleryPose({ left: 64, top: 0, width: 1216, height: 1000 }, 1280, 900)
+  assert.equal(windowClip(pose.box, pose.radius, 1280, 900), 'inset(0px 0px 0px 0px round 0px)')
+  assert.deepEqual([pose.x, pose.y], [32, 50], '画廊主体偏离视口时仍保留墙中心')
+  assert.equal(shadeTransform({ left: 32, top: 450, width: 1216, height: 450 }, 1280, 900), 'translate(30px, 448px) scale(0.953125, 0.5044444444444445)')
+})
+
+test('橱窗：遮罩在往返每个进度都超出裁切边缘，避免缩放抗锯齿露底', async () => {
+  const { shadeTransform } = await import('../src/features/gallery/windowMotion.ts')
+  for (const [w, h, box] of [
+    [1280, 900, { left: 48.2, top: 440.3, width: 1168.8, height: 380 }],
+    [390, 844, { left: 16, top: 550.6, width: 358, height: 480 }],
+  ]) {
+    const full = { left: 0, top: 0, width: w, height: h }
+    for (const [from, to] of [[full, box], [box, full]]) {
+      const matrix = b => shadeTransform(b, w, h).match(/-?\d+(?:\.\d+)?/g).map(Number)
+      const a = matrix(from), b = matrix(to)
+      for (const p of [0, 0.01, 0.25, 0.5, 0.9, 0.99, 1]) {
+        // CSS 同名 translate/scale 函数按进度插值；独立计算真实覆盖矩形。
+        const mix = (x, y) => x + (y - x) * p
+        const x = mix(a[0], b[0]), y = mix(a[1], b[1])
+        const right = x + mix(a[2], b[2]) * w
+        const bottom = y + mix(a[3], b[3]) * h
+        const leftEdge = mix(from.left, to.left), topEdge = mix(from.top, to.top)
+        const rightEdge = leftEdge + mix(from.width, to.width)
+        const bottomEdge = topEdge + mix(from.height, to.height)
+        assert.ok(leftEdge - x >= 1.999 && topEdge - y >= 1.999)
+        assert.ok(right - rightEdge >= 1.999 && bottom - bottomEdge >= 1.999)
+      }
+    }
+  }
+})
+
+test('橱窗：只在完整换页结束后清理，跳过或失败也会清理', async () => {
+  const { onWindowFinished } = await import('../src/features/gallery/windowMotion.ts')
+  for (const fail of [false, true]) {
+    let settle
+    const finished = new Promise((resolve, reject) => { settle = fail ? reject : resolve })
+    let cleaned = 0
+    onWindowFinished({ finished }, () => cleaned++)
+    await Promise.resolve()
+    assert.equal(cleaned, 0, '墙动画提前落定不能清理换页样式')
+    settle()
+    await Promise.resolve()
+    assert.equal(cleaned, 1)
+  }
+})
+
+test('橱窗：已取消的过渡不能在迟到的结束事件里清理下一次', async () => {
+  const { onWindowFinished } = await import('../src/features/gallery/windowMotion.ts')
+  let settle
+  const finished = new Promise(resolve => { settle = resolve })
+  let cleaned = 0
+  const cancel = onWindowFinished({ finished }, () => cleaned++)
+  cancel(); settle()
+  await Promise.resolve()
+  assert.equal(cleaned, 0)
+})

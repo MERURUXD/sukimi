@@ -8,13 +8,14 @@ import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { useForceDark } from '@/design/settings'
 import { HeroWall, flyWallToLibrary } from './HeroWall'
+import { WindowWall } from './SharedWindowWall'
+import { afterWindowWall } from './windowScene'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { galleryOrder, isCompleted, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { armLibraryFade, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit } from './readMorph'
+import { armLibraryFade, armWindowBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry } from './readMorph'
 import './gallery.css'
 
 type FilterValue = 'all' | 'done' | number
-
 
 const parseFilter = (v: string | null): FilterValue => (v === 'done' ? 'done' : v && /^\d+$/.test(v) ? Number(v) : 'all')
 
@@ -24,6 +25,10 @@ const parseFilter = (v: string | null): FilterValue => (v === 'done' ? 'done' : 
  */
 export function GalleryPage() {
   useForceDark()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from
+  const origin = from === 'library' || from === 'home' ? from : null
+  const sharedWall = origin === 'home'
   const { all, stats, categories, loading, error } = useGalleryLibrary()
   const mobile = useMobile()
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
@@ -34,18 +39,34 @@ export function GalleryPage() {
 
   // 从书库点「画廊」进来：书库里的封面从原位飞上墙，标题和暗角等封面上墙了再淡入
   const [entry] = useState(libraryCoversForEntry)
+  // 首页来路保留同一面墙，取景范围和标题一起展开。
+  const [reveal] = useState(windowEntryForEntry)
 
   /* 像幻灯片一样分两页：首屏的墙、全部作品（见 usePaging） */
   const reduced = useReducedMotionPref()
   const grid = useRef<HTMLElement>(null)
   const page = usePaging(grid, reduced)
   // 从书库飞进来时，第二页（几百部的网格）等封面上了墙再挂：一起挂的话第一帧要多渲染一百多毫秒，过场开头会顿一下
-  const [gridReady, setGridReady] = useState(!entry)
+  const [gridReady, setGridReady] = useState(!entry && !reveal)
   useEffect(() => {
     if (gridReady) return
+    if (reveal) {
+      let alive = true
+      let idle = 0
+      void afterWindowWall().then(() => {
+        if (!alive) return
+        const mount = () => alive && setGridReady(true)
+        idle = typeof requestIdleCallback === 'function' ? requestIdleCallback(mount, { timeout: 1000 }) : window.setTimeout(mount, 80)
+      })
+      return () => {
+        alive = false
+        if (typeof cancelIdleCallback === 'function') cancelIdleCallback(idle)
+        else clearTimeout(idle)
+      }
+    }
     const t = setTimeout(() => setGridReady(true), 1900)
     return () => clearTimeout(t)
-  }, [gridReady])
+  }, [gridReady, reveal])
   const toGrid = useCallback(() => {
     if (gridReady) return page('grid')
     setGridReady(true)
@@ -85,15 +106,12 @@ export function GalleryPage() {
   /*
    * 离开画廊首页，来路决定去路（state.from，直接打开、刷新的没有来路）：
    * - 返回键：回来路。从书库点进来、后退回同一个书库页面时，墙停下来，中间那块封面飞回书库的原位、墙转平，
-   *   文字淡掉，再换页（书库那一页在下面、画廊在上面淡出，封面不动）；从首页来的回首页；没有来路回书库。
+   *   文字淡掉，再换页（书库那一页在下面、画廊在上面淡出，封面不动）；从首页来的，同一面墙收进首页的取景窗；没有来路回书库。
    * - 导航栏的「书库」：一定去书库。来路是书库才飞回，其余都是普通换页。
    */
-  const location = useLocation()
   const navigate = useNavigate()
   const hero = useRef<HTMLElement>(null)
   const leaving = useRef(false)
-  const from = (location.state as { from?: string } | null)?.from
-  const origin = from === 'library' || from === 'home' ? from : null
   const leave = useCallback(
     (to: 'back' | 'library') => {
       if (leaving.current) return
@@ -107,11 +125,19 @@ export function GalleryPage() {
         if (fromLibrary || (backHome && canBack)) navigate(-1)
         else navigate(backHome ? '/' : '/library', { viewTransition: true })
       }
+      // 书库来路保留原来的文字淡出与封面飞回。
+      const fadeUi = (duration = 380, only = '[data-hero-ui]') =>
+        hero.current?.querySelectorAll<HTMLElement>(only).forEach((el) =>
+          el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration, easing: 'ease-out', fill: 'forwards' }),
+        )
+      if (backHome && canBack && !reduced && window.scrollY <= 2 && armWindowBack()) {
+        // 文字和墙同步收尾，不先等待一次淡出；导航独立于墙层。
+        navigate(-1)
+        return
+      }
       const rects = fromLibrary ? libraryCoversForReturn() : null
       if (reduced || !rects || window.scrollY > 2) return go()
-      hero.current?.querySelectorAll<HTMLElement>('[data-hero-ui]').forEach((el) =>
-        el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 380, easing: 'ease-out', fill: 'forwards' }),
-      )
+      fadeUi()
       if (!flyWallToLibrary(rects, go)) go()
     },
     [origin, navigate, reduced],
@@ -136,11 +162,13 @@ export function GalleryPage() {
   return (
     <>
       <section ref={hero} aria-label="书库画廊" className={cn(HERO_BOX, 'isolate -mt-[var(--nav-h)] overflow-hidden')} onClickCapture={enterCanvas}>
-        {!empty && <HeroWall items={ordered} mobile={mobile} entry={entry} className="-z-20" />}
+        {!empty && (sharedWall
+          ? <WindowWall kind="gallery" items={ordered} mobile={mobile} shade={HERO_VIGNETTE[mobile ? 'mobile' : 'desktop']} className="-z-20" />
+          : <HeroWall items={ordered} mobile={mobile} entry={entry} className="-z-20" />)}
         {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
-        <div aria-hidden data-hero-ui className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />
+        {!sharedWall && <div aria-hidden data-hero-ui data-hero-fade className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />}
 
-        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} />
+        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} />
       </section>
 
       {/* 第二页至少占满一屏：切过来时停在它的顶部，内容少也不会切不到位；顶栏的高度留在它自己的上边距里，墙不会从顶栏下面露出来 */}

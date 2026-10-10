@@ -650,6 +650,59 @@ html[data-gallery-enter]::view-transition-new(root) {
   }
 }
 
+/* 首页橱窗 ⇄ 画廊：只展开封面墙，页面和导航保持各自的坐标系。
+   样式一直保留到 ViewTransition.finished，避免结束前恢复默认交叉淡化。 */
+html:is([data-gallery-window], [data-gallery-window-back])::view-transition-group(root),
+html:is([data-gallery-window], [data-gallery-window-back])::view-transition-old(root),
+html:is([data-gallery-window], [data-gallery-window-back])::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+html[data-gallery-window]::view-transition-new(root),
+html[data-gallery-window-back]::view-transition-old(root) { display: none; }
+html:is([data-gallery-window], [data-gallery-window-back]) .gw-scene { view-transition-name: gallery-wall; }
+::view-transition-group(gallery-wall) { animation: none; z-index: 1; }
+::view-transition-old(gallery-wall) { display: none; }
+::view-transition-new(gallery-wall) {
+  /* 浏览器的实时新场景由 WAAPI 驱动；这段空动画让快照生命周期覆盖整段动作。 */
+  animation: gallery-wall-hold 0.85s linear both;
+  mix-blend-mode: normal;
+  height: 100%;
+}
+@keyframes gallery-wall-hold { from, to { opacity: 1; } }
+html:is([data-gallery-window], [data-gallery-window-back]) :is(.gwin-title, .gallery-title) { view-transition-name: gallery-title; }
+::view-transition-group(gallery-title) {
+  z-index: 2;
+  animation-duration: 0.85s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+html:is([data-gallery-window], [data-gallery-window-back]) .gwin-kicker { view-transition-name: window-meta; }
+html:is([data-gallery-window], [data-gallery-window-back]) .gwin-stats { view-transition-name: window-summary; }
+html:is([data-gallery-window], [data-gallery-window-back]) .gwin-cta { view-transition-name: window-actions; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="meta"] { view-transition-name: hero-meta; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="summary"] { view-transition-name: hero-summary; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="actions"] { view-transition-name: hero-actions; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="read"] { view-transition-name: hero-read; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="browse"] { view-transition-name: hero-browse; }
+::view-transition-group(window-meta), ::view-transition-group(window-summary), ::view-transition-group(window-actions),
+::view-transition-group(hero-meta), ::view-transition-group(hero-summary), ::view-transition-group(hero-actions),
+::view-transition-group(hero-read), ::view-transition-group(hero-browse) { animation: none; z-index: 2; }
+::view-transition-old(window-meta), ::view-transition-old(window-summary), ::view-transition-old(window-actions),
+::view-transition-old(hero-meta), ::view-transition-old(hero-summary), ::view-transition-old(hero-actions),
+::view-transition-old(hero-read), ::view-transition-old(hero-browse) { animation: gallery-fade-out 0.12s ease-out both; mix-blend-mode: normal; }
+::view-transition-new(window-meta), ::view-transition-new(window-summary), ::view-transition-new(window-actions),
+::view-transition-new(hero-meta), ::view-transition-new(hero-summary), ::view-transition-new(hero-actions),
+::view-transition-new(hero-read), ::view-transition-new(hero-browse) { animation: gallery-copy-in 0.45s 0.2s ease-out both; mix-blend-mode: normal; }
+@keyframes gallery-copy-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* 固定栏独立于墙，收回时不会被墙的姿态带着缩小。 */
+html:is([data-gallery-window], [data-gallery-window-back]) [data-vt-bar="topnav"] { view-transition-name: gallery-topnav; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-vt-bar="sidenav"] { view-transition-name: gallery-sidenav; }
+html:is([data-gallery-window], [data-gallery-window-back]) [data-vt-bar="tabbar"] { view-transition-name: gallery-tabbar; }
+::view-transition-group(gallery-topnav), ::view-transition-group(gallery-sidenav), ::view-transition-group(gallery-tabbar) { animation: none; z-index: 3; }
+::view-transition-old(gallery-topnav), ::view-transition-old(gallery-sidenav), ::view-transition-old(gallery-tabbar) { display: none; }
+::view-transition-new(gallery-topnav), ::view-transition-new(gallery-sidenav), ::view-transition-new(gallery-tabbar) { animation: none; mix-blend-mode: normal; height: 100%; }
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),

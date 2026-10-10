@@ -21,7 +21,9 @@ export const wallState: {
    * 原来那一块封面回到屏幕中间，再由这些格子本身飞回书库，不会换成别的封面。from 是当时记下的书库封面位置
    */
   landing: { cx: number; cy: number; keys: ReadonlyMap<string, CoverRect>; from: ReadonlyMap<number, CoverRect> } | null
-} = { cx: NaN, cy: NaN, grid: null, order: null, landing: null }
+  /** 首页橱窗换格后写进 order 的那个数组：order 还是它，说明没被书库进画廊改写过，橱窗再挂上时不用重换，封面才一直不变 */
+  sampled: number[] | null
+} = { cx: NaN, cy: NaN, grid: null, order: null, landing: null, sampled: null }
 
 /** 还没有位置（或换了格子尺寸）时让第 0 列第 0 行的格子正好在中心 */
 export function ensureWall(w: number, h: number, grid: Grid) {
@@ -46,9 +48,11 @@ export function wallPosOf(i: number, n: number) {
   return o && o.length === n ? o.indexOf(i) : i
 }
 
+const PERSPECTIVE = 1800
+
 /** k 倍于画廊首页的倾斜程度：1 就是画廊里墙的姿态（HOME_WALL），0 是平铺 */
 export const wallTransform = (k: number) =>
-  `perspective(1800px) rotateX(${(HOME_WALL.rotateX * k).toFixed(3)}deg) rotateZ(${(HOME_WALL.rotateZ * k).toFixed(3)}deg) scale(${wallScale(k).toFixed(4)})`
+  `perspective(${PERSPECTIVE}px) rotateX(${(HOME_WALL.rotateX * k).toFixed(3)}deg) rotateZ(${(HOME_WALL.rotateZ * k).toFixed(3)}deg) scale(${wallScale(k).toFixed(4)})`
 
 export const wallScale = (k: number) => 1 + (HOME_WALL.scale - 1) * k
 const tiltY = (k: number) => Math.cos((HOME_WALL.rotateX * k * Math.PI) / 180)
@@ -59,6 +63,8 @@ const tiltY = (k: number) => Math.cos((HOME_WALL.rotateX * k * Math.PI) / 180)
  */
 export const WINDOW_K = 1.6
 export const WINDOW_K_ON = 1.15
+/** 橱窗墙随指针左右转的最大角度（deg），window.css 里的 rotateY 要和它一致 */
+export const WINDOW_TILT = 4
 
 /** 框（w × h）里的墙在 k 倍倾斜下，要生成多大范围的格子（给 visibleCells；旋转后四角要靠外圈盖住） */
 export function wallRange(w: number, h: number, k: number) {
@@ -111,4 +117,19 @@ export function windowOrder(n: number, cells: readonly { c: number; r: number }[
     wants.push([p, picks[wants.length]])
   }
   return placeOrder(n, wants).order
+}
+
+/**
+ * 画廊那面墙（整屏、画廊里的姿态）此刻会用到的封面地址。指到首页橱窗上就先把这些封面取回来：
+ * 橱窗里只载入了窗里看得见的几十张，窗口揭开成整屏时其余的封面才第一次要用，等它们现取会在展开时一块块冒出来。
+ */
+export function wallCoverUrls(items: readonly { thumbnailUrl?: string | null }[], grid: Grid, w: number, h: number) {
+  const urls = new Set<string>()
+  if (!items.length) return []
+  const cells = visibleCells(wallState.cx + w / 2 + HOME_WALL.slide, wallState.cy + h / 2, w, h, grid, wallRange(w, h, WINDOW_K_ON))
+  for (const cell of cells) {
+    const url = items[wallItem(cell.c, cell.r, items.length)]?.thumbnailUrl
+    if (url) urls.add(url)
+  }
+  return [...urls]
 }

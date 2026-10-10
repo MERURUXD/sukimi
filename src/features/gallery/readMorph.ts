@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { closeWindowWall, openWindowWall } from './windowScene'
 
 /*
  * 「已读话数」在画廊首页和阅读档案之间飞来飞去。两页各有一个带 data-gallery-read 的数字，
@@ -47,8 +48,22 @@ export function enterGalleryFromLibrary() {
   }
   libraryCovers = { at: performance.now(), rects }
   returnCovers = rects
+  windowEntry = null
   armLibraryFade()
 }
+
+/** 首页来路只登记本次入口，墙本身由 windowScene 跨路由保留。 */
+let windowEntry: { at: number } | null = null
+
+export function enterGalleryFromHome(win: HTMLElement) {
+  if (!openWindowWall(win)) return
+  windowEntry = { at: performance.now() }
+  libraryCovers = null
+  returnCovers = null
+}
+
+export const windowEntryForEntry = () => (windowEntry && performance.now() - windowEntry.at < 2000 ? windowEntry : null)
+export const armWindowBack = closeWindowWall
 
 /** 书库 ⇄ 画廊换页时，旧页面在上面淡出、新页面直接在下面（index.css 的 data-gallery-enter） */
 export function armLibraryFade() {

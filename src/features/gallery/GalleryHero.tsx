@@ -35,6 +35,7 @@ export function HeroCopy({
   decorative,
   intro,
   late,
+  morph,
   onBrowse,
   onBack,
   backLabel,
@@ -43,8 +44,10 @@ export function HeroCopy({
   mobile: boolean
   decorative?: boolean
   intro?: boolean
-  /** 从书库飞进来时：等封面上了墙再淡入 */
+  /** 从书库飞进来时：等封面上了墙再淡入。首页入口的文字由换页时间轴控制。 */
   late?: boolean
+  /** 标题和首页橱窗里的是同一句，由换页动画位移过去（见 index.css 的 gallery-title），所以不再自己淡入 */
+  morph?: boolean
   /** 点「浏览全部」切到全部作品那一页 */
   onBrowse?: () => void
   /** 返回来路（从书库来的，墙上那块封面飞回书库的原位；从首页来的回首页） */
@@ -53,7 +56,9 @@ export function HeroCopy({
   backLabel?: string
 }) {
   const chapterText = stats.chapters == null ? '—' : count(stats.chapters)
-  const fx = cn(decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]', late ? 'gallery-late' : intro && 'rise')
+  const base = decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]'
+  const fx = cn(base, late ? 'gallery-late' : intro && 'rise')
+  const titleFx = morph ? cn(base) : fx
   const d = (ms: number) => ({ '--d': `${ms}ms` }) as CSSProperties
   const tab = decorative ? -1 : undefined
   const browse = (
@@ -95,25 +100,25 @@ export function HeroCopy({
     return (
       // 底部留出标签栏的高度：首屏占满一屏，标签栏浮在上面
       <div data-hero-ui className="wrap mt-auto flex flex-col gap-3 pb-[calc(var(--tabbar-h)+14px)]" aria-hidden={decorative || undefined} inert={decorative || undefined}>
-        <div className={cn('flex items-center gap-3 text-xs', fx)}>
+        <div data-hero-fade data-gallery-copy="meta" className={cn('flex items-center gap-3 text-xs', fx)}>
           {back}
           <p className="m-0 font-medium tracking-[.3em] text-muted">书库画廊</p>
         </div>
-        <h1 className={cn('m-0 font-cjk text-[34px] leading-[1.15] font-black tracking-[-0.01em]', fx)} style={d(40)}>
+        <h1 className={cn('gallery-title m-0 font-cjk text-[34px] leading-[1.06] font-black tracking-[-0.02em]', titleFx)} style={d(40)}>
           每一部收藏，
           <br />
           都在这面墙上。
         </h1>
-        <p className={cn('m-0 text-sm text-muted num', fx)} style={d(80)}>
+        <p data-hero-fade data-gallery-copy="summary" className={cn('m-0 text-sm text-muted num', fx)} style={d(80)}>
           {count(stats.works)} 部作品 · {chapterText} 话 · {count(stats.done)} 部已完结
         </p>
         <div className="mt-1 flex items-center justify-between gap-4">
-          <span className={fx} style={d(120)}>
+          <span data-hero-fade data-gallery-copy="actions" className={fx} style={d(120)}>
             {canvas}
           </span>
           {door}
         </div>
-        <div className={cn('flex justify-center pt-1', fx)} style={d(160)}>
+        <div data-hero-fade data-gallery-copy="browse" className={cn('flex justify-center pt-1', fx)} style={d(160)}>
           {browse}
         </div>
       </div>
@@ -127,19 +132,19 @@ export function HeroCopy({
       inert={decorative || undefined}
     >
       <div className="flex max-w-[660px] flex-col gap-5">
-        <div className={cn('flex items-center gap-4 text-[13px]', fx)}>
+        <div data-hero-fade data-gallery-copy="meta" className={cn('flex items-center gap-4 text-[13px]', fx)}>
           {back}
           <p className="m-0 font-medium tracking-[.32em] text-muted">{monthLabel()}</p>
         </div>
-        <h1 className={cn('m-0 font-cjk text-[clamp(44px,5.2vw,84px)] leading-[1.06] font-black tracking-[-0.02em]', fx)} style={d(40)}>
+        <h1 className={cn('gallery-title m-0 font-cjk text-[clamp(44px,5.2vw,84px)] leading-[1.06] font-black tracking-[-0.02em]', titleFx)} style={d(40)}>
           每一部收藏，
           <br />
           都在这面墙上。
         </h1>
-        <p className={cn('m-0 text-[17px] text-muted num', fx)} style={d(80)}>
+        <p data-hero-fade data-gallery-copy="summary" className={cn('m-0 text-[17px] text-muted num', fx)} style={d(80)}>
           {count(stats.works)} 部作品 · {chapterText} 话 · {count(stats.ongoing)} 部连载中 · {count(stats.done)} 部已完结
         </p>
-        <div className={cn('mt-2 flex items-center gap-7', fx)} style={d(120)}>
+        <div data-hero-fade data-gallery-copy="actions" className={cn('mt-2 flex items-center gap-7', fx)} style={d(120)}>
           {canvas}
           {browse}
         </div>
@@ -162,6 +167,8 @@ function ReadDoor({ read, mobile, decorative, className, style }: { read: number
       viewTransition
       tabIndex={decorative ? -1 : undefined}
       aria-label={`阅读档案：已读 ${value} 话`}
+      data-hero-fade
+      data-gallery-copy="read"
       onClick={(e) => plainClick(e) && armReadMorph()}
       className={cn('group relative flex flex-none flex-col text-text no-underline', mobile ? 'items-end gap-0.5' : 'items-end gap-1.5', className)}
       style={style}
