@@ -2,12 +2,14 @@ import { execSync } from 'node:child_process'
 import { createReadStream, existsSync } from 'node:fs'
 import { join, normalize } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
+import { babelOptimizerPlugin } from '@graphql-codegen/client-preset'
+import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const target = env.SUWAYOMI_URL || 'http://localhost:4567'
   let commit = 'dev'
@@ -18,7 +20,18 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), tailwindcss(), {
+    plugins: [react(), command === 'build' && babel({
+      // 构建时直接引用生成文档，避免 graphql() 的整张映射把所有操作带进首屏。
+      presets: [{
+        preset: { plugins: [[babelOptimizerPlugin, { artifactDirectory: './src/api/gql', gqlTagName: 'graphql' }]] },
+        rolldown: {
+          filter: {
+            id: { include: /[\\/]src[\\/].*\.[jt]sx?$/, exclude: /[\\/]api[\\/]gql[\\/]/ },
+            code: /\bgraphql\s*\(/,
+          },
+        },
+      }],
+    }), tailwindcss(), {
       // 只在 dev 服务器上提供 .cache/open-comics 里的本地测试漫画；build 不会带上它们
       name: 'open-comics-cache',
       apply: 'serve',

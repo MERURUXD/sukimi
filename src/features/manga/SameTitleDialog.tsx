@@ -7,7 +7,7 @@ import { CoverImg } from '@/components/manga/CoverImg'
 import { spring } from '@/design/motion'
 import type { LibraryManga } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
-import { MigrateDialog, type MigrateTarget } from './MigratePage'
+import { MigrateDialog, type MigrateTarget } from './MigrateDialog'
 import { MangaChapters, MangaDetail } from './queries'
 
 /**
