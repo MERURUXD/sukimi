@@ -10,6 +10,8 @@
 
 ## 包管理器依赖
 
+正式构建会将 Noto Sans SC 的部分字集按界面文案重新分片，保留原字体的字符覆盖与可变字重；开发环境沿用原分片。字体来自 `@fontsource-variable/noto-sans-sc`，Copyright Google Inc.，使用 SIL Open Font License 1.1，许可原文随构建发布在 `fonts/OFL-NotoSansSC.txt`。构建时裁剪使用 [subset-font](https://github.com/papandreou/subset-font)（BSD-3-Clause），不加入浏览器运行时代码。
+
 依赖的许可由各自的软件包提供。`pnpm build` 会将实际打包依赖的许可汇总到 `dist/dependency-licenses.md`，随构建产物发布；以上说明不替代依赖包自己的许可。
 
 Sukimi 自身代码尚未选择项目许可证。第三方许可不代表 Sukimi 整个项目采用相同许可证。

@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import { fontSubsets } from './scripts/font-subsets.ts'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -31,7 +32,7 @@ export default defineConfig(({ mode }) => {
           createReadStream(file).pipe(res)
         })
       },
-    }],
+    }, fontSubsets()],
     // 设置页「关于」里显示的前端版本
     define: {
       __APP_COMMIT__: JSON.stringify(commit),
@@ -41,6 +42,8 @@ export default defineConfig(({ mode }) => {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
     build: {
+      // 字体按使用的字符请求，避免未使用的小字集内嵌到阻塞首屏的 CSS。
+      assetsInlineLimit(filePath) { if (filePath.endsWith('.woff2')) return false },
       // 随构建产物保留实际打包依赖的许可，便于发布与分发。
       license: { fileName: 'dependency-licenses.md' },
       rolldownOptions: {
