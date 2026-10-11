@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import { useApolloClient } from '@apollo/client/react'
 import { useAuth } from './auth'
 import { contextGeneration } from './userContext'
+import { markCompletedDownloads } from './downloadCache'
 import { graphql } from './gql'
 import type { DownloadItemFragment } from './gql/graphql'
 import { wsClient } from './client'
@@ -104,27 +105,17 @@ export function setDownloadStatus(s: { state: 'STARTED' | 'STOPPED'; queue: Down
   if (s) useLive.setState({ downloader: s.state, queue: sortQueue(s.queue) })
 }
 
-/** 下载完成：直接改缓存里的章节和漫画，列表角标立即变化 */
-function markDownloaded(client: ApolloClient, d: DownloadItem) {
-  client.cache.modify({
-    id: client.cache.identify({ __typename: 'ChapterType', id: d.chapter.id }),
-    fields: { isDownloaded: () => true },
-  })
-  client.cache.modify({
-    id: client.cache.identify({ __typename: 'MangaType', id: d.manga.id }),
-    fields: { downloadCount: (n: number) => n + 1 },
-  })
-}
-
 function applyDownloads(client: ApolloClient, msg: { type: string; download: DownloadItem }[]) {
   const map = new Map(useLive.getState().queue.map((d) => [d.chapter.id, d]))
+  const finished: DownloadItem[] = []
   for (const { type, download: d } of msg) {
     if (type === 'DEQUEUED') map.delete(d.chapter.id)
     else if (type === 'FINISHED') {
       map.delete(d.chapter.id)
-      markDownloaded(client, d)
+      finished.push(d)
     } else map.set(d.chapter.id, d)
   }
+  markCompletedDownloads(client.cache, finished)
   useLive.setState({ queue: sortQueue([...map.values()]) })
 }
 
