@@ -1,6 +1,8 @@
 import { ImageOff } from 'lucide-react'
-import { useCallback, useState, type ImgHTMLAttributes } from 'react'
+import { useCallback, useRef, useState, type ImgHTMLAttributes } from 'react'
 import { useAuth } from '@/api/auth'
+import { onCoverVisibility } from '@/lib/coverVisibility'
+import { CoverSkeleton } from './CoverSkeleton'
 
 /**
  * 放在 .cv 里的封面图。服务端从来源取封面失败（比如来源网站连不上）时返回 500，
@@ -17,10 +19,13 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
   // 登录验证完成前加载失败的地址，验证完成后重试
   const [deferred, setDeferred] = useState<string | null>(null)
   const checking = useAuth((s) => s.status === 'checking')
-  // 已载入的地址；fade 表示是在等待之后才载入的，需要渐显
+  // 已载入的地址；只对在屏内等待后载入的封面渐显
   const [loaded, setLoaded] = useState<{ src: string; fade: boolean } | null>(null)
+  const cancelVisibility = useRef<(() => void) | undefined>(undefined)
 
   const attach = useCallback((el: HTMLImageElement | null) => {
+    cancelVisibility.current?.()
+    cancelVisibility.current = undefined
     const current = el?.getAttribute('src')
     if (current && el!.complete && el!.naturalWidth > 0) setLoaded((l) => (l?.src === current ? l : { src: current, fade: false }))
   }, [])
@@ -34,10 +39,10 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
   }
   const ready = loaded?.src === src
   const retry = deferred === src
-  if (retry && checking) return <span className="cover-skeleton" aria-hidden />
+  if (retry && checking) return <CoverSkeleton />
   return (
     <>
-      {!ready && <span className="cover-skeleton" aria-hidden />}
+      {!ready && <CoverSkeleton />}
       <img
         // 重试时换一个元素重新请求
         key={retry ? 'retry' : 'first'}
@@ -47,7 +52,15 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
         decoding="async"
         draggable={false}
         data-cover={ready ? (loaded.fade ? 'fade' : 'done') : 'loading'}
-        onLoad={() => setLoaded((l) => (l?.src === src ? l : { src, fade: true }))}
+        onLoad={(e) => {
+          if (loaded?.src === src) return
+          cancelVisibility.current?.()
+          const image = e.currentTarget
+          cancelVisibility.current = onCoverVisibility(image, (fade) => {
+            if (!image.isConnected || image.getAttribute('src') !== src) return
+            setLoaded((l) => (l?.src === src ? l : { src, fade }))
+          })
+        }}
         onError={() => (!retry && useAuth.getState().status === 'checking' ? setDeferred(src) : setFailed(src))}
         {...rest}
       />
