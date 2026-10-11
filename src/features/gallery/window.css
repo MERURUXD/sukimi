@@ -162,5 +162,11 @@
 .gw-flying { position: fixed; inset: 0 auto auto 0; z-index: 40; pointer-events: none; }
 .gw-tone { z-index: 0; }
 .gw-home-shade, .gw-hero-shade { z-index: 1; transform-origin: top left; }
-.gw-cover { position: absolute; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 34px #0005; }
+/* 封面只展示正面；明确裁掉背面以稳定移动端的三维合成。 */
+.gw-cover { backface-visibility: hidden; position: absolute; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; box-shadow: 0 14px 34px #0005; }
 .gw-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 手机上重叠封面的宽阴影会增加进出场合成成本，保留封面本身的层次。 */
+@media (max-width: 767.98px) {
+  .gw-cover { box-shadow: none; }
+}
