@@ -721,7 +721,7 @@ export function CanvasPage() {
               }}
               type="button"
               tabIndex={-1}
-              className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0 shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
+              className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0 md:shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
               style={{ width: grid.cw, visibility: 'hidden', backfaceVisibility: 'hidden' }}
               onClick={() => openSlot(i)}
             >

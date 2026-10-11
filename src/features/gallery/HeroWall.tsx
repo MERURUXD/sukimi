@@ -301,7 +301,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
             ref={(el) => {
               slots.current[i] = el
             }}
-            className="cv absolute top-0 left-0 origin-top-left rounded-[14px] shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
+            className="cv absolute top-0 left-0 origin-top-left rounded-[14px] md:shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
             style={{ width: grid.cw, visibility: 'hidden', backfaceVisibility: 'hidden' }}
           >
             <img alt="" draggable={false} decoding="async" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
