@@ -126,7 +126,7 @@ function FilterFields({ filters, values, onChange, parent = [] }: {
             const selection = value as SortSelectionInput | null
             return (
               <div key={key} role="group" aria-label={filter.name || '排序'} className="w-full">
-                <h4 className="pop-h">{filter.name || '排序'} · 再点切换升降序</h4>
+                <h4 className="pop-h">{filter.name || '排序'} · 再次点击切换排序方向</h4>
                 {filter.values.map((label, index) => {
                   const selected = selection?.index === index
                   const Arrow = selection?.ascending ? ArrowUp : ArrowDown

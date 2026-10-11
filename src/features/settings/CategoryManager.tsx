@@ -99,7 +99,7 @@ export function CategoryManager() {
       await update({ variables: { id: editing.id, patch: { name: editing.name.trim() } } })
       setEditing(null)
     } catch (err) {
-      toastError('改名失败', err)
+      toastError('重命名失败', err)
     }
   }
 

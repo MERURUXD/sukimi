@@ -272,7 +272,7 @@ export function LibraryPage() {
           }
         >
           {realCategories.length === 0 ? (
-            <p className="m-0 px-2 py-1 text-[13px] text-muted">还没有分类。分类管理会放在设置页。</p>
+            <p className="m-0 px-2 py-1 text-[13px] text-muted">还没有分类。可在「设置 → 书库」中管理分类。</p>
           ) : (
             realCategories.map((c) => {
               const inAll = ids.length > 0 && ids.every((id) => all.find((m) => m.id === id)?.categories.nodes.some((x) => x.id === c.id))

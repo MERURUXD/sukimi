@@ -24,7 +24,7 @@ function DemoIdentity() {
 export function DemoSettings() {
   const { tab = 'appearance' } = useParams()
   const isAdmin = useAuth((s) => s.user?.roles.includes('ADMIN'))
-  const tabs = [['appearance', '外观'], ['home', '首页'], ['reading', '阅读'], ['account', '账户'], ...(isAdmin ? [['users', '用户']] : [])]
+  const tabs = [['appearance', '外观'], ['home', '首页'], ['reading', '阅读'], ['account', '账号'], ...(isAdmin ? [['users', '用户']] : [])]
   return <div className="wrap max-w-[1120px]! pb-24">
     <h1 className="pt-7 text-[40px] font-black">设置</h1>
     <p className="mb-6 text-sm text-muted">演示设置单独保存在这台设备上，刷新后阅读进度与书库会恢复初始状态。</p>
@@ -35,6 +35,6 @@ export function DemoSettings() {
     {tab === 'appearance' ? <AppearanceTab /> : tab === 'home' ? <HomeTab /> : tab === 'reading' ? <Section title="阅读"><ReaderDefaults /></Section> :
       tab === 'account' ? <><DemoIdentity /><AccountSection hideSignOut /></> :
       tab === 'users' && isAdmin ? <UsersTab /> :
-      <Section title="演示模式" desc="服务端设置、备份和账户管理需要登录后使用。"><a href="/login" className="solid no-underline">退出演示</a></Section>}
+      <Section title="演示模式" desc="服务端设置、备份和账号管理需要登录后使用。"><a href="/login" className="solid no-underline">退出演示</a></Section>}
   </div>
 }

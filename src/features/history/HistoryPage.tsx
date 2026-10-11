@@ -97,7 +97,7 @@ export function HistoryPage() {
         <div className="min-w-0 flex-auto">
           <h1 className="m-0 font-cjk text-[40px] font-black">阅读历史</h1>
           <span className="text-sm text-muted">
-            {data ? `${count(data.chapters.totalCount)} 话读过的记录` : loading ? '正在加载…' : ''}
+            {data ? `共 ${count(data.chapters.totalCount)} 话阅读记录` : loading ? '正在加载…' : ''}
             {q && data && ` · 在已加载的 ${count(list.length)} 话里搜索`}
           </span>
         </div>

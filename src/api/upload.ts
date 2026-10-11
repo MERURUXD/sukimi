@@ -17,7 +17,7 @@ export async function uploadRequest<R, V extends Record<string, unknown>>(
   variables: V,
   files: Record<string, File>,
 ): Promise<R> {
-  if (isDemo) throw new Error('演示模式不上传文件，请退出演示后登录服务器')
+  if (isDemo) throw new Error('演示模式不上传文件，请退出演示后登录服务端')
   const send = async (token: string | null) => {
     const form = new FormData()
     form.append('operations', JSON.stringify({ query: print(doc), variables }))

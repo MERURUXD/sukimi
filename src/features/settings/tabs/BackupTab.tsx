@@ -176,13 +176,13 @@ function ManualBackup() {
 
   return (
     <Section title="备份与恢复" desc="备份文件（.tachibk）与 Tachiyomi / Mihon 通用。">
-      <Row label="立即备份" hint="包含书库、分类、阅读进度、历史、追踪和设置，生成后自动下载">
+      <Row label="立即备份" hint="包含书库、分类、阅读进度、历史、追踪和设置，生成后自动下载。">
         <button type="button" className="solid min-h-11" onClick={() => void backupNow()} disabled={creating}>
           <DatabaseBackup className="size-[18px]" strokeWidth={2} />
           {creating ? '正在生成…' : '备份并下载'}
         </button>
       </Row>
-      <Row label="从文件恢复" hint="先检查备份里缺哪些扩展，确认后再开始">
+      <Row label="从文件恢复" hint="先检查备份里缺哪些扩展，确认后再开始。">
         <button type="button" className="gbtn plain rounded-full" onClick={() => fileRef.current?.click()} disabled={!!restore && !finished}>
           <Upload className="size-[18px]" strokeWidth={1.8} />
           选择备份文件

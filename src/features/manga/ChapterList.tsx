@@ -60,19 +60,19 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
       update({ variables: { ids, patch: p } })
 
     return {
-      setRead: wrap('标记', async (ids: number[], isRead: boolean) => {
+      setRead: wrap('标为已读', async (ids: number[], isRead: boolean) => {
         const still = captureUser()
         // 标为未读时同时清掉页码，避免「继续阅读」停在最后一页
         await patch(ids, isRead ? { isRead } : { isRead, lastPageRead: 0 })
         if (isRead) onMarkedRead?.(still)
         if (ids.length > 1) return `已将 ${ids.length} 话标为${isRead ? '已读' : '未读'}`
       }),
-      setBookmarked: wrap('书签', async (ids: number[], isBookmarked: boolean) => {
+      setBookmarked: wrap('更新书签', async (ids: number[], isBookmarked: boolean) => {
         await patch(ids, { isBookmarked })
-        if (ids.length > 1) return isBookmarked ? `已为 ${ids.length} 话加书签` : `已取消 ${ids.length} 话的书签`
+        if (ids.length > 1) return isBookmarked ? `已为 ${ids.length} 话添加书签` : `已取消 ${ids.length} 话的书签`
       }),
       /** 选中章节（含）之前的全部标为已读 */
-      markPreviousRead: wrap('标记', async (ids: number[]) => {
+      markPreviousRead: wrap('标为已读', async (ids: number[]) => {
         const max = Math.max(...all.filter((c) => ids.includes(c.id)).map((c) => c.sourceOrder))
         const targets = all.filter((c) => c.sourceOrder <= max && !c.isRead).map((c) => c.id)
         if (targets.length) {
@@ -91,7 +91,7 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
       }),
       deleteDownloads: wrap('删除下载', async (ids: number[]) => {
         const targets = all.filter((c) => ids.includes(c.id) && c.isDownloaded).map((c) => c.id)
-        if (!targets.length) return '选中的章节没有下载'
+        if (!targets.length) return '选中的章节未下载'
         await remove({ variables: { ids: targets } })
         onDownloadsDeleted()
         return `已删除 ${targets.length} 话的下载`
@@ -279,11 +279,11 @@ export function ChapterList({
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.markPreviousRead(ids)}>
           <CheckCheck className="size-5" strokeWidth={1.8} />
-          此前全部已读
+          此前全部标为已读
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.setBookmarked(ids, !allBookmarked)}>
           {allBookmarked ? <BookmarkMinus className="size-5" strokeWidth={1.8} /> : <Bookmark className="size-5" strokeWidth={1.8} />}
-          {allBookmarked ? '取消书签' : '书签'}
+          {allBookmarked ? '取消书签' : '添加书签'}
         </button>
         <Can permission="DOWNLOAD_CHAPTERS">
           <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.download(ids)}>
@@ -424,10 +424,10 @@ const ChapterRow = memo(function ChapterRow({
               {c.isRead ? '标为未读' : '标为已读'}
             </MenuItem>
             <MenuItem icon={c.isBookmarked ? BookmarkMinus : Bookmark} onClick={() => (setMenu(false), actions.setBookmarked([c.id], !c.isBookmarked))}>
-              {c.isBookmarked ? '取消书签' : '加书签'}
+              {c.isBookmarked ? '取消书签' : '添加书签'}
             </MenuItem>
             <MenuItem icon={CheckCheck} onClick={() => (setMenu(false), actions.markPreviousRead([c.id]))}>
-              此前全部已读
+              此前全部标为已读
             </MenuItem>
             {c.isDownloaded ? (
               <MenuItem icon={Trash2} onClick={() => (setMenu(false), actions.deleteDownloads([c.id]))}>

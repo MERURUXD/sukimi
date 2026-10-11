@@ -168,7 +168,7 @@ function InviteSection({ issued, onIssued }: { issued: Issued | null; onIssued: 
       desc="生成注册码发给对方，对方在登录页选择「用注册码注册」，自己设置用户名和密码。新用户的默认权限沿用服务端设置，注册后可以在下面调整。"
     >
       {issued && <IssuedCode issued={issued} onClose={() => onIssued(null)} />}
-      <Row label="注册码" hint="一次性，7 天内有效">
+      <Row label="注册码" hint="一次性，7 天内有效。">
         <button type="button" className="gbtn plain rounded-full" disabled={loading} onClick={() => void make()}>
           <Plus className="size-[18px]" strokeWidth={1.8} />
           生成注册码
@@ -259,7 +259,7 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
   const submit = async () => {
     try {
       await save({ variables: { input: { userId: user.id, role, permissions: ALL_PERMISSIONS.filter((p) => perms.has(p)) } } })
-      toast(`已更新「${user.username}」，最长 5 分钟后对方生效`)
+      toast(`已更新「${user.username}」，预计 5 分钟内对该用户生效`)
       onDone()
     } catch (e) {
       toastError('更新失败', e)

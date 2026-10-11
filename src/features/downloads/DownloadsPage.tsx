@@ -20,7 +20,7 @@ type View = 'order' | 'manga'
 const stateText = (d: DownloadItem) => {
   if (d.state === 'DOWNLOADING')
     return d.chapter.pageCount > 0 ? `${Math.round(d.progress * d.chapter.pageCount)} / ${d.chapter.pageCount} 页` : `${Math.round(d.progress * 100)}%`
-  if (d.state === 'ERROR') return `出错${d.tries > 0 ? `（已试 ${d.tries} 次）` : ''}`
+  if (d.state === 'ERROR') return `出错${d.tries > 0 ? `（已尝试 ${d.tries} 次）` : ''}`
   if (d.state === 'FINISHED') return '完成'
   return '排队中'
 }
@@ -49,7 +49,7 @@ export function DownloadsPage() {
       const r = running ? (await stop()).data?.stopDownloader : (await start()).data?.startDownloader
       if (r) useLive.setState({ downloader: r.downloadStatus.state })
     } catch (e) {
-      toastError(running ? '暂停失败' : '继续失败', e)
+      toastError(running ? '暂停失败' : '继续下载失败', e)
     }
   }
 
@@ -79,7 +79,7 @@ export function DownloadsPage() {
     const ok = await confirm({
       title: shared ? '清空所有账号的下载队列？' : '清空下载队列？',
       body: shared
-        ? `队列由服务器上的所有账号共用，其他人加入的章节也会一起移出，共 ${queue.length} 话。已经下载完的章节不受影响。`
+        ? `队列由服务端上的所有账号共用，其他人加入的章节也会一起移出，共 ${queue.length} 话。已经下载完的章节不受影响。`
         : `队列里的 ${queue.length} 话都会移出，已经下载完的章节不受影响。`,
       ok: '清空',
       danger: true,
@@ -126,7 +126,7 @@ export function DownloadsPage() {
           </span>
           {shared && (
             <p className="mt-1 mb-0 text-[13px] text-faint">
-              下载队列由服务器上的所有账号共用：开始、暂停、调整顺序和移出都会影响其他人。
+              下载队列由服务端上的所有账号共用：开始、暂停、调整顺序和移出都会影响其他人。
             </p>
           )}
         </div>
@@ -134,7 +134,7 @@ export function DownloadsPage() {
           {errors.length > 0 && (
             <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void retry()}>
               <RotateCcw className="size-[18px]" strokeWidth={1.8} />
-              重试<span className="max-sm:hidden">出错</span>
+              重试<span className="max-sm:hidden">失败项</span>
             </Glass>
           )}
           {queue.length > 0 && (

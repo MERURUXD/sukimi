@@ -23,7 +23,7 @@ export function ServerTab() {
           <SText
             k="ip"
             label="监听地址"
-            hint="0.0.0.0 允许局域网里的其他设备访问；127.0.0.1 只允许本机"
+            hint="0.0.0.0 允许局域网里的其他设备访问；127.0.0.1 只允许本机。"
             width="w-[180px]"
             confirmChange={(next) => ({ title: `监听地址改为 ${next}？`, body: restartBody, ok: '保存' })}
           />
@@ -53,11 +53,11 @@ export function ServerTab() {
           <SSecret
             k="authPassword"
             label="密码"
-            hint="填新密码后保存；不会显示现在的密码"
+            hint="填新密码后保存；不会显示现在的密码。"
             confirmChange={() => ({ title: '修改登录密码？', body: '其他设备下次登录要用新密码。请确认已经记住新密码。', ok: '修改' })}
           />
-          <SDuration k="jwtTokenExpiry" label="访问令牌有效期" unit="min" hint="过期后界面会用刷新令牌自动续期，一般不用改" />
-          <SDuration k="jwtRefreshExpiry" label="保持登录" unit="d" hint="超过这么久没打开，需要重新登录" />
+          <SDuration k="jwtTokenExpiry" label="访问令牌有效期" unit="min" hint="过期后界面会用刷新令牌自动续期，一般不用改。" />
+          <SDuration k="jwtRefreshExpiry" label="保持登录" unit="d" hint="超过这么久没打开，需要重新登录。" />
         </Section>
 
         <Section title="代理" desc="服务端访问漫画来源时经过 SOCKS 代理。">
@@ -98,16 +98,16 @@ export function ServerTab() {
               { value: 'PREVIEW', label: '预览版' },
             ]}
           />
-          <SNumber k="webUIUpdateCheckInterval" label="检查界面更新间隔" unit="小时" min={0} max={23} hint="0 表示不检查；只对官方界面有效" />
+          <SNumber k="webUIUpdateCheckInterval" label="检查界面更新间隔" unit="小时" min={0} max={23} hint="0 表示不检查；只对官方界面有效。" />
           <SSwitch k="initialOpenInBrowserEnabled" label="启动时打开浏览器" />
           <SSwitch k="systemTrayEnabled" label="显示系统托盘图标" />
         </Section>
 
         <Section title="日志">
-          <SSwitch k="debugLogsEnabled" label="详细日志" hint="排查问题时打开，日志会变多" />
+          <SSwitch k="debugLogsEnabled" label="详细日志" hint="仅在排查问题时开启，会记录更详细的运行日志。" />
           <SNumber k="maxLogFiles" label="日志保留" unit="天" min={0} />
-          <SText k="maxLogFileSize" label="单个日志文件上限" width="w-[120px]" hint="如 10mb、1gb" />
-          <SText k="maxLogFolderSize" label="日志目录上限" width="w-[120px]" hint="如 100mb" />
+          <SText k="maxLogFileSize" label="单个日志文件上限" width="w-[120px]" hint="例如 10mb、1gb。" />
+          <SText k="maxLogFolderSize" label="日志目录上限" width="w-[120px]" hint="例如 100mb。" />
         </Section>
 
       </RequireSettings>
@@ -126,12 +126,12 @@ export function ServerTab() {
         <SSwitch k="opdsShowOnlyDownloadedChapters" label="只列出已下载章节" />
         <SSwitch k="opdsEnablePageReadProgress" label="同步逐页阅读进度" />
         <SSwitch k="opdsMarkAsReadOnDownload" label="下载即标为已读" />
-        <SSwitch k="opdsSkipChapterMetadataFeed" label="章节列表直接给下载链接" hint="跳过章节详情页，KOReader 自动下载时兼容性更好" />
-        <SSwitch k="opdsUseBinaryFileSizes" label="文件大小用二进制单位" hint="显示 KiB / MiB 而不是 KB / MB" />
+        <SSwitch k="opdsSkipChapterMetadataFeed" label="章节列表直接给下载链接" hint="跳过章节详情页，KOReader 自动下载时兼容性更好。" />
+        <SSwitch k="opdsUseBinaryFileSizes" label="文件大小用二进制单位" hint="显示 KiB / MiB 而不是 KB / MB。" />
         <SChoice<CbzMediaType>
           k="opdsCbzMimetype"
           label="CBZ 文件类型标识"
-          hint="阅读器打不开 CBZ 时尝试换一个"
+          hint="阅读器打不开 CBZ 时尝试换一个。"
           options={[
             { value: 'MODERN', label: '新标准' },
             { value: 'LEGACY', label: '旧标准' },

@@ -85,7 +85,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
   const multi = !!user && !user.legacy
 
   return (
-    <Section title="账户">
+    <Section title="账号">
       {multi && (
         <Row label="当前用户" hint={user.roles.map((r) => ROLE_LABEL[r]).join('、') || undefined}>
           <span className="text-muted">{user.username}</span>
