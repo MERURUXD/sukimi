@@ -260,14 +260,26 @@
   .cover-skeleton {
     position: absolute;
     inset: 0;
+    overflow: hidden;
+  }
+  .cover-skeleton::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 -264%;
+    width: 400%;
     background: linear-gradient(
       105deg,
       transparent 30%,
       color-mix(in srgb, var(--text) 7%, transparent) 50%,
       transparent 70%
     );
-    background-size: 220% 100%;
+    /* 保留原来 220% 宽的平铺渐变与 -192%→72% 的轨迹，只移动独立层。 */
+    background-size: 55% 100%;
+    background-position: 40% 0;
     animation: cover-shimmer 1.6s ease-in-out infinite;
+  }
+  html[data-cover-scrolling] .cover-skeleton::before {
+    animation-play-state: paused;
   }
   img[data-cover='loading'] {
     opacity: 0;
@@ -482,10 +494,10 @@
 
 @keyframes cover-shimmer {
   from {
-    background-position: 160% 0;
+    transform: translateX(0);
   }
   to {
-    background-position: -60% 0;
+    transform: translateX(66%);
   }
 }
 @keyframes cover-in {
@@ -732,6 +744,9 @@ html:not(:has([data-vt-glass="topnav-appearance-panel"]))::view-transition-group
 html:not(:has([data-vt-glass="tabbar-tabs"]))::view-transition-group(nav-tabbar-tabs) { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
+  .cover-skeleton::before {
+    animation: none !important;
+  }
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
