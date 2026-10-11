@@ -1,6 +1,6 @@
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Check, Download, Star } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { memo, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { useRestoredOffset } from '@/app/ScrollManager'
@@ -38,27 +38,47 @@ function useBox() {
   const ref = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [top, setTop] = useState(0)
+  const measuredTop = useRef(0)
+  const measureTop = () => {
+    const el = ref.current
+    if (!el) return
+    const t = el.getBoundingClientRect().top + window.scrollY
+    if (Math.abs(t - measuredTop.current) > 0.5) {
+      measuredTop.current = t
+      setTop(t)
+    }
+  }
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width))
+    const ro = new ResizeObserver((entries) => {
+      const own = entries.find((e) => e.target === el)
+      if (own) setWidth(own.contentRect.width)
+      measureTop()
+    })
     ro.observe(el)
+    // 字体加载、上方工具栏换行也会移动网格，不能只等父组件重新渲染才校正。
+    const page = el.closest('main')
+    if (page) ro.observe(page)
     setWidth(el.getBoundingClientRect().width)
     return () => ro.disconnect()
   }, [])
   // 上方工具栏、批量栏出现时位置会变，每次渲染后校正
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const t = el.getBoundingClientRect().top + window.scrollY
-    if (Math.abs(t - top) > 0.5) setTop(t)
-  })
+  useLayoutEffect(measureTop)
   return [ref, width, top] as const
 }
 
 export function LibraryGrid(props: Props) {
   const intro = useIntro(!!props.intro, props.items.length > 0)
-  return props.density === 'list' ? <ListView {...props} intro={intro} /> : <GridView {...props} intro={intro} />
+  // 位置测量留在外层：工具栏等布局变化仍会校正，虚拟列表自身滚动更新无需重复读取布局。
+  const [ref, width, top] = useBox()
+  return (
+    <div ref={ref} className="w-full">
+      {props.density === 'list'
+        ? <ListView {...props} intro={intro} top={top} />
+        : <GridView {...props} intro={intro} width={width} top={top} />}
+    </div>
+  )
 }
 
 /** 第一次加载、还没有数据时的占位格子 */
@@ -93,8 +113,7 @@ export function LibrarySkeleton({ density }: { density: Density }) {
 }
 
 /* ───────── 封面网格（按行虚拟化）───────── */
-function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf }: Props) {
-  const [ref, width, top] = useBox()
+function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf, width, top }: Props & { width: number; top: number }) {
   const initialOffset = useRestoredOffset()
   const minW = minTile ?? (density === 'compact' ? 120 : 160)
   const cols = Math.max(2, Math.floor((width + GAP_X) / (minW + GAP_X)))
@@ -115,7 +134,7 @@ function GridView({ items, intro, density, selecting, selected, onToggle, onLong
   useLayoutEffect(() => v.measure(), [v, rowH, cols])
 
   return (
-    <div ref={ref} className="relative w-full" style={{ height: v.getTotalSize() }}>
+    <div className="relative w-full" style={{ height: v.getTotalSize() }}>
       {width > 0 &&
         v.getVirtualItems().map((row, _, all) => (
           <div
@@ -147,7 +166,8 @@ function GridView({ items, intro, density, selecting, selected, onToggle, onLong
   )
 }
 
-function Tile({
+// 滚动只替换进入视口的行，保留行里的封面在内容和交互状态未变时不必重画。
+const Tile = memo(function Tile({
   m,
   index,
   rise,
@@ -223,13 +243,12 @@ function Tile({
       {body}
     </Link>
   )
-}
+})
 
 /* ───────── 列表视图 ───────── */
 const LIST_ROW = 68
 
-function ListView({ items, intro, selecting, selected, onToggle, scoreOf }: Props) {
-  const [ref, , top] = useBox()
+function ListView({ items, intro, selecting, selected, onToggle, scoreOf, top }: Props & { top: number }) {
   const initialOffset = useRestoredOffset()
   const v = useWindowVirtualizer({
     count: items.length,
@@ -241,7 +260,7 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf }: Prop
   })
 
   return (
-    <div ref={ref} className="relative w-full" style={{ height: v.getTotalSize() }}>
+    <div className="relative w-full" style={{ height: v.getTotalSize() }}>
       {v.getVirtualItems().map((r, _, all) => {
         const m = items[r.index]
         const isSel = selected.has(m.id)
