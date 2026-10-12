@@ -1,0 +1,42 @@
+# Preview 站点示例：与日用版同一台 Caddy、同一个 Suwayomi，页面由 Caddy 直接托管 Preview 目录。
+# 域名、端口和目录都是示例；把这一段加到现有 Caddyfile，先 caddy validate 再 caddy reload。
+# 注意：两个站点共用同一个 Suwayomi，阅读进度、书签、下载、扩展与服务端设置的写入会互相影响。
+
+dev.manga.example.com {
+	encode zstd gzip
+	# Preview 不让搜索引擎收录
+	header X-Robots-Tag "noindex, nofollow"
+
+	# 接口（含 GraphQL WebSocket、封面与阅读页图片）转发到同一个 Suwayomi，靠它自己的登录保护
+	handle /api/* {
+		# 浏览器会把下面页面的访问密码（Basic）自动附在同源请求上，转发前去掉，免得 Suwayomi 当成登录凭据拒绝
+		@basic header Authorization "Basic *"
+		request_header @basic -Authorization
+		reverse_proxy 127.0.0.1:4567
+	}
+
+	handle {
+		# 前端调接口自带 Bearer 令牌，会覆盖 Basic 凭据，所以访问密码只能保护页面和静态资源。
+		# 哈希用 caddy hash-password 生成；不要把明文密码写进配置
+		basic_auth {
+			preview $2a$14$替换为_caddy_hash-password_的输出
+		}
+
+		root * /srv/sukimi-preview/current
+
+		# 文件名带内容哈希的打包资源长期缓存；其余（首页等）每次都向服务器确认，更新后立即生效
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@pages not path /assets/*
+		header @pages Cache-Control "no-cache"
+
+		# 前端路由（/library、/manga/1 等）回退到首页；缺失的打包资源照常 404，不回退成 HTML
+		@spa {
+			not path /assets/*
+			not file
+		}
+		rewrite @spa /index.html
+
+		file_server
+	}
+}

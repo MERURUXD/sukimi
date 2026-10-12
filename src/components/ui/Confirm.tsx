@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { MotionGlass } from '@/components/glass/Glass'
 import { resetOnUserContext } from '@/api/userContext'
 import { spring } from '@/design/motion'
+import { writesSharedServer } from '@/lib/channel'
 import { cn } from '@/lib/cn'
 
 interface Ask {
@@ -11,6 +12,8 @@ interface Ask {
   body?: ReactNode
   ok?: string
   danger?: boolean
+  /** 只改本浏览器的状态（如退出登录）；Preview 下不追加「写入真实数据」的提醒 */
+  local?: boolean
   resolve: (v: boolean) => void
 }
 
@@ -72,6 +75,10 @@ export function ConfirmHost() {
           >
             <h2 className="m-0 text-lg font-bold">{ask.title}</h2>
             {ask.body && <div className="text-sm leading-relaxed text-muted">{ask.body}</div>}
+            {/* Preview 与日用版共用同一个服务端，这里的确认几乎都会写入真实数据 */}
+            {writesSharedServer && !ask.local && (
+              <p className="m-0 text-sm leading-relaxed font-semibold text-danger">Preview 环境：此操作会写入与日用版共用的真实服务端数据。</p>
+            )}
             <div className="mt-2 flex justify-end gap-2.5">
               <button type="button" className="gbtn rounded-full hover:bg-hover" onClick={() => done(false)}>
                 取消
