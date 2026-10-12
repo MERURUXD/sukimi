@@ -47,6 +47,8 @@ export function AuthGate() {
       <Outlet key={userId} />
       <Toaster />
       <ConfirmHost />
+      {/* 挂在这里而不是 AppShell：阅读器等全屏页同样会写真实数据，也要看得到 */}
+      <PreviewBadge />
       {/* 和上面的 Outlet 同在一层，key 不能重复 */}
       <LiveStatus key={`live-${userId}`} />
     </>
@@ -80,7 +82,6 @@ export function AppShell() {
       </main>
       {tabbar && <MobileTabBar />}
       <UpdatePrompt />
-      <PreviewBadge />
       <ScrollManager />
     </div>
   )
