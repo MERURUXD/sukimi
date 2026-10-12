@@ -2,7 +2,7 @@ import { ms, sec } from '@/lib/format'
 import { inCategory } from './category'
 import type { LibraryManga } from './queries'
 import { compareSortValues, libraryScore } from './sortValues'
-import type { FilterKey, SortKey, TriState } from './store'
+import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 
 export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga) => boolean }[] = [
   { key: 'unread', label: '未读', test: (m) => m.unreadCount > 0 },
@@ -52,7 +52,7 @@ export function matchesSearch(m: LibraryManga, q: string) {
 export function applyView(
   list: readonly LibraryManga[],
   opts: {
-    category: 'all' | number
+    category: LibraryTab
     defaultCategoryId?: number
     filters: Record<FilterKey, TriState>
     sources: readonly string[]

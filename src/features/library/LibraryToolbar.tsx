@@ -5,7 +5,7 @@ import { Popover } from '@/components/ui/Popover'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { cn } from '@/lib/cn'
 import { FILTERS, SORTS } from './filtering'
-import { useLibraryView, type Density } from './store'
+import { useLibraryView, type Density, type LibraryTab } from './store'
 
 const DENSITIES: SegItem<Density>[] = [
   { value: 'comfy', label: '舒适网格' },
@@ -23,7 +23,7 @@ export function LibraryToolbar({
   updating,
   onRefresh,
 }: {
-  categories: SegItem<'all' | number>[]
+  categories: SegItem<LibraryTab>[]
   sources: { id: string; name: string; count: number }[]
   query: string
   onQuery: (q: string) => void

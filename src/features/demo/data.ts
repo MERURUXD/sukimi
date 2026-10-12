@@ -292,6 +292,13 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     { id: 1, purpose: 'REGISTRATION', expiresAt: String(Math.floor(now / 1000) + 5 * 86400), createdBy: demoUsers[1], user: null },
     { id: 2, purpose: 'RECOVERY', expiresAt: String(Math.floor(now / 1000) + 20 * 3600), createdBy: demoUsers[1], user: demoUsers[3] },
   ]
+  // 全局元数据（「稍后再看」）：预置两部不在书库的和一部在书库没读过的，只在本次演示的内存里改
+  const nowSec = Math.floor(now / 1000)
+  const globalMeta = new Map<string, string>([
+    ['sukimi.later.12', String(nowSec - 3 * 86400)],
+    ['sukimi.later.2001', String(nowSec - 9 * 86400)],
+    ['sukimi.later.9', String(nowSec - 40 * 86400)],
+  ])
   const root = {
     users: () => connection(demoUsers), userCodes: () => demoCodes,
     createRegistrationCode: reject, createRecoveryCode: reject, revokeUserCode: reject, updateUser: reject, register: reject, setPassword: reject,
@@ -364,6 +371,19 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
         return removed
       }))
       return { metas, mangas: [...new Set(metas.map((x) => x.mangaId))].map(findManga) }
+    },
+    metas: ({ filter }: { filter?: { key?: { startsWith?: string } } }) => {
+      const prefix = filter?.key?.startsWith ?? ''
+      return connection([...globalMeta].filter(([key]) => key.startsWith(prefix)).map(([key, value]) => ({ key, value })))
+    },
+    setGlobalMeta: ({ input }: { input: { meta: { key: string; value: string } } }) => {
+      globalMeta.set(input.meta.key, input.meta.value)
+      return { meta: input.meta }
+    },
+    deleteGlobalMetas: ({ input }: { input: { keys?: string[]; prefixes?: string[] } }) => {
+      const gone = [...globalMeta].filter(([key]) => !!input.keys?.includes(key) || !!input.prefixes?.some((p) => key.startsWith(p)))
+      gone.forEach(([key]) => globalMeta.delete(key))
+      return { metas: gone.map(([key, value]) => ({ key, value })) }
     },
     setChapterMetas: ({ input }: { input: { items: { chapterIds: number[]; metas: { key: string; value: string }[] }[] } }) => {
       const metas = input.items.flatMap((item) => item.chapterIds.flatMap((chapterId) => item.metas.map((meta) => {
