@@ -8,34 +8,40 @@ export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'co
 export type TriState = 0 | 1 | 2
 export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded' | 'score'
 export type Density = 'comfy' | 'compact' | 'list'
+/** 'all'、分类 id，或固定的「稍后再看」标签 */
+export type LibraryTab = 'all' | 'later' | number
 
 interface LibraryView {
-  /** 'all' 或分类 id */
-  category: 'all' | number
+  category: LibraryTab
   filters: Record<FilterKey, TriState>
   sort: SortKey
   desc: boolean
   density: Density
   /** 只看这些来源（source id）；空 = 全部来源 */
   sources: string[]
-  setCategory: (c: 'all' | number) => void
+  /** 「稍后再看」里的漫画加入后读完已有章节时自动移出 */
+  laterAutoRemove: boolean
+  setCategory: (c: LibraryTab) => void
   cycleFilter: (k: FilterKey) => void
   clearFilter: (k: FilterKey) => void
   pickSort: (k: SortKey) => void
   setDensity: (d: Density) => void
   toggleSource: (id: string) => void
   clearSources: () => void
+  setLaterAutoRemove: (on: boolean) => void
 }
 
 const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0 }
 
-const INITIAL: Pick<LibraryView, 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources'> = {
+const INITIAL: Pick<LibraryView, 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove'> = {
   category: 'all',
   filters: NO_FILTERS,
   sort: 'updated',
   desc: true,
   density: 'comfy',
   sources: [],
+  // 旧偏好里没有这个字段，合并默认值后开启
+  laterAutoRemove: true,
 }
 
 export const useLibraryView = create<LibraryView>()(
@@ -51,6 +57,7 @@ export const useLibraryView = create<LibraryView>()(
       toggleSource: (id) =>
         set((s) => ({ sources: s.sources.includes(id) ? s.sources.filter((x) => x !== id) : [...s.sources, id] })),
       clearSources: () => set({ sources: [] }),
+      setLaterAutoRemove: (laterAutoRemove) => set({ laterAutoRemove }),
     }),
     {
       name: USER_KEYS.library,
@@ -58,7 +65,7 @@ export const useLibraryView = create<LibraryView>()(
       merge: scopedMerge<LibraryView>(INITIAL),
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
-      partialize: ({ category, filters, sort, desc, density, sources }) => ({ category, filters, sort, desc, density, sources }),
+      partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove }) => ({ category, filters, sort, desc, density, sources, laterAutoRemove }),
     },
   ),
 )

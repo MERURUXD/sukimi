@@ -11,6 +11,7 @@ const HINTS: Record<HomeSection, string> = {
   fresh: '已收藏，还没开始阅读的漫画。',
   recent: '最近读过的三部漫画与阅读进度。',
   gallery: '从首页进入画廊的封面橱窗。',
+  later: '标记为稍后再看的漫画，最近加入的在前。',
 }
 
 export function HomeTab() {

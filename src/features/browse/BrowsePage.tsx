@@ -1,12 +1,14 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
 import { BookmarkCheck, ExternalLink, Puzzle, Search, SlidersHorizontal } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { usePrefetchManga } from '@/features/manga/prefetch'
+import { LaterMenuItems } from '@/features/later/LaterMenuItems'
+import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { riseStep } from '@/lib/intro'
@@ -21,14 +23,39 @@ import { ExtensionUpdateCount, FetchSourceManga, langLabel, Sources, type Source
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
 
+/** 封面触屏长按、鼠标右键打开「稍后再看」菜单；单来源网格和全局搜索结果共用 */
+function LaterMenu({ m, align = 'left', children }: {
+  m: Pick<SourceManga, 'id' | 'title'>
+  align?: 'left' | 'right'
+  children: (open: ReturnType<typeof useLongPress> & { onContextMenu: (e: MouseEvent) => void; 'aria-haspopup': 'menu' }) => ReactNode
+}) {
+  const [menu, setMenu] = useState(false)
+  const close = useCallback(() => setMenu(false), [])
+  const press = useLongPress(() => setMenu(true))
+  const open = {
+    ...press,
+    onContextMenu: (e: MouseEvent) => {
+      e.preventDefault()
+      setMenu(true)
+    },
+    'aria-haspopup': 'menu' as const,
+  }
+  return (
+    <Popover open={menu} onClose={close} trigger={children(open)} align={align} label={`${m.title} 的操作`} rootClassName="min-w-0" className="w-[220px]">
+      <LaterMenuItems mangaId={m.id} onDone={close} />
+    </Popover>
+  )
+}
+
 /** 浏览结果的封面网格 */
 function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
-  return (
+  return <LaterMenu m={m}>{(open) => (
     <Link
       to={`/manga/${m.id}`}
       viewTransition
       {...prefetch}
+      {...open}
       data-sfw={sfwAttr(source)}
       style={rise}
       className={cn('group flex min-w-0 flex-col gap-2 text-text no-underline', rise && 'rise')}
@@ -47,7 +74,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
         {m.author && <span className="truncate text-xs text-muted">{m.author}</span>}
       </span>
     </Link>
-  )
+  )}</LaterMenu>
 }
 
 export function BrowsePage() {
@@ -361,10 +388,13 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
                 </span>
               </button>
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
-                {r?.items.slice(0, 4).map((m) => (
-                  <Link key={m.id} to={`/manga/${m.id}`} viewTransition data-sfw={sfwAttr(s.displayName)} className="cv rounded-lg" aria-label={m.title} title={m.title}>
-                    <CoverImg src={m.thumbnailUrl} loading="lazy" />
-                  </Link>
+                {r?.items.slice(0, 4).map((m, i) => (
+                  // 一行四个，右半边的菜单向左展开，不超出屏幕
+                  <LaterMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
+                    <Link to={`/manga/${m.id}`} viewTransition {...open} data-sfw={sfwAttr(s.displayName)} className="cv block rounded-lg" aria-label={m.title} title={m.title}>
+                      <CoverImg src={m.thumbnailUrl} loading="lazy" />
+                    </Link>
+                  )}</LaterMenu>
                 ))}
               </div>
             </div>

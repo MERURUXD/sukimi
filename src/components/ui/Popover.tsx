@@ -16,6 +16,7 @@ export function Popover({
   align = 'right',
   side = 'bottom',
   className,
+  rootClassName,
   label,
   id,
   fitViewport = false,
@@ -27,6 +28,8 @@ export function Popover({
   align?: 'left' | 'right'
   side?: 'top' | 'bottom'
   className?: string
+  /** 外层定位容器的类名；放进网格当格子时用来补 min-w-0 */
+  rootClassName?: string
   label?: string
   id?: string
   /** 长筛选面板按可用高度滚动，按钮靠近底部时向上展开。 */
@@ -99,7 +102,7 @@ export function Popover({
   const origin = `${placedSide === 'bottom' ? 'top' : 'bottom'} ${align}`
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className={cn('relative', rootClassName)}>
       {trigger}
       <AnimatePresence>
         {open && (
