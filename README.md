@@ -62,6 +62,16 @@ pnpm build
 
 Windows 本地 Java 安装可先运行 `pnpm restart:server -WhatIf` 预检，再运行 `pnpm restart:server` 重启。脚本核验进程身份、备份配置与前端，并检查启动后的 HTTP 响应；不自动提升权限，备份不包含运行中的数据库。Windows 服务及其他安装方式应使用相应的服务管理工具。
 
+### Preview 环境（可选）
+
+需要用真实书库验收开发中的改动、又不想替换日用版时，可以在另一个子域名长期部署一套 Preview 前端，与日用版共用同一个 Suwayomi：
+
+- **共用后端就是共用数据，不是沙箱。** 两个前端读写的是同一份服务端数据：阅读进度、书签、分类、下载、来源、扩展、追踪和服务端设置的改动会互相影响，换个账号也不能隔离。Preview 里的确认框会额外提示这一点。删除、换源、扩展安装卸载、恢复备份等破坏性测试应使用独立的 Suwayomi 测试实例和数据副本。
+- **浏览器本地状态互不影响。** 两个子域名是不同的源：登录 Cookie（不带 Domain）、续期令牌、偏好设置和本地书库快照各存各的，在 Preview 里退出登录或清缓存不影响日用版。
+- **构建**：设置 `SUKIMI_CHANNEL=preview` 后运行 `pnpm build`，页面会常驻「Preview · 提交号」标识，标题加 `[Preview]` 前缀，并禁止搜索引擎收录。仓库的 `webui-preview` 工作流在推送 `preview` 分支或手动指定分支时自动打包，发布到 `webui-preview` 预发布版本；日用版继续由 `main` 发布到 `webui-latest`，两边互不覆盖。
+- **托管**：由反向代理直接托管静态文件，`/api/*`（含 WebSocket）转发到同一个 Suwayomi，前端路由回退到 `index.html`。示例见 [deploy/preview/Caddyfile.example](deploy/preview/Caddyfile.example)。前端调接口自带 Bearer 令牌，所以代理层的访问密码只能保护页面和静态资源，`/api` 仍靠 Suwayomi 自己的登录保护。
+- **更新与回滚**：[deploy/preview/update-preview.sh](deploy/preview/update-preview.sh) 拉取 `webui-preview`，校验哈希后切换到新版本目录，只写 Preview 目录，不调用会覆盖服务端 `webUI/` 的 `pnpm deploy:server`；`--rollback` 切回上一份，默认保留最近 5 份。可配合定时任务自动更新。
+
 ## 开发约定
 
 界面文字、代码注释与提交信息使用简体中文。开发与验收使用虚构数据；不要提交环境配置、登录凭据或真实书库数据。改动后运行类型检查与测试，涉及界面、路由或资源时补跑构建；GraphQL 文档变更后重新生成类型。

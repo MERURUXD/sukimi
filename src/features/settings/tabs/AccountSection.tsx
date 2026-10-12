@@ -103,7 +103,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
             type="button"
             className="gbtn plain rounded-full"
             onClick={async () => {
-              if (await confirm({ title: '退出登录？', ok: '退出' })) signOut()
+              if (await confirm({ title: '退出登录？', ok: '退出', local: true })) signOut()
             }}
           >
             <LogOut className="size-[18px]" strokeWidth={1.8} />

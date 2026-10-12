@@ -1,5 +1,6 @@
 import type { FormEvent, InputHTMLAttributes, ReactNode } from 'react'
 import { Glass } from '@/components/glass/Glass'
+import { PreviewBadge } from '@/app/PreviewBadge'
 import { useApplyAppearance } from '@/design/settings'
 
 /** 登录、注册、找回共用的输入框（放在玻璃里） */
@@ -45,6 +46,7 @@ export function AuthLayout({
         <p className="m-0 text-center text-muted num">{subtitle ?? ' '}</p>
         {children}
       </form>
+      <PreviewBadge />
     </div>
   )
 }

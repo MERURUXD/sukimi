@@ -12,6 +12,8 @@ import { defineConfig, loadEnv } from 'vite'
 export default defineConfig(({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const target = env.SUWAYOMI_URL || 'http://localhost:4567'
+  // SUKIMI_CHANNEL=preview 打出 Preview 构建：带环境标识，不让搜索引擎收录
+  const channel = env.SUKIMI_CHANNEL === 'preview' ? 'preview' : 'production'
   let commit = 'dev'
   try {
     commit = execSync('git rev-parse --short HEAD').toString().trim()
@@ -31,7 +33,13 @@ export default defineConfig(({ mode, command }) => {
           },
         },
       }],
-    }), tailwindcss(), {
+    }), tailwindcss(), channel === 'preview' && {
+      name: 'preview-channel-html',
+      transformIndexHtml: (html: string) =>
+        html
+          .replace('<title>Sukimi</title>', '<title>[Preview] Sukimi</title>')
+          .replace('</head>', '    <meta name="robots" content="noindex, nofollow" />\n  </head>'),
+    }, {
       // 只在 dev 服务器上提供 .cache/open-comics 里的本地测试漫画；build 不会带上它们
       name: 'open-comics-cache',
       apply: 'serve',
@@ -49,6 +57,7 @@ export default defineConfig(({ mode, command }) => {
     define: {
       __APP_COMMIT__: JSON.stringify(commit),
       __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+      __APP_CHANNEL__: JSON.stringify(channel),
     },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
