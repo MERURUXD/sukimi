@@ -2,6 +2,7 @@ import { Outlet, Link } from 'react-router'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { Glass } from '@/components/glass/Glass'
+import { PreviewBadge } from '@/app/PreviewBadge'
 import { useApplyAppearance } from '@/design/settings'
 
 export function DemoGate() {
@@ -10,6 +11,7 @@ export function DemoGate() {
     <Outlet />
     <Toaster />
     <ConfirmHost />
+    <PreviewBadge />
   </div>
 }
 

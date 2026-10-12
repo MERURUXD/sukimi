@@ -1,0 +1,71 @@
+# 推送到 preview 分支（或手动指定分支）后打包 Preview 构建，发布到滚动的 webui-preview 预发布版本。
+# 与 webui-latest 分开：日用版服务器只拉 webui-latest，Preview 服务器的定时任务只拉这里。
+name: webui-preview
+
+on:
+  push:
+    branches: [preview]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 要发布到 Preview 的分支、标签或提交（留空为所选分支）
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+# 和 webui-release 不同组：两边互不取消
+concurrency:
+  group: webui-preview
+  cancel-in-progress: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+        env:
+          SUKIMI_CHANNEL: preview
+
+      - name: 打包与清单
+        run: |
+          commit=$(git rev-parse --short HEAD)
+          now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          printf '{\n  "deployedAt": "%s",\n  "commit": "%s",\n  "channel": "preview"\n}\n' "$now" "$commit" > dist/.suwayomi-web
+          tar -cf sukimi-webui-preview.tar -C dist .
+          sha=$(sha256sum sukimi-webui-preview.tar | cut -d' ' -f1)
+          printf '{"commit":"%s","sha256":"%s","builtAt":"%s","channel":"preview"}\n' "$commit" "$sha" "$now" > sukimi-webui-preview.json
+          cat sukimi-webui-preview.json
+
+      - name: 发布到 webui-preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # GitHub 接口偶尔返回 5xx，每步最多试 4 次
+          retry() {
+            for i in 1 2 3 4; do
+              "$@" && return 0
+              echo "第 $i 次失败，稍后重试：$*"
+              sleep $((i * 10))
+            done
+            return 1
+          }
+          git tag -f webui-preview
+          retry git push -f origin webui-preview
+          gh release view webui-preview >/dev/null 2>&1 ||
+            retry gh release create webui-preview --prerelease --title 'Preview 构建' --notes '由 webui-preview 自动更新，Preview 服务器定时拉取。与日用版共用同一个 Suwayomi，写入的是真实数据。'
+          # 清单最后上传：服务器读到新清单时，归档已经是同一版；万一读到一半，哈希不符会等下一轮
+          retry gh release upload webui-preview sukimi-webui-preview.tar --clobber
+          retry gh release upload webui-preview sukimi-webui-preview.json --clobber

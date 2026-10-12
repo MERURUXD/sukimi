@@ -93,6 +93,13 @@
     /* 触屏点按时不闪系统的蓝色 / 灰色高亮块，按钮都有自己的按下样式 */
     -webkit-tap-highlight-color: transparent;
   }
+  /* Preview 标识：阅读器等全屏页底部有操作栏（距底 18px、高约 58px），默认抬到它上方；常规页面外壳里贴底 */
+  .preview-badge {
+    --badge-lift: 84px;
+  }
+  .app-shell ~ .preview-badge {
+    --badge-lift: 0px;
+  }
   :root {
     --nav-h: 76px;
     /* 手机底部标签栏占的高度；吸底的批量栏、下载条要让开它 */
@@ -104,6 +111,10 @@
     }
     .has-tabbar {
       --tabbar-h: calc(74px + max(10px, env(safe-area-inset-bottom)));
+    }
+    /* 标识与页面外壳是兄弟元素，读不到上面的变量：让开底栏的 74px 再空 10px */
+    .has-tabbar ~ .preview-badge {
+      --badge-lift: 84px;
     }
   }
   @media (min-width: 1024px) {

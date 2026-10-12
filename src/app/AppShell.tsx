@@ -9,6 +9,7 @@ import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
 import { MobileTabBar } from './MobileTabBar'
+import { PreviewBadge } from './PreviewBadge'
 import { takeNavDirection } from './navTabs'
 import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
@@ -46,6 +47,8 @@ export function AuthGate() {
       <Outlet key={userId} />
       <Toaster />
       <ConfirmHost />
+      {/* 挂在这里而不是 AppShell：阅读器等全屏页同样会写真实数据，也要看得到 */}
+      <PreviewBadge />
       {/* 和上面的 Outlet 同在一层，key 不能重复 */}
       <LiveStatus key={`live-${userId}`} />
     </>

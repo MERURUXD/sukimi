@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { graphql } from '@/api/gql'
 import { toast, toastError } from '@/components/ui/toast'
 import { checkForUpdate } from '@/app/UpdatePrompt'
+import { isPreview } from '@/lib/channel'
 import { formatDate } from '@/lib/format'
 import { Row, Section } from '../parts'
 import { AccountSection } from './AccountSection'
@@ -120,9 +121,17 @@ export function AboutTab() {
       </Section>
 
       <Section title="Sukimi">
-        <Row label="版本" hint="在项目目录运行 pnpm deploy:server 部署新版本；已打开的页面会提示刷新">
+        <Row
+          label="版本"
+          hint={
+            isPreview
+              ? 'Preview 构建，与日用版共用同一个服务端；更新 Preview 不影响日用版'
+              : '在项目目录运行 pnpm deploy:server 部署新版本；已打开的页面会提示刷新'
+          }
+        >
           <div className="flex items-center gap-3">
             <span className="text-muted num">
+              {isPreview && 'Preview · '}
               {__APP_COMMIT__} · {formatDate(Date.parse(__APP_BUILT_AT__))}
             </span>
             <AppCheck />
