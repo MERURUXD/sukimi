@@ -8,6 +8,7 @@ import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
 import { LoadError } from '@/components/ui/LoadError'
 import { toast, toastError } from '@/components/ui/toast'
+import { usePrefetchManga } from '@/features/manga/prefetch'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
@@ -142,6 +143,7 @@ export function HistoryPage() {
 
 function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem>; rise?: React.CSSProperties; onRemove: () => void }) {
   const c = entry.latest
+  const prefetch = usePrefetchManga(c.manga.id)
   const progress = c.isRead ? '已读完' : c.pageCount > 0 ? `读到 ${c.lastPageRead + 1} / ${c.pageCount} 页` : `读到第 ${c.lastPageRead + 1} 页`
   return (
     <div
@@ -149,7 +151,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
       style={rise}
       className={cn('-mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
     >
-      <Link to={`/manga/${c.manga.id}`} className="flex min-w-0 flex-1 items-center gap-4 text-text no-underline">
+      <Link to={`/manga/${c.manga.id}`} viewTransition {...prefetch} className="flex min-w-0 flex-1 items-center gap-4 text-text no-underline">
         <span className="cv w-14 flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]">
           <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
         </span>

@@ -562,36 +562,45 @@ function RecentList({ items }: { items: ReadChapter[] }) {
         </Link>
       </div>
       <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 md:grid-cols-[repeat(auto-fill,minmax(360px,1fr))]">
-        {items.map((c) => {
-          const r = resume(c)
-          const pct = progressOf(c)
-          return (
-            <Link
-              key={c.manga.id}
-              to={r ? `/manga/${c.manga.id}/chapter/${r.id}` : `/manga/${c.manga.id}`}
-              data-sfw={sfwAttr(c.manga.source?.displayName)}
-              className="-mx-2.5 flex items-center gap-[18px] rounded-[18px] p-2.5 text-text no-underline transition-colors hover:bg-hover"
-            >
-              <span className="cv w-[72px] flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]">
-                <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col gap-1">
-                {/* 时间放进标题行：文字列宽度固定，各行进度条右端才对齐 */}
-                <span className="flex items-baseline gap-3">
-                  <span className="min-w-0 flex-1 truncate text-base font-semibold">{c.manga.title}</span>
-                  <span className="flex-none text-xs text-muted">{timeAgo(sec(c.lastReadAt))}</span>
-                </span>
-                <span className="truncate text-[13px] text-muted num">
-                  {chapterLabel(c)} · {c.isRead ? '已读完' : c.pageCount > 0 ? `${c.lastPageRead + 1} / ${c.pageCount} 页` : `第 ${c.lastPageRead + 1} 页`}
-                </span>
-                <span className="prog mt-2 h-[3px] w-full max-w-[220px]">
-                  <i style={{ width: `${pct}%` }} />
-                </span>
-              </span>
-            </Link>
-          )
-        })}
+        {items.map((c) => (
+          <RecentRow key={c.manga.id} c={c} />
+        ))}
       </div>
     </section>
+  )
+}
+
+/**
+ * 封面单独进详情（带封面飞入），文字区继续阅读；整行仍是一个悬停区。
+ * 不嵌套链接：两个 Link 并排，读完的作品文字区也进详情，借用同行封面飞入。
+ */
+function RecentRow({ c }: { c: ReadChapter }) {
+  const prefetch = usePrefetchManga(c.manga.id)
+  const r = resume(c)
+  const pct = progressOf(c)
+  const detail = `/manga/${c.manga.id}`
+  return (
+    <div data-sfw={sfwAttr(c.manga.source?.displayName)} className="-mx-2.5 flex items-center gap-[18px] rounded-[18px] p-2.5 transition-colors hover:bg-hover">
+      <Link to={detail} viewTransition {...prefetch} className="cv w-[72px] flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]" aria-label={`${c.manga.title} 详情`}>
+        <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
+      </Link>
+      <Link
+        to={r ? `${detail}/chapter/${r.id}` : detail}
+        viewTransition={!r}
+        className="flex min-w-0 flex-1 flex-col gap-1 text-text no-underline"
+      >
+        {/* 时间放进标题行：文字列宽度固定，各行进度条右端才对齐 */}
+        <span className="flex items-baseline gap-3">
+          <span className="min-w-0 flex-1 truncate text-base font-semibold">{c.manga.title}</span>
+          <span className="flex-none text-xs text-muted">{timeAgo(sec(c.lastReadAt))}</span>
+        </span>
+        <span className="truncate text-[13px] text-muted num">
+          {chapterLabel(c)} · {c.isRead ? '已读完' : c.pageCount > 0 ? `${c.lastPageRead + 1} / ${c.pageCount} 页` : `第 ${c.lastPageRead + 1} 页`}
+        </span>
+        <span className="prog mt-2 h-[3px] w-full max-w-[220px]">
+          <i style={{ width: `${pct}%` }} />
+        </span>
+      </Link>
+    </div>
   )
 }
