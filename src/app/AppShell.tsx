@@ -9,6 +9,7 @@ import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
 import { MobileTabBar } from './MobileTabBar'
+import { PreviewBadge } from './PreviewBadge'
 import { takeNavDirection } from './navTabs'
 import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
@@ -79,6 +80,7 @@ export function AppShell() {
       </main>
       {tabbar && <MobileTabBar />}
       <UpdatePrompt />
+      <PreviewBadge />
       <ScrollManager />
     </div>
   )
