@@ -1,10 +1,10 @@
 import { graphql } from '@/api/gql'
 import type { LaterMangasQuery } from '@/api/gql/graphql'
 
-// 前缀与 later.ts 的 LATER_PREFIX 一致
+/** prefix 用 later.ts 的 laterPrefix(账号 id)，只取当前账号的键 */
 export const LaterMetas = graphql(`
-  query LaterMetas {
-    metas(filter: { key: { startsWith: "sukimi.later." } }) {
+  query LaterMetas($prefix: String!) {
+    metas(filter: { key: { startsWith: $prefix } }) {
       nodes {
         key
         value

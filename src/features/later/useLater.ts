@@ -5,20 +5,32 @@ import { useAuth } from '@/api/auth'
 import { captureUser, StaleSessionError } from '@/api/userContext'
 import { toastError } from '@/components/ui/toast'
 import { useLibraryView } from '@/features/library/store'
-import { caughtUp, laterKey, parseLater } from './later'
+import { caughtUp, laterKey, laterPrefix, parseLater } from './later'
 import { LaterMangas, LaterMetas, RemoveLater, SetLater, type LaterManga } from './queries'
 
 type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 
-/** 写入成功后直接改缓存里的列表；缓存里还没有列表时不管，等查询去取 */
-function patch(cache: ApolloCache, fn: (nodes: readonly Node[]) => Node[]) {
-  cache.updateQuery({ query: LaterMetas }, (d) => d && { metas: { ...d.metas, nodes: fn(d.metas.nodes) } })
+/** 写入成功后直接改该账号缓存里的列表；缓存里还没有列表时不管，等查询去取 */
+function patch(cache: ApolloCache, userId: number, fn: (nodes: readonly Node[]) => Node[]) {
+  cache.updateQuery({ query: LaterMetas, variables: { prefix: laterPrefix(userId) } }, (d) => d && { metas: { ...d.metas, nodes: fn(d.metas.nodes) } })
 }
 
-/** 漫画 id → 加入时间（秒）；还没取到时为 undefined */
+/** 写入前取当前账号；未登录时不写 */
+function currentUserId() {
+  const id = useAuth.getState().user?.id
+  if (id === undefined) throw new Error('未登录，无法修改稍后再看')
+  return id
+}
+
+/** 当前账号的 漫画 id → 加入时间（秒）；还没取到时为 undefined */
 export function useLater({ skip = false } = {}) {
-  const q = useQuery(LaterMetas, { fetchPolicy: 'cache-and-network', skip })
-  const map = useMemo(() => (q.data ? parseLater(q.data.metas.nodes) : undefined), [q.data])
+  const userId = useAuth((s) => s.user?.id)
+  const q = useQuery(LaterMetas, {
+    variables: { prefix: laterPrefix(userId ?? 0) },
+    fetchPolicy: 'cache-and-network',
+    skip: skip || userId === undefined,
+  })
+  const map = useMemo(() => (q.data && userId !== undefined ? parseLater(userId, q.data.metas.nodes) : undefined), [q.data, userId])
   return { map, loading: q.loading, error: q.error, refetch: q.refetch }
 }
 
@@ -26,25 +38,25 @@ export function useLaterActions() {
   const client = useApolloClient()
   const add = useCallback(async (mangaId: number) => {
     const still = captureUser()
-    const userId = useAuth.getState().user?.id
-    const meta: Node = { __typename: 'GlobalMetaType', key: laterKey(mangaId), value: String(Math.floor(Date.now() / 1000)) }
+    const userId = currentUserId()
+    const meta: Node = { __typename: 'GlobalMetaType', key: laterKey(userId, mangaId), value: String(Math.floor(Date.now() / 1000)) }
     await client.mutate({
       mutation: SetLater,
       variables: { key: meta.key, value: meta.value },
       // 请求期间换了账号：缓存已经是新账号的，不能把上一个账号的写进去
-      update: (cache) => useAuth.getState().user?.id === userId && patch(cache, (nodes) => [...nodes.filter((n) => n.key !== meta.key), meta]),
+      update: (cache) => useAuth.getState().user?.id === userId && patch(cache, userId, (nodes) => [...nodes.filter((n) => n.key !== meta.key), meta]),
     })
     still()
   }, [client])
   const remove = useCallback(async (mangaIds: readonly number[]) => {
     if (!mangaIds.length) return
     const still = captureUser()
-    const userId = useAuth.getState().user?.id
-    const keys = new Set(mangaIds.map(laterKey))
+    const userId = currentUserId()
+    const keys = new Set(mangaIds.map((id) => laterKey(userId, id)))
     await client.mutate({
       mutation: RemoveLater,
       variables: { keys: [...keys] },
-      update: (cache) => useAuth.getState().user?.id === userId && patch(cache, (nodes) => nodes.filter((n) => !keys.has(n.key))),
+      update: (cache) => useAuth.getState().user?.id === userId && patch(cache, userId, (nodes) => nodes.filter((n) => !keys.has(n.key))),
     })
     still()
   }, [client])

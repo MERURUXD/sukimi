@@ -292,12 +292,14 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     { id: 1, purpose: 'REGISTRATION', expiresAt: String(Math.floor(now / 1000) + 5 * 86400), createdBy: demoUsers[1], user: null },
     { id: 2, purpose: 'RECOVERY', expiresAt: String(Math.floor(now / 1000) + 20 * 3600), createdBy: demoUsers[1], user: demoUsers[3] },
   ]
-  // 全局元数据（「稍后再看」）：预置两部不在书库的和一部在书库没读过的，只在本次演示的内存里改
+  // 全局元数据（「稍后再看」，键带账号 id）：给演示管理员预置两部不在书库的和一部在书库没读过的，
+  // 切到演示成员时清单为空；只在本次演示的内存里改
   const nowSec = Math.floor(now / 1000)
+  const laterOf = (mangaId: number) => `sukimi.later.${PREVIEW_ADMIN.id}.${mangaId}`
   const globalMeta = new Map<string, string>([
-    ['sukimi.later.12', String(nowSec - 3 * 86400)],
-    ['sukimi.later.2001', String(nowSec - 9 * 86400)],
-    ['sukimi.later.9', String(nowSec - 40 * 86400)],
+    [laterOf(12), String(nowSec - 3 * 86400)],
+    [laterOf(2001), String(nowSec - 9 * 86400)],
+    [laterOf(9), String(nowSec - 40 * 86400)],
   ])
   const root = {
     users: () => connection(demoUsers), userCodes: () => demoCodes,
