@@ -13,6 +13,8 @@ import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
+import { useLibraryView } from '@/features/library/store'
+import { useLaterList } from '@/features/later/useLater'
 import type { LibraryMangasQuery } from '@/api/gql/graphql'
 import { GalleryWindow } from '@/features/gallery/GalleryWindow'
 import { useLanded } from '@/features/gallery/readMorph'
@@ -117,6 +119,7 @@ export function HomePage() {
     fresh: homeSections.fresh && <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`}
       mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />,
     recent: homeSections.recent && <RecentList items={recent.slice(0, 3)} />,
+    later: homeSections.later && <LaterShelf />,
     gallery: showGallery && <GalleryWindow library={libData?.mangas.nodes} exclude={readsData ? onPage : undefined} />,
   }
 
@@ -503,6 +506,32 @@ function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: strin
     >
       {shown.map((m) => (
         <ShelfItem key={m.id} manga={m} sub={sub(m)} />
+      ))}
+    </Shelf>
+  )
+}
+
+/* ───────── 稍后再看书架 ───────── */
+/** 最近加入的在前；「全部」去书库的「稍后再看」标签 */
+function LaterShelf() {
+  const { items } = useLaterList()
+  const navigate = useNavigate()
+  const setCategory = useLibraryView((s) => s.setCategory)
+  if (!items?.length) return null
+  return (
+    <Shelf
+      id="later"
+      title="稍后再看"
+      note={`存了 ${items.length} 部，最近加入的在前`}
+      actions={
+        <Glass as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('later'); navigate('/library') }} aria-label="查看全部稍后再看">
+          全部
+          <ChevronRight className="size-[18px]" strokeWidth={1.8} />
+        </Glass>
+      }
+    >
+      {items.slice(0, SHELF_COUNT).map((m) => (
+        <ShelfItem key={m.id} manga={m} sub={`${timeAgo(sec(String(m.laterAt)))}加入`} />
       ))}
     </Shelf>
   )

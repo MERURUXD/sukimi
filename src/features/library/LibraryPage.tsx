@@ -1,9 +1,10 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, Download, FolderInput, LibraryBig } from 'lucide-react'
+import { BookCheck, ClockFading, Download, FolderInput, LibraryBig } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { GalleryPill } from '@/features/gallery/GalleryPill'
+import { useLaterActions, useLaterList } from '@/features/later/useLater'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { captureUser, StaleSessionError } from '@/api/userContext'
@@ -28,7 +29,7 @@ import {
   SetMangasCategories,
   UpdateLibrary,
 } from './queries'
-import { useLibraryView } from './store'
+import { useLibraryView, type LibraryTab } from './store'
 
 export function LibraryPage() {
   const lib = useQuery(LibraryMangas)
@@ -45,6 +46,11 @@ export function LibraryPage() {
   const deferredQuery = useDeferredValue(query.trim())
 
   const all = useMemo(() => data?.mangas.nodes ?? [], [data])
+  // 「稍后再看」是固定标签：列表里可能有不在书库的漫画，另外按 id 取
+  const later = useLaterList()
+  const { remove: removeLater } = useLaterActions()
+  const isLater = view.category === 'later'
+  const base: readonly LibraryManga[] = useMemo(() => (isLater ? later.items ?? [] : all), [isLater, later.items, all])
   // 每个用户的默认分类 id 不同，不能写死 0
   const defaultCategoryId = catData?.categories.nodes.find((c) => c.default)?.id ?? 0
   // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
@@ -56,27 +62,29 @@ export function LibraryPage() {
     [view.sort, scales],
   )
   const items = useMemo(
-    () => applyView(all, { ...view, defaultCategoryId, query: deferredQuery, scales }),
-    [all, view, defaultCategoryId, deferredQuery, scales],
+    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales }),
+    [base, view, defaultCategoryId, deferredQuery, scales],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
-  const sources = useMemo(() => librarySources(all), [all])
+  const sources = useMemo(() => librarySources(base), [base])
 
-  /* 分类：默认分类没有漫画时隐藏；只有一个分类时整个分段控件都不显示 */
-  const categories = useMemo<SegItem<'all' | number>[]>(() => {
+  /* 分类：默认分类没有漫画时隐藏；「稍后再看」固定排在最后 */
+  const laterCount = later.items?.length
+  const categories = useMemo<SegItem<LibraryTab>[]>(() => {
     const cats = catData?.categories.nodes ?? []
-    const tabs: SegItem<'all' | number>[] = [{ value: 'all', label: '全部', count: all.length }]
+    const tabs: SegItem<LibraryTab>[] = [{ value: 'all', label: '全部', count: all.length }]
     for (const c of cats) {
       const n = all.filter((m) => inCategory(m, c.id, defaultCategoryId)).length
       if (c.default && n === 0) continue
       tabs.push({ value: c.id, label: c.default ? '默认' : c.name, count: n })
     }
+    tabs.push({ value: 'later', label: '稍后再看', count: laterCount })
     return tabs
-  }, [catData, all, defaultCategoryId])
+  }, [catData, all, defaultCategoryId, laterCount])
 
   // 记住的分类已被删除时回到「全部」
   useEffect(() => {
-    if (catData && view.category !== 'all' && !categories.some((c) => c.value === view.category)) view.setCategory('all')
+    if (catData && typeof view.category === 'number' && !categories.some((c) => c.value === view.category)) view.setCategory('all')
   }, [catData, categories, view])
 
   /* 多选 */
@@ -86,6 +94,14 @@ export function LibraryPage() {
     setSelecting(false)
     sel.clear()
   }, [sel])
+
+  // 「稍后再看」里读完自动移出的漫画也从选择里去掉，免得批量操作作用到看不见的那部
+  const { selected, setSelected } = sel
+  useEffect(() => {
+    if (!isLater || !later.items) return
+    const still = new Set(later.items.map((m) => m.id))
+    if ([...selected].some((id) => !still.has(id))) setSelected(new Set([...selected].filter((id) => still.has(id))))
+  }, [isLater, later.items, selected, setSelected])
 
   useEffect(() => {
     if (!selecting) return
@@ -108,7 +124,8 @@ export function LibraryPage() {
 
   const refresh = async () => {
     try {
-      const cat = view.category === 'all' ? undefined : [view.category]
+      // 「稍后再看」里有不在书库的漫画，检查更新时按整个书库算
+      const cat = typeof view.category === 'number' ? [view.category] : undefined
       await startUpdate({ variables: { categories: cat } })
       toast('开始检查书库更新')
     } catch (e) {
@@ -157,6 +174,8 @@ export function LibraryPage() {
       if (cids.length) {
         await updateChapters({ variables: { ids: cids, patch: { isRead: true } } })
         void syncTrackProgressMany(client, ids, still)
+        // 标为已读的返回里没有最后阅读时间，重取一次「稍后再看」，读完的才会当场移出
+        void client.refetchQueries({ include: ['LaterMangas'] })
       }
       return `已将 ${count(cids.length)} 话标为已读`
     })
@@ -182,6 +201,13 @@ export function LibraryPage() {
       return `已将 ${ids.length} 部移出书库`
     })
   }
+
+  const removeFromLater = () =>
+    run('移出稍后再看', async () => {
+      await removeLater(ids)
+      exitSelect()
+      return `已将 ${ids.length} 部移出稍后再看`
+    })
 
   const realCategories = (catData?.categories.nodes ?? []).filter((c) => !c.default)
   const moveTo = (catId: number, add: boolean) =>
@@ -224,13 +250,23 @@ export function LibraryPage() {
           onRefresh={refresh}
         />
 
-        {loading && !data && <LibrarySkeleton density={view.density} />}
-        {error && <LoadError message={error.message} onRetry={() => void refetch().catch(() => {})} />}
-        {data && items.length === 0 && (
-          <p className="px-6 py-20 text-center text-muted">
-            {all.length === 0 ? '书库是空的，去「发现」页添加漫画吧。' : '没有符合筛选条件的漫画。'}
-          </p>
-        )}
+        {isLater ? <>
+          {!later.items && !later.error && <LibrarySkeleton density={view.density} />}
+          {later.error && <LoadError message={later.error.message} onRetry={() => void later.refetch().catch(() => {})} />}
+          {later.items && items.length === 0 && (
+            <p className="px-6 py-20 text-center text-muted">
+              {later.items.length === 0 ? '还没有稍后再看的漫画。在漫画详情页点时钟按钮，或在「发现」页长按、右键封面加入。' : '没有符合筛选条件的漫画。'}
+            </p>
+          )}
+        </> : <>
+          {loading && !data && <LibrarySkeleton density={view.density} />}
+          {error && <LoadError message={error.message} onRetry={() => void refetch().catch(() => {})} />}
+          {data && items.length === 0 && (
+            <p className="px-6 py-20 text-center text-muted">
+              {all.length === 0 ? '书库是空的，去「发现」页添加漫画吧。' : '没有符合筛选条件的漫画。'}
+            </p>
+          )}
+        </>}
 
         <div className="pb-28">
           <LibraryGrid
@@ -257,7 +293,7 @@ export function LibraryPage() {
         selectAllLabel={`全选当前 ${count(items.length)} 部`}
         onCancel={exitSelect}
       >
-        <Popover
+        {!isLater && <Popover
           open={catPop}
           onClose={() => setCatPop(false)}
           side="top"
@@ -284,7 +320,7 @@ export function LibraryPage() {
               )
             })
           )}
-        </Popover>
+        </Popover>}
         <button type="button" className="bb" disabled={busy || !ids.length} onClick={markRead}>
           <BookCheck className="size-5" strokeWidth={1.8} />
           全部已读
@@ -295,7 +331,12 @@ export function LibraryPage() {
             下载未读
           </button>
         </Can>
-        <button
+        {isLater ? (
+          <button type="button" className="bb" disabled={busy || !ids.length} onClick={removeFromLater}>
+            <ClockFading className="size-5" strokeWidth={1.8} />
+            移出稍后再看
+          </button>
+        ) : <button
           type="button"
           className={confirmRemove ? 'bb text-danger' : 'bb'}
           disabled={busy || !ids.length}
@@ -303,7 +344,7 @@ export function LibraryPage() {
         >
           <LibraryBig className="size-5" strokeWidth={1.8} />
           {confirmRemove ? '再点确认' : '移出书库'}
-        </button>
+        </button>}
       </BatchBar>
     </>
   )
