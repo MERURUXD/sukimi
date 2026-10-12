@@ -31,10 +31,17 @@ switch_to() {
 current_name() { basename "$(readlink "$dir/current" 2>/dev/null || true)"; }
 
 if [ "${1:-}" = --rollback ]; then
+  # 按实际上线过的顺序回退，而不是按目录时间：撤下过的版本已从 .history 里去掉，不会再被选中
   now=$(current_name)
-  prev=$(ls -1 "$dir/releases" | grep -v '\.tmp$' | sort | awk -v now="$now" '$0 == now { print last; exit } { last = $0 }')
-  test -n "$prev" || { echo '没有更早的版本可切回'; exit 1; }
+  touch "$dir/.history"
+  grep -vxF "$now" "$dir/.history" > "$dir/.history.next" || true
+  prev=""
+  while read -r name; do
+    [ -d "$dir/releases/$name" ] && prev=$name
+  done < "$dir/.history.next"
+  test -n "$prev" || { rm -f "$dir/.history.next"; echo '没有更早的版本可切回'; exit 1; }
   switch_to "$prev"
+  mv -f "$dir/.history.next" "$dir/.history"
   # 记下被撤下的提交，定时更新不再把它装回来；有更新的构建时照常切换
   echo "${now##*-}" > "$dir/.skip-commit"
   exit 0
@@ -94,11 +101,18 @@ tar -xf "$work/build.tar" -C "$stage" --no-same-owner
 test -f "$stage/index.html"
 test -d "$stage/assets"
 grep -q '<title>\[Preview\]' "$stage/index.html" || { rm -rf "$stage"; echo '首页没有 Preview 标识，拒绝切换'; exit 1; }
-# 带上一版的资源：已打开的页面延迟加载旧分块时仍能取到
-if [ -d "$dir/current/assets" ]; then cp -an "$dir/current/assets/." "$stage/assets/"; fi
+# 记下本次构建自带的资源，再带上上一版自带的那份：已打开的页面延迟加载旧分块时仍能取到，
+# 又不会把历代资源一层层复制下去
+(cd "$stage/assets" && ls -1A) > "$stage/.own-assets"
+if [ -f "$dir/current/.own-assets" ]; then
+  while read -r f; do
+    [ -e "$dir/current/assets/$f" ] && cp -an "$dir/current/assets/$f" "$stage/assets/"
+  done < "$dir/current/.own-assets"
+fi
 chmod -R a+rX "$stage"
 mv "$stage" "$dir/releases/$name"
 switch_to "$name"
+echo "$name" >> "$dir/.history"
 
 # 只保留最近几份（当前版本一定保留），顺带清理中断留下的临时目录
 now=$(current_name)
@@ -106,3 +120,4 @@ ls -1 "$dir/releases" | grep -v '\.tmp$' | sort -r | tail -n +$((keep + 1)) | wh
   [ "$old" = "$now" ] || rm -rf "${dir:?}/releases/$old"
 done
 find "$dir/releases" -maxdepth 1 -name '*.tmp' -mmin +60 -exec rm -rf {} +
+tail -n 50 "$dir/.history" > "$dir/.history.next" && mv -f "$dir/.history.next" "$dir/.history"
