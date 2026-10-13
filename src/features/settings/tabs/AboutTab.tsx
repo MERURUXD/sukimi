@@ -1,6 +1,7 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { ExternalLink, RefreshCw } from 'lucide-react'
+import { ExternalLink, RefreshCw, Wrench } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { graphql } from '@/api/gql'
 import { toast, toastError } from '@/components/ui/toast'
 import { checkForUpdate } from '@/app/UpdatePrompt'
@@ -137,6 +138,14 @@ export function AboutTab() {
             <AppCheck />
           </div>
         </Row>
+        {(import.meta.env.DEV || __APP_CHANNEL__ === 'preview') && (
+          <Row label="开发者工具箱" hint="环境诊断、批量导入测试漫画、清理本地缓存；日用版不包含">
+            <Link to="/devtools" className="gbtn plain rounded-full no-underline">
+              <Wrench className="size-[18px]" strokeWidth={1.8} />
+              打开
+            </Link>
+          </Row>
+        )}
       </Section>
 
       <AccountSection />
