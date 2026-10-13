@@ -10,7 +10,7 @@ import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { FetchSourceManga, Sources } from '@/features/browse/queries'
-import { SetInLibrary } from '@/features/library/queries'
+import { LibraryMangas, SetInLibrary } from '@/features/library/queries'
 import { Row, Section, Select, TextInput } from '@/features/settings/parts'
 import { isPreview } from '@/lib/channel'
 import { isDevLab } from '@/lib/demo'
@@ -206,8 +206,10 @@ function BulkImport() {
       { ...settings, signal: ctl.signal, onProgress: (progress) => setPhase({ k: 'running', plan, progress }) },
     )
     abort.current = null
-    // 书库、首页等页面按需重新取，不在这里一部部改缓存
-    void client.refetchQueries({ include: ['LibraryMangas'] }).catch(() => {})
+    // 入库结果只更新漫画本身，不会插进已缓存的书库列表；此时书库、首页都已卸载，按名字 refetch 刷不到，
+    // 直接向服务端重取一次写回缓存（换了账号就不取，免得用新令牌查）
+    if (result.done.length && useAuth.getState().user?.id === userId)
+      void client.query({ query: LibraryMangas, fetchPolicy: 'network-only' }).catch(() => {})
     const title = new Map(plan.toAdd.map((c) => [c.id, c.title]))
     const pick = (list: number[]) => list.map((id) => ({ id, title: title.get(id) ?? '' }))
     const record: ImportRecord = {
