@@ -1,7 +1,8 @@
 import type { LibraryManga } from '@/features/library/queries'
-import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, visibleCells } from './canvasMath'
+import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, visibleCells, type Cell, type Grid } from './canvasMath'
 import { WINDOW_K, WINDOW_K_ON, cellsInWindow, ensureWall, wallItem, wallRange, wallScale, wallState, wallTransform, windowCells, windowOrder } from './wall'
 import { WINDOW_DUR, WINDOW_EASE, galleryPose, onWindowFinished, shadeTransform, windowClip, type WindowPose } from './windowMotion'
+import { createWindowCopy } from './windowCopy'
 
 type Kind = 'window' | 'gallery'
 interface Anchor {
@@ -24,6 +25,7 @@ interface Flight {
   timer: number
   resolve: () => void
   finished: Promise<void>
+  copy: ReturnType<typeof createWindowCopy>
 }
 
 const activeTransition = () => (document as Document & { activeViewTransition?: ViewTransition | null }).activeViewTransition
@@ -55,6 +57,7 @@ export function attachWindowWall(anchor: Anchor) {
     if (anchors.get(anchor.kind) === anchor) anchors.delete(anchor.kind)
     // StrictMode 和数据更新先清理再登记，等本次提交完成再决定是否释放场景。
     queueMicrotask(() => {
+      if (flight?.copy && (flight.target ? !flight.target.host.isConnected : !anchors.size && !anchor.host.isConnected)) finish(flight)
       if (!flight && !anchors.size) { scene?.destroy(); scene = null }
     })
   }
@@ -71,12 +74,17 @@ function createScene() {
   const tone = make('gwin-wall gw-tone', frame)
   const shift = make('gw-shift', tone)
   const plane = make('gwin-plane gw-plane', shift)
+  const drift = make('gw-drift', plane)
   const homeShade = make('gwin-shade gw-home-shade', frame)
   const heroShade = make('gw-hero-shade', frame)
   let current: Anchor | null = null
   let assigned = new Map<string, number>()
   const slots: HTMLSpanElement[] = []
   const shown: (string | null | undefined)[] = []
+  const placed: string[] = []
+  let painted = ''
+  let paintedItems: Anchor['items'] | null = null
+  let paintedOrder: typeof wallState.order = null
   let raf = 0
   let last = 0
   let near = false
@@ -90,7 +98,26 @@ function createScene() {
       const img = new Image()
       img.alt = ''; img.draggable = false; img.decoding = 'async'
       img.onerror = () => { img.style.visibility = 'hidden' }
-      s.append(img); plane.append(s); slots.push(s)
+      s.append(img); drift.append(s); slots.push(s)
+    }
+  }
+  const place = (i: number, c: Cell, grid: Grid) => {
+    const s = slots[i]
+    const m = current!.items[wallItem(c.c, c.r, current!.items.length)]
+    const img = s.firstElementChild as HTMLImageElement
+    if (shown[i] !== m.thumbnailUrl) {
+      shown[i] = m.thumbnailUrl
+      img.style.visibility = ''
+      if (m.thumbnailUrl) img.src = m.thumbnailUrl
+      else img.removeAttribute('src')
+    }
+    const key = `${grid.cw}:${c.key}`
+    if (placed[i] !== key) {
+      placed[i] = key
+      s.style.width = `${grid.cw}px`
+      // 格子的坐标不随取景框和流动位置变化，橱窗揭开时无需重排已有封面。
+      const y = c.r * grid.py + (Math.abs(c.c % 2) === 1 ? grid.py / 2 : 0)
+      s.style.transform = `translate3d(${c.c * grid.px}px, ${y}px, 0)`
     }
   }
   const paint = (w: number, h: number, full = false) => {
@@ -100,6 +127,14 @@ function createScene() {
     const cells = full || current.kind === 'gallery'
       ? visibleCells(wallState.cx + w / 2 + HOME_WALL.slide, wallState.cy + h / 2, w, h, grid, wallRange(w, h, full ? WINDOW_K : 1))
       : cellsInWindow(w, h, grid, WINDOW_K, grid.ch * wallScale(WINDOW_K)).map(p => p.cell)
+    const x = wallState.cx + w / 2 + HOME_WALL.slide
+    const y = wallState.cy + h / 2
+    // 同一批格子一起流动，只在边缘换格、尺寸或内容变化时更新封面。
+    // 倾斜与展开仍在外层 plane 上，取景窗和整屏交接时沿用原有封面。
+    drift.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`
+    const signature = `${grid.cw}:${cells.map(c => c.key).join('|')}`
+    if (painted === signature && paintedItems === current.items && paintedOrder === wallState.order) return
+    painted = signature; paintedItems = current.items; paintedOrder = wallState.order
     fillPool(cells.length + 8)
     assigned = assignSlots(assigned, cells.map(c => c.key), slots.length)
     const used = new Set(assigned.values())
@@ -107,17 +142,8 @@ function createScene() {
     for (const c of cells) {
       const i = assigned.get(c.key)!
       const s = slots[i]
-      const m = current.items[wallItem(c.c, c.r, current.items.length)]
-      const img = s.firstElementChild as HTMLImageElement
-      if (shown[i] !== m.thumbnailUrl) {
-        shown[i] = m.thumbnailUrl
-        img.style.visibility = ''
-        if (m.thumbnailUrl) img.src = m.thumbnailUrl
-        else img.removeAttribute('src')
-      }
-      s.style.width = `${grid.cw}px`
+      place(i, c, grid)
       s.style.visibility = ''
-      s.style.transform = `translate3d(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px, 0)`
     }
   }
   const step = (now: number) => {
@@ -132,7 +158,7 @@ function createScene() {
   }
   const sync = () => {
     cancelAnimationFrame(raf); raf = 0; last = 0
-    if (flight && reduced()) activeTransition()?.skipTransition()
+    if (flight && reduced()) { if (flight.copy) finish(flight); else activeTransition()?.skipTransition() }
     if (!current || flight || !near || document.hidden) return
     const { w, h } = size(); paint(w, h)
     if (!reduced()) raf = requestAnimationFrame(step)
@@ -142,7 +168,7 @@ function createScene() {
   document.addEventListener('visibilitychange', sync)
   const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
   mq.addEventListener('change', sync)
-  const resize = () => { if (flight) activeTransition()?.skipTransition() }
+  const resize = () => { if (flight) { if (flight.copy) finish(flight); else activeTransition()?.skipTransition() } }
   window.addEventListener('resize', resize)
 
   const attach = (a: Anchor) => {
@@ -197,7 +223,8 @@ function createScene() {
     homeShade.style.opacity = String(from.shade)
     homeShade.style.transform = shadeTransform(from.box, w, h)
     heroShade.style.opacity = String(1 - from.shade)
-    document.body.append(root)
+    const parent = flight?.copy ? document.querySelector('.app-shell') ?? document.body : document.body
+    parent.append(root)
     paint(w, h, true)
   }
   const destroy = () => {
@@ -212,11 +239,13 @@ function begin(kind: Flight['kind'], from: WindowPose) {
   if (!scene || flight || reduced() || !document.startViewTransition) return false
   let resolve!: () => void
   const finished = new Promise<void>(r => { resolve = r })
-  const f: Flight = { kind, from, w: innerWidth, h: innerHeight, target: null, waiting: false, animations: [], timer: 0, resolve, finished }
+  const copy = !window.matchMedia('(max-width: 767px)').matches ? createWindowCopy(kind) : null
+  const f: Flight = { kind, from, w: innerWidth, h: innerHeight, target: null, waiting: false, animations: [], timer: 0, resolve, finished, copy }
   // 返回页会恢复浅色主题；先固定当前暗角颜色，避免途中重新解析 --bg。
   if (kind === 'back') scene.heroShade.style.background = getComputedStyle(scene.heroShade).backgroundImage
   flight = f
   document.documentElement.toggleAttribute(kind === 'open' ? 'data-gallery-window' : 'data-gallery-window-back', true)
+  document.documentElement.toggleAttribute('data-gallery-window-live', !!copy)
   f.timer = window.setTimeout(() => finish(f), 8000)
   return true
 }
@@ -243,6 +272,16 @@ export function closeWindowWall() {
 function waitForTransition(f: Flight) {
   if (f.waiting) return
   f.waiting = true
+  if (f.copy) {
+    // 等本次路由提交及 ScrollManager 恢复滚动后再测量目标，不必等待浏览器捕获快照。
+    queueMicrotask(() => {
+      if (flight !== f) return
+      play(f)
+      f.copy?.play()
+      void Promise.all(f.animations.map(animation => animation.finished)).then(() => finish(f), () => finish(f))
+    })
+    return
+  }
   const vt = activeTransition()
   if (!vt) { finish(f); return }
   f.cancelFinish = onWindowFinished(vt, () => finish(f))
@@ -284,6 +323,7 @@ function play(f: Flight) {
 function finish(f: Flight) {
   if (flight !== f) return
   window.clearTimeout(f.timer); f.cancelFinish?.()
+  f.copy?.dispose()
   // 专用伪元素样式必须保留到整个 VT 结束，再把同一层放回目标页面。
   const target = f.target?.host.isConnected ? f.target : [...anchors.values()].find(a => a.host.isConnected)
   flight = null
@@ -292,6 +332,7 @@ function finish(f: Flight) {
   f.animations.forEach(a => a.cancel())
   delete document.documentElement.dataset.galleryWindow
   delete document.documentElement.dataset.galleryWindowBack
+  delete document.documentElement.dataset.galleryWindowLive
   document.querySelectorAll<HTMLElement>('[data-wall-busy]').forEach(el => delete el.dataset.wallBusy)
   f.resolve()
 }
