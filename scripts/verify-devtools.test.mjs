@@ -141,4 +141,8 @@ test('虚构验收页和大书库参数只在开发与 Preview 构建开启，�
   // 路由开了而 isDevLab 没开，验收页会带着真实登录和快照打开
   assert.ok(readFileSync('src/lib/demo.ts', 'utf8').includes(`export const isDevLab = (${gate}) && /^\\/dev\\/(?!glass)/`))
   assert.ok(readFileSync('src/features/demo/client.ts', 'utf8').includes(`if (!(${gate})) return {}`))
+  // 验收页里的站内链接跳进需要登录的页面时，整页重新加载走正常登录，而不是卡在没恢复的会话上
+  const shell = readFileSync('src/app/AppShell.tsx', 'utf8')
+  assert.match(shell, /if \(isDevLab\) window\.location\.assign\(href\)/)
+  assert.match(shell, /if \(isDevLab\) return null\n\s*if \(status === 'checking'/)
 })

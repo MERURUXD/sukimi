@@ -103,6 +103,17 @@ test('边界作品：缺封面、零话、五千话和分类组合都能通过�
   assert.equal(ok(plain, docs.LibraryMangasDocument).mangas.nodes.length, 60)
 })
 
+test('大书库章节页数超过六页时，阅读页按实际页数生成', () => {
+  const root = createDemoData(Date.UTC(2026, 9, 9, 12), [], { scale: 50 })
+  const chapter = ok(root, docs.GalleryReadChaptersDocument, { first: 2000, offset: 0 }).chapters.nodes.find((c) => c.id >= 10_000_000)
+  const { pageCount } = root.chapters({ first: 1, condition: { id: chapter.id } }).nodes[0]
+  assert.ok(pageCount > 6)
+  const pages = ok(root, docs.FetchChapterPagesDocument, { chapterId: chapter.id }).fetchChapterPages.pages.map(decodeURIComponent)
+  assert.equal(pages.length, pageCount)
+  assert.ok(pages.every((p) => !p.includes('undefined')))
+  assert.ok(pages[pageCount - 1].includes(`${pageCount} / ${pageCount}`))
+})
+
 test('一万部的大书库按比例减少每部话数', () => {
   const root = createDemoData(Date.UTC(2026, 9, 9, 12), [], { scale: 20_000 })
   assert.equal(ok(root, docs.LibraryMangasDocument).mangas.nodes.length, 10_010)

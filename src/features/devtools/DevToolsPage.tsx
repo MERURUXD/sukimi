@@ -45,11 +45,14 @@ export function DevToolsPage() {
       <div className="pt-9 pb-8">
         <h1 className="m-0 font-cjk text-[40px] font-black max-sm:text-[32px]">开发者工具箱</h1>
         <p className="mt-1 mb-0 max-w-[62ch] text-sm text-muted">
-          {isPreview ? 'Preview 环境' : '本地开发环境'} · 后端 <span className="num">{location.origin}/api</span> · 构建{' '}
+          {isPreview ? 'Preview 环境' : '本地开发环境'} · {isDevLab ? '虚构验收页' : <>后端 <span className="num">{location.origin}/api</span></>} · 构建{' '}
           <span className="num">{__APP_COMMIT__}</span>
         </p>
         <p className="mt-1 mb-0 max-w-[62ch] text-[13px] text-faint">
-          这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。
+          {/* 验收页复用这个页面，但来源、版本和写入结果都是本机生成的，不能沿用真实后端的风险提示 */}
+          {isDevLab
+            ? '这是虚构验收页：服务端版本、来源、书库和加入结果都在本机生成，不连接 Suwayomi，任何操作都不会写到真实书库。'
+            : '这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。'}
         </p>
       </div>
       <Diagnostics />
@@ -320,7 +323,7 @@ function BulkImport() {
   return (
     <>
       <Section
-        title="批量导入真实漫画"
+        title={isDevLab ? '批量导入（虚构来源）' : '批量导入真实漫画'}
         desc="先预演：从来源取候选、和书库比对，列出会加入哪些；确认后才分批加入书库。预演会真实请求漫画来源，Suwayomi 也会把取到的作品记进自己的数据库（和在「发现」里浏览一样），但不会加入书库。"
       >
         <Row label="来源">

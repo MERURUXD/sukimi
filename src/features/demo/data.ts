@@ -19,8 +19,9 @@ function cover(title: string, i: number) {
   </svg>`)
 }
 
-/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读。 */
-function storyPage(title: string, page: number) {
+/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读；大书库的章节页数更多，画面按六页循环，页码照实际页数 */
+function storyPage(title: string, index: number, total = 6) {
+  const page = index % 6
   const lines = ['清晨，一封没有地址的信来到了邮局。', '「把它送到云海另一端吧。」', '列车穿过森林，山风翻动着信封。', '在最后一站，小猫已经等了很久。', '原来，最远的地方也有人等你。', '明天，我们再出发。']
   return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1300" viewBox="0 0 900 1300">
     <rect width="900" height="1300" fill="#f3efe5"/><g stroke="#303735" stroke-width="4">
@@ -34,9 +35,9 @@ function storyPage(title: string, page: number) {
     <path d="M585 945Q610 965 635 945" fill="none"/>
     <rect x="525" y="670" width="270" height="100" rx="38" fill="#fffdf5"/>
     </g><g fill="#303735" font-family="sans-serif">
-    <text x="45" y="85" font-size="32" font-weight="700">${title}</text><text x="855" y="85" font-size="18" text-anchor="end">原创演示 · ${page + 1} / 6</text>
-    <text x="85" y="535" font-size="24">${lines[page]}</text><text x="660" y="730" font-size="24" text-anchor="middle">${page === 5 ? '下一段旅途见！' : '一起出发吧。'}</text>
-    <text x="450" y="1210" font-size="22" text-anchor="middle">${String(page + 1).padStart(2, '0')}</text></g>
+    <text x="45" y="85" font-size="32" font-weight="700">${title}</text><text x="855" y="85" font-size="18" text-anchor="end">原创演示 · ${index + 1} / ${total}</text>
+    <text x="85" y="535" font-size="24">${lines[page]}</text><text x="660" y="730" font-size="24" text-anchor="middle">${index === total - 1 ? '下一段旅途见！' : '一起出发吧。'}</text>
+    <text x="450" y="1210" font-size="22" text-anchor="middle">${String(index + 1).padStart(2, '0')}</text></g>
   </svg>`)
 }
 
@@ -395,7 +396,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     fetchMangaAndChapters: ({ input }: { input: { id: number } }) => ({ manga: findManga(input.id), chapters: findManga(input.id).chapters.nodes }),
     fetchChapterPages: ({ input }: { input: { chapterId: number } }) => {
       const c = findChapter(input.chapterId)
-      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i)) }
+      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i, c.pageCount)) }
     },
     updateChapter: ({ input }: { input: { id: number; patch: Partial<DemoChapter> } }) => ({ chapter: patchChapter(input.id, input.patch) }),
     updateChapters: ({ input }: { input: { ids: number[]; patch: Partial<DemoChapter> } }) => ({ chapters: input.ids.map((id) => patchChapter(id, input.patch)) }),
