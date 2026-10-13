@@ -41,7 +41,7 @@ export function DevToolsLab() {
       cache: createCache(),
       link: new ApolloLink((op) => new Observable((observer) => {
         const v = op.variables as Record<string, never>
-        if (op.operationName === 'FetchSourceManga' || op.operationName === 'SetInLibrary') {
+        if (['FetchSourceManga', 'SetInLibrary', 'LibraryMangas'].includes(op.operationName ?? '')) {
           const line = `${op.operationName} ${JSON.stringify(v)}`
           setLog((l) => [...l.slice(-30), line])
           // 页面卸载后日志面板也没了；挂到 window 上，验收「离开页面后不再写入」时可查
