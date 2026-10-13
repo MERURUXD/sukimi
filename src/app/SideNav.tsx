@@ -8,7 +8,7 @@ import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection, TABS } from './navTabs'
 
 /**
- * 平板（768–1279px）左侧玻璃导航栏。宽度和内容让位由 index.css 的 --side-w 统一给出，
+ * 触控移动设备在 768–1279px 使用左侧玻璃导航栏。宽度和内容让位由 index.css 的 --side-w 统一给出，
  * 顶栏只保留返回键和右侧按钮，标志移到这里，和顶栏的按钮排在同一行高度。
  */
 export function SideNav() {
@@ -16,7 +16,7 @@ export function SideNav() {
   const { pathname } = useLocation()
   const { ref: pillRef, box: pillBox } = useNavPill(pathname)
   return (
-    <div data-vt-bar="sidenav" className="pointer-events-none fixed top-0 left-0 z-40 hidden w-[var(--side-w)] flex-col items-end md:max-xl:flex">
+    <div data-vt-bar="sidenav" className="side-nav pointer-events-none fixed top-0 left-0 z-40 w-[var(--side-w)] flex-col items-end">
       <div className="flex h-[var(--nav-h)] w-[72px] items-center justify-center">
         <NavLink to="/" aria-label="Sukimi 首页" className="pointer-events-auto rounded-full text-text no-underline">
           <Glass as="span" data-vt-glass="sidenav-brand" className="flex rounded-full p-[5px] text-[17px] font-bold">
