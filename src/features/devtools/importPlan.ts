@@ -191,3 +191,16 @@ export async function runBatches(
   }
   return r
 }
+
+/** 预演时的导入条件；确认、写入和记录都以它为准，不读页面上之后改过的选项 */
+export interface ImportRequest {
+  sourceId: string
+  sourceName: string
+  type: 'POPULAR' | 'LATEST' | 'SEARCH'
+  /** 只有搜索时有值 */
+  query: string
+}
+
+/** 当前选项是否还是预演时那一组；不是的话旧预演作废，避免把甲来源的作品当成乙来源加入 */
+export const sameRequest = (a: Pick<ImportRequest, 'sourceId' | 'type' | 'query'>, b: Pick<ImportRequest, 'sourceId' | 'type' | 'query'>) =>
+  a.sourceId === b.sourceId && a.type === b.type && a.query === b.query

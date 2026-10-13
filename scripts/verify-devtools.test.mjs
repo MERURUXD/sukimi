@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { chunk, clampSettings, collectCandidates, DEFAULT_SETTINGS, MAX_SETTINGS, planImport, runBatches } from '../src/features/devtools/importPlan.ts'
+import { chunk, clampSettings, collectCandidates, DEFAULT_SETTINGS, MAX_SETTINGS, planImport, runBatches, sameRequest } from '../src/features/devtools/importPlan.ts'
 
 // 全部是虚构作品
 const c = (id, title = `虚构作品 ${id}`, inLibrary = false) => ({ id, title, inLibrary })
@@ -121,4 +121,12 @@ test('工具箱只经由按构建渠道判断的路由加载，正式构建不�
   assert.deepEqual(refs.sort(), ['src/app/router.tsx', 'src/features/dev/DevToolsLab.tsx'])
   const router = readFileSync('src/app/router.tsx', 'utf8')
   assert.match(router, /import\.meta\.env\.DEV \|\| __APP_CHANNEL__ === 'preview'\s*\n\s*\? \[\{ path: 'devtools', \.\.\.page\(\(\) => import\('@\/features\/devtools\/DevToolsPage'\)/)
+})
+
+test('预演后改了来源、方式或搜索词，旧预演即作废', () => {
+  const req = { sourceId: '910', type: 'SEARCH', query: '虚构' }
+  assert.equal(sameRequest(req, { ...req }), true)
+  assert.equal(sameRequest(req, { ...req, sourceId: '911' }), false)
+  assert.equal(sameRequest(req, { ...req, type: 'POPULAR', query: '' }), false)
+  assert.equal(sameRequest(req, { ...req, query: '虚构 2' }), false)
 })
