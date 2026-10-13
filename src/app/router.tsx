@@ -61,6 +61,7 @@ export const router = createBrowserRouter(isDemo ? demoRoutes : [
         { path: '/dev/downloads', ...page(() => import('@/features/dev/DownloadsLab'), 'DownloadsLab') },
         { path: '/dev/tracking', ...page(() => import('@/features/dev/TrackingLab'), 'TrackingLab') },
         { path: '/dev/reader-gestures', ...page(() => import('@/features/dev/ReaderGesturesLab'), 'ReaderGesturesLab') },
+        { path: '/dev/devtools', ...page(() => import('@/features/dev/DevToolsLab'), 'DevToolsLab') },
       ]
     : []),
   {
@@ -85,6 +86,10 @@ export const router = createBrowserRouter(isDemo ? demoRoutes : [
           { path: 'downloads', ...page(() => import('@/features/downloads/DownloadsPage'), 'DownloadsPage') },
           { path: 'tracker/login/oauth', ...page(() => import('@/features/tracking/OAuthCallback'), 'OAuthCallback') },
           { path: 'settings/:tab?', ...page(() => import('@/features/settings/SettingsPage'), 'SettingsPage') },
+          // 开发者工具箱：只有 Preview 构建和本地开发注册；直接比较构建常量，正式构建会整段删掉，不打进产物
+          ...(import.meta.env.DEV || __APP_CHANNEL__ === 'preview'
+            ? [{ path: 'devtools', ...page(() => import('@/features/devtools/DevToolsPage'), 'DevToolsPage') }]
+            : []),
           // 开发用调参页，正式构建里不存在
           ...(import.meta.env.DEV
             ? [{ path: 'dev/glass', ...page(() => import('@/features/dev/GlassLab'), 'GlassLab') }]
