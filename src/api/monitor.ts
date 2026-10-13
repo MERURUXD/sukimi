@@ -39,7 +39,6 @@ export interface Monitor {
 }
 
 export const MONITOR_LIMIT = 200
-const ERROR_CHARS = 120
 
 interface Options {
   limit?: number
@@ -94,14 +93,14 @@ export function createMonitor({
       return {
         event(error) {
           entry.events++
-          if (error && !entry.error) entry.error = clip(error)
+          if (error && !entry.error) entry.error = error
           // 查询的结果不用逐条刷新，结束时统一刷；订阅一直开着，要看得到条数在涨
           if (kind === 'subscription') changed()
         },
         end(status, error) {
           if (entry.status !== 'pending') return
           entry.ms = Math.max(0, Math.round(clock() - start))
-          if (error && !entry.error) entry.error = clip(error)
+          if (error && !entry.error) entry.error = error
           // 返回里带了 GraphQL 错误（服务端照常回 200）也算失败
           entry.status = status === 'ok' && entry.error ? 'error' : status
           changed()
@@ -120,15 +119,18 @@ export function createMonitor({
   }
 }
 
-const clip = (s: string) => (s.length > ERROR_CHARS ? `${s.slice(0, ERROR_CHARS)}…` : s)
+/** 返回里带 GraphQL 错误时只记这一句：错误消息是服务端返回的内容，可能带书名等信息，不留 */
+export const GRAPHQL_ERROR = 'GraphQL 错误'
 
-/** 错误只留状态码和截短的提示文字，不带响应正文 */
+/**
+ * 错误只留分类：HTTP 状态码或错误类型名（如 TypeError），不留提示文字和响应正文。
+ * 类型名是前端代码里的类名，不是服务端返回的内容
+ */
 export function errorText(error: unknown): string {
-  if (!error || typeof error !== 'object') return clip(String(error))
-  const e = error as { statusCode?: unknown; message?: unknown }
-  const code = typeof e.statusCode === 'number' ? `HTTP ${e.statusCode}` : ''
-  const msg = typeof e.message === 'string' ? e.message : ''
-  return clip([code, msg].filter(Boolean).join(' · ') || '未知错误')
+  if (!error || typeof error !== 'object') return '请求失败'
+  const e = error as { statusCode?: unknown; name?: unknown }
+  if (typeof e.statusCode === 'number') return `HTTP ${e.statusCode}`
+  return typeof e.name === 'string' && /^[A-Za-z]{1,40}$/.test(e.name) ? e.name : '请求失败'
 }
 
 export interface OpStats {

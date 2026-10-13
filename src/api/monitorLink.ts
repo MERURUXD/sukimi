@@ -1,6 +1,6 @@
 import { ApolloLink } from '@apollo/client'
 import { finalize, tap } from 'rxjs'
-import { errorText, getMonitor, type MonitorHandle, type OpStatus } from './monitor'
+import { errorText, getMonitor, GRAPHQL_ERROR, type MonitorHandle, type OpStatus } from './monitor'
 
 /**
  * 请求监视的 Apollo link：放在链路最外层，401 续期后的重试算同一次请求。
@@ -20,7 +20,7 @@ export function monitorLink() {
     let error: string | undefined
     return forward(operation).pipe(
       tap({
-        next: (r) => h.event(r.errors?.length ? errorText(r.errors[0]) : undefined),
+        next: (r) => h.event(r.errors?.length ? GRAPHQL_ERROR : undefined),
         error: (e) => {
           status = 'error'
           error = errorText(e)

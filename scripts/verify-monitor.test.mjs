@@ -84,12 +84,15 @@ test('超过上限只留最近的', () => {
   assert.deepEqual(m.snapshot(), [])
 })
 
-test('错误只留状态码和截短的提示，不带响应正文', () => {
-  const server = { statusCode: 502, message: 'Bad Gateway', bodyText: '<html>虚构正文</html>', response: {} }
-  assert.equal(errorText(server), 'HTTP 502 · Bad Gateway')
-  assert.equal(errorText({ message: '虚构'.repeat(100) }).length, 121)
-  assert.equal(errorText(null), 'null')
-  assert.equal(errorText({}), '未知错误')
+test('错误只留状态码或类型名，不留提示文字和响应正文', () => {
+  const server = { name: 'ServerError', statusCode: 502, message: 'Bad Gateway', bodyText: '<html>虚构正文</html>', response: {} }
+  assert.equal(errorText(server), 'HTTP 502')
+  assert.equal(errorText(new TypeError('Failed to fetch 虚构书名')), 'TypeError')
+  // 服务端给的错误消息（可能含书名）一律不留
+  assert.equal(errorText({ name: 'CombinedGraphQLErrors', message: '虚构作品《甲》不存在' }), 'CombinedGraphQLErrors')
+  assert.equal(errorText({ name: '虚构 名字', message: 'x' }), '请求失败')
+  assert.equal(errorText(null), '请求失败')
+  assert.equal(errorText({}), '请求失败')
 })
 
 test('汇总：按操作名分组，订阅和取消的不计耗时', () => {
