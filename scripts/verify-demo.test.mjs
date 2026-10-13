@@ -76,6 +76,41 @@ test('开发用大书库：规模可控、编号不冲突、结果稳定', () =>
     ok(root, docs.GalleryReadChaptersDocument, { first: 1, offset: 300 }).chapters.nodes[0].lastReadAt)
 })
 
+test('边界作品：缺封面、零话、五千话和分类组合都能通过正式查询', () => {
+  const now = Date.UTC(2026, 9, 9, 12)
+  const root = createDemoData(now, [], { scale: 50, edge: true })
+  const lib = ok(root, docs.LibraryMangasDocument).mangas.nodes
+  assert.equal(lib.length, 66)
+  assert.ok(lib.some((m) => m.thumbnailUrl === null))
+  assert.ok(lib.some((m) => m.title.length > 60))
+  const cats = ok(root, docs.CategoriesDocument).categories.nodes
+  assert.equal(cats.length, 4)
+  // 大书库里混进的无分类、三分类作品
+  const scaled = lib.filter((m) => m.id > 5000)
+  assert.ok(scaled.some((m) => m.categories.nodes.length === 0))
+  assert.ok(scaled.some((m) => m.categories.nodes.length === 3))
+  for (const id of [4001, 4002, 4003, 4004, 4005, 4006]) {
+    ok(root, docs.MangaDetailDocument, { id })
+    ok(root, docs.MangaChaptersDocument, { mangaId: id })
+  }
+  assert.equal(ok(root, docs.MangaChaptersDocument, { mangaId: 4004 }).chapters.nodes.length, 5000)
+  assert.equal(ok(root, docs.MangaChaptersDocument, { mangaId: 4005 }).chapters.nodes.length, 0)
+  for (const [name, variables] of [['RecentReads', {}], ['RecentUpdates', { first: 60, offset: 0, filter: { inLibrary: { equalTo: true } } }], ['History', { first: 100, offset: 0 }]])
+    ok(root, docs[`${name}Document`], variables)
+  // 不带 edge 时同样规模的大书库不受影响
+  const plain = createDemoData(now, [], { scale: 50 })
+  assert.equal(ok(plain, docs.CategoriesDocument).categories.nodes.length, 2)
+  assert.equal(ok(plain, docs.LibraryMangasDocument).mangas.nodes.length, 60)
+})
+
+test('一万部的大书库按比例减少每部话数', () => {
+  const root = createDemoData(Date.UTC(2026, 9, 9, 12), [], { scale: 20_000 })
+  assert.equal(ok(root, docs.LibraryMangasDocument).mangas.nodes.length, 10_010)
+  const total = ok(root, docs.GalleryReadChaptersDocument, { first: 1, offset: 0 }).chapters
+  assert.ok(total.pageInfo.hasNextPage)
+  assert.ok(root.chapters({ first: 0 }).totalCount < 150_000)
+})
+
 test('阅读页生成本地图片，进度修改只影响当前演示实例', () => {
   const root = createDemoData()
   const other = createDemoData()
