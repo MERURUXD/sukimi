@@ -1,6 +1,6 @@
 import { useQuery } from '@apollo/client/react'
 import { ArrowRight } from 'lucide-react'
-import { useMemo, useRef, type CSSProperties, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent } from 'react'
 import { Link } from 'react-router'
 import { isVisible } from '@/features/history/history'
 import type { LibraryManga } from '@/features/library/queries'
@@ -85,6 +85,17 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
   }
 
   const has = items.length > 0
+  // 橱窗即将进入视口时先取路由代码，键盘和直接点击也不用临时等待模块加载。
+  useEffect(() => {
+    if (!box.current) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      prefetchGallery()
+      observer.disconnect()
+    }, { rootMargin: '400px 0px' })
+    observer.observe(box.current)
+    return () => observer.disconnect()
+  }, [has])
 
   if (!has) return null
   return (
@@ -125,7 +136,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
           <Link
             to={GALLERY}
             state={{ from: 'home' }}
-            viewTransition
+            viewTransition={mobile}
             onClick={(e) => plainClick(e) && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && box.current && enterGalleryFromHome(box.current)}
             onFocus={() => {
               prefetchGallery()
