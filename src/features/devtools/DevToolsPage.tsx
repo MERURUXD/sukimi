@@ -1,5 +1,5 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { Activity, Download, LibraryBig, RotateCcw, Search, Square, Trash2 } from 'lucide-react'
+import { Activity, Download, ExternalLink, FlaskConical, LibraryBig, RotateCcw, Search, Square, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useAuth } from '@/api/auth'
 import { captureUser, StaleSessionError } from '@/api/userContext'
@@ -11,7 +11,7 @@ import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { FetchSourceManga, Sources } from '@/features/browse/queries'
 import { LibraryMangas, SetInLibrary } from '@/features/library/queries'
-import { Row, Section, Select, TextInput } from '@/features/settings/parts'
+import { Row, Section, Select, Switch, TextInput } from '@/features/settings/parts'
 import { isPreview } from '@/lib/channel'
 import { isDevLab } from '@/lib/demo'
 import { clock, formatDate } from '@/lib/format'
@@ -45,14 +45,18 @@ export function DevToolsPage() {
       <div className="pt-9 pb-8">
         <h1 className="m-0 font-cjk text-[40px] font-black max-sm:text-[32px]">开发者工具箱</h1>
         <p className="mt-1 mb-0 max-w-[62ch] text-sm text-muted">
-          {isPreview ? 'Preview 环境' : '本地开发环境'} · 后端 <span className="num">{location.origin}/api</span> · 构建{' '}
+          {isPreview ? 'Preview 环境' : '本地开发环境'} · {isDevLab ? '虚构验收页' : <>后端 <span className="num">{location.origin}/api</span></>} · 构建{' '}
           <span className="num">{__APP_COMMIT__}</span>
         </p>
         <p className="mt-1 mb-0 max-w-[62ch] text-[13px] text-faint">
-          这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。
+          {/* 验收页复用这个页面，但来源、版本和写入结果都是本机生成的，不能沿用真实后端的风险提示 */}
+          {isDevLab
+            ? '这是虚构验收页：服务端版本、来源、书库和加入结果都在本机生成，不连接 Suwayomi，任何操作都不会写到真实书库。'
+            : '这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。'}
         </p>
       </div>
       <Diagnostics />
+      <MockData />
       <BulkImport />
       <LocalCache />
     </div>
@@ -106,6 +110,64 @@ function Diagnostics() {
           {testing ? '测量中…' : '测一次'}
         </button>
       </Row>
+    </Section>
+  )
+}
+
+const SCALES = [100, 1000, 10_000] as const
+
+/** 虚构验收页：各自用本机生成的数据，不登录、不请求服务端 */
+const LABS = [
+  { path: '/dev/devtools', label: '开发者工具箱', hint: '预演、分批、停止、失败中止与导入记录' },
+  { path: '/dev/source-filters', label: '来源筛选', hint: '各类筛选控件与搜索' },
+  { path: '/dev/extensions', label: '扩展管理', hint: '安装、更新、卸载的各种状态' },
+  { path: '/dev/migrate', label: '换源迁移', hint: '候选匹配与迁移选项' },
+  { path: '/dev/history', label: '阅读历史', hint: '分组、隐藏与长列表' },
+  { path: '/dev/downloads', label: '下载队列', hint: '排队、进度、失败与重排' },
+  { path: '/dev/tracking', label: '追踪', hint: '登录、绑定、进度与评分' },
+  { path: '/dev/reader-gestures', label: '阅读器手势', hint: '翻页、缩放与边缘点击' },
+  { path: '/dev/settings-layout', label: '设置布局', hint: '设置分栏与阅读器设置面板' },
+]
+
+/**
+ * 虚构数据入口：都是整页跳转。演示和验收页在页面加载时决定用哪个客户端、哪套存储，
+ * 用站内路由切过去会沿用当前的真实登录和缓存
+ */
+function MockData() {
+  const [scale, setScale] = useState<(typeof SCALES)[number]>(1000)
+  const [edge, setEdge] = useState(true)
+  const demo = `/demo/library?scale=${scale}${edge ? '&edge=1' : ''}`
+  return (
+    <Section
+      title="虚构数据"
+      desc="在本机生成虚构书库，不登录、不连接服务端，也读不到真实书库；断网或服务端停机时同样能用。改动只存在这次打开的页面里，刷新即恢复。"
+    >
+      <Row label="大书库演示" hint="在演示书库上再生成指定数量的作品；一万部时每部话数会减少，总共约十万话，打开要几秒、内存占用较高">
+        <Seg
+          label="作品数量"
+          glass={false}
+          value={scale}
+          onChange={setScale}
+          items={SCALES.map((n) => ({ value: n, label: n.toLocaleString() }))}
+        />
+      </Row>
+      <Row label="边界作品" hint="超长标题、无封面、封面失效、5000 话、零话、混排文字，以及无分类 / 多分类组合">
+        <Switch on={edge} onChange={setEdge} label="边界作品" />
+      </Row>
+      <div className="flex flex-wrap gap-2.5">
+        <Glass as="a" href={demo} className="gbtn rounded-full no-underline">
+          <FlaskConical className="size-[18px]" strokeWidth={1.8} />
+          打开虚构书库
+        </Glass>
+      </div>
+      {LABS.map((lab) => (
+        <Row key={lab.path} label={lab.label} hint={lab.hint}>
+          <a href={lab.path} className="gbtn plain rounded-full no-underline">
+            <ExternalLink className="size-[18px]" strokeWidth={1.8} />
+            打开
+          </a>
+        </Row>
+      ))}
     </Section>
   )
 }
@@ -261,7 +323,7 @@ function BulkImport() {
   return (
     <>
       <Section
-        title="批量导入真实漫画"
+        title={isDevLab ? '批量导入（虚构来源）' : '批量导入真实漫画'}
         desc="先预演：从来源取候选、和书库比对，列出会加入哪些；确认后才分批加入书库。预演会真实请求漫画来源，Suwayomi 也会把取到的作品记进自己的数据库（和在「发现」里浏览一样），但不会加入书库。"
       >
         <Row label="来源">

@@ -50,8 +50,9 @@ export const router = createBrowserRouter(isDemo ? demoRoutes : [
   { path: '/login', ...page(() => import('@/features/auth/LoginPage'), 'LoginPage') },
   { path: '/register', ...page(() => import('@/features/auth/RedeemPage'), 'RegisterPage') },
   { path: '/recover', ...page(() => import('@/features/auth/RedeemPage'), 'RecoverPage') },
-  // 虚构来源的界面验收入口，不需要登录，也不会请求真实书库或修改服务端。
-  ...(import.meta.env.DEV
+  // 虚构数据的界面验收入口，不需要登录，也不会请求真实书库或修改服务端。
+  // 本地开发和 Preview 构建注册；直接比较构建常量，正式构建会整段删掉。须与 lib/demo.ts 的 isDevLab 条件一致
+  ...(import.meta.env.DEV || __APP_CHANNEL__ === 'preview'
     ? [
         { path: '/dev/source-filters', ...page(() => import('@/features/dev/SourceFiltersLab'), 'SourceFiltersLab') },
         { path: '/dev/settings-layout/:tab?', ...page(() => import('@/features/dev/SettingsLayoutLab'), 'SettingsLayoutLab') },
