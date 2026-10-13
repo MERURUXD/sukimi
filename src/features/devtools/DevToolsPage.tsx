@@ -133,7 +133,7 @@ function RequestMonitor() {
   return (
     <Section
       title="请求监视"
-      desc={`记录这个页面发出的 GraphQL 请求：操作名、类型、耗时、结果和变量名，不记变量值、请求头和返回内容。只存在内存里，最多 ${MONITOR_LIMIT} 条，刷新即清空；命中缓存的查询不经过网络，不会出现在这里。`}
+      desc={`记录这个页面发出的 GraphQL 请求：操作名、类型、耗时、结果和变量名，不记变量值、请求头和返回内容。只存在内存里，最多 ${MONITOR_LIMIT} 条，刷新即清空；打开前已建立的实时订阅会补记进来，命中缓存的查询不经过网络，不会出现在这里。`}
       action={
         entries.length > 0 && (
           <button type="button" className="gbtn plain rounded-full" onClick={m.clear}>
@@ -190,6 +190,7 @@ function RequestLine({ e }: { e: MonitorEntry }) {
         {STATUS_LABEL[e.status]}
         {e.ms != null && <span className="num"> · {e.ms} ms</span>}
         {e.kind === 'subscription' && e.events > 0 && <span className="num"> · {e.events} 条推送</span>}
+        {e.joined && ' · 打开监视前已建立'}
       </span>
       {e.vars.length > 0 && <span className="min-w-0 truncate text-faint">变量 {e.vars.join('、')}</span>}
       {e.error && <span className="basis-full break-all text-muted">{e.error}</span>}

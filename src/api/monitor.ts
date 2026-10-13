@@ -20,6 +20,8 @@ export interface MonitorEntry {
   error?: string
   /** 收到的结果数，订阅会有很多条 */
   events: number
+  /** 订阅在打开监视前就已建立，从打开时开始记 */
+  joined?: boolean
 }
 
 export interface MonitorHandle {
@@ -30,7 +32,10 @@ export interface MonitorHandle {
 export interface Monitor {
   readonly enabled: boolean
   setEnabled(on: boolean): void
-  /** 关闭时返回 null，调用方直接放行请求 */
+  /**
+   * 关闭时查询和修改返回 null，调用方直接放行请求。
+   * 订阅照样返回句柄：实时订阅在页面打开时就建立，之后很少重连，打开监视时要能补记进来
+   */
   begin(op: { name: string; kind: OpKind; vars: string[] }): MonitorHandle | null
   clear(): void
   /** 给 useSyncExternalStore 用：内容变化后才换新数组 */
@@ -39,6 +44,12 @@ export interface Monitor {
 }
 
 export const MONITOR_LIMIT = 200
+
+interface Running {
+  op: { name: string; kind: OpKind; vars: string[] }
+  start: number
+  entry?: MonitorEntry
+}
 
 interface Options {
   limit?: number
@@ -62,6 +73,20 @@ export function createMonitor({
   let queued = false
   const listeners = new Set<() => void>()
 
+  // 正在进行的请求；订阅不论开关都登记（只有名字和变量名），打开监视时补记
+  const live = new Set<Running>()
+  const attach = (rec: Running, joined: boolean) => {
+    if (joined) rec.start = clock()
+    const { name, kind, vars } = rec.op
+    rec.entry = { id: ++seq, name, kind, vars: [...vars], at: now(), status: 'pending', events: 0, ...(joined && { joined }) }
+    entries.push(rec.entry)
+    if (entries.length > limit) entries = entries.slice(-limit)
+    changed()
+  }
+  const joinLive = () => {
+    for (const rec of live) if (!rec.entry || !entries.includes(rec.entry)) attach(rec, true)
+  }
+
   const flush = () => {
     queued = false
     snap = entries.map((e) => ({ ...e, vars: [...e.vars] }))
@@ -81,25 +106,28 @@ export function createMonitor({
     setEnabled(on) {
       if (on === enabled) return
       enabled = on
+      if (on) joinLive()
       flush()
     },
-    begin({ name, kind, vars }) {
-      if (!enabled) return null
-      const entry: MonitorEntry = { id: ++seq, name, kind, vars: [...vars], at: now(), status: 'pending', events: 0 }
-      const start = clock()
-      entries.push(entry)
-      if (entries.length > limit) entries = entries.slice(-limit)
-      changed()
+    begin(op) {
+      if (!enabled && op.kind !== 'subscription') return null
+      const rec: Running = { op: { ...op, vars: [...op.vars] }, start: clock() }
+      if (enabled) attach(rec, false)
+      if (op.kind === 'subscription') live.add(rec)
       return {
         event(error) {
+          const entry = rec.entry
+          if (!entry) return
           entry.events++
           if (error && !entry.error) entry.error = error
           // 查询的结果不用逐条刷新，结束时统一刷；订阅一直开着，要看得到条数在涨
-          if (kind === 'subscription') changed()
+          if (op.kind === 'subscription') changed()
         },
         end(status, error) {
-          if (entry.status !== 'pending') return
-          entry.ms = Math.max(0, Math.round(clock() - start))
+          live.delete(rec)
+          const entry = rec.entry
+          if (!entry || entry.status !== 'pending') return
+          entry.ms = Math.max(0, Math.round(clock() - rec.start))
           if (error && !entry.error) entry.error = error
           // 返回里带了 GraphQL 错误（服务端照常回 200）也算失败
           entry.status = status === 'ok' && entry.error ? 'error' : status
@@ -109,6 +137,8 @@ export function createMonitor({
     },
     clear() {
       entries = []
+      // 清空后仍开着的订阅重新列出来，不然它之后的推送没处记
+      if (enabled) joinLive()
       flush()
     },
     snapshot: () => snap,
