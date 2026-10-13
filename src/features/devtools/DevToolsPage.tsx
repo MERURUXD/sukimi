@@ -22,8 +22,10 @@ import {
   MAX_SETTINGS,
   planImport,
   runBatches,
+  sameRequest,
   type Candidate,
   type ImportPlan,
+  type ImportRequest,
   type ImportSettings,
   type RunResult,
 } from './importPlan'
@@ -108,12 +110,15 @@ function Diagnostics() {
   )
 }
 
+/** 预演结果连同当时的导入条件 */
+type Planned = ImportPlan & { req: ImportRequest }
+
 type Phase =
   | { k: 'idle' }
   | { k: 'collecting'; page: number; total: number }
-  | { k: 'planned'; plan: ImportPlan; note?: string }
-  | { k: 'running'; plan: ImportPlan; progress: RunResult }
-  | { k: 'done'; plan: ImportPlan; result: RunResult; record: ImportRecord }
+  | { k: 'planned'; plan: Planned; note?: string }
+  | { k: 'running'; plan: Planned; progress: RunResult }
+  | { k: 'done'; plan: Planned; result: RunResult; record: ImportRecord }
 
 function BulkImport() {
   const client = useApolloClient()
@@ -146,10 +151,17 @@ function BulkImport() {
   }, [])
   const effectiveMode: Mode = mode === 'LATEST' && source && !source.supportsLatest ? 'POPULAR' : mode
   const busy = phase.k === 'collecting' || phase.k === 'running'
+  const current = { sourceId: source?.id ?? '', type: effectiveMode, query: effectiveMode === 'SEARCH' ? query.trim() : '' }
+  // 预演后改了来源、方式或搜索词：旧预演作废，必须重新预演才能加入
+  const stale = phase.k === 'planned' && !sameRequest(phase.plan.req, current)
+  useEffect(() => {
+    if (stale) setPhase({ k: 'idle' })
+  }, [stale])
 
   const dryRun = async () => {
     if (!source) return
     if (effectiveMode === 'SEARCH' && !query.trim()) return toast('先输入搜索词', 'error')
+    const req: ImportRequest = { ...current, sourceName: source.displayName }
     const ctl = new AbortController()
     abort.current = ctl
     setPhase({ k: 'collecting', page: 0, total: 0 })
@@ -159,7 +171,7 @@ function BulkImport() {
         async (page) => {
           const { data } = await client.mutate({
             mutation: FetchSourceManga,
-            variables: { source: source.id, type: effectiveMode, page, query: effectiveMode === 'SEARCH' ? query.trim() : null },
+            variables: { source: req.sourceId, type: req.type, page, query: req.type === 'SEARCH' ? req.query : null },
           })
           const r = data?.fetchSourceManga
           return { items: (r?.mangas ?? []).map((m): Candidate => ({ id: m.id, title: m.title, inLibrary: m.inLibrary })), hasNext: !!r?.hasNextPage }
@@ -170,7 +182,7 @@ function BulkImport() {
       if (got.cancelled && !got.items.length) return setPhase({ k: 'idle' })
       const lib = await client.query({ query: DevToolsLibraryTitles, fetchPolicy: 'network-only' })
       still()
-      const plan = planImport(got.items, lib.data?.mangas.nodes ?? [], settings.limit)
+      const plan: Planned = { ...planImport(got.items, lib.data?.mangas.nodes ?? [], settings.limit), req }
       const notes = [
         `翻了 ${got.pages} 页${got.more ? '，来源还有更多' : ''}`,
         got.cancelled && '已停止，后面的页没有再请求',
@@ -185,11 +197,11 @@ function BulkImport() {
     }
   }
 
-  const run = async (plan: ImportPlan, ids: number[]) => {
-    if (!source) return
+  const run = async (plan: Planned, ids: number[]) => {
+    const { req } = plan
     const ok = await confirm({
       title: `把 ${ids.length} 部加入书库？`,
-      body: `来自「${source.displayName}」，每批 ${settings.batch} 部、间隔 ${settings.delay / 1000} 秒。加入后不会自动撤销；需要时到导入记录里导出清单，再人工移出。`,
+      body: `来自「${req.sourceName}」，每批 ${settings.batch} 部、间隔 ${settings.delay / 1000} 秒。加入后不会自动撤销；需要时到导入记录里导出清单，再人工移出。`,
       ok: '加入书库',
     })
     if (!ok) return
@@ -214,8 +226,8 @@ function BulkImport() {
     const pick = (list: number[]) => list.map((id) => ({ id, title: title.get(id) ?? '' }))
     const record: ImportRecord = {
       at: Date.now(),
-      source: source.displayName,
-      mode: MODE_LABEL[effectiveMode] + (effectiveMode === 'SEARCH' ? `「${query.trim()}」` : ''),
+      source: req.sourceName,
+      mode: MODE_LABEL[req.type] + (req.type === 'SEARCH' ? `「${req.query}」` : ''),
       added: pick(result.done),
       failed: pick(result.failed),
       skipped: result.skipped.length,
@@ -301,7 +313,7 @@ function BulkImport() {
   )
 }
 
-function ImportStatus({ phase, onRun }: { phase: Phase; onRun: (plan: ImportPlan, ids: number[]) => void }) {
+function ImportStatus({ phase, onRun }: { phase: Phase; onRun: (plan: Planned, ids: number[]) => void }) {
   if (phase.k === 'idle') return null
   if (phase.k === 'collecting')
     return (
