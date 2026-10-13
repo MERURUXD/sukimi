@@ -11,6 +11,7 @@ import { isDemo } from '@/lib/demo'
 import { clearSnapshots } from './persist'
 import { resetUserContext } from './userContext'
 import { createCache } from './cache'
+import { monitorLink } from './monitorLink'
 
 const ENDPOINT = '/api/graphql'
 
@@ -67,7 +68,13 @@ const transport = ApolloLink.split(
 )
 
 export const apollo = new ApolloClient({
-  link: ApolloLink.from([retryOnUnauthorized, withToken, transport]),
+  link: ApolloLink.from([
+    // 请求监视只进开发和 Preview 构建：条件直接比较构建常量，正式构建会连同 monitorLink 一起删掉
+    ...(import.meta.env.DEV || __APP_CHANNEL__ === 'preview' ? [monitorLink()] : []),
+    retryOnUnauthorized,
+    withToken,
+    transport,
+  ]),
   cache: createCache(),
 })
 

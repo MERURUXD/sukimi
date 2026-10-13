@@ -2,6 +2,7 @@ import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
 import { ApolloProvider } from '@apollo/client/react'
 import { useState } from 'react'
 import { createCache } from '@/api/cache'
+import { monitorLink } from '@/api/monitorLink'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
@@ -39,7 +40,8 @@ export function DevToolsLab() {
     let submitted = 0
     return new ApolloClient({
       cache: createCache(),
-      link: new ApolloLink((op) => new Observable((observer) => {
+      // 和正式客户端一样挂上请求监视，工具箱里的「请求监视」可以用虚构请求验收
+      link: ApolloLink.from([monitorLink(), new ApolloLink((op) => new Observable((observer) => {
         const v = op.variables as Record<string, never>
         if (['FetchSourceManga', 'SetInLibrary', 'LibraryMangas'].includes(op.operationName ?? '')) {
           const line = `${op.operationName} ${JSON.stringify(v)}`
@@ -81,7 +83,7 @@ export function DevToolsLab() {
           observer.complete()
         }, op.operationName === 'FetchSourceManga' ? 600 : 250)
         return () => clearTimeout(timer)
-      })),
+      }))]),
     })
   })
 
