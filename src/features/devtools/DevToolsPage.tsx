@@ -1,9 +1,10 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
 import { Activity, Download, ExternalLink, FlaskConical, LibraryBig, RotateCcw, Search, Square, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useAuth } from '@/api/auth'
 import { captureUser, StaleSessionError } from '@/api/userContext'
 import { useLive } from '@/api/live'
+import { getMonitor, MONITOR_LIMIT, summarize, type MonitorEntry, type OpKind, type OpStatus } from '@/api/monitor'
 import { clearSnapshots } from '@/api/persist'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
@@ -56,6 +57,7 @@ export function DevToolsPage() {
         </p>
       </div>
       <Diagnostics />
+      <RequestMonitor />
       <MockData />
       <BulkImport />
       <LocalCache />
@@ -111,6 +113,88 @@ function Diagnostics() {
         </button>
       </Row>
     </Section>
+  )
+}
+
+const KIND_LABEL: Record<OpKind, string> = { query: '查询', mutation: '修改', subscription: '订阅' }
+const STATUS_LABEL: Record<OpStatus, string> = { pending: '进行中', ok: '成功', error: '失败', cancelled: '已取消' }
+const RECENT = 50
+const hms = (t: number) => new Date(t).toLocaleTimeString('zh-CN', { hour12: false })
+
+/** 记录这个页面发出的 GraphQL 请求；记录本身见 api/monitor.ts，只有名字、耗时和结果 */
+function RequestMonitor() {
+  const m = getMonitor()
+  const entries = useSyncExternalStore(m.subscribe, m.snapshot)
+  const on = useSyncExternalStore(m.subscribe, () => m.enabled)
+  const stats = useMemo(() => summarize(entries), [entries])
+  const recent = useMemo(() => entries.slice(-RECENT).reverse(), [entries])
+  const failed = stats.reduce((n, s) => n + s.errors, 0)
+  const pending = stats.reduce((n, s) => n + s.pending, 0)
+  return (
+    <Section
+      title="请求监视"
+      desc={`记录这个页面发出的 GraphQL 请求：操作名、类型、耗时、结果和变量名，不记变量值、请求头和返回内容。只存在内存里，最多 ${MONITOR_LIMIT} 条，刷新即清空；打开前已建立的实时订阅会补记进来，命中缓存的查询不经过网络，不会出现在这里。`}
+      action={
+        entries.length > 0 && (
+          <button type="button" className="gbtn plain rounded-full" onClick={m.clear}>
+            <Trash2 className="size-[18px]" strokeWidth={1.8} />
+            清空
+          </button>
+        )
+      }
+    >
+      <Row
+        label="记录请求"
+        hint={on || entries.length ? `已记录 ${entries.length} 次 · 失败 ${failed} · 进行中 ${pending}` : '默认关闭；打开后在站内切到其他页面也会继续记录，回到这里查看'}
+      >
+        <Switch on={on} onChange={m.setEnabled} label="记录请求" />
+      </Row>
+      {stats.length > 0 && (
+        <details open className="text-[13px]">
+          <summary className="cursor-pointer text-muted">按操作汇总（{stats.length}）</summary>
+          <ul className="mt-2 mb-0 flex list-none flex-col gap-1.5 pl-0">
+            {stats.map((s) => (
+              <li key={`${s.kind}:${s.name}`} className="flex flex-wrap items-baseline gap-x-3">
+                <span className="min-w-0 truncate font-semibold">{s.name}</span>
+                {s.kind !== 'query' && <span className="text-faint">{KIND_LABEL[s.kind]}</span>}
+                <span className="num text-muted">
+                  {s.count} 次{s.errors > 0 && <span className="text-danger"> · 失败 {s.errors}</span>}
+                  {s.avgMs != null && ` · 平均 ${s.avgMs} ms · P95 ${s.p95Ms} ms · 最长 ${s.maxMs} ms`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {recent.length > 0 && (
+        <details className="text-[13px]">
+          <summary className="cursor-pointer text-muted">最近 {recent.length} 次</summary>
+          <ul className="mt-2 mb-0 flex max-h-96 list-none flex-col gap-1.5 overflow-y-auto pl-0">
+            {recent.map((e) => (
+              <RequestLine key={e.id} e={e} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </Section>
+  )
+}
+
+function RequestLine({ e }: { e: MonitorEntry }) {
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-3">
+      <span className="num text-faint">{hms(e.at)}</span>
+      <span className="min-w-0 truncate font-medium">{e.name}</span>
+      <span className={e.status === 'error' ? 'text-danger' : 'text-muted'}>
+        {e.kind !== 'query' && `${KIND_LABEL[e.kind]} · `}
+        {STATUS_LABEL[e.status]}
+        {e.ms != null && <span className="num"> · {e.ms} ms</span>}
+        {e.kind === 'subscription' && e.events > 0 && <span className="num"> · {e.events} 条推送</span>}
+        {e.joined && ' · 打开监视前已建立'}
+      </span>
+      {e.vars.length > 0 && <span className="min-w-0 truncate text-faint">变量 {e.vars.join('、')}</span>}
+      {e.error && <span className="basis-full break-all text-muted">{e.error}</span>}
+    </li>
   )
 }
 
