@@ -18,10 +18,12 @@ export function useRestoredOffset() {
  * 虚拟列表首帧的高度还是估算值，所以恢复后再在下一帧校正一次。
  */
 export function ScrollManager() {
-  const { key, pathname, search, hash } = useLocation()
+  const { key, pathname, search, hash, state } = useLocation()
   const nav = useNavigationType()
   const address = pathname + search + hash
-  const previous = useRef({ key, address, preserve: false })
+  const previous = useRef({ key, address, pathname, preserve: false })
+  // 页内筛选这类只改网址参数的替换跳转，在 state 里带 keepScroll 声明不要回到顶部
+  const keepScroll = nav === 'REPLACE' && (state as { keepScroll?: boolean } | null)?.keepScroll === true
 
   useEffect(() => {
     history.scrollRestoration = 'manual'
@@ -36,8 +38,8 @@ export function ScrollManager() {
 
   useLayoutEffect(() => {
     const before = previous.current
-    const preserve = before.key === key ? before.preserve : before.address === address
-    previous.current = { key, address, preserve }
+    const preserve = before.key === key ? before.preserve : before.address === address || (keepScroll && before.pathname === pathname)
+    previous.current = { key, address, pathname, preserve }
     // 同地址的状态切换（如手机底部面板）保留页面位置。
     if (preserve) {
       positions.set(key, window.scrollY)
@@ -60,7 +62,7 @@ export function ScrollManager() {
       window.removeEventListener('wheel', stop)
       window.removeEventListener('touchstart', stop)
     }
-  }, [key, nav, address])
+  }, [key, nav, address, pathname, keepScroll])
 
   return null
 }

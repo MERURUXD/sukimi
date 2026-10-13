@@ -73,7 +73,8 @@
   .manga-hero-description { grid-column: 1 / -1; order: 1; min-width: 0; overflow-wrap: anywhere; }
   .manga-hero-expand { min-height: 44px; margin-top: 0; }
   .manga-hero-tags { grid-column: 1 / -1; order: 2; min-width: 0; margin-top: -8px; }
-  .manga-hero-actions { grid-column: 1 / -1; order: 3; display: grid; grid-template-columns: minmax(0, 1fr) repeat(3, 44px); gap: 8px; }
+  /* 图标按钮数随权限变化（没有下载权限时少一个），按列自动排 */
+  .manga-hero-actions { grid-column: 1 / -1; order: 3; display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: 44px; gap: 8px; }
   .manga-hero-actions .solid { min-height: 44px; padding: 0 12px; gap: 8px; font-size: 14px; box-shadow: none; }
   .manga-hero-recent {
     grid-column: 1 / -1;

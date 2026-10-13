@@ -105,7 +105,8 @@ export function GalleryPage() {
       if (v === 'all') p.delete('f')
       else p.set('f', String(v))
       return p
-    }, { replace: true, preventScrollReset: true })
+    // 沿用来路 state（决定墙的样式与返回动画），并声明不回到顶部，否则筛选会闪回墙那一页
+    }, { replace: true, preventScrollReset: true, state: { ...(location.state as object | null), keepScroll: true } })
 
   const empty = !loading && !error && all.length === 0
   const ordered = useMemo(() => galleryOrder(all), [all])

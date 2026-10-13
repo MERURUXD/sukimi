@@ -44,24 +44,24 @@ export function TopNav() {
       className={cn('fixed inset-x-0 top-0 z-40 transition-[translate] duration-300 ease-out', hidden && '-translate-y-full pointer-events-none')}
       inert={hidden || undefined}
     >
-      {/* 桌面用三栏网格，中间的胶囊永远居中；左右两侧宽度不同（标志 / 返回键、下载指示）也不会把它挤偏 */}
-      <div className="wrap flex h-[var(--nav-h)] items-center justify-between gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+      {/* 宽桌面用居中三栏网格；窄桌面按两侧实际宽度分配空间，放大后仍能操作顶栏 */}
+      <div className="topnav-layout wrap h-[var(--nav-h)] items-center justify-between gap-4">
         {inManga ? (
           // 网格项默认会拉满整列，要贴着一侧只占自身宽度
-          <Glass as="button" data-vt-glass="topnav-back" type="button" className="gicon rounded-full xl:justify-self-start" onClick={back} aria-label="返回">
+          <Glass as="button" data-vt-glass="topnav-back" type="button" className="gicon rounded-full justify-self-start" onClick={back} aria-label="返回">
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </Glass>
         ) : (
           // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏
-          <NavLink to="/" aria-label="Sukimi 首页" className="rounded-full text-text no-underline md:max-xl:hidden xl:justify-self-start">
+          <NavLink to="/" aria-label="Sukimi 首页" className="topnav-brand rounded-full text-text no-underline justify-self-start">
             <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
               <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
-              <span className="max-sm:hidden">Sukimi</span>
+              <span className="max-sm:hidden md:max-xl:hidden">Sukimi</span>
             </Glass>
           </NavLink>
         )}
 
-        <Glass as="nav" data-vt-glass="topnav-tabs" ref={pillRef} className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[5px] max-xl:hidden">
+        <Glass as="nav" data-vt-glass="topnav-tabs" ref={pillRef} className="topnav-tabs min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-full p-[5px]">
           <NavPill box={pillBox} className="rounded-full" />
           {LINKS.map((l) => (
             <NavLink
@@ -87,8 +87,8 @@ export function TopNav() {
           ))}
         </Glass>
 
-        {/* 平板没有标志和导航胶囊，靠 ml-auto 推到右侧；桌面不能加，否则会吃掉 justify-between 让胶囊居中的空间 */}
-        <div className="flex items-center gap-2 max-xl:ml-auto xl:justify-end">
+        {/* 侧栏和顶栏的显隐、右侧按钮的对齐共用同一组导航规则 */}
+        <div className="topnav-actions flex items-center gap-2">
           {isDemo && <DemoNotice />}
           <DownloadIndicator />
           <ThemeToggle />

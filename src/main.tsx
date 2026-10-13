@@ -8,7 +8,10 @@ import { loadSnapshots } from '@/api/persist'
 import { router } from '@/app/router'
 import { installCoverTransition } from '@/lib/coverTransition'
 import { isDemo, isDevLab } from '@/lib/demo'
+import { installTouchNavigation } from '@/app/navLayout'
 import './index.css'
+
+installTouchNavigation()
 
 if (import.meta.env.DEV && localStorage.getItem('suwayomi-web.dev.safe') === '1') {
   document.documentElement.dataset.safe = ''
