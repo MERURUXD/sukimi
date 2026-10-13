@@ -19,8 +19,9 @@ function cover(title: string, i: number) {
   </svg>`)
 }
 
-/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读。 */
-function storyPage(title: string, page: number) {
+/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读；大书库的章节页数更多，画面按六页循环，页码照实际页数 */
+function storyPage(title: string, index: number, total = 6) {
+  const page = index % 6
   const lines = ['清晨，一封没有地址的信来到了邮局。', '「把它送到云海另一端吧。」', '列车穿过森林，山风翻动着信封。', '在最后一站，小猫已经等了很久。', '原来，最远的地方也有人等你。', '明天，我们再出发。']
   return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1300" viewBox="0 0 900 1300">
     <rect width="900" height="1300" fill="#f3efe5"/><g stroke="#303735" stroke-width="4">
@@ -34,9 +35,9 @@ function storyPage(title: string, page: number) {
     <path d="M585 945Q610 965 635 945" fill="none"/>
     <rect x="525" y="670" width="270" height="100" rx="38" fill="#fffdf5"/>
     </g><g fill="#303735" font-family="sans-serif">
-    <text x="45" y="85" font-size="32" font-weight="700">${title}</text><text x="855" y="85" font-size="18" text-anchor="end">原创演示 · ${page + 1} / 6</text>
-    <text x="85" y="535" font-size="24">${lines[page]}</text><text x="660" y="730" font-size="24" text-anchor="middle">${page === 5 ? '下一段旅途见！' : '一起出发吧。'}</text>
-    <text x="450" y="1210" font-size="22" text-anchor="middle">${String(page + 1).padStart(2, '0')}</text></g>
+    <text x="45" y="85" font-size="32" font-weight="700">${title}</text><text x="855" y="85" font-size="18" text-anchor="end">原创演示 · ${index + 1} / ${total}</text>
+    <text x="85" y="535" font-size="24">${lines[page]}</text><text x="660" y="730" font-size="24" text-anchor="middle">${index === total - 1 ? '下一段旅途见！' : '一起出发吧。'}</text>
+    <text x="450" y="1210" font-size="22" text-anchor="middle">${String(index + 1).padStart(2, '0')}</text></g>
   </svg>`)
 }
 
@@ -50,12 +51,12 @@ interface DemoChapter {
   meta: { chapterId: number; key: string; value: string }[];
 }
 interface DemoManga {
-  id: number; title: string; thumbnailUrl: string; author: string; artist: string; description: string;
+  id: number; title: string; thumbnailUrl: string | null; author: string | null; artist: string | null; description: string | null;
   genre: string[]; status: string; realUrl: null; initialized: boolean; inLibrary: boolean; inLibraryAt: string;
   source: typeof SOURCE; categories: { nodes: Category[] }; chapters: { nodes: DemoChapter[]; totalCount: number };
   unreadCount: number; downloadCount: number; bookmarkCount: number;
   firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null; latestReadChapter: DemoChapter | null;
-  latestFetchedChapter: DemoChapter; latestUploadedChapter: DemoChapter;
+  latestFetchedChapter: DemoChapter | null; latestUploadedChapter: DemoChapter | null;
   trackRecords: { nodes: DemoTrack[]; totalCount: number };
   meta: { mangaId: number; key: string; value: string }[];
 }
@@ -119,9 +120,13 @@ function seeded(seed: number) {
 /** 一天里各小时的阅读权重：午休和晚上读得多，凌晨少 */
 const HOUR_WEIGHTS = [3, 2, 1, 1, 0, 0, 0, 1, 2, 2, 2, 3, 5, 4, 2, 2, 2, 3, 4, 5, 7, 9, 9, 6]
 
+/** 大书库最多生成的作品数 */
+export const MAX_SCALE = 10_000
+
 /**
- * 仅开发环境 `?scale=N`：再生成 N 部虚构作品、上万话，测画廊和书库在大书库下的性能。
+ * 开发环境与 Preview 的 `?scale=N`：再生成 N 部虚构作品、上万话，测画廊和书库在大书库下的性能。
  * 漫画 id 从 5001 起；章节 id 用 1000 万 + 序号 × 1000 + 话数，与原有「漫画 id × 100 + 话数」不会重叠。
+ * 超过 1000 部时按比例减少每部话数，一万部约十万话，免得演示占用几百 MB 内存。
  */
 function scaledLibrary(scale: number, now: number, categories: Category[], makeManga: MakeManga) {
   const rand = seeded(scale)
@@ -134,7 +139,8 @@ function scaledLibrary(scale: number, now: number, categories: Category[], makeM
   }
   // 按浏览器本地零点生成，阅读高峰才会落在本地的晚上
   const today = Math.floor(new Date(now).setHours(0, 0, 0, 0) / 1000)
-  return Array.from({ length: Math.min(scale, 5000) }, (_, k) => {
+  const span = Math.max(12, Math.floor(150 * Math.min(1, 1000 / scale)))
+  return Array.from({ length: Math.min(scale, MAX_SCALE) }, (_, k) => {
     const title = `${TITLES[k % TITLES.length]} ${Math.floor(k / TITLES.length) + 2}`
     const chapters: DemoChapter[] = []
     const m = makeManga({
@@ -143,7 +149,7 @@ function scaledLibrary(scale: number, now: number, categories: Category[], makeM
       realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(nowSec - Math.floor(rand() * 400) * 86400),
       source: SOURCE, categories: { nodes: [categories[k % 2]] }, meta: [],
     }, chapters)
-    const total = 3 + Math.floor(rand() * 150)
+    const total = 3 + Math.floor(rand() * span)
     const r = rand()
     // 约两成已追平，一成半没开始读，其余读到一半
     const read = r < 0.2 ? total : r < 0.35 ? 0 : Math.floor(total * rand())
@@ -165,9 +171,52 @@ function scaledLibrary(scale: number, now: number, categories: Category[], makeM
   })
 }
 
+/** `?edge=1` 时追加的两个分类：超长名称、没有作品 */
+const EDGE_CATEGORIES: Category[] = [
+  { id: 3, name: '一个名字非常非常长、用来检查分类标签换行和截断效果的虚构分类', order: 2, default: false },
+  { id: 4, name: '空分类', order: 3, default: false },
+]
+
+/**
+ * 开发环境与 Preview 的 `?edge=1`：追加几部边界作品，测超长标题、缺封面、极多 / 零章节和分类组合。
+ * 漫画 id 从 4001 起；章节 id 用 3000 万 + 序号 × 1 万 + 话数，和其他编号段不重叠。
+ */
+function edgeLibrary(now: number, categories: Category[], makeManga: MakeManga) {
+  const nowSec = Math.floor(now / 1000)
+  const specs: { title: string; cover: 'ok' | 'none' | 'broken'; author: string | null; description: string | null; categories: Category[]; total: number; read: number }[] = [
+    {
+      title: '在很久很久以前那座被云海环绕、只有每月第一个满月之夜才会出现的山顶小镇上，住着一位负责把寄错地址的信件重新送达的邮差和她那只总是迷路的猫',
+      cover: 'ok', author: '一位名字同样特别长、长到作者栏需要折行显示的虚构作者', categories: categories.slice(0, 3), total: 8, read: 2,
+      description: '超长标题、超长作者名、超长简介，并且同时属于三个分类。\n' + '这一段简介会不断重复，用来检查简介的折叠和展开。'.repeat(12),
+    },
+    { title: 'An_Extremely_Long_Fictional_Title_Without_Any_Spaces_To_Check_Overflow_And_Wrapping_0123456789', cover: 'none', author: null, description: null, categories: [], total: 3, read: 0 },
+    { title: '封面地址失效的作品', cover: 'broken', author: 'Sukimi 演示画室', description: '封面地址打不开，检查占位图。', categories: [categories[1]], total: 5, read: 5 },
+    { title: '五千话的长篇连载', cover: 'ok', author: 'Sukimi 演示画室', description: '有 5000 话，读到第 3200 话，检查长章节列表与跳转。', categories: [categories[0]], total: 5000, read: 3200 },
+    { title: '还没有任何章节', cover: 'ok', author: 'Sukimi 演示画室', description: '一话都没有。', categories: [], total: 0, read: 0 },
+    { title: '🌙 Emoji と混排タイトル · 혼합 제목 · Ñandú', cover: 'ok', author: 'Sukimi 演示画室', description: '混合多种文字与表情符号。', categories: [categories[2]], total: 12, read: 6 },
+  ]
+  return specs.map((spec, i) => {
+    const chapters: DemoChapter[] = []
+    const m = makeManga({
+      id: 4001 + i, title: spec.title, author: spec.author, artist: spec.author, description: spec.description,
+      thumbnailUrl: spec.cover === 'ok' ? cover(spec.title.slice(0, 8), i) : spec.cover === 'broken' ? 'data:image/webp;base64,' : null,
+      genre: i % 2 ? [] : ['冒险', '奇幻', '日常', '治愈', '悬疑', '科幻'], status: i % 2 ? 'UNKNOWN' : 'ONGOING',
+      realUrl: null, initialized: true, inLibrary: true, inLibraryAt: String(nowSec - i * 3600),
+      source: SOURCE, categories: { nodes: spec.categories }, meta: [],
+    }, chapters)
+    for (let n = 1; n <= spec.total; n++) chapters.push({
+      id: 30_000_000 + i * 10_000 + n, mangaId: m.id, manga: m, name: `第 ${n} 话`, chapterNumber: n, sourceOrder: n,
+      pageCount: 6, lastPageRead: 0, isRead: n <= spec.read, isBookmarked: false, isDownloaded: false, scanlator: '演示画室', meta: [],
+      lastReadAt: n <= spec.read ? String(nowSec - i * 7200 - (spec.read - n) * 60) : '0',
+      fetchedAt: String(nowSec - (spec.total - n) * 3600), uploadDate: String(now - (spec.total - n) * 3_600_000),
+    })
+    return m
+  })
+}
+
 /** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
-export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0 }: { scale?: number } = {}) {
-  const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }]
+export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0, edge = false }: { scale?: number; edge?: boolean } = {}) {
+  const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }, ...(edge ? EDGE_CATEGORIES : [])]
   /** 各项统计都按章节现算，改了已读、书签后跟着变 */
   const makeManga: MakeManga = (fields, chapters) => {
     const m: DemoManga = {
@@ -181,8 +230,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       // 与真实服务端一致：没读过时也会返回第一话，只是阅读时间为 0
       get lastReadChapter() { return [...chapters].sort((a, b) => Number(b.lastReadAt) - Number(a.lastReadAt) || a.sourceOrder - b.sourceOrder)[0] ?? null },
       get latestReadChapter() { return chapters.filter((c) => c.isRead).sort((a, b) => b.sourceOrder - a.sourceOrder)[0] ?? null },
-      get latestFetchedChapter() { return chapters[chapters.length - 1] },
-      get latestUploadedChapter() { return chapters[chapters.length - 1] },
+      get latestFetchedChapter() { return chapters[chapters.length - 1] ?? null },
+      get latestUploadedChapter() { return chapters[chapters.length - 1] ?? null },
     }
     return m
   }
@@ -245,6 +294,11 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     mangas.push(m)
   })
   if (scale > 0) mangas.push(...scaledLibrary(scale, now, categories, makeManga))
+  if (edge) {
+    mangas.push(...edgeLibrary(now, categories, makeManga))
+    // 大书库里再混进不在任何分类、同时在三个分类的作品；不消耗随机数，同样规模的其余数据不变
+    for (const m of mangas) if (m.id > 5000 && (m.id - 5001) % 7 < 2) m.categories.nodes = (m.id - 5001) % 7 ? categories.slice(0, 3) : []
+  }
   const allChapters = mangas.flatMap((m) => m.chapters.nodes)
   // 第一部已绑定，读过两话、打了 8 分
   const tracks: DemoTrack[] = [{
@@ -342,7 +396,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     fetchMangaAndChapters: ({ input }: { input: { id: number } }) => ({ manga: findManga(input.id), chapters: findManga(input.id).chapters.nodes }),
     fetchChapterPages: ({ input }: { input: { chapterId: number } }) => {
       const c = findChapter(input.chapterId)
-      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i)) }
+      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i, c.pageCount)) }
     },
     updateChapter: ({ input }: { input: { id: number; patch: Partial<DemoChapter> } }) => ({ chapter: patchChapter(input.id, input.patch) }),
     updateChapters: ({ input }: { input: { ids: number[]; patch: Partial<DemoChapter> } }) => ({ chapters: input.ids.map((id) => patchChapter(id, input.patch)) }),
