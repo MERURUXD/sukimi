@@ -128,7 +128,7 @@
     --side-w: 0px;
   }
   @media (min-width: 768px) and (max-width: 1279.98px) {
-    .app-shell {
+    [data-touch-navigation='true'] .app-shell {
       --side-w: calc(84px + env(safe-area-inset-left));
     }
   }
@@ -154,6 +154,52 @@
    refract  液态折射：Glass 组件在支持的浏览器里额外挂上透镜位移滤镜（参数见 design/glassTuning.ts）
    solid    关闭透明                                         */
 @layer components {
+  .topnav-layout {
+    display: flex;
+  }
+  .topnav-tabs,
+  .side-nav {
+    display: none;
+  }
+  .topnav-actions {
+    margin-left: auto;
+  }
+  @media (min-width: 768px) {
+    .topnav-layout {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+    .topnav-tabs {
+      display: flex;
+      justify-self: center;
+    }
+    .topnav-actions {
+      margin-left: 0;
+      justify-content: flex-end;
+    }
+  }
+  @media (min-width: 1280px) {
+    .topnav-layout {
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+  }
+  /* 显隐和内容留白使用同一设备信号，桌面缩放不会激活侧栏。 */
+  @media (min-width: 768px) and (max-width: 1279.98px) {
+    [data-touch-navigation='true'] .topnav-layout {
+      display: flex;
+    }
+    [data-touch-navigation='true'] .topnav-brand,
+    [data-touch-navigation='true'] .topnav-tabs {
+      display: none;
+    }
+    [data-touch-navigation='true'] .topnav-actions {
+      margin-left: auto;
+    }
+    [data-touch-navigation='true'] .side-nav {
+      display: flex;
+    }
+  }
+
   /* 边缘只有一圈均匀的高光：细亮边 + 向内的柔光，不做斜向反光和顶部亮线 */
   .glass {
     position: relative;
@@ -337,7 +383,7 @@
    * 首页和详情页铺满的封面背景仍延伸到导航栏玻璃下面。
    */
   @media (min-width: 768px) and (max-width: 1279.98px) {
-    .app-shell .wrap {
+    [data-touch-navigation='true'] .app-shell .wrap {
       padding-inline: calc(var(--side-w) + 24px) 32px;
     }
   }
