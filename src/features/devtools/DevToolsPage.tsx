@@ -1,9 +1,10 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { Activity, Download, LibraryBig, RotateCcw, Search, Square, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Activity, Download, ExternalLink, FlaskConical, LibraryBig, RotateCcw, Search, Square, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { useAuth } from '@/api/auth'
 import { captureUser, StaleSessionError } from '@/api/userContext'
 import { useLive } from '@/api/live'
+import { getMonitor, MONITOR_LIMIT, summarize, type MonitorEntry, type OpKind, type OpStatus } from '@/api/monitor'
 import { clearSnapshots } from '@/api/persist'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
@@ -11,7 +12,7 @@ import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { FetchSourceManga, Sources } from '@/features/browse/queries'
 import { LibraryMangas, SetInLibrary } from '@/features/library/queries'
-import { Row, Section, Select, TextInput } from '@/features/settings/parts'
+import { Row, Section, Select, Switch, TextInput } from '@/features/settings/parts'
 import { isPreview } from '@/lib/channel'
 import { isDevLab } from '@/lib/demo'
 import { clock, formatDate } from '@/lib/format'
@@ -45,14 +46,19 @@ export function DevToolsPage() {
       <div className="pt-9 pb-8">
         <h1 className="m-0 font-cjk text-[40px] font-black max-sm:text-[32px]">开发者工具箱</h1>
         <p className="mt-1 mb-0 max-w-[62ch] text-sm text-muted">
-          {isPreview ? 'Preview 环境' : '本地开发环境'} · 后端 <span className="num">{location.origin}/api</span> · 构建{' '}
+          {isPreview ? 'Preview 环境' : '本地开发环境'} · {isDevLab ? '虚构验收页' : <>后端 <span className="num">{location.origin}/api</span></>} · 构建{' '}
           <span className="num">{__APP_COMMIT__}</span>
         </p>
         <p className="mt-1 mb-0 max-w-[62ch] text-[13px] text-faint">
-          这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。
+          {/* 验收页复用这个页面，但来源、版本和写入结果都是本机生成的，不能沿用真实后端的风险提示 */}
+          {isDevLab
+            ? '这是虚构验收页：服务端版本、来源、书库和加入结果都在本机生成，不连接 Suwayomi，任何操作都不会写到真实书库。'
+            : '这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。'}
         </p>
       </div>
       <Diagnostics />
+      <RequestMonitor />
+      <MockData />
       <BulkImport />
       <LocalCache />
     </div>
@@ -106,6 +112,146 @@ function Diagnostics() {
           {testing ? '测量中…' : '测一次'}
         </button>
       </Row>
+    </Section>
+  )
+}
+
+const KIND_LABEL: Record<OpKind, string> = { query: '查询', mutation: '修改', subscription: '订阅' }
+const STATUS_LABEL: Record<OpStatus, string> = { pending: '进行中', ok: '成功', error: '失败', cancelled: '已取消' }
+const RECENT = 50
+const hms = (t: number) => new Date(t).toLocaleTimeString('zh-CN', { hour12: false })
+
+/** 记录这个页面发出的 GraphQL 请求；记录本身见 api/monitor.ts，只有名字、耗时和结果 */
+function RequestMonitor() {
+  const m = getMonitor()
+  const entries = useSyncExternalStore(m.subscribe, m.snapshot)
+  const on = useSyncExternalStore(m.subscribe, () => m.enabled)
+  const stats = useMemo(() => summarize(entries), [entries])
+  const recent = useMemo(() => entries.slice(-RECENT).reverse(), [entries])
+  const failed = stats.reduce((n, s) => n + s.errors, 0)
+  const pending = stats.reduce((n, s) => n + s.pending, 0)
+  return (
+    <Section
+      title="请求监视"
+      desc={`记录这个页面发出的 GraphQL 请求：操作名、类型、耗时、结果和变量名，不记变量值、请求头和返回内容。只存在内存里，最多 ${MONITOR_LIMIT} 条，刷新即清空；打开前已建立的实时订阅会补记进来，命中缓存的查询不经过网络，不会出现在这里。`}
+      action={
+        entries.length > 0 && (
+          <button type="button" className="gbtn plain rounded-full" onClick={m.clear}>
+            <Trash2 className="size-[18px]" strokeWidth={1.8} />
+            清空
+          </button>
+        )
+      }
+    >
+      <Row
+        label="记录请求"
+        hint={on || entries.length ? `已记录 ${entries.length} 次 · 失败 ${failed} · 进行中 ${pending}` : '默认关闭；打开后在站内切到其他页面也会继续记录，回到这里查看'}
+      >
+        <Switch on={on} onChange={m.setEnabled} label="记录请求" />
+      </Row>
+      {stats.length > 0 && (
+        <details open className="text-[13px]">
+          <summary className="cursor-pointer text-muted">按操作汇总（{stats.length}）</summary>
+          <ul className="mt-2 mb-0 flex list-none flex-col gap-1.5 pl-0">
+            {stats.map((s) => (
+              <li key={`${s.kind}:${s.name}`} className="flex flex-wrap items-baseline gap-x-3">
+                <span className="min-w-0 truncate font-semibold">{s.name}</span>
+                {s.kind !== 'query' && <span className="text-faint">{KIND_LABEL[s.kind]}</span>}
+                <span className="num text-muted">
+                  {s.count} 次{s.errors > 0 && <span className="text-danger"> · 失败 {s.errors}</span>}
+                  {s.avgMs != null && ` · 平均 ${s.avgMs} ms · P95 ${s.p95Ms} ms · 最长 ${s.maxMs} ms`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {recent.length > 0 && (
+        <details className="text-[13px]">
+          <summary className="cursor-pointer text-muted">最近 {recent.length} 次</summary>
+          <ul className="mt-2 mb-0 flex max-h-96 list-none flex-col gap-1.5 overflow-y-auto pl-0">
+            {recent.map((e) => (
+              <RequestLine key={e.id} e={e} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </Section>
+  )
+}
+
+function RequestLine({ e }: { e: MonitorEntry }) {
+  return (
+    <li className="flex flex-wrap items-baseline gap-x-3">
+      <span className="num text-faint">{hms(e.at)}</span>
+      <span className="min-w-0 truncate font-medium">{e.name}</span>
+      <span className={e.status === 'error' ? 'text-danger' : 'text-muted'}>
+        {e.kind !== 'query' && `${KIND_LABEL[e.kind]} · `}
+        {STATUS_LABEL[e.status]}
+        {e.ms != null && <span className="num"> · {e.ms} ms</span>}
+        {e.kind === 'subscription' && e.events > 0 && <span className="num"> · {e.events} 条推送</span>}
+        {e.joined && ' · 打开监视前已建立'}
+      </span>
+      {e.vars.length > 0 && <span className="min-w-0 truncate text-faint">变量 {e.vars.join('、')}</span>}
+      {e.error && <span className="basis-full break-all text-muted">{e.error}</span>}
+    </li>
+  )
+}
+
+const SCALES = [100, 1000, 10_000] as const
+
+/** 虚构验收页：各自用本机生成的数据，不登录、不请求服务端 */
+const LABS = [
+  { path: '/dev/devtools', label: '开发者工具箱', hint: '预演、分批、停止、失败中止与导入记录' },
+  { path: '/dev/source-filters', label: '来源筛选', hint: '各类筛选控件与搜索' },
+  { path: '/dev/extensions', label: '扩展管理', hint: '安装、更新、卸载的各种状态' },
+  { path: '/dev/migrate', label: '换源迁移', hint: '候选匹配与迁移选项' },
+  { path: '/dev/history', label: '阅读历史', hint: '分组、隐藏与长列表' },
+  { path: '/dev/downloads', label: '下载队列', hint: '排队、进度、失败与重排' },
+  { path: '/dev/tracking', label: '追踪', hint: '登录、绑定、进度与评分' },
+  { path: '/dev/reader-gestures', label: '阅读器手势', hint: '翻页、缩放与边缘点击' },
+  { path: '/dev/settings-layout', label: '设置布局', hint: '设置分栏与阅读器设置面板' },
+]
+
+/**
+ * 虚构数据入口：都是整页跳转。演示和验收页在页面加载时决定用哪个客户端、哪套存储，
+ * 用站内路由切过去会沿用当前的真实登录和缓存
+ */
+function MockData() {
+  const [scale, setScale] = useState<(typeof SCALES)[number]>(1000)
+  const [edge, setEdge] = useState(true)
+  const demo = `/demo/library?scale=${scale}${edge ? '&edge=1' : ''}`
+  return (
+    <Section
+      title="虚构数据"
+      desc="在本机生成虚构书库，不登录、不连接服务端，也读不到真实书库；断网或服务端停机时同样能用。改动只存在这次打开的页面里，刷新即恢复。"
+    >
+      <Row label="大书库演示" hint="在演示书库上再生成指定数量的作品；一万部时每部话数会减少，总共约十万话，打开要几秒、内存占用较高">
+        <Seg
+          label="作品数量"
+          glass={false}
+          value={scale}
+          onChange={setScale}
+          items={SCALES.map((n) => ({ value: n, label: n.toLocaleString() }))}
+        />
+      </Row>
+      <Row label="边界作品" hint="超长标题、无封面、封面失效、5000 话、零话、混排文字，以及无分类 / 多分类组合">
+        <Switch on={edge} onChange={setEdge} label="边界作品" />
+      </Row>
+      <div className="flex flex-wrap gap-2.5">
+        <Glass as="a" href={demo} className="gbtn rounded-full no-underline">
+          <FlaskConical className="size-[18px]" strokeWidth={1.8} />
+          打开虚构书库
+        </Glass>
+      </div>
+      {LABS.map((lab) => (
+        <Row key={lab.path} label={lab.label} hint={lab.hint}>
+          <a href={lab.path} className="gbtn plain rounded-full no-underline">
+            <ExternalLink className="size-[18px]" strokeWidth={1.8} />
+            打开
+          </a>
+        </Row>
+      ))}
     </Section>
   )
 }
@@ -261,7 +407,7 @@ function BulkImport() {
   return (
     <>
       <Section
-        title="批量导入真实漫画"
+        title={isDevLab ? '批量导入（虚构来源）' : '批量导入真实漫画'}
         desc="先预演：从来源取候选、和书库比对，列出会加入哪些；确认后才分批加入书库。预演会真实请求漫画来源，Suwayomi 也会把取到的作品记进自己的数据库（和在「发现」里浏览一样），但不会加入书库。"
       >
         <Row label="来源">

@@ -1,6 +1,7 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { Navigate, Outlet, useLocation, useMatch } from 'react-router'
 import { cn } from '@/lib/cn'
+import { isDevLab } from '@/lib/demo'
 import { restoreSession, useAuth } from '@/api/auth'
 import { LiveStatus } from '@/api/live'
 import { useSnapshots } from '@/api/persist'
@@ -25,7 +26,13 @@ export function AuthGate() {
   const snapshotsLoaded = useSnapshots((s) => s.loaded)
   // 重开页面时首页、书库、更新页先用上次的快照显示，登录验证在后台进行（往返服务端要零点几秒到一秒多）
   const early = showBeforeVerified(status, userId, snapshotsLoaded, location.pathname)
+  // 虚构验收页启动时用虚构用户、没有恢复登录；从验收页里的链接站内跳进正式页面时整页重新加载，走正常的登录恢复
+  const href = location.pathname + location.search + location.hash
+  useEffect(() => {
+    if (isDevLab) window.location.assign(href)
+  }, [href])
 
+  if (isDevLab) return null
   if (status === 'checking' && !early) return null
   if (status === 'signedOut') return <Navigate to="/login" replace state={{ from: location }} />
   if (status === 'unreachable') {

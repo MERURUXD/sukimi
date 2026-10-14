@@ -1,6 +1,6 @@
 import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
 import { ApolloProvider } from '@apollo/client/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createCache } from '@/api/cache'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
@@ -22,10 +22,20 @@ const tracker = (id: number, name: string, o: Record<string, unknown>) => ({
 export function TrackingLab() {
   useApplyAppearance()
   const [log, setLog] = useState<string[]>([])
+  // OAuth 登录会整页跳到 authUrl：这里给的是站内锚点，只改网址的 # 部分，不离开验收页、不发外部请求，记一笔后清掉
+  useEffect(() => {
+    const onHash = () => {
+      if (!location.hash.startsWith('#oauth-')) return
+      setLog((l) => [...l, `OAuth 跳转（虚构，未离开验收页）${decodeURIComponent(location.hash).slice(0, 80)}`])
+      history.replaceState(history.state, '', location.pathname + location.search)
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
   const [client] = useState(() => {
     const trackers = [
-      tracker(1, 'Bangumi（测试）', { isLoggedIn: true, authUrl: 'https://example.invalid/a?x=1', supportsPrivateTracking: true, supportsReadingDates: true, supportsTrackDeletion: true }),
-      tracker(2, '测试追踪 B（OAuth）', { authUrl: 'https://example.invalid/b?x=1' }),
+      tracker(1, 'Bangumi（测试）', { isLoggedIn: true, authUrl: '#oauth-a?x=1', supportsPrivateTracking: true, supportsReadingDates: true, supportsTrackDeletion: true }),
+      tracker(2, '测试追踪 B（OAuth）', { authUrl: '#oauth-b?x=1' }),
       tracker(3, '测试追踪 C（账号密码）', {}),
       // 百分制画不成星星，退回下拉框
       tracker(4, '测试追踪 D（已过期）', { isLoggedIn: true, isTokenExpired: true, scores: Array.from({ length: 101 }, (_, i) => String(i)) }),

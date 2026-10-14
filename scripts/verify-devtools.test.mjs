@@ -130,3 +130,22 @@ test('预演后改了来源、方式或搜索词，旧预演即作废', () => {
   assert.equal(sameRequest(req, { ...req, type: 'POPULAR', query: '' }), false)
   assert.equal(sameRequest(req, { ...req, query: '虚构 2' }), false)
 })
+
+test('虚构验收页和大书库参数只在开发与 Preview 构建开启，且路由与 isDevLab 条件一致', async () => {
+  const { readFileSync } = await import('node:fs')
+  const gate = "import.meta.env.DEV || __APP_CHANNEL__ === 'preview'"
+  const router = readFileSync('src/app/router.tsx', 'utf8')
+  // /dev/* 验收页在登录路由之外注册；/dev/glass 读真实书库，仍只在开发环境
+  assert.ok(router.includes(`...(${gate}\n    ? [\n        { path: '/dev/source-filters'`))
+  assert.match(router, /import\.meta\.env\.DEV\s*\n\s*\? \[\{ path: 'dev\/glass'/)
+  // 路由开了而 isDevLab 没开，验收页会带着真实登录和快照打开
+  assert.ok(readFileSync('src/lib/demo.ts', 'utf8').includes(`export const isDevLab = (${gate}) && /^\\/dev\\/(?!glass)/`))
+  assert.ok(readFileSync('src/features/demo/client.ts', 'utf8').includes(`if (!(${gate})) return {}`))
+  // 请求监视同样按构建常量接入，正式构建删掉；演示客户端会进正式构建，不接
+  assert.ok(readFileSync('src/api/client.ts', 'utf8').includes(`...(${gate} ? [monitorLink()] : []),`))
+  assert.doesNotMatch(readFileSync('src/features/demo/client.ts', 'utf8'), /monitor/)
+  // 验收页里的站内链接跳进需要登录的页面时，整页重新加载走正常登录，而不是卡在没恢复的会话上
+  const shell = readFileSync('src/app/AppShell.tsx', 'utf8')
+  assert.match(shell, /if \(isDevLab\) window\.location\.assign\(href\)/)
+  assert.match(shell, /if \(isDevLab\) return null\n\s*if \(status === 'checking'/)
+})
