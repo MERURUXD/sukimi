@@ -14,6 +14,8 @@ export default defineConfig(({ mode, command }) => {
   const target = env.SUWAYOMI_URL || 'http://localhost:4567'
   // SUKIMI_CHANNEL=preview 打出 Preview 构建：带环境标识，不让搜索引擎收录
   const channel = env.SUKIMI_CHANNEL === 'preview' ? 'preview' : 'production'
+  // SUKIMI_TEST_INSTANCE=1 只给连独立测试服务端的构建用：工具箱才提供批量已读 / 未读这类会大面积改数据的操作
+  const testInstance = env.SUKIMI_TEST_INSTANCE === '1'
   let commit = 'dev'
   try {
     commit = execSync('git rev-parse --short HEAD').toString().trim()
@@ -58,6 +60,7 @@ export default defineConfig(({ mode, command }) => {
       __APP_COMMIT__: JSON.stringify(commit),
       __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
       __APP_CHANNEL__: JSON.stringify(channel),
+      __TEST_INSTANCE__: JSON.stringify(testInstance),
     },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

@@ -49,6 +49,7 @@ type Documents = {
     "\n  mutation UpdateSourcePreference($source: LongString!, $change: SourcePreferenceChangeInput!) {\n    updateSourcePreference(input: { source: $source, change: $change }) {\n      source {\n        id\n        preferences {\n          ...SourcePreferenceFields\n        }\n      }\n    }\n  }\n": typeof types.UpdateSourcePreferenceDocument,
     "\n  query DevToolsLibraryTitles {\n    mangas(condition: { inLibrary: true }) {\n      nodes {\n        id\n        title\n      }\n    }\n  }\n": typeof types.DevToolsLibraryTitlesDocument,
     "\n  query DevToolsPing {\n    aboutServer {\n      name\n      version\n      buildType\n    }\n  }\n": typeof types.DevToolsPingDocument,
+    "\n  query DevToolsReadTargets($filter: ChapterFilterInput!) {\n    mangas(condition: { inLibrary: true }) {\n      nodes {\n        id\n        title\n        categories {\n          nodes {\n            id\n          }\n        }\n      }\n    }\n    chapters(filter: $filter) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n": typeof types.DevToolsReadTargetsDocument,
     "\n  mutation DequeueDownloads($ids: [Int!]!) {\n    dequeueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n        queue {\n          ...DownloadItem\n        }\n      }\n    }\n  }\n": typeof types.DequeueDownloadsDocument,
     "\n  mutation RequeueDownloads($ids: [Int!]!) {\n    enqueueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n        queue {\n          ...DownloadItem\n        }\n      }\n    }\n  }\n": typeof types.RequeueDownloadsDocument,
     "\n  mutation ReorderDownload($id: Int!, $to: Int!) {\n    reorderChapterDownload(input: { chapterId: $id, to: $to }) {\n      downloadStatus {\n        state\n        queue {\n          ...DownloadItem\n        }\n      }\n    }\n  }\n": typeof types.ReorderDownloadDocument,
@@ -175,6 +176,7 @@ const documents: Documents = {
     "\n  mutation UpdateSourcePreference($source: LongString!, $change: SourcePreferenceChangeInput!) {\n    updateSourcePreference(input: { source: $source, change: $change }) {\n      source {\n        id\n        preferences {\n          ...SourcePreferenceFields\n        }\n      }\n    }\n  }\n": types.UpdateSourcePreferenceDocument,
     "\n  query DevToolsLibraryTitles {\n    mangas(condition: { inLibrary: true }) {\n      nodes {\n        id\n        title\n      }\n    }\n  }\n": types.DevToolsLibraryTitlesDocument,
     "\n  query DevToolsPing {\n    aboutServer {\n      name\n      version\n      buildType\n    }\n  }\n": types.DevToolsPingDocument,
+    "\n  query DevToolsReadTargets($filter: ChapterFilterInput!) {\n    mangas(condition: { inLibrary: true }) {\n      nodes {\n        id\n        title\n        categories {\n          nodes {\n            id\n          }\n        }\n      }\n    }\n    chapters(filter: $filter) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n": types.DevToolsReadTargetsDocument,
     "\n  mutation DequeueDownloads($ids: [Int!]!) {\n    dequeueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n        queue {\n          ...DownloadItem\n        }\n      }\n    }\n  }\n": types.DequeueDownloadsDocument,
     "\n  mutation RequeueDownloads($ids: [Int!]!) {\n    enqueueChapterDownloads(input: { ids: $ids }) {\n      downloadStatus {\n        state\n        queue {\n          ...DownloadItem\n        }\n      }\n    }\n  }\n": types.RequeueDownloadsDocument,
     "\n  mutation ReorderDownload($id: Int!, $to: Int!) {\n    reorderChapterDownload(input: { chapterId: $id, to: $to }) {\n      downloadStatus {\n        state\n        queue {\n          ...DownloadItem\n        }\n      }\n    }\n  }\n": types.ReorderDownloadDocument,
@@ -420,6 +422,10 @@ export function graphql(source: "\n  query DevToolsLibraryTitles {\n    mangas(c
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query DevToolsPing {\n    aboutServer {\n      name\n      version\n      buildType\n    }\n  }\n"): (typeof documents)["\n  query DevToolsPing {\n    aboutServer {\n      name\n      version\n      buildType\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query DevToolsReadTargets($filter: ChapterFilterInput!) {\n    mangas(condition: { inLibrary: true }) {\n      nodes {\n        id\n        title\n        categories {\n          nodes {\n            id\n          }\n        }\n      }\n    }\n    chapters(filter: $filter) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n"): (typeof documents)["\n  query DevToolsReadTargets($filter: ChapterFilterInput!) {\n    mangas(condition: { inLibrary: true }) {\n      nodes {\n        id\n        title\n        categories {\n          nodes {\n            id\n          }\n        }\n      }\n    }\n    chapters(filter: $filter) {\n      nodes {\n        id\n        mangaId\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
