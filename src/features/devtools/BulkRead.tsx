@@ -13,7 +13,7 @@ import { Row, Section, Select } from '@/features/settings/parts'
 import { isDevLab } from '@/lib/demo'
 import { runBatches, type RunResult } from './importPlan'
 import { DevToolsPing, DevToolsReadTargets } from './queries'
-import { planRead, READ_BATCH, READ_DELAY, READ_LIMIT, readPatch, type ReadPlan, type ReadScope } from './readPlan'
+import { planRead, READ_BATCH, READ_DELAY, READ_LIMIT, readPatch, readTargetFilter, type ReadPlan, type ReadScope } from './readPlan'
 
 /** 预演结果连同当时的条件；确认和写入都以它为准，不读之后改过的选项 */
 type Planned = ReadPlan & { isRead: boolean; scope: ReadScope; scopeName: string }
@@ -63,11 +63,10 @@ export function BulkRead() {
     setPhase({ k: 'planning' })
     const still = captureUser()
     try {
-      // 要标为已读，就找现在还是未读的章节，反之亦然
-      const { data } = await client.query({ query: DevToolsReadTargets, variables: { isRead: !isRead }, fetchPolicy: 'network-only' })
+      const { data } = await client.query({ query: DevToolsReadTargets, variables: { filter: readTargetFilter(isRead) }, fetchPolicy: 'network-only' })
       still()
       const mangas = (data?.mangas.nodes ?? []).map((m) => ({ id: m.id, title: m.title, categoryIds: m.categories.nodes.map((c) => c.id) }))
-      setPhase({ k: 'planned', plan: { ...planRead(mangas, data?.chapters.nodes ?? [], scope), isRead, scope, scopeName } })
+      setPhase({ k: 'planned', plan: { ...planRead(mangas, data?.chapters.nodes ?? [], scope, { defaultId: categories.find((c) => c.default)?.id }), isRead, scope, scopeName } })
     } catch (e) {
       if (!(e instanceof StaleSessionError)) toastError('预演失败', e)
       setPhase({ k: 'idle' })

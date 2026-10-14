@@ -38,8 +38,9 @@ const CATEGORIES = [
   { __typename: 'CategoryType', id: 1, name: '测试书架', order: 1, default: false },
   { __typename: 'CategoryType', id: 2, name: '待读', order: 2, default: false },
 ]
-const READ_MANGAS: { id: number; title: string; cats: number[]; chapters: number; read: number }[] = [
-  { id: -5001, title: '虚构 · 全部未读', cats: [1], chapters: 24, read: 0 },
+const READ_MANGAS: { id: number; title: string; cats: number[]; chapters: number; read: number; partial?: boolean }[] = [
+  // 第 1 话读到一半：标为未读时也要被找出来归零页数
+  { id: -5001, title: '虚构 · 全部未读（第 1 话读到一半）', cats: [1], chapters: 24, read: 0, partial: true },
   { id: -5002, title: '虚构 · 读了一半', cats: [1, 2], chapters: 40, read: 20 },
   { id: -5003, title: '虚构 · 已全部读完', cats: [2], chapters: 12, read: 12 },
   { id: -5004, title: '虚构 · 1200 话长篇', cats: [], chapters: 1200, read: 300 },
@@ -56,8 +57,9 @@ export function DevToolsLab() {
   const [client] = useState(() => {
     let submitted = 0
     // 章节已读状态存在内存里，标完再预演能看到变化；刷新即恢复
-    const read = new Map<number, { mangaId: number; isRead: boolean }>()
-    for (const m of READ_MANGAS) for (let i = 0; i < m.chapters; i++) read.set(chapterId(m.id, i), { mangaId: m.id, isRead: i < m.read })
+    const read = new Map<number, { mangaId: number; isRead: boolean; page: number }>()
+    for (const m of READ_MANGAS)
+      for (let i = 0; i < m.chapters; i++) read.set(chapterId(m.id, i), { mangaId: m.id, isRead: i < m.read, page: m.partial && i === 0 ? 5 : 0 })
     return new ApolloClient({
       cache: createCache(),
       // 和正式客户端一样挂上请求监视，工具箱里的「请求监视」可以用虚构请求验收
@@ -94,7 +96,9 @@ export function DevToolsLab() {
               observer.next({ data: { categories: { __typename: 'CategoryNodeList', nodes: CATEGORIES } } })
               break
             case 'DevToolsReadTargets': {
-              const want = v.isRead as boolean
+              // 只认 readTargetFilter 的两种形状：找未读，或找已读 / 有页码的
+              const f = v.filter as { isRead?: { equalTo: boolean } }
+              const match = (c: { isRead: boolean; page: number }) => (f.isRead ? c.isRead === f.isRead.equalTo : c.isRead || c.page > 0)
               observer.next({
                 data: {
                   mangas: {
@@ -106,7 +110,7 @@ export function DevToolsLab() {
                   },
                   chapters: {
                     __typename: 'ChapterNodeList',
-                    nodes: [...read].filter(([, c]) => c.isRead === want).map(([id, c]) => ({ __typename: 'ChapterType', id, mangaId: c.mangaId })),
+                    nodes: [...read].filter(([, c]) => match(c)).map(([id, c]) => ({ __typename: 'ChapterType', id, mangaId: c.mangaId })),
                   },
                 },
               })
@@ -118,8 +122,8 @@ export function DevToolsLab() {
                 observer.error(new Error('虚构章节写入失败'))
                 return
               }
-              const patch = v.patch as { isRead: boolean }
-              for (const id of ids) read.get(id)!.isRead = patch.isRead
+              const patch = v.patch as { isRead: boolean; lastPageRead?: number }
+              for (const id of ids) Object.assign(read.get(id)!, { isRead: patch.isRead }, patch.lastPageRead != null && { page: patch.lastPageRead })
               observer.next({ data: { updateChapters: { __typename: 'UpdateChaptersPayload', chapters: [] } } })
               break
             }

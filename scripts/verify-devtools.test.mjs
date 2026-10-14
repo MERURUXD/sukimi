@@ -151,8 +151,8 @@ test('虚构验收页和大书库参数只在开发与 Preview 构建开启，�
 })
 
 test('批量已读 / 未读预演：按分类取舍、按作品分组、超出上限截断', async () => {
-  const { planRead, readPatch } = await import('../src/features/devtools/readPlan.ts')
-  // 全部是虚构作品；0 是默认分类，没分过类的作品也算在里面
+  const { planRead, readPatch, readTargetFilter } = await import('../src/features/devtools/readPlan.ts')
+  // 全部是虚构作品；默认分类 id 由调用方给，没分过类的作品也算在里面
   const mangas = [
     { id: 1, title: '甲', categoryIds: [1] },
     { id: 2, title: '乙', categoryIds: [1, 2] },
@@ -170,17 +170,23 @@ test('批量已读 / 未读预演：按分类取舍、按作品分组、超出�
   assert.deepEqual(all.ids, [21, 22, 11, 31])
   assert.equal(all.overLimit, 0)
   assert.deepEqual(planRead(mangas, chapters, 1).ids, [21, 22, 11])
-  assert.deepEqual(planRead(mangas, chapters, 0).ids, [31])
+  assert.deepEqual(planRead(mangas, chapters, 0, { defaultId: 0 }).ids, [31])
+  // 非管理员账号的默认分类 id 不一定是 0
+  assert.deepEqual(planRead(mangas, chapters, 7, { defaultId: 7 }).ids, [31])
+  assert.deepEqual(planRead(mangas, chapters, 0).ids, [])
   // 分类 2 里的丁没有要改的章节，只计入范围
   const two = planRead(mangas, chapters, 2)
   assert.equal(two.mangas, 2)
   assert.deepEqual(two.touched.map((m) => m.id), [2])
-  const capped = planRead(mangas, chapters, 'all', 3)
+  const capped = planRead(mangas, chapters, 'all', { limit: 3 })
   assert.deepEqual(capped.ids, [21, 22, 11])
   assert.equal(capped.overLimit, 1)
   // 标为未读同时清掉读到的页数
   assert.deepEqual(readPatch(true), { isRead: true })
   assert.deepEqual(readPatch(false), { isRead: false, lastPageRead: 0 })
+  // 标为未读时读了一半的章节也要找出来，才能把页数归零
+  assert.deepEqual(readTargetFilter(true), { inLibrary: { equalTo: true }, isRead: { equalTo: false } })
+  assert.deepEqual(readTargetFilter(false).or, [{ isRead: { equalTo: true } }, { lastPageRead: { greaterThan: 0 } }])
 })
 
 test('批量已读 / 未读只在声明测试服务端的构建或虚构验收页出现', async () => {

@@ -23,9 +23,10 @@ export const DevToolsPing = graphql(`
   }
 `)
 
-// 批量已读 / 未读的预演：书库作品连同分类，以及还没到目标状态的章节（只要 id 和所属作品）
+// 批量已读 / 未读的预演：书库作品连同分类，以及还没到目标状态的章节（只要 id 和所属作品）；
+// 章节条件由调用方给（见 readTargetFilter）
 export const DevToolsReadTargets = graphql(`
-  query DevToolsReadTargets($isRead: Boolean!) {
+  query DevToolsReadTargets($filter: ChapterFilterInput!) {
     mangas(condition: { inLibrary: true }) {
       nodes {
         id
@@ -37,7 +38,7 @@ export const DevToolsReadTargets = graphql(`
         }
       }
     }
-    chapters(filter: { inLibrary: { equalTo: true }, isRead: { equalTo: $isRead } }) {
+    chapters(filter: $filter) {
       nodes {
         id
         mangaId
