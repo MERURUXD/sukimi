@@ -38,9 +38,16 @@ function Histogram({ counts, mine = 0, height, labels = 'ends' }: { counts: numb
 /** 读屏用的分布说明：图本身 aria-hidden */
 const describe = (s: BgmSubject) => `Bangumi 站内评分 ${s.score.toFixed(1)}，${facts(s)}评分；最多人打 ${s.counts.indexOf(Math.max(...s.counts)) + 1} 分`
 
-function Status({ state, onRetry, className }: { state: BgmState; onRetry: () => void; className?: string }) {
+function Status({ state, id, onRetry, className }: { state: BgmState; id?: number; onRetry: () => void; className?: string }) {
   if (state === 'loading') return <span className={cn('text-[13px] text-muted', className)}>正在查询 Bangumi 站内评分…</span>
-  if (state === 'missing') return <span className={cn('text-[13px] text-muted', className)}>Bangumi 上找不到这个条目</span>
+  // 公开接口对未登录访问的 NSFW 条目也返回 404，不能断言条目不存在
+  if (state === 'missing')
+    return (
+      <span className={cn('text-[13px] text-muted', className)}>
+        查不到站内评分：条目可能需要登录 Bangumi 才能查看，或已被删除。
+        {id ? <a href={subjectUrl(id)} target="_blank" rel="noreferrer" className="ml-1 font-semibold text-muted hover:text-text">在 Bangumi 打开</a> : null}
+      </span>
+    )
   return (
     <button type="button" className={cn('self-start text-[13px] font-semibold text-muted hover:text-text', className)} onClick={onRetry}>
       站内评分加载失败，点此重试
@@ -73,7 +80,7 @@ export function BgmBlock({ id, mine }: { id: number; mine: number }) {
           <Histogram counts={subject.counts} mine={mine} height={44} />
         </>
       ) : (
-        <Status state={state} onRetry={refresh} />
+        <Status state={state} id={id} onRetry={refresh} />
       )}
       <Detail open={open} subject={subject} at={at} state={state} mine={mine} onRefresh={refresh} onClose={() => setOpen(false)} />
     </div>
@@ -87,7 +94,7 @@ export function BgmLine({ id, mine }: { id: number; mine: number }) {
   const [open, setOpen] = useState(false)
   return (
     <>
-      <LineButton subject={subject} state={state} onOpen={() => setOpen(true)} onRetry={refresh} />
+      {subject ? <LineButton subject={subject} state={state} onOpen={() => setOpen(true)} onRetry={refresh} /> : <Status state={state} id={id} onRetry={refresh} className="py-2.5" />}
       <Detail open={open} subject={subject} at={at} state={state} mine={mine} onRefresh={refresh} onClose={() => setOpen(false)} />
     </>
   )
@@ -176,8 +183,9 @@ export function BgmGuess({ mangaId, title, placement, onBind }: { mangaId: numbe
           <div className="w-full"><Histogram counts={subject.counts} height={44} /></div>
           <span className="text-xs text-muted num">{collections(subject).map(([k, n]) => `${shortCount(n)} ${k}`).join(' · ')}</span>
           <div className="flex flex-wrap gap-2">
-            {!g.match?.sure && bind && (
-              <button type="button" className="fopt inc" disabled={binding} onClick={() => void bind()}>{binding ? '正在绑定…' : '确认并绑定追踪'}</button>
+            {/* 手动选定（sure）后仍可直接绑定 */}
+            {bind && (
+              <button type="button" className="fopt inc" disabled={binding} onClick={() => void bind()}>{binding ? '正在绑定…' : g.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>
             )}
             {!g.match?.sure && !bind && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, subject.id)}>就是这部</button>}
             {!g.match?.sure && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, 0)}>不是这部</button>}
@@ -272,12 +280,12 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                     {subject.tags.map((t) => <Glass as="span" key={t.name} className="rounded-full px-3 py-1 text-xs">{t.name} <span className="text-faint num">{shortCount(t.count)}</span></Glass>)}
                   </div>
                 )}
-                {guess && !guess.match?.sure && (
+                {guess && (guess.bind || !guess.match?.sure) && (
                   <div className="flex flex-wrap gap-2">
-                    {guess.bind && <button type="button" className="fopt inc" disabled={guess.binding} onClick={() => void guess.bind!().then(onClose)}>{guess.binding ? '正在绑定…' : '确认并绑定追踪'}</button>}
-                    {!guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>就是这部</button>}
-                    <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>不是这部</button>
-                    <button type="button" className="fopt" onClick={guess.onSearch}>换一个</button>
+                    {guess.bind && <button type="button" className="fopt inc" disabled={guess.binding} onClick={() => void guess.bind!().then(onClose)}>{guess.binding ? '正在绑定…' : guess.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>}
+                    {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>就是这部</button>}
+                    {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>不是这部</button>}
+                    {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>换一个</button>}
                   </div>
                 )}
                 {guess?.match?.sure && (
