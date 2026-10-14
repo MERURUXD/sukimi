@@ -155,7 +155,8 @@ export function MangaHero({
           {!placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
         </div>
         {/* 宽屏放到右侧空白处直接展开，不把头部撑高；不在书库时只有 Bangumi 站内评分 */}
-        {!placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.byline)} className={cn('manga-hero-side', animate && 'rise')} />}
+        {/* 右栏不整块进场，里面逐行接在作者行之后，和左栏同一节奏 */}
+        {!placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} delay={animate ? mangaIntro.side : undefined} className="manga-hero-side" />}
       </div>
     </section>
   )
