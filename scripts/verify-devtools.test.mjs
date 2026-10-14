@@ -181,6 +181,9 @@ test('批量已读 / 未读预演：按分类取舍、按作品分组、超出�
   const capped = planRead(mangas, chapters, 'all', { limit: 3 })
   assert.deepEqual(capped.ids, [21, 22, 11])
   assert.equal(capped.overLimit, 1)
+  // 截断后作品列表也跟着收：超出上限的丙不列出，被截了一半的作品只算会改的话数
+  assert.deepEqual(capped.touched.map((m) => [m.id, m.chapters]), [[2, 2], [1, 1]])
+  assert.deepEqual(planRead(mangas, chapters, 'all', { limit: 1 }).touched.map((m) => [m.id, m.chapters]), [[2, 1]])
   // 标为未读同时清掉读到的页数
   assert.deepEqual(readPatch(true), { isRead: true })
   assert.deepEqual(readPatch(false), { isRead: false, lastPageRead: 0 })

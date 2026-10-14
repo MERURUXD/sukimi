@@ -46,14 +46,19 @@ export function planRead(
 ): ReadPlan {
   const picked = new Map(mangas.filter((m) => inScope(m, scope, defaultId)).map((m) => [m.id, { id: m.id, title: m.title, list: [] as number[] }]))
   for (const c of chapters) picked.get(c.mangaId)?.list.push(c.id)
-  const touched = [...picked.values()].filter((m) => m.list.length).sort((a, b) => b.list.length - a.list.length || a.id - b.id)
-  const all = touched.flatMap((m) => m.list)
-  return {
-    mangas: picked.size,
-    touched: touched.map((m) => ({ id: m.id, title: m.title, chapters: m.list.length })),
-    ids: all.slice(0, limit),
-    overLimit: Math.max(0, all.length - limit),
+  const sorted = [...picked.values()].filter((m) => m.list.length).sort((a, b) => b.list.length - a.list.length || a.id - b.id)
+  // 按上限截断后再统计作品与话数，预演和确认框只说真正会改的部分
+  const touched: ReadPlan['touched'] = []
+  const ids: number[] = []
+  let total = 0
+  for (const m of sorted) {
+    total += m.list.length
+    const take = m.list.slice(0, limit - ids.length)
+    if (!take.length) continue
+    ids.push(...take)
+    touched.push({ id: m.id, title: m.title, chapters: take.length })
   }
+  return { mangas: picked.size, touched, ids, overLimit: total - ids.length }
 }
 
 /**
