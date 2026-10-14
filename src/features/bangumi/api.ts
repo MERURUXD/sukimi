@@ -150,11 +150,7 @@ export function useBgmGuess(mangaId: number, title: string) {
     const m = saved.matches[mangaId]
     if (m?.id) return loadSubject(m.id)
     if (m && (m.sure || isFresh(m.at, Date.now()))) return
-    void once(key, async () => {
-      const found = pickMatch(await searchSubjects(title))
-      saved.matches[mangaId] = { id: found?.id ?? 0, sure: false, at: Date.now() }
-      states.set(key, 'ok')
-    })
+    guess(mangaId, title)
     // 匹配被清掉（重新猜）或换了条目时重跑
   }, [mangaId, title, key, matchId, unmatched])
   const searching = states.get(key)
@@ -164,14 +160,19 @@ export function useBgmGuess(mangaId: number, title: string) {
     subject: view?.subject ?? null,
     at: view?.at ?? 0,
     state: (view ? view.state : searching === 'error' ? 'error' : match ? 'missing' : 'loading') as BgmState,
-    refresh: () => {
-      if (match?.id) loadSubject(match.id, true)
-      else {
-        delete saved.matches[mangaId]
-        emit(true)
-      }
-    },
+    // 没有匹配时直接重搜：首次搜索失败时 match 本来就不存在，靠 effect 依赖变化触发不了
+    refresh: () => (match?.id ? loadSubject(match.id, true) : guess(mangaId, title)),
   }
+}
+
+/** 按标题搜一次并记下自动猜到的条目（没猜到记 0，一天后再试） */
+function guess(mangaId: number, title: string) {
+  const key = `m${mangaId}`
+  void once(key, async () => {
+    const found = pickMatch(await searchSubjects(title))
+    saved.matches[mangaId] = { id: found?.id ?? 0, sure: false, at: Date.now() }
+    states.set(key, 'ok')
+  })
 }
 
 /** 手动选定条目或否定（id 0）当前猜测 */

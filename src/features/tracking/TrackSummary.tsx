@@ -195,6 +195,8 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
         <Link to="/settings/tracking" className="text-[13px] font-semibold text-danger">
           {t.isTokenExpired ? '登录已过期' : '已退出登录'}，去设置里重新登录后才能修改和同步
         </Link>
+        {/* 站内评分查的是公开接口，和追踪登录无关，照常显示 */}
+        {isBgm(t) && subjectId(r) > 0 && <BgmBlock id={subjectId(r)} mine={starScale(t.scores) === 10 ? scoreValue(r.displayScore) : 0} />}
       </div>
     )
   }
