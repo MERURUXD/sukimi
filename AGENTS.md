@@ -34,6 +34,7 @@ Sukimi 是为自建 Suwayomi 漫画服务端写的网页前端（Vite + React + 
 - 违反仓库约定：
   - `/demo/` 与 `/dev/*`（包括工具箱的验收页 `/dev/devtools`）发出真实请求或写真实数据。
   - `/devtools` 被打进正式构建，或其中新增的写入没有预演、条数上限和停止。
+  - 批量已读 / 未读这类大面积改数据的工具，没有用构建常量 `__TEST_INSTANCE__`（`SUKIMI_TEST_INSTANCE=1`）把住、在连日用书库的构建里也能用。
   - 请求监视（`src/api/monitor.ts`）被打进正式构建，或记录、持有了变量值、请求头、返回内容和请求 / 错误对象本身。
   - 改了快照查询字段却没递增 `src/api/persist.ts` 的 `VERSION`。
   - 改了 `graphql()` 文档却没更新 `src/api/gql/` 生成文件。
