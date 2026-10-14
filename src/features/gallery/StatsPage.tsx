@@ -15,9 +15,10 @@ import { useForceDark } from '@/design/settings'
 import { clamp01 } from './canvasMath'
 import { GALLERY } from './GalleryHero'
 import { useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { afterViewTransition, armReadMorph } from './readMorph'
+import { LOAD_CAP, chase, loadTarget } from './loadRing'
+import { afterViewTransition, armReadMorph, useLanded } from './readMorph'
 import { heatLevel, summarize, type ReadingStats } from './stats'
-import { useReadChapters } from './useReadChapters'
+import { PAGE, useReadChapters } from './useReadChapters'
 import './gallery.css'
 
 /** 排行最多显示这么多部 */
@@ -48,6 +49,7 @@ function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur =
   const tRef = useRef(t)
   tRef.current = t
   const raf = useRef(0)
+  const [out, setOut] = useState(false)
   useEffect(() => {
     if (!ready || tRef.current >= 1) {
       if (ready) memory.shown = true
@@ -79,6 +81,7 @@ function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur =
   const leave = useCallback(
     (done: () => void) => {
       cancelAnimationFrame(raf.current)
+      setOut(true)
       let fired = false
       const finish = () => {
         if (fired) return
@@ -101,7 +104,7 @@ function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur =
     },
     [reduced],
   )
-  return { t, leave }
+  return { t, leave, out }
 }
 
 function useWindowSize() {
@@ -148,7 +151,10 @@ export function StatsPage() {
       .slice(0, TOP)
       .map((r, i) => ({ manga: byId.get(r.id)!, rank: i + 1, read: r.read, total: r.total }))
   }, [stats, all])
-  const { t, leave } = useIntroProgress(!!stats, reduced, back)
+  const { t, leave, out } = useIntroProgress(!!stats, reduced, back)
+  // 一进来还没有汇总结果：先摆出空时钟（刻度、外圈），加载时扫光、外圈走进度，汇总出来后刻度就地长出来
+  const [primed] = useState(() => !stats)
+  const landed = useLanded()
 
   // 背景光晕取读得最多的两部的封面主色
   const [glow, setGlow] = useState<[Rgb, Rgb]>([NEUTRAL, NEUTRAL])
@@ -208,6 +214,8 @@ export function StatsPage() {
     reduced,
     glow,
     loadingText: stats ? null : libLoading ? '正在加载书库…' : loadingText,
+    // 离开时交还给进场进度，外圈跟着倒放收起
+    load: primed && !out ? { fetched: reads.fetched, landed } : null,
     error,
     retry,
     now,
@@ -231,6 +239,8 @@ interface BodyProps {
   reduced: boolean
   glow: [Rgb, Rgb]
   loadingText: string | null
+  /** 一进来就在加载时才有：已取的话数、已读话数是否已落地（落地前不扫光、不走进度） */
+  load: { fetched: number; landed: boolean } | null
   error: unknown
   retry: () => void
   now: number
@@ -317,7 +327,7 @@ const LOWER_H = 96
 const CLOCK_TILT = 24
 
 /** 左边的主角：一圈阅读时钟，正中是已读话数（从首页飞过来的那个数字）；下面是三项数据 */
-function ReadHero({ stats, read, works, t, reduced, loadingText, error, retry, left, top, width, height }: BodyProps & { left: number; top: number; width: number; height: number }) {
+function ReadHero({ stats, read, works, t, reduced, loadingText, load, error, retry, left, top, width, height }: BodyProps & { left: number; top: number; width: number; height: number }) {
   const [tip, setTip] = useState<Tip>(null)
   const text = read == null ? '—' : count(read)
   // 时钟占住左上，下面留给三项数据；数字按位数缩放，放得进时钟的内圈
@@ -328,7 +338,6 @@ function ReadHero({ stats, read, works, t, reduced, loadingText, error, retry, l
   // 时钟环朝着鼠标在窗口里的位置倾斜（大数字不动，错开一点有层次）；只在鼠标下生效，减少动态效果时不动。
   // 直接写 transform，不进 React 状态，免得每次移动都重绘；cur / to 存的是倾角（度），x 绕竖轴、y 绕横轴
   const clockWrap = useRef<HTMLDivElement>(null)
-  const hasClock = !!stats
   useEffect(() => {
     const el = clockWrap.current
     if (!el || reduced) return
@@ -369,16 +378,14 @@ function ReadHero({ stats, read, works, t, reduced, loadingText, error, retry, l
       cancelAnimationFrame(raf)
       el.style.transform = ''
     }
-  }, [reduced, hasClock])
+  }, [reduced])
 
   return (
     <section aria-label="阅读概览" className="absolute z-10 flex flex-col justify-center gap-6" style={{ left, top, width, height }}>
       <div className="relative flex-none" style={{ width: ring, height: ring, perspective: 900 }}>
-        {stats && (
-          <div ref={clockWrap} className="absolute inset-0 [transform-style:preserve-3d]">
-            <Clock stats={stats} t={t} size={ring} tip={tip} onTip={setTip} faint className="absolute inset-0" />
-          </div>
-        )}
+        <div ref={clockWrap} className="absolute inset-0 [transform-style:preserve-3d]">
+          <Clock stats={stats} t={t} size={ring} tip={tip} onTip={setTip} load={load} read={read} failed={!!error} reduced={reduced} faint className="absolute inset-0" />
+        </div>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
           <span className="text-[13px] font-semibold tracking-[.32em] text-muted">已读章节</span>
           <span className="flex items-baseline gap-1.5">
@@ -418,25 +425,10 @@ function ReadHero({ stats, read, works, t, reduced, loadingText, error, retry, l
 }
 
 /** 手机上的时钟、三项数据、小结、热力图 */
-function Overview({ stats, ranked, works, t, reduced, loadingText, error, retry, clockSize, heatCell }: BodyProps & { clockSize: number; heatCell: number }) {
+function Overview({ stats, ranked, works, t, reduced, loadingText, load, read, error, retry, clockSize, heatCell }: BodyProps & { clockSize: number; heatCell: number }) {
   const [tip, setTip] = useState<Tip>(null)
-  if (!stats) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-        {error ? (
-          <>
-            <p className="m-0 text-danger">阅读记录加载失败</p>
-            <button type="button" className="solid" onClick={retry}>
-              重试
-            </button>
-          </>
-        ) : (
-          <p className="m-0 text-muted num">{loadingText}</p>
-        )}
-      </div>
-    )
-  }
   const e1 = easeOut(t / 0.7)
+  // 加载中和加载完是同一个时钟（不换元素），刻度才能就地长出来、外圈进度接着走满
   return (
     <>
       <Clock
@@ -445,8 +437,12 @@ function Overview({ stats, ranked, works, t, reduced, loadingText, error, retry,
         size={clockSize}
         tip={tip}
         onTip={setTip}
+        load={load}
+        read={read}
+        failed={!!error}
+        reduced={reduced}
         center={
-          stats.peak >= 0 ? (
+          !stats ? undefined : stats.peak >= 0 ? (
             <>
               <span className="text-xs font-semibold tracking-[.3em] text-muted">高峰</span>
               <span className="text-[44px] leading-[1.08] font-bold tracking-[-0.04em] num">{stats.peak}</span>
@@ -457,14 +453,111 @@ function Overview({ stats, ranked, works, t, reduced, loadingText, error, retry,
           )
         }
       />
-      <Kpis stats={stats} works={works} e={e1} />
-      <Ticker stats={stats} top={ranked[0]} reduced={reduced} />
-      <Heatmap stats={stats} t={t} cell={heatCell} tip={tip} onTip={setTip} />
+      {stats ? (
+        <>
+          <Kpis stats={stats} works={works} e={e1} />
+          <Ticker stats={stats} top={ranked[0]} reduced={reduced} />
+          <Heatmap stats={stats} t={t} cell={heatCell} tip={tip} onTip={setTip} />
+        </>
+      ) : (
+        <div className="flex flex-col items-center gap-4 text-center">
+          {error ? (
+            <>
+              <p className="m-0 text-danger">阅读记录加载失败</p>
+              <button type="button" className="solid" onClick={retry}>
+                重试
+              </button>
+            </>
+          ) : (
+            <p className="m-0 text-muted num">{loadingText}</p>
+          )}
+        </div>
+      )}
     </>
   )
 }
 
 /* ───────── 24 小时时钟 ───────── */
+const NO_HOURS: number[] = Array(24).fill(0)
+/** 加载时扫光转一圈的秒数，和 gallery.css 的 .gallery-sweep 一致 */
+const SWEEP_S = 1.6
+
+/**
+ * 加载时的外圈进度，盖在虚线外圈上。每帧直接改 SVG 属性，不进 React 状态：
+ * 大书库要取好一阵，每帧重绘整页（连排行墙）太浪费。算法见 loadRing.ts；汇总出来后滑满并淡出。
+ */
+function LoadRing({ size, fetched, expected, active, done, reduced, transform }: { size: number; fetched: number; expected: number | null; active: boolean; done: boolean; reduced: boolean; transform: string }) {
+  const ref = useRef<SVGCircleElement>(null)
+  const props = useRef({ fetched, expected, active, done })
+  props.current = { fetched, expected, active, done }
+  const c = size / 2
+  const r = c - 14 * (size / 360)
+  const len = 2 * Math.PI * r
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let shown = 0
+    let last = performance.now()
+    let pageAt = last
+    let seen = -1
+    let doneAt = 0
+    let from = 0
+    let raf = 0
+    const paint = (v: number, opacity: number) => {
+      el.style.strokeDashoffset = `${(len * (1 - v)).toFixed(2)}`
+      el.style.opacity = `${opacity}`
+    }
+    const frame = (now: number) => {
+      const p = props.current
+      const dt = Math.min(64, now - last)
+      last = now
+      if (p.done) {
+        if (reduced) return paint(1, 0)
+        if (!doneAt) {
+          doneAt = now
+          from = shown
+        }
+        const k = clamp01((now - doneAt) / 600)
+        paint(from + (1 - from) * easeOut(k), 1 - k * k)
+        if (k < 1) raf = requestAnimationFrame(frame)
+        return
+      }
+      if (!p.active) {
+        // 落地前、失败时停在原处；重新开始时从这一刻算等待
+        pageAt = now
+      } else {
+        if (p.fetched !== seen) {
+          seen = p.fetched
+          pageAt = now
+        }
+        const target = loadTarget(p.fetched, p.expected, PAGE, reduced ? 0 : now - pageAt)
+        shown = reduced ? Math.max(shown, target) : chase(shown, target, dt)
+      }
+      paint(Math.min(LOAD_CAP, shown), 1)
+      raf = requestAnimationFrame(frame)
+    }
+    raf = requestAnimationFrame(frame)
+    return () => cancelAnimationFrame(raf)
+  }, [len, reduced])
+  return (
+    <svg aria-hidden className="pointer-events-none absolute inset-0 overflow-visible" width={size} height={size} style={{ transform }}>
+      <circle
+        ref={ref}
+        cx={c}
+        cy={c}
+        r={r}
+        fill="none"
+        stroke="rgba(255,255,255,.6)"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeDasharray={len}
+        strokeDashoffset={len}
+        transform={`rotate(-90 ${c} ${c})`}
+      />
+    </svg>
+  )
+}
+
 function Clock({
   stats,
   t,
@@ -472,37 +565,53 @@ function Clock({
   tip,
   onTip,
   center,
+  load,
+  read,
+  failed,
+  reduced,
   faint,
   className,
 }: {
-  stats: ReadingStats
+  /** 还在加载时为 null：只摆出空刻度和外圈 */
+  stats: ReadingStats | null
   t: number
   size: number
   tip: Tip
   onTip: (t: Tip) => void
   center?: ReactNode
+  /** 一进来就在加载（见 BodyProps.load）：外圈不再跟着进场淡入，加载时扫光、走进度 */
+  load?: BodyProps['load']
+  /** 已读话数，用来估算加载进度 */
+  read?: number | null
+  failed?: boolean
+  reduced?: boolean
   /** 桌面上垫在大数字背后：刻度更淡，只有读得最多的那一格亮 */
   faint?: boolean
   className?: string
 }) {
   const k = size / 360
   const c = size / 2
-  const max = Math.max(1, ...stats.hours)
-  const timed = stats.hours.reduce((a, b) => a + b, 0)
+  const hours = stats?.hours ?? NO_HOURS
+  const peak = stats?.peak ?? -1
+  const max = Math.max(1, ...hours)
+  const timed = hours.reduce((a, b) => a + b, 0)
   const now = new Date()
   const nowDeg = (now.getHours() + now.getMinutes() / 60) * 15
   const radius = 112 * k
   const hourTip = tip?.kind === 'hour' ? tip.h : -1
   const barLen = (n: number) => (6 + (n / max) * 44) * k
-  const ringIn = easeOut((t - 0.05) / 0.5)
+  // 加载时外圈已经摆出来了（挂上时自己淡入），进场就不再从 0 淡入一遍
+  const ringIn = load ? 1 : easeOut((t - 0.05) / 0.5)
+  // 扫光等已读话数落地再开始；减少动态效果或加载失败时不扫
+  const sweep = !stats && !!load?.landed && !reduced && !failed
   // 桌面（faint）上时钟是几层叠在不同深度的平面：底光、外圈与辐条在最后，刻度居中，越高的刻度越往前浮，「现在」和读得最多的那格最前。
   // 鼠标带动整体倾斜时，各层错开，才有立体感；手机上不倾斜，不分层
   const z = (px: number) => (faint ? `translateZ(${(px * k).toFixed(1)}px)` : '')
   return (
     <div
       role="img"
-      aria-label={`24 小时阅读时钟：有阅读时间的 ${timed} 话${stats.peak >= 0 ? `，${stats.peak} 点读得最多` : ''}`}
-      className={cn('flex-none', className ?? 'relative')}
+      aria-label={stats ? `24 小时阅读时钟：有阅读时间的 ${timed} 话${peak >= 0 ? `，${peak} 点读得最多` : ''}` : '24 小时阅读时钟：正在汇总'}
+      className={cn('flex-none', className ?? 'relative', load && !reduced && 'gallery-clock-in')}
       style={{ width: size, height: size, transformStyle: faint ? 'preserve-3d' : undefined }}
       onMouseLeave={() => onTip(null)}
     >
@@ -521,9 +630,10 @@ function Clock({
       )}
       {!faint && <div aria-hidden className="absolute rounded-full border border-white/12 bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_70%)]" style={{ inset: 76 * k }} />}
       <div aria-hidden className="absolute rounded-full border border-dashed border-white/10" style={{ inset: 14 * k, opacity: ringIn, rotate: `${(1 - ringIn) * -40}deg`, transform: z(-24) }} />
-      {stats.hours.map((n, h) => {
+      {load && <LoadRing size={size} fetched={load.fetched} expected={read ?? null} active={load.landed && !failed} done={!!stats} reduced={!!reduced} transform={z(-24)} />}
+      {hours.map((n, h) => {
         const grow = easeOut((t - 0.08 - h * 0.022) / 0.4)
-        const hot = h === stats.peak
+        const hot = h === peak
         const on = h === hourTip
         const idle = faint ? (n ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.1)') : 'rgba(255,255,255,.38)'
         return (
@@ -531,15 +641,18 @@ function Clock({
             <span
               className="absolute flex items-end justify-center"
               style={{ left: -11 * k, bottom: radius, width: 22 * k, height: 52 * k }}
-              onMouseEnter={() => onTip({ kind: 'hour', h })}
-              onClick={() => onTip(on ? null : { kind: 'hour', h })}
+              onMouseEnter={stats ? () => onTip({ kind: 'hour', h }) : undefined}
+              onClick={stats ? () => onTip(on ? null : { kind: 'hour', h }) : undefined}
             >
               <span
-                className="block rounded-full transition-[background-color,box-shadow] duration-200"
+                className={cn('block rounded-full transition-[background-color,box-shadow] duration-200', sweep && 'gallery-sweep')}
                 style={{
                   width: 8 * k,
-                  height: Math.max(4, barLen(n) * grow),
-                  background: hot || on ? '#fff' : idle,
+                  // 从加载时的最短刻度（6）长到实际长度，汇总出来时不会先缩一下
+                  height: Math.max(4, (6 + (n / max) * 44 * grow) * k),
+                  background: hot || on ? '#fff' : sweep ? 'rgba(255,255,255,.8)' : idle,
+                  // 扫光按钟点错开，像秒针顺时针扫过（周期见 gallery.css）
+                  animationDelay: sweep ? `${((h / 24 - 1) * SWEEP_S).toFixed(3)}s` : undefined,
                   boxShadow: hot ? '0 0 14px rgba(255,255,255,.85)' : on ? '0 0 10px rgba(255,255,255,.6)' : undefined,
                 }}
               />
@@ -567,7 +680,7 @@ function Clock({
           {center}
         </div>
       )}
-      {hourTip >= 0 && (
+      {stats && hourTip >= 0 && (
         <span
           className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-[10px] border border-white/22 bg-[rgba(28,28,31,.94)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-text shadow-[0_8px_20px_rgba(0,0,0,.5)]"
           style={{

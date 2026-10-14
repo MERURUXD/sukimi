@@ -5,7 +5,8 @@ import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userCo
 import { afterViewTransition } from './readMorph'
 import { GalleryReadChapters, type ReadChapter } from './queries'
 
-const PAGE = 2000
+/** 每页取多少话；阅读档案的加载进度也按它估算 */
+export const PAGE = 2000
 
 /**
  * 上一次取到的结果，只放在内存里、按客户端（正式 / 演示）区分，换账号时清空。

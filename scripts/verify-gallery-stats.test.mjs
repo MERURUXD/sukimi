@@ -114,3 +114,31 @@ test('换一个时区，同一批记录分到不同的天和钟点', async () =>
     process.env.TZ = 'Asia/Taipei'
   }
 })
+
+test('加载进度：按已取 ÷ 已读估算，等下一页时慢慢挪，始终封顶', async () => {
+  const { LOAD_CAP, loadTarget } = await import('../src/features/gallery/loadRing.ts')
+  assert.equal(loadTarget(2000, 8000, 2000, 0), 0.25)
+  // 等下一页时往前挪，但挪不过这一页的大半，也不会越过下一页到达的位置
+  const waiting = loadTarget(2000, 8000, 2000, 60_000)
+  assert.ok(waiting > 0.25 && waiting < 0.5)
+  assert.ok(loadTarget(2000, 8000, 2000, 500) < loadTarget(2000, 8000, 2000, 1500))
+  // 已取的可能比已读多（含只有阅读时间的章节）；不到一页的小书库等第一页时也封顶
+  assert.equal(loadTarget(9000, 8000, 2000, 0), LOAD_CAP)
+  assert.ok(loadTarget(0, 300, 2000, 60_000) <= LOAD_CAP)
+  // 还不知道已读话数：只慢慢挪一小段，不按比例算
+  assert.equal(loadTarget(4000, null, 2000, 0), 0)
+  assert.ok(loadTarget(4000, null, 2000, 60_000) < 0.2)
+  assert.equal(loadTarget(4000, 0, 2000, 0), 0)
+})
+
+test('加载进度：显示值平滑追赶、只进不退', async () => {
+  const { chase } = await import('../src/features/gallery/loadRing.ts')
+  const a = chase(0, 0.5, 16)
+  assert.ok(a > 0 && a < 0.1)
+  let v = 0
+  for (let i = 0; i < 200; i++) v = chase(v, 0.5, 16)
+  assert.ok(v > 0.49 && v <= 0.5)
+  // 总数变大后目标回落：停在原处
+  assert.equal(chase(0.6, 0.3, 16), 0.6)
+  assert.equal(chase(0.2, 0.5, 0), 0.2)
+})
