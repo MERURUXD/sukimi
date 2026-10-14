@@ -355,3 +355,25 @@ html[data-gallery-morph] .gallery-blob-b {
   animation: gallery-late 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: calc(1.05s + var(--d, 0ms));
 }
+/* 阅读档案加载中：刻度被一道光顺时针扫过（周期和 StatsPage 的 SWEEP_S 一致），空时钟挂上时淡入 */
+@keyframes gallery-sweep {
+  0% {
+    opacity: 1;
+  }
+  35%,
+  100% {
+    opacity: 0.18;
+  }
+}
+.gallery-sweep {
+  animation: gallery-sweep 1.6s cubic-bezier(0.25, 0.6, 0.35, 1) infinite;
+}
+@keyframes gallery-clock-in {
+  from {
+    opacity: 0;
+  }
+}
+/* 不留填充：透明度动画挂着时，浏览器会把整个时钟压成一张平面，鼠标倾斜时各层就不再错开 */
+.gallery-clock-in {
+  animation: gallery-clock-in 0.6s ease-out;
+}
