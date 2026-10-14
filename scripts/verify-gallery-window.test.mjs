@@ -116,3 +116,36 @@ test('橱窗：已取消的过渡不能在迟到的结束事件里清理下一�
   await Promise.resolve()
   assert.equal(cleaned, 0)
 })
+
+test('橱窗：桌面返回同时等待墙动画和历史导航触发的换页转场，跳过也不提前清理', async () => {
+  const { onWindowMotionFinished } = await import('../src/features/gallery/windowMotion.ts')
+  for (const skip of [false, true]) for (const first of ['wall', 'page']) {
+    let finishWall, finishPage
+    const wall = new Promise(resolve => { finishWall = resolve })
+    const page = new Promise((resolve, reject) => { finishPage = skip ? reject : resolve })
+    let cleaned = 0
+    onWindowMotionFinished([{ finished: wall }], { finished: page }, () => cleaned++)
+    if (first === 'wall') finishWall()
+    else finishPage()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(cleaned, 0, '任意一段先结束时都不能恢复默认整页淡化')
+    if (first === 'wall') finishPage()
+    else finishWall()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(cleaned, 1)
+  }
+})
+
+test('橱窗：普通桌面导航不额外等待，取消后的迟到收尾不影响下一次', async () => {
+  const { onWindowMotionFinished } = await import('../src/features/gallery/windowMotion.ts')
+  for (const cancel of [false, true]) {
+    let settle
+    const finished = new Promise(resolve => { settle = resolve })
+    let cleaned = 0
+    const stop = onWindowMotionFinished([{ finished }], null, () => cleaned++)
+    if (cancel) stop()
+    settle()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(cleaned, cancel ? 0 : 1)
+  }
+})

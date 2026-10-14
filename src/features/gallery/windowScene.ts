@@ -1,7 +1,7 @@
 import type { LibraryManga } from '@/features/library/queries'
 import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, visibleCells, type Cell, type Grid } from './canvasMath'
 import { WINDOW_K, WINDOW_K_ON, cellsInWindow, ensureWall, wallItem, wallRange, wallScale, wallState, wallTransform, windowCells, windowOrder } from './wall'
-import { WINDOW_DUR, WINDOW_EASE, galleryPose, onWindowFinished, shadeTransform, windowClip, type WindowPose } from './windowMotion'
+import { WINDOW_DUR, WINDOW_EASE, galleryPose, onWindowFinished, onWindowMotionFinished, shadeTransform, windowClip, type WindowPose } from './windowMotion'
 import { createWindowCopy } from './windowCopy'
 
 type Kind = 'window' | 'gallery'
@@ -278,7 +278,7 @@ function waitForTransition(f: Flight) {
       if (flight !== f) return
       play(f)
       f.copy?.play()
-      void Promise.all(f.animations.map(animation => animation.finished)).then(() => finish(f), () => finish(f))
+      f.cancelFinish = onWindowMotionFinished(f.animations, activeTransition(), () => finish(f))
     })
     return
   }
