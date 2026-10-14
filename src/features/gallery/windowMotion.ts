@@ -46,3 +46,9 @@ export function onWindowFinished(vt: Pick<ViewTransition, 'finished'>, done: () 
   void vt.finished.then(() => alive && done(), () => alive && done())
   return () => { alive = false }
 }
+
+/** 历史返回可能沿用此前导航的 VT；墙先落定也要等它结束，才能撤掉专用换页样式。 */
+export function onWindowMotionFinished(animations: readonly Pick<Animation, 'finished'>[], vt: Pick<ViewTransition, 'finished'> | null | undefined, done: () => void) {
+  const finished = Promise.allSettled([...animations.map(animation => animation.finished), ...(vt ? [vt.finished] : [])]).then(() => {})
+  return onWindowFinished({ finished }, done)
+}
