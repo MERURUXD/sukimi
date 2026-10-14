@@ -152,10 +152,10 @@ export function MangaHero({
             document.body,
           )}
           <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label="阅读记录">{recent}</p>
-          {manga.inLibrary && !placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
+          {!placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
         </div>
-        {/* 宽屏放到右侧空白处直接展开，不把头部撑高 */}
-        {manga.inLibrary && !placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} style={delay(mangaIntro.byline)} className={cn('manga-hero-side', animate && 'rise')} />}
+        {/* 宽屏放到右侧空白处直接展开，不把头部撑高；不在书库时只有 Bangumi 站内评分 */}
+        {!placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.byline)} className={cn('manga-hero-side', animate && 'rise')} />}
       </div>
     </section>
   )
