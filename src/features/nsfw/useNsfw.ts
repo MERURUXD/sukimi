@@ -39,6 +39,10 @@ export const useNsfwStore = create<NsfwState>()(
   ),
 )
 rehydrateOnUserChange(useNsfwStore)
+// 临时显示不保存，重新读存档时会沿用内存里的值：换了账号就收回，不能带着上一个人的「显示全部」
+useAuth.subscribe((s, prev) => {
+  if (s.user?.id !== prev.user?.id) useNsfwStore.setState({ revealed: false })
+})
 
 type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 

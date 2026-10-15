@@ -151,8 +151,8 @@ export function StatsPage() {
         const masked = hidden(m)
         return { manga: masked ? maskRanked(m) : m, masked, rank: i + 1, read: r.read, total: r.total }
       }),
-      // 口味按全部读过的作品算，不只排行里的前几十部
-      taste: tasteOf(read.map((r) => ({ read: r.read, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
+      // 口味按全部读过的作品算，不只排行里的前几十部；NSFW 作品不计入，免得题材和作者认出是哪部
+      taste: tasteOf(read.filter((r) => !hidden(byId.get(r.id)!)).map((r) => ({ read: r.read, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
     }
   }, [stats, all, hidden])
   const { t, leave, out } = useIntroProgress(!!stats, reduced, back)

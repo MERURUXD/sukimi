@@ -212,8 +212,8 @@ export function LibraryPage() {
       return `已将 ${ids.length} 部移出稍后再看`
     })
 
-  // 选中的都已是 NSFW 时按钮变成取消；有一部不是就按标记处理
-  const picked = items.filter((m) => sel.selected.has(m.id))
+  // 和其他批量操作一样按全部已选算（筛选或搜索后看不见的也算）；都已是 NSFW 时按钮变成取消
+  const picked = base.filter((m) => sel.selected.has(m.id))
   const allNsfw = picked.length > 0 && picked.every(nsfw.test)
   const toggleNsfw = () =>
     run(allNsfw ? '取消 NSFW 标记' : '标为 NSFW', async () => {

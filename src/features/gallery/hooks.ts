@@ -24,6 +24,9 @@ export const useReducedMotionPref = () => useMedia('(prefers-reduced-motion: red
 
 export const isCompleted = FILTERS.find((f) => f.key === 'completed')!.test
 
+/** 书库有作品、但全被 NSFW 隐藏时的提示，不能沿用空书库的文案 */
+export const NSFW_ALL_HIDDEN = '书库里的作品都标成了 NSFW，已隐藏。可以在「设置 → 外观 → 隐私」里调整，或按 Shift + H 临时显示。'
+
 /** 每部的总话数（按 id）；还没取到时为 null */
 export const chapterTotals = (data: GalleryCountsQuery | undefined) => (data ? new Map(data.mangas.nodes.map((m) => [m.id, m.chapters.totalCount])) : null)
 
