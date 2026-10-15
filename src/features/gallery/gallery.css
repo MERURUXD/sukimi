@@ -74,75 +74,6 @@
 .gallery-blob-b {
   animation: gallery-drift-b 24s ease-in-out infinite alternate;
 }
-/* 读得最多的那部：旋转光边、呼吸光晕、扫过的反光 */
-@property --gallery-a {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes gallery-spin {
-  to {
-    --gallery-a: 360deg;
-  }
-}
-.gallery-ring {
-  background: conic-gradient(
-    from var(--gallery-a),
-    transparent 0deg,
-    #fff 40deg,
-    var(--c) 100deg,
-    transparent 160deg,
-    transparent 180deg,
-    #fff 220deg,
-    var(--c) 280deg,
-    transparent 340deg
-  );
-  mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  animation: gallery-spin 3.6s linear infinite;
-}
-@keyframes gallery-breathe {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(0.96);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.06);
-  }
-}
-.gallery-glow {
-  animation: gallery-breathe 3.2s ease-in-out infinite;
-}
-@keyframes gallery-sheen {
-  0% {
-    background-position: 160% 0;
-  }
-  55%,
-  100% {
-    background-position: -60% 0;
-  }
-}
-.gallery-sheen {
-  background: linear-gradient(110deg, transparent 38%, rgba(255, 255, 255, 0.42) 50%, transparent 62%);
-  background-size: 260% 100%;
-  animation: gallery-sheen 4.8s ease-in-out infinite;
-}
-/* 封面墙各列上下轻轻浮动 */
-@keyframes gallery-float {
-  from {
-    transform: translateY(-6px);
-  }
-  to {
-    transform: translateY(6px);
-  }
-}
-.gallery-float {
-  animation: gallery-float 5.5s ease-in-out infinite alternate;
-}
 /* 时钟上「现在」的位置一圈圈扩散 */
 @keyframes gallery-ping {
   from {
@@ -157,69 +88,21 @@
 .gallery-ping {
   animation: gallery-ping 2s ease-out infinite;
 }
-/* 小结轮播换句 */
-@keyframes gallery-tick {
+/* 阅读档案第二屏：翻到另一部时，正中作品的信息淡入上移 */
+@keyframes gallery-info-in {
   from {
     opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+    transform: translateY(8px);
   }
 }
-.gallery-tick {
-  animation: gallery-tick 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-/* 排行封面：悬停浮起并显示书名 */
-.gallery-plate .gallery-plate-cover {
-  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.gallery-plate .gallery-plate-cap {
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-@media (hover: hover) {
-  .gallery-plate:hover .gallery-plate-cover {
-    transform: translateY(-5px) scale(1.02);
-  }
-  .gallery-plate:hover .gallery-plate-cap {
-    opacity: 1;
-  }
-}
-.gallery-plate:focus-visible .gallery-plate-cap {
-  opacity: 1;
-}
-/* 手机排行：两侧的封面跟着横向滚动侧转；浏览器不支持滚动驱动动画时平铺 */
-@keyframes gallery-cf {
-  0% {
-    transform: rotateY(38deg) scale(0.84);
-    opacity: 0.55;
-  }
-  50% {
-    transform: none;
-    opacity: 1;
-  }
-  100% {
-    transform: rotateY(-38deg) scale(0.84);
-    opacity: 0.55;
-  }
-}
-@supports (animation-timeline: view()) {
-  .gallery-cf {
-    animation: gallery-cf linear both;
-    animation-timeline: view(inline);
-  }
+.gallery-info-in {
+  animation: gallery-info-in 0.36s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .gallery-blob-a,
   .gallery-blob-b,
-  .gallery-ring,
-  .gallery-glow,
-  .gallery-sheen,
-  .gallery-float,
   .gallery-ping,
-  .gallery-cf {
+  .gallery-info-in {
     animation: none;
   }
 }
