@@ -1,11 +1,8 @@
-import { useDrag } from '@use-gesture/react'
-import { ArrowRight, ChevronLeft, Crown, Sparkles } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate, useNavigationType } from 'react-router'
+import { ChevronDown, ChevronLeft } from 'lucide-react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import { useLocation, useNavigate, useNavigationType } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { BACK_SLOT, GalleryBack } from './GalleryBack'
-import { CoverImg } from '@/components/manga/CoverImg'
-import type { LibraryManga } from '@/features/library/queries'
 import { NEUTRAL, coverColor, rgbCss } from '@/lib/coverColor'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
@@ -15,33 +12,26 @@ import { useForceDark } from '@/design/settings'
 import { clamp01 } from './canvasMath'
 import { GALLERY } from './GalleryHero'
 import { useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { LOAD_CAP, chase, loadTarget } from './loadRing'
 import { afterViewTransition, armReadMorph, useLanded } from './readMorph'
-import { heatLevel, summarize, type ReadingStats } from './stats'
-import { PAGE, useReadChapters } from './useReadChapters'
+import { bestRun, pageGrowth, summarize, weekActive, type ReadingStats } from './stats'
+import { Clock, DIAL_UNITS, Strip, useDialTilt, type Tip, type YearRing } from './StatsDial'
+import { CoverFlow, FlowInfo, TastePanel, flowLayout, type Ranked } from './StatsFlow'
+import { createPager, ease, easeOut, seg, type Pager } from './statsPager'
+import { tasteOf, type Taste } from './taste'
+import { useReadChapters } from './useReadChapters'
 import './gallery.css'
 
 /** 排行最多显示这么多部 */
 const TOP = 40
-const easeOut = (x: number) => 1 - (1 - clamp01(x)) ** 3
-
-interface Ranked {
-  manga: LibraryManga
-  rank: number
-  read: number
-  total: number | null
-}
-
-type Tip = { kind: 'hour'; h: number } | { kind: 'day'; i: number } | null
 
 /**
- * 本页在这次会话里的记忆：进场播完过、排行墙停在哪。
- * 从作品详情返回时直接显示最终画面（阅读记录也有缓存），不再从头进场，排行墙停在原来那一列。
+ * 本页在这次会话里的记忆：进场播完过、停在第几屏、封面翻到第几部。
+ * 从作品详情返回时直接显示原来的画面（阅读记录也有缓存），不再从头进场
  */
-const memory = { shown: false, s: 0 }
+const memory = { shown: false, p: 0, cur: 0 }
 
 /**
- * 进场进度 0→1：刻度生长、排行墙飞入、时间线亮起都按它走。减少动态效果或返回时直接到 1。
+ * 进场进度 0→1：刻度生长、年轮与四项数字依次出现都按它走。减少动态效果或返回时直接到 1。
  * leave 把进度快速倒放回 0 作为出场，放完再换页。
  */
 function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur = 2400) {
@@ -117,14 +107,19 @@ function useWindowSize() {
   return size
 }
 
+/** 排版用的最小高度，低于它整体缩小 */
+const MIN_H = 600
+const MIN_H_PHONE = 680
+
 const dateLabel = (t: number) => {
   const d = new Date(t)
   return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
 }
 
 /**
- * 阅读档案：已读话数、阅读时钟、小结、近半年时间线和已读排行。固定深色；桌面一屏，手机为长页。
- * 从画廊首页点「已读话数」进来时，那个数字由换页动画飞成这里的大数字；返回时再飞回去（见 readMorph）。
+ * 阅读档案，分两屏：第一屏「读了多少、什么时候读」——24 小时时钟外套近半年年轮，正中是已读话数，两侧四项数字；
+ * 第二屏「读了什么」——已读排行的 3D 封面翻页和口味。往下滚（手机上滑）时镜头穿过表盘，封面从深处飞出来。
+ * 固定深色。从画廊首页点「已读话数」进来时，那个数字由换页动画飞成这里的大数字；返回时再飞回去（见 readMorph）。
  */
 export function StatsPage() {
   useForceDark()
@@ -136,25 +131,42 @@ export function StatsPage() {
   const navigate = useNavigate()
   const navType = useNavigationType()
   const [now] = useState(() => Date.now())
-  // 从作品详情返回（阅读记录在缓存里）：不重播进场，排行墙停在原来那一列
+  // 从作品详情返回（阅读记录在缓存里）：不重播进场，停在原来那一屏、那一部
   const [back] = useState(() => navType === 'POP' && memory.shown && reads.chapters != null)
 
   const stats = useMemo(
     () => (reads.chapters && totals ? summarize(reads.chapters, all.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now) : null),
     [reads.chapters, totals, all, now],
   )
-  const ranked = useMemo<Ranked[]>(() => {
-    if (!stats) return []
+  const { ranked, taste } = useMemo(() => {
+    if (!stats) return { ranked: [] as Ranked[], taste: null }
     const byId = new Map(all.map((m) => [m.id, m]))
-    return stats.ranking
-      .filter((r) => r.read > 0 && byId.has(r.id))
-      .slice(0, TOP)
-      .map((r, i) => ({ manga: byId.get(r.id)!, rank: i + 1, read: r.read, total: r.total }))
+    const read = stats.ranking.filter((r) => r.read > 0 && byId.has(r.id))
+    return {
+      ranked: read.slice(0, TOP).map((r, i) => ({ manga: byId.get(r.id)!, rank: i + 1, read: r.read, total: r.total })),
+      // 口味按全部读过的作品算，不只排行里的前几十部
+      taste: tasteOf(read.map((r) => ({ read: r.read, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
+    }
   }, [stats, all])
   const { t, leave, out } = useIntroProgress(!!stats, reduced, back)
   // 一进来还没有汇总结果：先摆出空时钟（刻度、外圈），加载时扫光、外圈走进度，汇总出来后刻度就地长出来
   const [primed] = useState(() => !stats)
   const landed = useLanded()
+
+  const [pager] = useState(() => createPager({ p: back ? memory.p : 0, cur: back ? memory.cur : 0, count: 0, reduced }))
+  useLayoutEffect(() => {
+    pager.limit(ranked.length, !!stats && ranked.length > 0)
+    // 汇总出来却没有排行（比如唯一读过的作品刚移出书库）：第二屏没东西可放，回到第一屏，不留一片空背景
+    if (stats && !ranked.length && pager.p > 0) pager.reset()
+  }, [pager, ranked.length, stats])
+  useEffect(
+    () => () => {
+      memory.p = pager.p > 0.5 ? 1 : 0
+      memory.cur = Math.max(0, Math.round(pager.cur))
+      pager.dispose()
+    },
+    [pager],
+  )
 
   // 背景光晕取读得最多的两部的封面主色
   const [glow, setGlow] = useState<[Rgb, Rgb]>([NEUTRAL, NEUTRAL])
@@ -171,20 +183,32 @@ export function StatsPage() {
     }
   }, [firstCover, secondCover])
 
-  /* 离开：先倒放进场，再换页，已读话数飞回首页。浏览器后退时来不及倒放，数字照样飞回去 */
+  /*
+   * 离开：第一屏先倒放进场再换页，已读话数飞回首页。第二屏上看不到那个数字，不倒回第一屏，直接淡出换页，免得等太久；
+   * 切屏途中（还偏第一屏）先快速收回再走第一屏的流程。浏览器后退时来不及倒放，在第一屏照样让数字飞回去
+   */
   const leaving = useRef(false)
   const exit = useCallback(() => {
     if (leaving.current) return
     leaving.current = true
-    leave(() => {
-      armReadMorph()
+    const nav = () => {
       const fromGallery = (location.state as { from?: string } | null)?.from === 'gallery'
       if (fromGallery && (window.history.state?.idx ?? 0) > 0) navigate(-1)
       else navigate(GALLERY, { viewTransition: true })
-    })
-  }, [leave, location.state, navigate])
+    }
+    const back = () =>
+      leave(() => {
+        armReadMorph()
+        nav()
+      })
+    if (pager.p > 0.5) nav()
+    else if (pager.p > 0) pager.go(0, back, 300)
+    else back()
+  }, [leave, location.state, navigate, pager])
   useEffect(() => {
-    const onPop = () => armReadMorph()
+    const onPop = () => {
+      if (pager.p <= 0.5) armReadMorph()
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.ctrlKey && !e.metaKey && !e.altKey) exit()
     }
@@ -194,7 +218,7 @@ export function StatsPage() {
       window.removeEventListener('popstate', onPop)
       window.removeEventListener('keydown', onKey)
     }
-  }, [exit])
+  }, [exit, pager])
 
   // 章节、书库、总话数任何一个失败都要给出错误和重试，否则会一直停在「正在汇总」
   const error = reads.error ?? libError ?? countsError
@@ -204,36 +228,39 @@ export function StatsPage() {
     if (countsError) void refetchCounts()
   }, [reads, libError, countsError, refetch, refetchCounts])
   const loadingText = error ? null : `正在汇总阅读记录…${reads.fetched ? `已取 ${count(reads.fetched)} 话` : ''}`
-  const body: BodyProps = {
-    stats,
-    // 汇总出来之前先用书库里的「总话数 − 未读」，和首页那个数字一样，飞过来落地时不跳
-    read: stats?.read ?? lib.read,
-    ranked,
-    works: all.length,
-    t,
-    reduced,
-    glow,
-    loadingText: stats ? null : libLoading ? '正在加载书库…' : loadingText,
-    // 离开时交还给进场进度，外圈跟着倒放收起
-    load: primed && !out ? { fetched: reads.fetched, landed } : null,
-    error,
-    retry,
-    now,
-    back,
-    onExit: exit,
-  }
 
   return (
     <div data-theme="dark" {...{ [PAGE_PATH_ATTR]: location.pathname }} className="relative min-h-dvh bg-bg text-text">
-      {mobile ? <MobileStats {...body} /> : <DesktopStats {...body} />}
+      <Stats
+        mobile={mobile}
+        stats={stats}
+        // 汇总出来之前先用书库里的「总话数 − 未读」，和首页那个数字一样，飞过来落地时不跳
+        read={stats?.read ?? lib.read}
+        ranked={ranked}
+        taste={taste}
+        works={all.length}
+        t={t}
+        reduced={reduced}
+        glow={glow}
+        loadingText={stats ? null : libLoading ? '正在加载书库…' : loadingText}
+        // 离开时交还给进场进度，外圈跟着倒放收起
+        load={primed && !out ? { fetched: reads.fetched, landed } : null}
+        error={error}
+        retry={retry}
+        now={now}
+        pager={pager}
+        onExit={exit}
+      />
     </div>
   )
 }
 
 interface BodyProps {
+  mobile: boolean
   stats: ReadingStats | null
   read: number | null
   ranked: Ranked[]
+  taste: Taste | null
   works: number
   t: number
   reduced: boolean
@@ -244,15 +271,14 @@ interface BodyProps {
   error: unknown
   retry: () => void
   now: number
-  /** 从作品详情返回：排行墙恢复到原来的位置 */
-  back: boolean
+  pager: Pager
   onExit: () => void
 }
 
 /* ───────── 背景与噪点 ───────── */
-function Backdrop({ glow, className }: { glow: [Rgb, Rgb]; className?: string }) {
+function Backdrop({ glow, className, style }: { glow: [Rgb, Rgb]; className?: string; style?: CSSProperties }) {
   return (
-    <div aria-hidden className={cn('pointer-events-none overflow-hidden', className)}>
+    <div aria-hidden className={cn('pointer-events-none overflow-hidden', className)} style={style}>
       <div
         className="gallery-blob-a absolute top-[-16%] left-[36%] aspect-square w-[min(920px,90vw)] rounded-full opacity-85 blur-[30px] max-md:top-[-12%] max-md:left-[-30%] max-md:w-[520px]"
         style={{ background: `radial-gradient(closest-side, ${rgbCss(glow[0], 0.87)} 0%, ${rgbCss(glow[0], 0.33)} 45%, transparent 100%)` }}
@@ -279,1021 +305,467 @@ const upStyle = (t: number, at: number): CSSProperties => {
   return { opacity: e, translate: `0 ${((1 - e) * 18).toFixed(1)}px` }
 }
 
-/* ───────── 桌面：左边大数字（背后是阅读时钟）、右边排行墙、底部近半年时间线；不再有框住的面板 ───────── */
-function DesktopStats(p: BodyProps) {
-  const { w, h } = useWindowSize()
-  const side = Math.round(Math.max(32, Math.min(64, w * 0.04)))
-  const top = 92
-  const lineH = 104
-  const lineTop = h - 24 - lineH
-  const heroW = Math.round(Math.max(320, Math.min(540, w * 0.34)))
-
-  return (
-    <div className="fixed inset-0 overflow-hidden select-none">
-      <Backdrop glow={p.glow} className="absolute inset-0" />
-      <RankWall
-        ranked={p.ranked}
-        works={p.works}
-        t={p.t}
-        width={w}
-        bottom={lineTop - 10}
-        left={side + heroW + 24}
-        reduced={p.reduced}
-        restore={p.back}
-        empty={!!p.stats && !p.ranked.length}
-      />
-
-      <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
-        <GalleryBack onClick={p.onExit} title="返回画廊首页（Esc）" />
-        <div className="flex flex-col gap-0.5">
-          <h1 className="m-0 font-cjk text-xl font-black">阅读档案</h1>
-          <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)}</span>
-        </div>
-      </header>
-
-      <ReadHero {...p} left={side} top={top} width={heroW} height={lineTop - 20 - top} />
-      {p.stats && <Timeline stats={p.stats} t={p.t} left={side} top={lineTop} width={w - side * 2} />}
-    </div>
-  )
-}
-
 /**
- * 时钟下面三项数据占的高度。加载中和加载完都占这么高：整块是垂直居中的，
- * 下面变高的话中间的数字会跟着上移，第一次打开时从首页飞过来的数字落地后就会再挪一下
+ * 两屏的手势：滚轮 / 方向键 / 竖向拖动切换两屏，第二屏上横向拖动、横向滚动、左右键翻封面。
+ * 拖动按最先移动的方向分横竖；拖过就吞掉随后的点击，免得松手时点进了作品
  */
-const LOWER_H = 96
-
-/** 时钟环朝鼠标最多倾斜多少度 */
-const CLOCK_TILT = 24
-
-/** 左边的主角：一圈阅读时钟，正中是已读话数（从首页飞过来的那个数字）；下面是三项数据 */
-function ReadHero({ stats, read, works, t, reduced, loadingText, load, error, retry, left, top, width, height }: BodyProps & { left: number; top: number; width: number; height: number }) {
-  const [tip, setTip] = useState<Tip>(null)
-  const text = read == null ? '—' : count(read)
-  // 时钟占住左上，下面留给三项数据；数字按位数缩放，放得进时钟的内圈
-  const ring = Math.round(Math.max(220, Math.min(width, height - LOWER_H - 42, 520)))
-  const size = Math.round(Math.max(36, Math.min(150, (ring * 0.6 - 36) / ([...text].length * 0.56))))
-  const peak = stats && stats.peak >= 0 ? stats.peak : -1
-
-  // 时钟环朝着鼠标在窗口里的位置倾斜（大数字不动，错开一点有层次）；只在鼠标下生效，减少动态效果时不动。
-  // 直接写 transform，不进 React 状态，免得每次移动都重绘；cur / to 存的是倾角（度），x 绕竖轴、y 绕横轴
-  const clockWrap = useRef<HTMLDivElement>(null)
+function usePagerInput(root: RefObject<HTMLDivElement | null>, pager: Pager, gap: number) {
+  const moved = useRef(false)
   useEffect(() => {
-    const el = clockWrap.current
-    if (!el || reduced) return
-    const cur = { x: 0, y: 0 }
-    const to = { x: 0, y: 0 }
-    let raf = 0
-    let last = 0
-    const frame = (now: number) => {
-      const k = 1 - Math.exp(-Math.min(48, now - last) / 150)
-      last = now
-      cur.x += (to.x - cur.x) * k
-      cur.y += (to.y - cur.y) * k
-      // 法线朝向鼠标：鼠标在右，右边缘退后；鼠标在下，下边缘退后
-      el.style.transform = `rotateX(${(-cur.y).toFixed(2)}deg) rotateY(${cur.x.toFixed(2)}deg)`
-      raf = Math.abs(to.x - cur.x) > 0.02 || Math.abs(to.y - cur.y) > 0.02 ? requestAnimationFrame(frame) : 0
+    const el = root.current
+    if (!el) return
+    let acc = 0
+    let accT = 0
+    let snapT = 0
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return
+      e.preventDefault()
+      const dx = e.deltaX
+      const dy = e.deltaY * (e.deltaMode === 1 ? 40 : 1)
+      if (pager.p > 0.98 && Math.abs(dx) > Math.abs(dy)) {
+        pager.setCur(pager.cur + dx / 160)
+        window.clearTimeout(snapT)
+        snapT = window.setTimeout(() => pager.flip(pager.cur), 120)
+        return
+      }
+      // 斜着划的触控板手势不算竖向，免得翻封面时一不小心退回第一屏
+      if (Math.abs(dy) < Math.abs(dx) * 1.2 || pager.busy) return
+      acc += dy
+      window.clearTimeout(accT)
+      accT = window.setTimeout(() => (acc = 0), 180)
+      if (acc > 40 && pager.p < 0.5) pager.go(1)
+      else if (acc < -40 && pager.p > 0.5) pager.go(0)
+      else return
+      acc = 0
     }
-    const kick = () => {
-      if (raf) return
-      last = performance.now()
-      raf = requestAnimationFrame(frame)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement).closest?.('input, textarea, [contenteditable]')) return
+      const k = e.key
+      if ((k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !(e.target as HTMLElement).closest?.('button, a'))) && pager.p < 0.5 && pager.enabled) pager.go(1)
+      else if ((k === 'ArrowUp' || k === 'PageUp') && pager.p > 0.5) pager.go(0)
+      else if ((k === 'ArrowLeft' || k === 'ArrowRight') && pager.p > 0.98) pager.flip(pager.goal + (k === 'ArrowLeft' ? -1 : 1))
+      else return
+      e.preventDefault()
+    }
+    let ptr: { id: number; x: number; y: number; cur: number; axis: 'x' | 'y' | null; lastX: number; lastT: number; v: number } | null = null
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0) return
+      moved.current = false
+      ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, cur: pager.cur, axis: null, lastX: e.clientX, lastT: performance.now(), v: 0 }
     }
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType !== 'mouse') return
-      to.x = (e.clientX / window.innerWidth - 0.5) * 2 * CLOCK_TILT
-      to.y = (e.clientY / window.innerHeight - 0.5) * 2 * CLOCK_TILT
-      kick()
-    }
-    const onLeave = () => {
-      to.x = 0
-      to.y = 0
-      kick()
-    }
-    window.addEventListener('pointermove', onMove)
-    document.documentElement.addEventListener('pointerleave', onLeave)
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      document.documentElement.removeEventListener('pointerleave', onLeave)
-      cancelAnimationFrame(raf)
-      el.style.transform = ''
-    }
-  }, [reduced])
-
-  return (
-    <section aria-label="阅读概览" className="absolute z-10 flex flex-col justify-center gap-6" style={{ left, top, width, height }}>
-      <div className="relative flex-none" style={{ width: ring, height: ring, perspective: 900 }}>
-        <div ref={clockWrap} className="absolute inset-0 [transform-style:preserve-3d]">
-          <Clock stats={stats} t={t} size={ring} tip={tip} onTip={setTip} load={load} read={read} failed={!!error} reduced={reduced} faint className="absolute inset-0" />
-        </div>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-          <span className="text-[13px] font-semibold tracking-[.32em] text-muted">已读章节</span>
-          <span className="flex items-baseline gap-1.5">
-            {/* 数字一开始就是最终值：它是从首页飞过来的，落地时不能变 */}
-            <span data-gallery-read className="leading-[.95] font-bold tracking-[-0.045em] num" style={{ fontSize: size }}>
-              {text}
-            </span>
-            <span className="font-cjk text-xl font-bold text-white/75">话</span>
-          </span>
-          <span className="font-cjk text-sm font-bold text-white/70" style={{ opacity: peak >= 0 ? easeOut((t - 0.5) / 0.4) : 0 }}>
-            {peak >= 0 ? `${peak} 点读得最多` : ' '}
-          </span>
-        </div>
-      </div>
-      {stats ? (
-        <div className="relative flex flex-col justify-start" style={{ height: LOWER_H }}>
-          <div style={upStyle(t, 0.38)}>
-            <Kpis stats={stats} works={works} e={easeOut((t - 0.38) / 0.6)} plain />
-          </div>
-        </div>
-      ) : (
-        <div className="relative flex flex-col items-start gap-4" style={{ height: LOWER_H }}>
-          {error ? (
-            <>
-              <p className="m-0 text-danger">阅读记录加载失败</p>
-              <button type="button" className="solid" onClick={retry}>
-                重试
-              </button>
-            </>
-          ) : (
-            <p className="m-0 text-muted num">{loadingText}</p>
-          )}
-        </div>
-      )}
-    </section>
-  )
-}
-
-/** 手机上的时钟、三项数据、小结、热力图 */
-function Overview({ stats, ranked, works, t, reduced, loadingText, load, read, error, retry, clockSize, heatCell }: BodyProps & { clockSize: number; heatCell: number }) {
-  const [tip, setTip] = useState<Tip>(null)
-  const e1 = easeOut(t / 0.7)
-  // 加载中和加载完是同一个时钟（不换元素），刻度才能就地长出来、外圈进度接着走满
-  return (
-    <>
-      <Clock
-        stats={stats}
-        t={t}
-        size={clockSize}
-        tip={tip}
-        onTip={setTip}
-        load={load}
-        read={read}
-        failed={!!error}
-        reduced={reduced}
-        center={
-          !stats ? undefined : stats.peak >= 0 ? (
-            <>
-              <span className="text-xs font-semibold tracking-[.3em] text-muted">高峰</span>
-              <span className="text-[44px] leading-[1.08] font-bold tracking-[-0.04em] num">{stats.peak}</span>
-              <span className="font-cjk text-sm font-bold text-white/80">点读得最多</span>
-            </>
-          ) : (
-            <span className="text-sm text-muted">还没有阅读时间</span>
-          )
-        }
-      />
-      {stats ? (
-        <>
-          <Kpis stats={stats} works={works} e={e1} />
-          <Ticker stats={stats} top={ranked[0]} reduced={reduced} />
-          <Heatmap stats={stats} t={t} cell={heatCell} tip={tip} onTip={setTip} />
-        </>
-      ) : (
-        <div className="flex flex-col items-center gap-4 text-center">
-          {error ? (
-            <>
-              <p className="m-0 text-danger">阅读记录加载失败</p>
-              <button type="button" className="solid" onClick={retry}>
-                重试
-              </button>
-            </>
-          ) : (
-            <p className="m-0 text-muted num">{loadingText}</p>
-          )}
-        </div>
-      )}
-    </>
-  )
-}
-
-/* ───────── 24 小时时钟 ───────── */
-const NO_HOURS: number[] = Array(24).fill(0)
-/** 加载时扫光转一圈的秒数，和 gallery.css 的 .gallery-sweep 一致 */
-const SWEEP_S = 1.6
-
-/**
- * 加载时的外圈进度，盖在虚线外圈上。每帧直接改 SVG 属性，不进 React 状态：
- * 大书库要取好一阵，每帧重绘整页（连排行墙）太浪费。算法见 loadRing.ts；汇总出来后滑满并淡出。
- */
-function LoadRing({ size, fetched, expected, active, done, reduced, transform }: { size: number; fetched: number; expected: number | null; active: boolean; done: boolean; reduced: boolean; transform: string }) {
-  const ref = useRef<SVGCircleElement>(null)
-  const props = useRef({ fetched, expected, active, done })
-  props.current = { fetched, expected, active, done }
-  const c = size / 2
-  const r = c - 14 * (size / 360)
-  const len = 2 * Math.PI * r
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    let shown = 0
-    let last = performance.now()
-    let pageAt = last
-    let seen = -1
-    let doneAt = 0
-    let from = 0
-    let raf = 0
-    const paint = (v: number, opacity: number) => {
-      el.style.strokeDashoffset = `${(len * (1 - v)).toFixed(2)}`
-      el.style.opacity = `${opacity}`
-    }
-    const frame = (now: number) => {
-      const p = props.current
-      const dt = Math.min(64, now - last)
-      last = now
-      if (p.done) {
-        if (reduced) return paint(1, 0)
-        if (!doneAt) {
-          doneAt = now
-          from = shown
-        }
-        const k = clamp01((now - doneAt) / 600)
-        paint(from + (1 - from) * easeOut(k), 1 - k * k)
-        if (k < 1) raf = requestAnimationFrame(frame)
-        return
+      if (!ptr || e.pointerId !== ptr.id) return
+      const dx = e.clientX - ptr.x
+      const dy = e.clientY - ptr.y
+      if (!ptr.axis) {
+        if (Math.hypot(dx, dy) < 8) return
+        ptr.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+        moved.current = true
+        el.setPointerCapture(e.pointerId)
       }
-      if (!p.active) {
-        // 落地前、失败时停在原处；重新开始时从这一刻算等待
-        pageAt = now
-      } else {
-        if (p.fetched !== seen) {
-          seen = p.fetched
-          pageAt = now
-        }
-        const target = loadTarget(p.fetched, p.expected, PAGE, reduced ? 0 : now - pageAt)
-        shown = reduced ? Math.max(shown, target) : chase(shown, target, dt)
+      if (ptr.axis === 'x' && pager.p > 0.98) {
+        const now = performance.now()
+        ptr.v = (e.clientX - ptr.lastX) / Math.max(1, now - ptr.lastT)
+        ptr.lastX = e.clientX
+        ptr.lastT = now
+        pager.setCur(ptr.cur - dx / gap)
       }
-      paint(Math.min(LOAD_CAP, shown), 1)
-      raf = requestAnimationFrame(frame)
     }
-    raf = requestAnimationFrame(frame)
-    return () => cancelAnimationFrame(raf)
-  }, [len, reduced])
-  return (
-    <svg aria-hidden className="pointer-events-none absolute inset-0 overflow-visible" width={size} height={size} style={{ transform }}>
-      <circle
-        ref={ref}
-        cx={c}
-        cy={c}
-        r={r}
-        fill="none"
-        stroke="rgba(255,255,255,.6)"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeDasharray={len}
-        strokeDashoffset={len}
-        transform={`rotate(-90 ${c} ${c})`}
-      />
-    </svg>
-  )
-}
-
-function Clock({
-  stats,
-  t,
-  size,
-  tip,
-  onTip,
-  center,
-  load,
-  read,
-  failed,
-  reduced,
-  faint,
-  className,
-}: {
-  /** 还在加载时为 null：只摆出空刻度和外圈 */
-  stats: ReadingStats | null
-  t: number
-  size: number
-  tip: Tip
-  onTip: (t: Tip) => void
-  center?: ReactNode
-  /** 一进来就在加载（见 BodyProps.load）：外圈不再跟着进场淡入，加载时扫光、走进度 */
-  load?: BodyProps['load']
-  /** 已读话数，用来估算加载进度 */
-  read?: number | null
-  failed?: boolean
-  reduced?: boolean
-  /** 桌面上垫在大数字背后：刻度更淡，只有读得最多的那一格亮 */
-  faint?: boolean
-  className?: string
-}) {
-  const k = size / 360
-  const c = size / 2
-  const hours = stats?.hours ?? NO_HOURS
-  const peak = stats?.peak ?? -1
-  const max = Math.max(1, ...hours)
-  const timed = hours.reduce((a, b) => a + b, 0)
-  const now = new Date()
-  const nowDeg = (now.getHours() + now.getMinutes() / 60) * 15
-  const radius = 112 * k
-  const hourTip = tip?.kind === 'hour' ? tip.h : -1
-  const barLen = (n: number) => (6 + (n / max) * 44) * k
-  // 加载时外圈已经摆出来了（挂上时自己淡入），进场就不再从 0 淡入一遍
-  const ringIn = load ? 1 : easeOut((t - 0.05) / 0.5)
-  // 扫光等已读话数落地再开始；减少动态效果或加载失败时不扫
-  const sweep = !stats && !!load?.landed && !reduced && !failed
-  // 桌面（faint）上时钟是几层叠在不同深度的平面：底光、外圈与辐条在最后，刻度居中，越高的刻度越往前浮，「现在」和读得最多的那格最前。
-  // 鼠标带动整体倾斜时，各层错开，才有立体感；手机上不倾斜，不分层
-  const z = (px: number) => (faint ? `translateZ(${(px * k).toFixed(1)}px)` : '')
-  return (
-    <div
-      role="img"
-      aria-label={stats ? `24 小时阅读时钟：有阅读时间的 ${timed} 话${peak >= 0 ? `，${peak} 点读得最多` : ''}` : '24 小时阅读时钟：正在汇总'}
-      className={cn('flex-none', className ?? 'relative', load && !reduced && 'gallery-clock-in')}
-      style={{ width: size, height: size, transformStyle: faint ? 'preserve-3d' : undefined }}
-      onMouseLeave={() => onTip(null)}
-    >
-      {faint && (
-        <>
-          <div aria-hidden className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_66%)]" style={{ transform: z(-90), opacity: ringIn }} />
-          <div aria-hidden className="absolute rounded-full border border-white/9" style={{ inset: -8 * k, transform: z(-64), opacity: ringIn }} />
-          <div aria-hidden className="absolute rounded-full border border-white/7" style={{ inset: 64 * k, transform: z(-36), opacity: ringIn }} />
-          {/* 每三小时一根辐条，夹在两根刻度之间，从内圈向外淡出 */}
-          {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${i * 45 + 7.5}deg) ${z(-48)}`, opacity: ringIn }}>
-              <span className="absolute w-px bg-[linear-gradient(to_top,transparent,rgba(255,255,255,.16))]" style={{ left: -0.5, bottom: 78 * k, height: 90 * k }} />
-            </div>
-          ))}
-        </>
-      )}
-      {!faint && <div aria-hidden className="absolute rounded-full border border-white/12 bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_70%)]" style={{ inset: 76 * k }} />}
-      <div aria-hidden className="absolute rounded-full border border-dashed border-white/10" style={{ inset: 14 * k, opacity: ringIn, rotate: `${(1 - ringIn) * -40}deg`, transform: z(-24) }} />
-      {load && <LoadRing size={size} fetched={load.fetched} expected={read ?? null} active={load.landed && !failed} done={!!stats} reduced={!!reduced} transform={z(-24)} />}
-      {hours.map((n, h) => {
-        const grow = easeOut((t - 0.08 - h * 0.022) / 0.4)
-        const hot = h === peak
-        const on = h === hourTip
-        const idle = faint ? (n ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.1)') : 'rgba(255,255,255,.38)'
-        return (
-          <div key={h} className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${h * 15}deg) ${z((n / max) * 34 + (hot ? 12 : 0))}` }}>
-            <span
-              className="absolute flex items-end justify-center"
-              style={{ left: -11 * k, bottom: radius, width: 22 * k, height: 52 * k }}
-              onMouseEnter={stats ? () => onTip({ kind: 'hour', h }) : undefined}
-              onClick={stats ? () => onTip(on ? null : { kind: 'hour', h }) : undefined}
-            >
-              <span
-                className={cn('block rounded-full transition-[background-color,box-shadow] duration-200', sweep && 'gallery-sweep')}
-                style={{
-                  width: 8 * k,
-                  // 从加载时的最短刻度（6）长到实际长度，汇总出来时不会先缩一下
-                  height: Math.max(4, (6 + (n / max) * 44 * grow) * k),
-                  background: hot || on ? '#fff' : sweep ? 'rgba(255,255,255,.8)' : idle,
-                  // 扫光按钟点错开，像秒针顺时针扫过（周期见 gallery.css）
-                  animationDelay: sweep ? `${((h / 24 - 1) * SWEEP_S).toFixed(3)}s` : undefined,
-                  boxShadow: hot ? '0 0 14px rgba(255,255,255,.85)' : on ? '0 0 10px rgba(255,255,255,.6)' : undefined,
-                }}
-              />
-            </span>
-          </div>
-        )
-      })}
-      {/* 现在几点 */}
-      <div aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${nowDeg}deg) ${z(54)}`, opacity: ringIn }}>
-        <span className="gallery-ping absolute size-3 rounded-full border-[1.5px] border-white" style={{ left: -6, bottom: radius + 54 * k }} />
-        <span className="absolute size-2.5 rounded-full bg-white shadow-[0_0_14px_#fff]" style={{ left: -5, bottom: radius + 55 * k }} />
-      </div>
-      {[
-        ['0', { left: c, top: 2, transform: 'translateX(-50%)' }],
-        ['6', { right: 0, top: c, transform: 'translateY(-50%)' }],
-        ['12', { left: c, bottom: 0, transform: 'translateX(-50%)' }],
-        ['18', { left: 0, top: c, transform: 'translateY(-50%)' }],
-      ].map(([label, style]) => (
-        <span key={label as string} aria-hidden className="absolute text-[11px] text-faint" style={{ ...(style as CSSProperties), transform: `${(style as CSSProperties).transform ?? ''} ${z(22)}`, opacity: ringIn }}>
-          {label as string}
-        </span>
-      ))}
-      {center && (
-        <div aria-hidden className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-          {center}
-        </div>
-      )}
-      {stats && hourTip >= 0 && (
-        <span
-          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-[10px] border border-white/22 bg-[rgba(28,28,31,.94)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-text shadow-[0_8px_20px_rgba(0,0,0,.5)]"
-          style={{
-            left: c + Math.sin((hourTip * Math.PI) / 12) * (radius + barLen(stats.hours[hourTip]) + 22 * k),
-            top: c - Math.cos((hourTip * Math.PI) / 12) * (radius + barLen(stats.hours[hourTip]) + 22 * k),
-          }}
-        >
-          {hourTip} 点 · {stats.hours[hourTip]} 话
-        </span>
-      )}
-    </div>
-  )
-}
-
-/* ───────── 三项数据 ───────── */
-function Kpis({ stats, works, e, plain }: { stats: ReadingStats; works: number; e: number; plain?: boolean }) {
-  const pct = stats.total ? (stats.read / stats.total) * 100 : 0
-  const past = stats.days.filter((d) => !d.future).length
-  const items = [
-    { value: `${Math.round(pct * e)}`, unit: '%', word: '已读', label: '书库已读', aria: `${Math.round(pct)}%`, w: pct * e },
-    { value: `${Math.round(stats.caughtUp * e)}/${works}`, unit: '部', word: '已追平', label: '已追平', aria: `${stats.caughtUp} / ${works} 部`, w: works ? (stats.caughtUp / works) * 100 * e : 0 },
-    { value: `${Math.round(stats.activeDays * e)}`, unit: '天', word: '近半年有阅读', label: '近半年有阅读', aria: `${stats.activeDays} / ${past} 天`, w: past ? (stats.activeDays / past) * 100 * e : 0 },
-  ]
-  if (plain) {
-    // 桌面：只用文字，不加框也不加进度条。数字、单位和一个词排在同一条基线上，不再另起一行小字
-    return (
-      <ul className="m-0 flex list-none flex-wrap gap-x-9 gap-y-3 p-0">
-        {items.map((it) => (
-          <li key={it.label} aria-label={`${it.label} ${it.aria}`} className="flex items-baseline gap-1.5 leading-none whitespace-nowrap">
-            <span aria-hidden className="text-[34px] font-bold tracking-[-0.02em] num">{it.value}</span>
-            <span aria-hidden className="font-cjk text-sm font-semibold text-white/75">
-              {it.unit}
-              <span className="ml-1 font-medium text-white/60">{it.word}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    )
-  }
-  return (
-    <div className="grid w-full grid-cols-3 gap-3.5">
-      {items.map((it) => (
-        <div key={it.label} className="flex min-w-0 flex-col gap-[7px]">
-          <span className="flex items-baseline gap-[3px] leading-none">
-            <span className="text-2xl font-bold tracking-[-0.02em] num">{it.value}</span>
-            <span className="font-cjk text-[13px] font-semibold text-white/70">{it.unit}</span>
-          </span>
-          <span className="text-xs text-muted">{it.label}</span>
-          <span role="img" aria-label={`${it.label} ${it.aria}`} className="block h-1 overflow-hidden rounded-sm bg-white/12">
-            <span className="block h-full rounded-sm bg-[#f4f4f5] shadow-[0_0_10px_rgba(255,255,255,.6)]" style={{ width: `${Math.min(100, it.w).toFixed(1)}%` }} />
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/* ───────── 轮播小结 ───────── */
-function tickerLines(s: ReadingStats, top: Ranked | undefined) {
-  const cut = (text: string, n: number) => ([...text].length > n ? `${[...text].slice(0, n).join('')}…` : text)
-  const lines: string[] = []
-  if (s.peak >= 0) lines.push(`最常在 ${s.peak} 点翻开漫画${s.peak >= 22 || s.peak <= 3 ? '，是个夜猫子' : ''}`)
-  if (s.streak > 1) lines.push(`最长连续读了 ${s.streak} 天，一天都没落下`)
-  if (top) lines.push(`《${cut(top.manga.title, 12)}》读了 ${count(top.read)} 话，排第一`)
-  if (s.pages > 0) lines.push(`至少翻过 ${count(s.pages)} 页，约 ${count(Math.max(1, Math.round(s.pages / 200)))} 本单行本那么厚`)
-  if (s.caughtUp > 0) lines.push(`已经追平 ${s.caughtUp} 部，就等更新了`)
-  if (s.total != null && s.total > s.read) lines.push(`书库里还有 ${count(s.total - s.read)} 话没读`)
-  if (s.untimed > 0) lines.push(`另有 ${count(s.untimed)} 话没有阅读时间，只计入总数`)
-  return lines.length ? lines : ['还没有阅读记录，读完一话就会出现在这里']
-}
-
-function Ticker({ stats, top, reduced, plain }: { stats: ReadingStats; top: Ranked | undefined; reduced: boolean; plain?: boolean }) {
-  const lines = tickerLines(stats, top)
-  const [i, setI] = useState(0)
-  // 减少动态效果时不自动轮播，点一下换下一句
-  useEffect(() => {
-    if (reduced) return
-    const timer = setInterval(() => setI((n) => n + 1), 3400)
-    return () => clearInterval(timer)
-  }, [reduced])
-  const at = i % lines.length
-  const dots = (
-    <span aria-hidden className="flex flex-none gap-1">
-      {lines.map((l, j) => (
-        <span key={l} className="block h-[5px] rounded-[3px] transition-[width,background-color] duration-300" style={{ width: j === at ? 18 : 5, background: j === at ? '#f4f4f5' : 'rgba(255,255,255,.3)' }} />
-      ))}
-    </span>
-  )
-  if (plain) {
-    // 桌面：一句大字，像引言；不套框
-    return (
-      <div className="flex flex-col items-start gap-3">
-        {/* 自动轮播不用 aria-live，免得读屏每隔几秒被打断 */}
-        <button type="button" key={i} onClick={() => setI((n) => n + 1)} title="下一句" className="gallery-tick m-0 max-w-full text-left font-cjk text-[clamp(18px,1.6vw,24px)] leading-[1.4] font-bold">
-          {lines[at]}
-        </button>
-        {dots}
-      </div>
-    )
-  }
-  return (
-    <div className="flex h-[50px] w-full items-center gap-3 overflow-hidden rounded-2xl border border-white/10 bg-white/6 px-3.5">
-      <Sparkles className="size-[18px] flex-none" strokeWidth={1.8} />
-      <button type="button" key={i} onClick={() => setI((n) => n + 1)} title="下一句" className="gallery-tick m-0 min-w-0 flex-1 truncate text-left font-cjk text-[15px] font-bold">
-        {lines[at]}
-      </button>
-      {dots}
-    </div>
-  )
-}
-
-/* ───────── 近半年 ───────── */
-const HEAT = ['rgba(255,255,255,.07)', 'rgba(255,255,255,.22)', 'rgba(255,255,255,.42)', 'rgba(255,255,255,.66)', 'rgba(255,255,255,.95)']
-
-const dayLabel = (date: number, n: number) => `${new Date(date).getMonth() + 1} 月 ${new Date(date).getDate()} 日 · ${n ? `${n} 话` : '没有阅读'}`
-
-/** 桌面：底部横跨全宽的时间线，每天一根，越高读得越多；从左往右依次长出来 */
-function Timeline({ stats, t, left, top, width }: { stats: ReadingStats; t: number; left: number; top: number; width: number }) {
-  const [tip, setTip] = useState(-1)
-  const days = stats.days
-  const step = width / days.length
-  const barW = Math.max(2, Math.min(7, step * 0.5))
-  const max = Math.max(1, ...days.map((d) => d.count))
-  const barsH = 50
-  const months = days.flatMap((d, i) => (new Date(d.date).getDate() === 1 ? [{ x: i * step, label: `${new Date(d.date).getMonth() + 1} 月` }] : []))
-  const tipDay = tip >= 0 ? days[tip] : null
-  return (
-    <section aria-labelledby="gallery-line" className="absolute z-10" style={{ left, top, width }}>
-      <div className="flex items-baseline justify-between gap-4" style={upStyle(t, 0.42)}>
-        <h2 id="gallery-line" className="sr">
-          近半年 · 每天读了几话
-        </h2>
-        <span className="ml-auto text-xs text-muted num">{stats.streak > 1 && `历来最长连续 ${stats.streak} 天`}</span>
-      </div>
-      <div
-        role="img"
-        aria-label={`近半年每天的阅读话数：${stats.activeDays} 天有阅读，最长连续 ${stats.streak} 天`}
-        className="relative mt-3"
-        style={{ height: barsH }}
-        onMouseLeave={() => setTip(-1)}
-      >
-        {days.map((d, i) => {
-          const grow = easeOut((t - 0.4 - i * 0.0024) / 0.35)
-          const hgt = d.future ? 0 : d.count ? 5 + (d.count / max) * (barsH - 5) : 3
-          return (
-            <span key={d.date} className="absolute bottom-0 flex h-full items-end justify-center" style={{ left: i * step, width: step }} onMouseEnter={() => !d.future && setTip(i)}>
-              <span
-                className="block rounded-full"
-                style={{
-                  width: barW,
-                  height: hgt * grow,
-                  background: i === tip ? '#fff' : HEAT[d.count ? Math.max(1, heatLevel(d.count)) : 0],
-                  boxShadow: i === tip ? '0 0 10px rgba(255,255,255,.6)' : undefined,
-                }}
-              />
-            </span>
-          )
-        })}
-        {tipDay && (
-          <span
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-[10px] border border-white/22 bg-[rgba(28,28,31,.94)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap shadow-[0_8px_20px_rgba(0,0,0,.5)]"
-            style={{ left: Math.min(width - 70, Math.max(70, tip * step + step / 2)), top: -8 }}
-          >
-            {dayLabel(tipDay.date, tipDay.count)}
-          </span>
-        )}
-      </div>
-      <div aria-hidden className="relative mt-2 h-4" style={{ opacity: easeOut((t - 0.45) / 0.4) }}>
-        {months.map((m) => (
-          <span key={m.x} className="absolute top-0 text-[11px] text-faint" style={{ left: m.x }}>
-            {m.label}
-          </span>
-        ))}
-      </div>
-    </section>
-  )
-}
-
-/** 手机：近半年热力图，一列一周 */
-function Heatmap({ stats, t, cell, tip, onTip }: { stats: ReadingStats; t: number; cell: number; tip: Tip; onTip: (t: Tip) => void }) {
-  const pitch = cell + 3
-  const weeks = stats.days.length / 7
-  const width = weeks * pitch - 3
-  const months: { x: number; label: string }[] = []
-  for (let w = 0; w < weeks; w++) {
-    const d = new Date(stats.days[w * 7].date)
-    if (d.getDate() <= 7) months.push({ x: w * pitch, label: `${d.getMonth() + 1} 月` })
-  }
-  const dayTip = tip?.kind === 'day' ? tip.i : -1
-  const tipDay = dayTip >= 0 ? stats.days[dayTip] : null
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="m-0 font-cjk text-[15px] font-bold">近半年 · 每天读了几话</h2>
-        <span aria-hidden className="flex items-center gap-1 text-[11px] text-faint">
-          少
-          {HEAT.map((bg) => (
-            <span key={bg} className="size-2.5 rounded-[3px]" style={{ background: bg }} />
-          ))}
-          多
-        </span>
-      </div>
-      <div aria-hidden className="relative mx-auto mt-2 h-3.5" style={{ width }}>
-        {months.map((m) => (
-          <span key={m.x} className="absolute top-0 text-[11px] text-faint" style={{ left: m.x }}>
-            {m.label}
-          </span>
-        ))}
-      </div>
-      <div
-        role="img"
-        aria-label={`近半年每天的阅读话数：${stats.activeDays} 天有阅读，最长连续 ${stats.streak} 天`}
-        className="relative mx-auto mt-1 grid grid-flow-col gap-[3px]"
-        style={{ width, gridTemplateRows: `repeat(7, ${cell}px)`, gridAutoColumns: cell }}
-        onMouseLeave={() => onTip(null)}
-      >
-        {stats.days.map((d, i) => {
-          // 一列一列像波浪一样亮起
-          const e = easeOut((t - 0.3 - Math.floor(i / 7) * 0.018 - (i % 7) * 0.01) / 0.35)
-          return (
-            <span
-              key={d.date}
-              className="rounded-[3px]"
-              style={{
-                width: cell,
-                height: cell,
-                background: d.future ? 'transparent' : HEAT[heatLevel(d.count)],
-                outline: i === dayTip ? '1.5px solid #f4f4f5' : undefined,
-                opacity: e,
-                transform: `scale(${(0.3 + 0.7 * e).toFixed(3)})`,
-              }}
-              onMouseEnter={() => !d.future && onTip({ kind: 'day', i })}
-              onClick={() => !d.future && onTip(i === dayTip ? null : { kind: 'day', i })}
-            />
-          )
-        })}
-        {tipDay && (
-          <span
-            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-[10px] border border-white/22 bg-[rgba(28,28,31,.94)] px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap shadow-[0_8px_20px_rgba(0,0,0,.5)]"
-            style={{ left: Math.floor(dayTip / 7) * pitch + cell / 2, top: (dayTip % 7) * pitch - 6 }}
-          >
-            {dayLabel(tipDay.date, tipDay.count)}
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ───────── 排行封面 ───────── */
-/** 无框封面下面那行文字（书名 + 已读）的高度，含和封面的间距；排行墙按它算尺寸 */
-const PLATE_CAP = 50
-
-/** bare：桌面排行墙用，不套框和底，封面只靠投影浮起，书名与已读话数一直写在封面下面 */
-function Plate({ it, width, best, onClick, className, style, showRank, bare }: { it: Ranked; width: number; best?: boolean; onClick?: (e: MouseEvent) => void; className?: string; style?: CSSProperties; showRank?: boolean; bare?: boolean }) {
-  const [color, setColor] = useState<Rgb>(NEUTRAL)
-  useEffect(() => {
-    if (!best) return
-    let alive = true
-    void coverColor(it.manga.thumbnailUrl).then((c) => alive && setColor(c))
+    const onUp = (e: PointerEvent) => {
+      if (!ptr || e.pointerId !== ptr.id) return
+      const dy = e.clientY - ptr.y
+      // 松手时的速度决定多滑几张
+      if (ptr.axis === 'x' && pager.p > 0.98) pager.flip(pager.cur - (ptr.v * 180) / gap)
+      else if (ptr.axis === 'y') {
+        if (dy < -40 && pager.p < 0.5) pager.go(1)
+        else if (dy > 40 && pager.p > 0.5) pager.go(0)
+      }
+      ptr = null
+    }
+    const onClick = (e: MouseEvent) => {
+      if (!moved.current) return
+      e.preventDefault()
+      e.stopPropagation()
+      moved.current = false
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('pointerdown', onDown)
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+    el.addEventListener('pointercancel', onUp)
+    el.addEventListener('click', onClick, true)
+    window.addEventListener('keydown', onKey)
     return () => {
-      alive = false
+      window.clearTimeout(accT)
+      window.clearTimeout(snapT)
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('pointerdown', onDown)
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+      el.removeEventListener('pointercancel', onUp)
+      el.removeEventListener('click', onClick, true)
+      window.removeEventListener('keydown', onKey)
     }
-  }, [best, it.manga.thumbnailUrl])
-  if (bare) {
-    return (
-      <Link
-        to={`/manga/${it.manga.id}`}
-        viewTransition
-        draggable={false}
-        onClick={onClick}
-        aria-label={`第 ${it.rank} 名：${it.manga.title}，已读 ${it.read} 话`}
-        className={cn('gallery-plate block text-text no-underline', className)}
-        style={{ width, ...style, '--c': rgbCss(color) } as CSSProperties}
-      >
-        <span className="relative block">
-          {best && <span aria-hidden className="gallery-glow absolute -inset-[46px] -z-10 rounded-[60px] blur-[8px]" style={{ background: `radial-gradient(closest-side, ${rgbCss(color)} 0%, ${rgbCss(color, 0.4)} 55%, transparent 100%)` }} />}
-          <span className="gallery-plate-cover cv rounded-[14px] shadow-[0_30px_54px_-24px_rgba(0,0,0,.95)]">
-            <CoverImg src={it.manga.thumbnailUrl} loading="lazy" />
-            {best && <span aria-hidden className="gallery-sheen pointer-events-none absolute inset-0 z-[1]" />}
-          </span>
-          {best && (
-            <span className="absolute -top-4 -right-4 z-[4] flex h-[34px] rotate-6 items-center gap-1.5 rounded-full bg-[#f4f4f5] pr-3.5 pl-[11px] text-[13px] font-bold text-[#0b0b0d] shadow-[0_10px_24px_rgba(0,0,0,.5)]">
-              <Crown className="size-[15px]" strokeWidth={2} />
-              读得最多
-            </span>
-          )}
-        </span>
-        <span className="mt-2.5 flex flex-col gap-0.5 overflow-hidden px-0.5" style={{ height: PLATE_CAP - 10 }}>
-          <span className="truncate font-cjk text-sm leading-[1.35] font-bold">{it.manga.title}</span>
-          <span className="truncate text-xs text-white/65 num">
-            {showRank && `No.${it.rank} · `}已读 {count(it.read)} / {it.total == null ? '—' : count(it.total)} 话
-          </span>
-        </span>
-      </Link>
-    )
+  }, [root, pager, gap])
+  return useCallback(() => moved.current, [])
+}
+
+/** 3.1 万页；不到一万照常写 */
+const pagesText = (n: number) => (n >= 10000 ? { v: (n / 10000).toFixed(1).replace(/\.0$/, ''), u: '万页' } : { v: count(n), u: '页' })
+
+/** 两侧四项数字：每项是大数字、一行说明和一条细竖条小图 */
+function kpiItems(s: ReadingStats, works: number, run: ReturnType<typeof bestRun>) {
+  const ratio = (f: number) => Array.from({ length: 24 }, (_, i) => ({ v: 1, lit: (i + 0.5) / 24 <= f }))
+  const frac = s.total ? s.read / s.total : 0
+  const growth = pageGrowth(s.days, s.pages, 24)
+  const base = s.pages - s.days.reduce((a, d) => a + d.pages, 0)
+  const pg = pagesText(s.pages)
+  const runWeeks = run ? [Math.floor(run.from / 7), Math.floor(run.to / 7)] : null
+  return {
+    progress: [
+      {
+        key: 'read',
+        value: (e: number) => (s.total ? `${Math.round(frac * 100 * e)}` : '—'),
+        unit: '%',
+        caption: `已读 · ${count(s.read)} / ${s.total == null ? '—' : count(s.total)} 话`,
+        bars: ratio(frac),
+        label: `书库已读 ${Math.round(frac * 100)}%`,
+      },
+      {
+        key: 'caught',
+        value: (e: number) => `${Math.round(s.caughtUp * e)}`,
+        unit: ` / ${works}`,
+        caption: '部已追平',
+        bars: ratio(works ? s.caughtUp / works : 0),
+        label: `已追平 ${s.caughtUp} / ${works} 部`,
+      },
+    ],
+    rhythm: [
+      {
+        key: 'days',
+        value: (e: number) => `${Math.round(s.activeDays * e)}`,
+        unit: '天',
+        caption: '近半年有阅读 · 按周',
+        bars: weekActive(s.days).map((v, w) => ({ v, on: v > 0, lit: !!runWeeks && v > 0 && w >= runWeeks[0] && w <= runWeeks[1] })),
+        label: `近半年有 ${s.activeDays} 天有阅读`,
+      },
+      {
+        key: 'pages',
+        value: () => pg.v,
+        unit: pg.u,
+        caption: '至少翻过 · 近半年累计',
+        bars: growth.map((v, i) => ({ v: v - base, on: true, lit: i === growth.length - 1 })),
+        label: `至少翻过 ${count(s.pages)} 页`,
+      },
+    ],
   }
+}
+
+type Kpi = ReturnType<typeof kpiItems>['progress'][number]
+
+function KpiBlock({ k, t, at, right, size, strip }: { k: Kpi; t: number; at: number; right?: boolean; size: number; strip: { w: number; h: number } }) {
+  const e = easeOut((t - at) / 0.6)
   return (
-    // 不走封面过渡：排行墙在 3D 透视里，给里面的封面挂换页动画的过渡名，浏览器会整个中止
-    <Link
-      to={`/manga/${it.manga.id}`}
-      draggable={false}
-      onClick={onClick}
-      aria-label={`第 ${it.rank} 名：${it.manga.title}，已读 ${it.read} 话`}
-      className={cn('gallery-plate relative block rounded-[18px] border border-white/24 bg-white/7 p-2 text-text no-underline shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_30px_60px_-28px_rgba(0,0,0,.9)] transition-[border-color] duration-300 hover:border-white/60', className)}
-      style={{ width, ...style, '--c': rgbCss(color) } as CSSProperties}
-    >
-      {best && (
-        <>
-          <span aria-hidden className="gallery-glow absolute -inset-[46px] -z-10 rounded-[60px] blur-[8px]" style={{ background: `radial-gradient(closest-side, ${rgbCss(color)} 0%, ${rgbCss(color, 0.4)} 55%, transparent 100%)` }} />
-          <span aria-hidden className="gallery-ring absolute -inset-1 rounded-[21px] p-[3px]" />
-        </>
-      )}
-      <span className="gallery-plate-cover cv rounded-[11px]">
-        <CoverImg src={it.manga.thumbnailUrl} loading="lazy" />
-        {best && <span aria-hidden className="gallery-sheen pointer-events-none absolute inset-0 z-[1]" />}
-        {showRank && (
-          <span className="absolute bottom-2.5 left-2.5 z-[2] flex h-7 items-center gap-1.5 rounded-full border border-white/26 bg-black/42 px-[11px] text-[13px] font-bold whitespace-nowrap backdrop-blur-[10px] num">
-            <span className="text-white/70">No.{it.rank}</span>
-            {count(it.read)} 话
-          </span>
-        )}
-        <span className="gallery-plate-cap absolute inset-x-0 bottom-0 z-[3] flex flex-col gap-1 bg-gradient-to-b from-transparent to-black/85 px-3 pt-10 pb-3">
-          <span className="line-clamp-2 font-cjk text-[13px] leading-[1.35] font-bold">{it.manga.title}</span>
-          <span className="text-xs text-white/80 num">
-            已读 {count(it.read)} / {it.total == null ? '—' : count(it.total)} 话
-          </span>
+    <div className={cn('flex flex-col', right ? 'items-end text-right' : 'items-start')} style={upStyle(t, at)}>
+      <span aria-hidden className="flex items-baseline gap-1 leading-[.95] whitespace-nowrap">
+        <span className="font-bold tracking-[-0.045em] num" style={{ fontSize: size }}>
+          {k.value(e)}
+        </span>
+        <span className="font-cjk font-bold text-muted" style={{ fontSize: Math.round(size * 0.36) }}>
+          {k.unit}
         </span>
       </span>
-      {best && (
-        <span className="absolute -top-4 -right-4 z-[4] flex h-[34px] rotate-6 items-center gap-1.5 rounded-full bg-[#f4f4f5] pr-3.5 pl-[11px] text-[13px] font-bold text-[#0b0b0d] shadow-[0_10px_24px_rgba(0,0,0,.5)]">
-          <Crown className="size-[15px]" strokeWidth={2} />
-          读得最多
-        </span>
-      )}
-    </Link>
-  )
-}
-
-/* ───────── 桌面排行墙：两部一列，可拖动、甩动、滚动，停下吸附到最近的一列；排到左边的列渐渐变暗淡出 ───────── */
-function RankWall({
-  ranked,
-  works,
-  t,
-  width,
-  bottom,
-  left,
-  reduced,
-  restore,
-  empty,
-}: {
-  ranked: Ranked[]
-  works: number
-  t: number
-  width: number
-  /** 排行墙（含底部刻度）最低能到哪里，下面是时间线 */
-  bottom: number
-  /** 排行墙从哪里开始，左边是大数字 */
-  left: number
-  reduced: boolean
-  restore: boolean
-  empty: boolean
-}) {
-  const cols = Math.ceil(ranked.length / 2)
-  // 尺寸按可用高度算：列头、两张封面（连同下面的文字）、间距和底部刻度放得下
-  const top = 92
-  const head = 88
-  const coverW = Math.round(Math.max(72, Math.min(200, ((bottom - top - head - 22 - 30) / 2 - PLATE_CAP) / 1.5)))
-  const plateW = coverW
-  const plateH = Math.round(coverW * 1.5 + PLATE_CAP)
-  const pitch = plateW + 44
-  // 第一列（「已读排行」）贴着左边界，第一名在它右边一列
-  const pivot = left + plateW / 2 + pitch
-  const persp = 1300
-  const ox = pivot + pitch * 0.7
-  const [s, setS] = useState(() => (restore ? memory.s : 0))
-  const sRef = useRef(s)
-  sRef.current = s
-  const target = useRef(s)
-  const moved = useRef(false)
-  const dragging = useRef(false)
-  const raf = useRef(0)
-  const lastWheel = useRef(0)
-  const min = -pitch
-  const max = Math.max(0, (cols - 1) * pitch)
-  const snap = (x: number) => Math.max(-1, Math.min(Math.max(0, cols - 1), Math.round(x / pitch))) * pitch
-  const clampS = (x: number) => Math.max(min - pitch / 2, Math.min(max + pitch / 2, x))
-
-  // 离开时记下停在哪一列（按列数记，返回时窗口大小变了也对得上）
-  const pitchRef = useRef(pitch)
-  pitchRef.current = pitch
-  useEffect(
-    () => () => {
-      cancelAnimationFrame(raf.current)
-      memory.s = Math.round(sRef.current / pitchRef.current) * pitchRef.current
-    },
-    [],
-  )
-
-  const settle = () => {
-    cancelAnimationFrame(raf.current)
-    let last = performance.now()
-    const step = (now: number) => {
-      const dt = Math.max(0, Math.min(48, now - last))
-      last = now
-      if (dragging.current) return
-      if (now - lastWheel.current < 160) {
-        raf.current = requestAnimationFrame(step)
-        return
-      }
-      const cur = sRef.current
-      let next = cur + (target.current - cur) * (reduced ? 1 : Math.min(1, dt * 0.012))
-      if (Math.abs(target.current - next) < 0.3) next = target.current
-      sRef.current = next
-      setS(next)
-      if (next !== target.current) raf.current = requestAnimationFrame(step)
-    }
-    raf.current = requestAnimationFrame(step)
-  }
-
-  const bind = useDrag(
-    ({ first, last, tap, movement: [mx], velocity: [vx], direction: [dx], memo }) => {
-      // 单击也会以「非第一帧」调一次，那时没有起点：照算会得到 NaN，整面墙从此停住（点侧边的封面就会这样）
-      if (t < 1 || tap) return memo
-      const s0 = first ? sRef.current : (memo as number | undefined)
-      if (s0 === undefined || !Number.isFinite(s0)) return memo
-      if (first) {
-        moved.current = false
-        cancelAnimationFrame(raf.current)
-      }
-      dragging.current = !last
-      if (Math.abs(mx) > 4) moved.current = true
-      const next = clampS(s0 - mx)
-      sRef.current = next
-      setS(next)
-      if (last) {
-        // 甩得越快滑得越远，再吸到最近的一列
-        target.current = snap(next - (reduced ? 0 : vx * dx * 220))
-        settle()
-      }
-      return s0
-    },
-    { pointer: { capture: false }, filterTaps: true, axis: 'x' },
-  )
-
-  const onWheel = (e: React.WheelEvent) => {
-    if (t < 1) return
-    lastWheel.current = performance.now()
-    const next = clampS(sRef.current + (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY))
-    sRef.current = next
-    setS(next)
-    target.current = snap(next)
-    settle()
-  }
-
-  const onPlate = (j: number) => (e: MouseEvent) => {
-    // 刚拖动过不算点击；点的不是正中那一列时先把它移过来
-    if (moved.current) {
-      e.preventDefault()
-      return
-    }
-    if (Math.abs(sRef.current - j * pitch) > pitch / 2) {
-      e.preventDefault()
-      target.current = j * pitch
-      settle()
-    }
-  }
-
-  // 进场的先后按「离当前停靠的那一列有几列」算，不按列号：返回时墙停在第 14 列，列号算下来的延迟早超过整段动画，那些列会一直半透明、话数停在 0。
-  // 上限 6：再远的列在屏幕外，也保证 t 到 1 时每一列都已到位
-  const base = Math.round(s / pitch) - 1
-  const lagOf = (j: number) => Math.max(0, Math.min(6, j - base))
-  const items: { j: number; x: number; z: number; ry: number; o: number; zi: number }[] = []
-  for (let j = -1; j < cols; j++) {
-    const d = j * pitch - s
-    let x = pivot + d
-    let z = 0
-    let ry = 0
-    let o = 1
-    if (d < 0) {
-      // 排到左边的列：稍微往后退、侧过去一点、变暗，靠近左边的大数字之前完全淡出
-      const k = Math.min(1, -d / pitch)
-      z = -90 * k
-      ry = 10 * k
-      o = (1 - 0.4 * k) * clamp01((x - plateW / 2 - (left - pitch * 0.5)) / (pitch * 0.5))
-    }
-    // 进场：各列依次从右侧翻转着飞入；出场时倒放
-    const ej = easeOut((t - 0.12 - lagOf(j) * 0.05) / 0.5)
-    x += (1 - ej) * 260
-    o *= ej
-    ry -= (1 - ej) * 80
-    if (o <= 0.01 || (x - plateW / 2 > width + 40 && j >= 0)) continue
-    items.push({ j, x, z, ry, o, zi: 100 + Math.round(d / pitch) })
-  }
-
-  // 底部刻度跟着各列的透视位置走；只画刻度线，话数已经写在列头上了
-  const ticksY = top + head + plateH * 2 + 22 + 18
-  const ticks = items
-    .filter((c) => c.j >= 0)
-    .map((c) => ({ j: c.j, x: ox + ((c.x - ox) * persp) / (persp - c.z), o: c.o }))
-
-  return (
-    <div className={cn('absolute inset-0 touch-pan-y', t >= 1 && 'cursor-grab active:cursor-grabbing')} {...bind()} onWheel={onWheel}>
-      <div className="absolute inset-0" style={{ perspective: persp, perspectiveOrigin: `${ox}px ${top + head + plateH}px` }}>
-        {items.map(({ j, x, z, ry, o, zi }) => {
-          const a = ranked[j * 2]
-          const b = ranked[j * 2 + 1]
-          return (
-            <div key={j} className="absolute" style={{ left: x - plateW / 2, top, width: plateW, zIndex: zi, opacity: o, transform: `translateZ(${z.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg)` }}>
-              <div className="gallery-float" style={{ animationDelay: `${-(j + 1) * 0.7}s` }}>
-                {j < 0 ? (
-                  <div className="flex flex-col justify-between py-1.5 pr-3" style={{ marginTop: head, height: plateH * 2 + 22 }}>
-                    <span className="text-[13px] font-medium tracking-[.3em] text-white/70">TOP {ranked.length || works}</span>
-                    <span className="flex flex-col gap-3.5">
-                      <span className="font-cjk leading-[1.08] font-black" style={{ fontSize: Math.round(Math.min(46, plateW * 0.26)) }}>
-                        已读
-                        <br />
-                        排行
-                      </span>
-                      <span className="text-sm leading-[1.7] text-white/75">{empty ? '还没有读过的作品，读完一话就会出现在这里。' : '按已读话数从多到少。拖动、甩动或滚动浏览。'}</span>
-                      <ArrowRight className="size-[30px]" strokeWidth={1.8} />
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <div aria-hidden className="flex flex-col items-center justify-end gap-2" style={{ height: head }}>
-                      <span className="text-xs font-semibold tracking-[.24em] text-faint">No.{a.rank}</span>
-                      <span className="flex items-baseline gap-1.5 leading-none">
-                        <span className="text-[44px] font-bold tracking-[-0.03em] num">{count(Math.round(a.read * easeOut((t - 0.3 - Math.min(2, Math.max(0, lagOf(j) - 1)) * 0.05) / 0.6)))}</span>
-                        <span className="font-cjk text-lg font-bold text-white/75">话</span>
-                      </span>
-                      <span className="h-[18px] w-px bg-white/40" />
-                    </div>
-                    <Plate bare it={a} width={plateW} best={a.rank === 1} onClick={onPlate(j)} style={a.rank === 1 ? { transform: 'scale(1.04)' } : undefined} />
-                    {b && <Plate bare it={b} width={plateW} onClick={onPlate(j)} showRank className="mt-[22px]" />}
-                  </>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 h-[40px]" style={{ top: ticksY - 12, opacity: easeOut((t - 0.2) / 0.5) }}>
-        <div className="absolute top-3 right-10 h-px bg-[linear-gradient(90deg,transparent,rgba(255,255,255,.3)_12%,rgba(255,255,255,.3))]" style={{ left: left + 28 }} />
-        {ticks.map((tk) => (
-          <span key={tk.j} className="absolute top-[7px] h-[13px] w-px bg-white/60" style={{ left: tk.x, opacity: tk.o }} />
-        ))}
-      </div>
+      <span className="mt-2 text-xs font-semibold whitespace-nowrap text-muted md:text-[13px]">{k.caption}</span>
+      <span className={size > 40 ? 'mt-4' : 'mt-3'}>
+        <Strip bars={k.bars} width={strip.w} height={strip.h} right={right} t={t} at={at + 0.1} label={k.label} />
+      </span>
     </div>
   )
 }
 
-/* ───────── 手机：竖排长页 ───────── */
-function MobileStats(p: BodyProps) {
-  const { w } = useWindowSize()
-  const clockSize = Math.min(300, w - 90)
-  const heatCell = Math.max(7, Math.min(11, Math.floor((w - 40 + 3) / 26) - 3))
-  return (
-    <>
-      <Backdrop glow={p.glow} className="absolute inset-x-0 top-0 h-[760px]" />
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[760px] bg-[linear-gradient(180deg,transparent_60%,var(--bg))]" />
-      <div className="relative flex flex-col items-center gap-6 px-5 pt-[max(12px,env(safe-area-inset-top))] pb-16">
-        <header className="flex w-full items-center justify-between">
-          <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" className="gicon size-11 rounded-full text-text">
-            <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
-          </Glass>
-          <h1 className="m-0 font-cjk text-[17px] font-black">阅读档案</h1>
-          <span className="size-11" />
-        </header>
-        {/* 主角：已读话数，从首页飞过来的那个数字 */}
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[11px] font-semibold tracking-[.3em] text-muted">已读章节</span>
-          <span className="flex items-baseline gap-1.5">
-            <span data-gallery-read className="text-[64px] leading-none font-bold tracking-[-0.045em] num">
-              {p.read == null ? '—' : count(p.read)}
-            </span>
-            <span className="font-cjk text-lg font-bold text-white/75">话</span>
-          </span>
-          <span className="text-[11px] tracking-[.08em] text-muted">截至 {dateLabel(p.now)} · 按每话最后一次阅读的时间</span>
-        </div>
-        <Overview {...p} clockSize={clockSize} heatCell={heatCell} />
-        {p.stats && <RankStrip ranked={p.ranked} />}
+/** 第一屏底部：往下看的提示；还在汇总时换成进度文字，失败时是重试 */
+function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; mobile: boolean }) {
+  if (!p.stats)
+    return (
+      <div className="flex flex-col items-center gap-3 text-center">
+        {p.error ? (
+          <>
+            <p className="m-0 text-danger">阅读记录加载失败</p>
+            <button type="button" className="solid" onClick={p.retry}>
+              重试
+            </button>
+          </>
+        ) : (
+          <p className="m-0 text-sm text-muted num">{p.loadingText}</p>
+        )}
       </div>
-    </>
+    )
+  if (!p.ranked.length) return <p className="m-0 text-sm text-muted">还没有读过的作品，读完一话就会出现在这里</p>
+  const e = easeOut((t - 0.6) / 0.45)
+  return (
+    // 透明度放在玻璃元素自己身上，不放祖先，免得背景采样跟着变
+    <Glass
+      as="button"
+      type="button"
+      onClick={() => pager.go(1)}
+      className="flex h-10 items-center gap-1.5 rounded-full pr-3.5 pl-4 text-[13px] font-bold text-text"
+      style={{ opacity: `calc(${e} * (1 - ${seg01('0', '0.15')}))`, translate: `0 calc(${((1 - e) * 18).toFixed(1)}px + ${seg01('0', '0.15')} * 12px)` }}
+    >
+      {mobile ? '上滑' : '往下看'} · 读了什么
+      <ChevronDown className="size-4" strokeWidth={2.4} />
+    </Glass>
   )
 }
 
-/** 手机排行：横向滑动的封面，自动对齐到中间 */
-function RankStrip({ ranked }: { ranked: Ranked[] }) {
-  return (
-    <section aria-labelledby="gallery-rank" className="-mx-5 w-[calc(100%+40px)]">
-      <div className="flex items-baseline justify-between px-5">
-        <h2 id="gallery-rank" className="m-0 font-cjk text-[22px] font-black">
-          已读排行
-        </h2>
-        <span className="text-xs text-muted">{ranked.length ? `左右滑动 · 前 ${ranked.length} 部` : '还没有读过的作品'}</span>
-      </div>
-      {ranked.length > 0 && (
-        <div className="no-scrollbar mt-3.5 flex snap-x snap-mandatory gap-1.5 overflow-x-auto px-[calc(50%-80px)] pt-[18px] pb-[22px] [perspective:900px]">
-          {ranked.map((it) => (
-            <div key={it.manga.id} className="gallery-cf flex w-40 flex-none snap-center flex-col items-center gap-2.5">
-              <span aria-hidden className="flex items-baseline gap-1.5 leading-none">
-                <span className="text-[11px] font-semibold tracking-[.2em] text-faint">No.{it.rank}</span>
-                <span className="text-[26px] font-bold num">{count(it.read)}</span>
-                <span className="font-cjk text-[13px] font-bold text-white/75">话</span>
-              </span>
-              <Plate it={it} width={160} best={it.rank === 1} className="p-1.5" />
-              <span className="line-clamp-2 w-[150px] text-center font-cjk text-[13px] leading-[1.35] font-bold">{it.manga.title}</span>
-            </div>
-          ))}
-        </div>
-      )}
+/** 一段进度写成 CSS（--p 每帧由页面写入） */
+const seg01 = (a: string, b: string) => `clamp(0, calc((var(--p) - ${a}) / (${b} - ${a})), 1)`
+
+function Stats(p: BodyProps) {
+  const { mobile, stats, read, ranked, taste, works, t, reduced, pager } = p
+  const win = useWindowSize()
+  // 太矮的窗口（手机横屏、小屏手机）按最小高度排版再整体缩小：两屏都固定在一屏里，滚轮和上下滑留给切屏，不能改成滚动
+  const k = Math.min(1, win.h / (mobile ? MIN_H_PHONE : MIN_H))
+  const w = win.w / k
+  const h = win.h / k
+  const root = useRef<HTMLDivElement>(null)
+  const zoom = useRef<HTMLDivElement>(null)
+  const num = useRef<HTMLDivElement>(null)
+  const tilt = useRef<HTMLDivElement>(null)
+  const [tip, setTip] = useState<Tip>(null)
+  const [screen, setScreen] = useState(pager.p > 0.5 ? 1 : 0)
+  const [at, setIdx] = useState(() => Math.round(pager.cur))
+  // 排行变短时（比如刚汇总完）不越界
+  const idx = Math.min(at, Math.max(0, ranked.length - 1))
+
+  /* ── 尺寸 ── */
+  const side = mobile ? 24 : Math.round(Math.max(32, Math.min(64, w * 0.044)))
+  const top = mobile ? 64 : 88
+  const kpiW = w >= 1200 ? 196 : 168
+  // 表盘（连年轮和外面的字）的边长；时钟本身按 360 / DIAL_UNITS 缩
+  const dial = mobile ? Math.round(Math.max(260, Math.min(w - 16, h * 0.47))) : Math.round(Math.max(300, Math.min(h - top - 92, w - side * 2 - kpiW * 2 - 96, 700)))
+  const clock = Math.round((dial * 360) / DIAL_UNITS)
+  const text = read == null ? '—' : count(read)
+  const numSize = Math.round(Math.max(36, Math.min(mobile ? 64 : 112, (clock * 0.6 - 36) / ([...text].length * 0.56))))
+  const tasteW = Math.round(Math.max(260, Math.min(330, w * 0.22)))
+  const flowW = mobile ? w : w - side * 2 - tasteW - 48
+  const cw = Math.round(mobile ? Math.max(120, Math.min(160, h * 0.2, w * 0.4)) : Math.max(150, Math.min(240, (h - top - 230) / 1.5, flowW / 2.9)))
+  const L = useMemo(() => flowLayout(cw, mobile), [cw, mobile])
+  const flowH = L.ch + (mobile ? 40 : 60)
+
+  const run = useMemo(() => (stats ? bestRun(stats.days) : null), [stats])
+  const year = useMemo<YearRing | null>(() => (stats ? { days: stats.days, run, weekly: mobile } : null), [stats, run, mobile])
+  const kpis = useMemo(() => (stats ? kpiItems(stats, works, run) : null), [stats, works, run])
+  const peak = stats && stats.peak >= 0 ? stats.peak : -1
+
+  useDialTilt(tilt, reduced || mobile, pager)
+  const moved = usePagerInput(root, pager, L.gap1 * k)
+
+  /* ── 每帧：穿过表盘、写 --p 给 CSS、记下停在哪一屏和哪一部 ── */
+  useLayoutEffect(() => {
+    const paint = () => {
+      const pp = pager.p
+      const ud = ease(seg(pp, 0.04, 0.56))
+      const s = root.current?.style
+      s?.setProperty('--p', pp.toFixed(4))
+      s?.setProperty('--ek', ease(seg(pp, 0, 0.3)).toFixed(4))
+      if (zoom.current) {
+        zoom.current.style.transform = ud ? `scale(${(1 + ud * 1.9).toFixed(4)})` : ''
+        zoom.current.style.opacity = `${1 - seg(pp, 0.14, 0.56)}`
+        // 倾斜收平以后才模糊：模糊会把表盘压成一张平面
+        zoom.current.style.filter = pp > 0.15 ? `blur(${(ud * 6).toFixed(2)}px)` : ''
+      }
+      if (num.current) {
+        num.current.style.transform = ud ? `scale(${(1 + ud * 1.4).toFixed(4)})` : ''
+        num.current.style.opacity = `${1 - seg(pp, 0.06, 0.44)}`
+        num.current.style.filter = pp > 0.04 ? `blur(${(ud * 4).toFixed(2)}px)` : ''
+      }
+      setScreen(pp > 0.5 ? 1 : 0)
+      setIdx(Math.max(0, Math.round(pager.cur)))
+    }
+    paint()
+    return pager.subscribe(paint)
+  }, [pager])
+
+  // 正中那部的封面主色：背景光和地面光跟着换；翻页途中不取，停下再取
+  const [tone, setTone] = useState<Rgb>(NEUTRAL)
+  const current = ranked[idx]
+  const toneSrc = current?.manga.thumbnailUrl
+  useEffect(() => {
+    let alive = true
+    const id = window.setTimeout(() => void coverColor(toneSrc).then((c) => alive && setTone(c)), 140)
+    return () => {
+      alive = false
+      window.clearTimeout(id)
+    }
+  }, [toneSrc])
+
+  const kpiDrift = (dir: -1 | 1): CSSProperties =>
+    mobile ? { opacity: 'calc(1 - var(--ek))', translate: '0 calc(var(--ek) * 30px)' } : { opacity: 'calc(1 - var(--ek))', translate: `calc(var(--ek) * ${dir * 60}px) 0` }
+  const stripSize = mobile ? { w: Math.floor((w - side * 2 - 24) / 2), h: 18 } : { w: kpiW, h: 22 }
+  const group = (title: string, items: Kpi[], right: boolean, at: number) => (
+    <section aria-label={title} className={cn('flex flex-col gap-10', right && 'items-end')} style={kpiDrift(right ? 1 : -1)}>
+      <h2 className="m-0 text-xs font-bold tracking-[.32em] text-muted" style={upStyle(t, at - 0.04)}>
+        {title}
+      </h2>
+      {items.map((k, i) => (
+        <KpiBlock key={k.key} k={k} t={t} at={at + i * 0.06} right={right} size={52} strip={stripSize} />
+      ))}
     </section>
+  )
+
+  const dialEl = (
+    <div className="relative flex-none" style={{ width: dial, height: dial }}>
+      <div ref={zoom} className="absolute inset-0">
+        <div className="absolute" style={{ left: (dial - clock) / 2, top: (dial - clock) / 2, width: clock, height: clock, perspective: 900 }}>
+          <div ref={tilt} className="absolute inset-0 [transform-style:preserve-3d]">
+            <Clock stats={stats} t={t} size={clock} tip={tip} onTip={setTip} load={p.load} read={read} failed={!!p.error} reduced={reduced} year={year} className="absolute inset-0" />
+          </div>
+        </div>
+      </div>
+      <div ref={num} className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+        <span className="text-xs font-semibold tracking-[.32em] text-muted md:text-[13px]">已读章节</span>
+        <span className="flex items-baseline gap-1.5">
+          {/* 数字一开始就是最终值：它是从首页飞过来的，落地时不能变 */}
+          <span data-gallery-read className="leading-[.95] font-bold tracking-[-0.045em] num" style={{ fontSize: numSize }}>
+            {text}
+          </span>
+          <span className="font-cjk text-lg font-bold text-white/75 md:text-xl">话</span>
+        </span>
+        <span className="mt-1 font-cjk text-xs font-bold text-white/70 md:text-sm" style={{ opacity: peak >= 0 ? easeOut((t - 0.5) / 0.4) : 0 }}>
+          {peak >= 0 ? `${peak} 点读得最多${peak >= 22 || peak <= 3 ? ' · 是个夜猫子' : ''}` : ' '}
+        </span>
+      </div>
+    </div>
+  )
+
+  const flowBox = current && (
+    <div className="relative w-full flex-none" style={{ height: flowH }}>
+      {/* 名次大字垫在封面后面；手机上露出的部分太少，看着像一团色块，不放 */}
+      {!mobile && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 -translate-x-1/2 font-bold tracking-[-0.06em] text-white/[.055] num"
+          style={{ top: flowH / 2 - L.ch * 0.62, fontSize: L.ch * 0.83, lineHeight: 1, opacity: seg01('0.6', '0.9') }}
+        >
+          {String(current.rank).padStart(2, '0')}
+        </span>
+      )}
+      {/* 地面上铺一片这部封面颜色的光 */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute rounded-[50%] transition-[background] duration-700"
+        style={{
+          left: flowW / 2 - L.cw * 1.6,
+          top: flowH / 2 + L.ch / 2 - L.cw * 0.14,
+          width: L.cw * 3.2,
+          height: L.cw * 0.5,
+          background: `radial-gradient(closest-side, ${rgbCss(tone, 0.5)}, ${rgbCss(tone, 0.12)} 60%, transparent)`,
+          opacity: seg01('0.55', '0.95'),
+        }}
+      />
+      <CoverFlow ranked={ranked} idx={idx} pager={pager} L={L} width={flowW} cy={flowH / 2} moved={moved} />
+    </div>
+  )
+
+  const info = current && <FlowInfo it={current} tone={tone} phone={mobile} onStep={mobile ? undefined : (d) => pager.flip(pager.goal + d)} first={idx === 0} last={idx === ranked.length - 1} />
+  const rankLabel = (
+    <span className="text-xs font-bold tracking-[.32em] text-muted" style={{ opacity: seg01('0.6', '0.85') }}>
+      已读排行 · 前 {ranked.length} 部
+    </span>
+  )
+  // 正中封面背后的两团光，颜色跟着正中那部
+  const glows = (cx: number, cy: number) => (
+    <>
+      <div aria-hidden className="pointer-events-none absolute rounded-full blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 380, top: cy - 300, width: 760, height: 600, backgroundColor: rgbCss(tone), opacity: `calc(${seg01('0.4', '0.9')} * .55)` }} />
+      <div aria-hidden className="pointer-events-none absolute rounded-full mix-blend-screen blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 360, top: cy - 280, width: 720, height: 560, backgroundColor: rgbCss(tone), opacity: `calc(${seg01('0.5', '0.95')} * .25)` }} />
+    </>
+  )
+
+  return (
+    <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none" style={{ '--p': pager.p, '--ek': 0 } as CSSProperties}>
+      <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
+        <Backdrop glow={p.glow} className="absolute inset-0" style={{ opacity: `calc(1 - ${seg01('0.3', '0.8')} * .6)` }} />
+
+        {/* ───── 第一屏 ───── */}
+        <div className="absolute inset-0" inert={screen === 1}>
+          {mobile ? (
+            <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
+              {dialEl}
+              {kpis && (
+                <div className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side, ...kpiDrift(1) }}>
+                  {[...kpis.progress, ...kpis.rhythm].map((k, i) => (
+                    <KpiBlock key={k.key} k={k} t={t} at={0.38 + i * 0.05} size={36} strip={stripSize} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="absolute grid items-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px minmax(0,1fr) ${kpiW}px` }}>
+              <div>{kpis && group('进度', kpis.progress, false, 0.38)}</div>
+              <div className="flex justify-center">{dialEl}</div>
+              <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
+            </div>
+          )}
+          <div className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
+            <Hint p={p} t={t} pager={pager} mobile={mobile} />
+          </div>
+        </div>
+
+        {/* ───── 第二屏 ───── */}
+        {current && taste && (
+          <div className="absolute inset-0" inert={screen === 0} aria-hidden={screen === 0}>
+            {mobile ? (
+              <>
+                {glows(w / 2, top + 30 + flowH / 2)}
+                <div className="absolute inset-x-0 flex flex-col" style={{ top: top + 4, bottom: 0 }}>
+                  <div style={{ paddingInline: side }}>{rankLabel}</div>
+                  {flowBox}
+                  <div className="px-6">{info}</div>
+                  <div className="mt-6" style={{ paddingInline: side }}>
+                    <TastePanel taste={taste} it={current} tone={tone} phone />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {glows(side + flowW / 2, top + (h - top - 40) / 2 - 60)}
+                <div className="absolute grid" style={{ left: side, right: side, top, bottom: 40, gridTemplateColumns: `${flowW}px ${tasteW}px`, columnGap: 48 }}>
+                  <section aria-label="已读排行" className="relative flex min-w-0 flex-col justify-center">
+                    <div className="absolute top-0 left-0">{rankLabel}</div>
+                    {flowBox}
+                    {info}
+                  </section>
+                  <div className="flex items-center">
+                    <TastePanel taste={taste} it={current} tone={tone} phone={false} />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ───── 顶栏：两屏共用，不跟着穿过表盘 ───── */}
+        {mobile ? (
+          <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
+            <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" className="gicon size-11 rounded-full text-text">
+              <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
+            </Glass>
+            <div className="flex flex-col items-center">
+              <h1 className="m-0 font-cjk text-[17px] font-black">阅读档案</h1>
+              <span className="text-[11px] text-muted">截至 {dateLabel(p.now)}</span>
+            </div>
+            <span className="size-11" />
+          </header>
+        ) : (
+          <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
+            <GalleryBack onClick={p.onExit} title="返回画廊首页（Esc）" />
+            <div className="flex flex-col gap-0.5">
+              <h1 className="m-0 font-cjk text-xl font-black">阅读档案</h1>
+              <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)} · 时间按每话最后一次阅读算</span>
+            </div>
+          </header>
+        )}
+      </div>
+    </div>
   )
 }
