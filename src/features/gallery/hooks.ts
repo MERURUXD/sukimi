@@ -4,6 +4,7 @@ import { withSnapshot } from '@/api/persist'
 import { FILTERS } from '@/features/library/filtering'
 import type { GalleryCountsQuery } from '@/api/gql/graphql'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
+import { useNsfw } from '@/features/nsfw/useNsfw'
 import { GalleryCounts } from './queries'
 import { useLanded } from './readMorph'
 
@@ -22,6 +23,9 @@ export const useMobile = () => useMedia('(max-width: 767px)')
 export const useReducedMotionPref = () => useMedia('(prefers-reduced-motion: reduce)')
 
 export const isCompleted = FILTERS.find((f) => f.key === 'completed')!.test
+
+/** 书库有作品、但全被 NSFW 隐藏时的提示，不能沿用空书库的文案 */
+export const NSFW_ALL_HIDDEN = '书库里的作品都标成了 NSFW，已隐藏。可以在「设置 → 外观 → 隐私」里调整，或按 Shift + H 临时显示。'
 
 /** 每部的总话数（按 id）；还没取到时为 null */
 export const chapterTotals = (data: GalleryCountsQuery | undefined) => (data ? new Map(data.mangas.nodes.map((m) => [m.id, m.chapters.totalCount])) : null)
@@ -45,20 +49,27 @@ export function useGalleryLibrary() {
   // 换页动画期间有缓存就只用缓存，落地后再去网络刷新（见 useLanded）；没有缓存时照常去取，免得数字一直是「—」
   const landed = useLanded()
   const counts = useQuery(GalleryCounts, { fetchPolicy: landed ? 'cache-and-network' : 'cache-first' })
-  const all = useMemo<LibraryManga[]>(() => data?.mangas.nodes ?? [], [data])
+  const full = useMemo<LibraryManga[]>(() => data?.mangas.nodes ?? [], [data])
+  // 墙、网格、画布和放映都不出现 NSFW 作品；数字仍按完整书库算（只计数不露面）
+  const { hidden } = useNsfw()
+  const all = useMemo(() => full.filter((m) => !hidden(m)), [full, hidden])
   const totals = useMemo(() => chapterTotals(counts.data), [counts.data])
   const stats = useMemo(() => {
-    const done = all.filter(isCompleted).length
+    const done = full.filter(isCompleted).length
     return {
-      works: all.length,
-      chapters: totals ? all.reduce((n, m) => n + (totals.get(m.id) ?? 0), 0) : null,
-      read: readChapters(all, totals),
-      ongoing: all.filter((m) => m.status === 'ONGOING').length,
+      works: full.length,
+      chapters: totals ? full.reduce((n, m) => n + (totals.get(m.id) ?? 0), 0) : null,
+      read: readChapters(full, totals),
+      ongoing: full.filter((m) => m.status === 'ONGOING').length,
       done,
+      shown: all.length,
     }
-  }, [all, totals])
+  }, [full, all, totals])
   return {
+    /** 能露面的作品（去掉 NSFW） */
     all,
+    /** 完整书库，汇总数字用 */
+    full,
     totals,
     stats,
     categories: catData?.categories.nodes ?? [],

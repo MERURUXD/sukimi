@@ -23,6 +23,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { useAppearance } from '@/design/settings'
 import { isDemo } from '@/lib/demo'
+import { useNsfw } from '@/features/nsfw/useNsfw'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { IN_LIBRARY, RecentReads, RecentUpdates, type ReadChapter, type UpdateChapter } from './queries'
 import { isRecent, isStale, notStarted, pickBatch } from './picks'
@@ -85,7 +86,11 @@ export function HomePage() {
   const readsData = withSnapshot('recentReads', reads.data)
   const updatesData = withSnapshot('recentUpdates', updates.data)
   const libData = withSnapshot('library', lib.data)
-  const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter(isVisible)), [readsData])
+  // NSFW 作品在首页一律不出现（见 features/nsfw）：从源头去掉，大图区、书架和橱窗都不用各自判断
+  const { hidden } = useNsfw()
+  const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter((c) => isVisible(c) && !hidden(c.manga))), [readsData, hidden])
+  const library = useMemo(() => libData?.mangas.nodes.filter((m) => !hidden(m)), [libData, hidden])
+  const updateChapters = useMemo(() => updatesData?.chapters.nodes.filter((c) => !hidden(c.manga)), [updatesData, hidden])
   const [heroSeed, heroBatch, nextHero] = useBatch('hero')
   // 大图区只从书库里的漫画中挑：两周内读过、还有得读的随机挑；没有就退回还有得读的，再退回最近读过的。
   // 顺序也随机，换一批时第一部一定会变
@@ -98,7 +103,6 @@ export function HomePage() {
     return { items: pickBatch(pool, HERO_COUNT, heroSeed, heroBatch, (c) => c.manga.id), more: pool.length > HERO_COUNT }
   }, [recent, heroSeed, heroBatch])
   const shelves = useMemo(() => {
-    const library = libData?.mangas.nodes
     if (!library) return null
     const now = Date.now() / 1000
     // 大图区正在展示的不再重复出现
@@ -107,19 +111,20 @@ export function HomePage() {
       stale: library.filter((m) => isStale(m, now) && !shown.has(m.id)),
       fresh: library.filter(notStarted),
     }
-  }, [libData, hero.items])
+  }, [library, hero.items])
 
   // 首页别处已经出现的作品：橱窗里尽量不重复它们（大图区正在展示的、最近阅读那三条）
   const onPage = useMemo(() => new Set([...hero.items, ...(homeSections.recent ? recent.slice(0, 3) : [])].map((c) => c.manga.id)), [hero.items, recent, homeSections.recent])
 
   const content = {
-    updates: homeSections.updates && <UpdatesShelf chapters={updatesData?.chapters.nodes} />,
+    updates: homeSections.updates && <UpdatesShelf chapters={updateChapters} />,
     stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}
       mangas={shelves?.stale} sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`} />,
     fresh: homeSections.fresh && <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`}
       mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />,
     recent: homeSections.recent && <RecentList items={recent.slice(0, 3)} />,
     later: homeSections.later && <LaterShelf />,
+    // 橱窗的数字照常计入 NSFW，封面墙由它自己去掉，所以给完整书库
     gallery: showGallery && <GalleryWindow library={libData?.mangas.nodes} exclude={readsData ? onPage : undefined} />,
   }
 
@@ -514,7 +519,9 @@ function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: strin
 /* ───────── 稍后再看书架 ───────── */
 /** 最近加入的在前；「全部」去书库的「稍后再看」标签 */
 function LaterShelf() {
-  const { items } = useLaterList()
+  const { hidden } = useNsfw()
+  const all = useLaterList().items
+  const items = useMemo(() => all?.filter((m) => !hidden(m)), [all, hidden])
   const navigate = useNavigate()
   const setCategory = useLibraryView((s) => s.setCategory)
   if (!items?.length) return null

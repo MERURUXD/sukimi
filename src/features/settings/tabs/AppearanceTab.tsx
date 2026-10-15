@@ -4,6 +4,7 @@ import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
 import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
+import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Row, Section, Switch } from '../parts'
 
 export function AppearanceTab() {
@@ -53,6 +54,8 @@ export function AppearanceTab() {
           <Switch on={homeMotionBg} onChange={setHomeMotionBg} label="动态背景" />
         </Row>
       </Section>
+
+      <NsfwSettings />
 
       <Section
         title="液态玻璃质感"

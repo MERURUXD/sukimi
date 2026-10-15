@@ -15,7 +15,8 @@ import { useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { afterViewTransition, armReadMorph, useLanded } from './readMorph'
 import { bestRun, pageGrowth, summarize, weekActive, type ReadingStats } from './stats'
 import { Clock, DIAL_UNITS, Strip, useDialTilt, type Tip, type YearRing } from './StatsDial'
-import { CoverFlow, FlowInfo, TastePanel, flowLayout, type Ranked } from './StatsFlow'
+import { CoverFlow, FlowInfo, TastePanel, flowLayout, maskRanked, type Ranked } from './StatsFlow'
+import { useNsfw } from '@/features/nsfw/useNsfw'
 import { createPager, ease, easeOut, seg, type Pager } from './statsPager'
 import { tasteOf, type Taste } from './taste'
 import { useReadChapters } from './useReadChapters'
@@ -123,7 +124,9 @@ const dateLabel = (t: number) => {
  */
 export function StatsPage() {
   useForceDark()
-  const { all, totals, stats: lib, loading: libLoading, error: libError, countsError, refetch, refetchCounts } = useGalleryLibrary()
+  // 档案按完整书库汇总：NSFW 作品照常计数，只在排行里换成占位（见 maskRanked）
+  const { full: all, totals, stats: lib, loading: libLoading, error: libError, countsError, refetch, refetchCounts } = useGalleryLibrary()
+  const { hidden } = useNsfw()
   const reads = useReadChapters()
   const mobile = useMobile()
   const reduced = useReducedMotionPref()
@@ -143,11 +146,15 @@ export function StatsPage() {
     const byId = new Map(all.map((m) => [m.id, m]))
     const read = stats.ranking.filter((r) => r.read > 0 && byId.has(r.id))
     return {
-      ranked: read.slice(0, TOP).map((r, i) => ({ manga: byId.get(r.id)!, rank: i + 1, read: r.read, total: r.total })),
-      // 口味按全部读过的作品算，不只排行里的前几十部
-      taste: tasteOf(read.map((r) => ({ read: r.read, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
+      ranked: read.slice(0, TOP).map((r, i) => {
+        const m = byId.get(r.id)!
+        const masked = hidden(m)
+        return { manga: masked ? maskRanked(m) : m, masked, rank: i + 1, read: r.read, total: r.total }
+      }),
+      // 口味按全部读过的作品算，不只排行里的前几十部；NSFW 作品不计入，免得题材和作者认出是哪部
+      taste: tasteOf(read.filter((r) => !hidden(byId.get(r.id)!)).map((r) => ({ read: r.read, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
     }
-  }, [stats, all])
+  }, [stats, all, hidden])
   const { t, leave, out } = useIntroProgress(!!stats, reduced, back)
   // 一进来还没有汇总结果：先摆出空时钟（刻度、外圈），加载时扫光、外圈走进度，汇总出来后刻度就地长出来
   const [primed] = useState(() => !stats)
