@@ -1,11 +1,10 @@
 import { graphql } from '@/api/gql'
 import type { HistoryQuery } from '@/api/gql/graphql'
 
-export const HISTORY_PAGE = 100
-
+// 刷新范围随已加载条数变化；不同范围共用历史缓存，同时与其他章节查询隔离。
 export const History = graphql(`
   query History($first: Int!, $offset: Int!) {
-    chapters(filter: { lastReadAt: { greaterThan: "0" } }, order: [{ by: LAST_READ_AT, byType: DESC }], first: $first, offset: $offset) {
+    chapters(filter: { lastReadAt: { greaterThan: "0" } }, order: [{ by: LAST_READ_AT, byType: DESC }], first: $first, offset: $offset) @connection(key: "ReadingHistory") {
       totalCount
       pageInfo {
         hasNextPage
