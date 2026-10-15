@@ -198,3 +198,23 @@ test('口味：题材归一、去掉无意义标签，按已读话数平分；�
     { name: '青柚', read: 10, works: 1 },
   ])
 })
+
+test('排行变短时记住的封面位置收回，reset 回到第一屏', async () => {
+  globalThis.window ??= globalThis
+  globalThis.requestAnimationFrame ??= () => 0
+  globalThis.cancelAnimationFrame ??= () => {}
+  const { createPager } = await import('../src/features/gallery/statsPager.ts')
+  // 从详情返回：停在第二屏第 8 部，回来时排行只剩 3 部
+  const pager = createPager({ p: 1, cur: 7, count: 0, reduced: true })
+  let painted = 0
+  pager.subscribe(() => painted++)
+  pager.limit(0, false)
+  assert.equal(pager.cur, 7, '还在汇总时不动记住的位置')
+  pager.limit(3, true)
+  assert.equal(pager.cur, 2)
+  assert.equal(pager.goal, 2)
+  assert.ok(painted > 0, '收回后要通知重绘')
+  pager.reset()
+  assert.deepEqual([pager.p, pager.cur, pager.goal], [0, 0, 0])
+  pager.dispose()
+})

@@ -107,6 +107,10 @@ function useWindowSize() {
   return size
 }
 
+/** 排版用的最小高度，低于它整体缩小 */
+const MIN_H = 600
+const MIN_H_PHONE = 680
+
 const dateLabel = (t: number) => {
   const d = new Date(t)
   return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
@@ -150,7 +154,11 @@ export function StatsPage() {
   const landed = useLanded()
 
   const [pager] = useState(() => createPager({ p: back ? memory.p : 0, cur: back ? memory.cur : 0, count: 0, reduced }))
-  useLayoutEffect(() => pager.limit(ranked.length, !!stats && ranked.length > 0), [pager, ranked.length, stats])
+  useLayoutEffect(() => {
+    pager.limit(ranked.length, !!stats && ranked.length > 0)
+    // 汇总出来却没有排行（比如唯一读过的作品刚移出书库）：第二屏没东西可放，回到第一屏，不留一片空背景
+    if (stats && !ranked.length && pager.p > 0) pager.reset()
+  }, [pager, ranked.length, stats])
   useEffect(
     () => () => {
       memory.p = pager.p > 0.5 ? 1 : 0
@@ -514,7 +522,11 @@ const seg01 = (a: string, b: string) => `clamp(0, calc((var(--p) - ${a}) / (${b}
 
 function Stats(p: BodyProps) {
   const { mobile, stats, read, ranked, taste, works, t, reduced, pager } = p
-  const { w, h } = useWindowSize()
+  const win = useWindowSize()
+  // 太矮的窗口（手机横屏、小屏手机）按最小高度排版再整体缩小：两屏都固定在一屏里，滚轮和上下滑留给切屏，不能改成滚动
+  const k = Math.min(1, win.h / (mobile ? MIN_H_PHONE : MIN_H))
+  const w = win.w / k
+  const h = win.h / k
   const root = useRef<HTMLDivElement>(null)
   const zoom = useRef<HTMLDivElement>(null)
   const num = useRef<HTMLDivElement>(null)
@@ -546,7 +558,7 @@ function Stats(p: BodyProps) {
   const peak = stats && stats.peak >= 0 ? stats.peak : -1
 
   useDialTilt(tilt, reduced || mobile, pager)
-  const moved = usePagerInput(root, pager, L.gap1)
+  const moved = usePagerInput(root, pager, L.gap1 * k)
 
   /* ── 每帧：穿过表盘、写 --p 给 CSS、记下停在哪一屏和哪一部 ── */
   useLayoutEffect(() => {
@@ -671,87 +683,89 @@ function Stats(p: BodyProps) {
 
   return (
     <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none" style={{ '--p': pager.p, '--ek': 0 } as CSSProperties}>
-      <Backdrop glow={p.glow} className="absolute inset-0" style={{ opacity: `calc(1 - ${seg01('0.3', '0.8')} * .6)` }} />
+      <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
+        <Backdrop glow={p.glow} className="absolute inset-0" style={{ opacity: `calc(1 - ${seg01('0.3', '0.8')} * .6)` }} />
 
-      {/* ───── 第一屏 ───── */}
-      <div className="absolute inset-0" inert={screen === 1}>
-        {mobile ? (
-          <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
-            {dialEl}
-            {kpis && (
-              <div className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side, ...kpiDrift(1) }}>
-                {[...kpis.progress, ...kpis.rhythm].map((k, i) => (
-                  <KpiBlock key={k.key} k={k} t={t} at={0.38 + i * 0.05} size={36} strip={stripSize} />
-                ))}
-              </div>
+        {/* ───── 第一屏 ───── */}
+        <div className="absolute inset-0" inert={screen === 1}>
+          {mobile ? (
+            <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
+              {dialEl}
+              {kpis && (
+                <div className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side, ...kpiDrift(1) }}>
+                  {[...kpis.progress, ...kpis.rhythm].map((k, i) => (
+                    <KpiBlock key={k.key} k={k} t={t} at={0.38 + i * 0.05} size={36} strip={stripSize} />
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="absolute grid items-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px minmax(0,1fr) ${kpiW}px` }}>
+              <div>{kpis && group('进度', kpis.progress, false, 0.38)}</div>
+              <div className="flex justify-center">{dialEl}</div>
+              <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
+            </div>
+          )}
+          <div className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
+            <Hint p={p} t={t} pager={pager} mobile={mobile} />
+          </div>
+        </div>
+
+        {/* ───── 第二屏 ───── */}
+        {current && taste && (
+          <div className="absolute inset-0" inert={screen === 0} aria-hidden={screen === 0}>
+            {mobile ? (
+              <>
+                {glows(w / 2, top + 30 + flowH / 2)}
+                <div className="absolute inset-x-0 flex flex-col" style={{ top: top + 4, bottom: 0 }}>
+                  <div style={{ paddingInline: side }}>{rankLabel}</div>
+                  {flowBox}
+                  <div className="px-6">{info}</div>
+                  <div className="mt-6" style={{ paddingInline: side }}>
+                    <TastePanel taste={taste} it={current} tone={tone} phone />
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {glows(side + flowW / 2, top + (h - top - 40) / 2 - 60)}
+                <div className="absolute grid" style={{ left: side, right: side, top, bottom: 40, gridTemplateColumns: `${flowW}px ${tasteW}px`, columnGap: 48 }}>
+                  <section aria-label="已读排行" className="relative flex min-w-0 flex-col justify-center">
+                    <div className="absolute top-0 left-0">{rankLabel}</div>
+                    {flowBox}
+                    {info}
+                  </section>
+                  <div className="flex items-center">
+                    <TastePanel taste={taste} it={current} tone={tone} phone={false} />
+                  </div>
+                </div>
+              </>
             )}
           </div>
-        ) : (
-          <div className="absolute grid items-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px minmax(0,1fr) ${kpiW}px` }}>
-            <div>{kpis && group('进度', kpis.progress, false, 0.38)}</div>
-            <div className="flex justify-center">{dialEl}</div>
-            <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
-          </div>
         )}
-        <div className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
-          <Hint p={p} t={t} pager={pager} mobile={mobile} />
-        </div>
+
+        {/* ───── 顶栏：两屏共用，不跟着穿过表盘 ───── */}
+        {mobile ? (
+          <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
+            <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" className="gicon size-11 rounded-full text-text">
+              <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
+            </Glass>
+            <div className="flex flex-col items-center">
+              <h1 className="m-0 font-cjk text-[17px] font-black">阅读档案</h1>
+              <span className="text-[11px] text-muted">截至 {dateLabel(p.now)}</span>
+            </div>
+            <span className="size-11" />
+          </header>
+        ) : (
+          <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
+            <GalleryBack onClick={p.onExit} title="返回画廊首页（Esc）" />
+            <div className="flex flex-col gap-0.5">
+              <h1 className="m-0 font-cjk text-xl font-black">阅读档案</h1>
+              <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)} · 时间按每话最后一次阅读算</span>
+            </div>
+          </header>
+        )}
       </div>
-
-      {/* ───── 第二屏 ───── */}
-      {current && taste && (
-        <div className="absolute inset-0" inert={screen === 0} aria-hidden={screen === 0}>
-          {mobile ? (
-            <>
-              {glows(w / 2, top + 30 + flowH / 2)}
-              <div className="absolute inset-x-0 flex flex-col" style={{ top: top + 4, bottom: 0 }}>
-                <div style={{ paddingInline: side }}>{rankLabel}</div>
-                {flowBox}
-                <div className="px-6">{info}</div>
-                <div className="mt-6" style={{ paddingInline: side }}>
-                  <TastePanel taste={taste} it={current} tone={tone} phone />
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {glows(side + flowW / 2, top + (h - top - 40) / 2 - 60)}
-              <div className="absolute grid" style={{ left: side, right: side, top, bottom: 40, gridTemplateColumns: `${flowW}px ${tasteW}px`, columnGap: 48 }}>
-                <section aria-label="已读排行" className="relative flex min-w-0 flex-col justify-center">
-                  <div className="absolute top-0 left-0">{rankLabel}</div>
-                  {flowBox}
-                  {info}
-                </section>
-                <div className="flex items-center">
-                  <TastePanel taste={taste} it={current} tone={tone} phone={false} />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* ───── 顶栏：两屏共用，不跟着穿过表盘 ───── */}
-      {mobile ? (
-        <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
-          <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" className="gicon size-11 rounded-full text-text">
-            <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
-          </Glass>
-          <div className="flex flex-col items-center">
-            <h1 className="m-0 font-cjk text-[17px] font-black">阅读档案</h1>
-            <span className="text-[11px] text-muted">截至 {dateLabel(p.now)}</span>
-          </div>
-          <span className="size-11" />
-        </header>
-      ) : (
-        <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
-          <GalleryBack onClick={p.onExit} title="返回画廊首页（Esc）" />
-          <div className="flex flex-col gap-0.5">
-            <h1 className="m-0 font-cjk text-xl font-black">阅读档案</h1>
-            <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)} · 时间按每话最后一次阅读算</span>
-          </div>
-        </header>
-      )}
     </div>
   )
 }

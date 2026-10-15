@@ -4,7 +4,7 @@
  * 两样都每帧在变：p 是第一屏 → 第二屏的进度（0～1），cur 是封面翻到第几部（可以是小数）。
  * 不放进 React 状态：每帧重绘整页（时钟刻度、几十张封面）太浪费；各部分订阅后自己改样式。
  */
-import { clamp01 } from './canvasMath'
+import { clamp01 } from './canvasMath.ts'
 
 export const seg = (p: number, a: number, b: number) => clamp01((p - a) / (b - a))
 export const ease = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2)
@@ -22,6 +22,8 @@ export interface Pager {
   readonly count: number
   /** 排行有几部、能不能去第二屏；汇总出来后由页面设定 */
   limit(count: number, enabled: boolean): void
+  /** 回到第一屏、第一部，不播动画 */
+  reset(): void
   subscribe(fn: () => void): () => void
   /** ms：从 0 走到 1 要多久；离开页面前收回第一屏时走得快些 */
   go(to: 0 | 1, done?: () => void, ms?: number): void
@@ -68,6 +70,19 @@ export function createPager(init: { p: number; cur: number; count: number; reduc
     limit(n, ok) {
       count = n
       enabled = ok
+      // 从详情返回时排行可能变短（比如刚移出书库）：记住的位置收回到最后一部，免得正中空着
+      if (n > 0 && (cur > n - 1 || goal > n - 1)) {
+        cancelAnimationFrame(flipRaf)
+        cur = Math.min(cur, n - 1)
+        goal = Math.min(goal, n - 1)
+        emit()
+      }
+    },
+    reset() {
+      cancelAnimationFrame(pageRaf)
+      cancelAnimationFrame(flipRaf)
+      p = cur = goal = 0
+      emit()
     },
     subscribe(fn) {
       subs.add(fn)
