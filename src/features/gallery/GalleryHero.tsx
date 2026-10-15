@@ -16,6 +16,8 @@ export interface HeroStats {
   read: number | null
   ongoing: number
   done: number
+  /** 墙上和全部作品里能看到的部数（去掉 NSFW）；数字统计仍按 works */
+  shown?: number
 }
 
 /** 首屏封面墙区域的类名：首页和画布过渡的第一帧共用，两边排版才完全一致。占满一屏：下面的全部作品默认收起 */
@@ -72,7 +74,7 @@ export function HeroCopy({
       }}
       className={cn('flex items-center gap-1.5 font-medium text-muted no-underline hover:text-text', mobile ? 'text-[13px]' : 'text-sm')}
     >
-      浏览全部 {count(stats.works)} 部
+      浏览全部 {count(stats.shown ?? stats.works)} 部
       <ArrowDown className={cn('size-4', onBrowse && !decorative && 'gallery-nudge')} strokeWidth={2} />
     </a>
   )

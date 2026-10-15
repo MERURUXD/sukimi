@@ -21,6 +21,7 @@ export const MangaDetail = graphql(`
       source {
         id
         displayName
+        contentWarning
         lang
       }
       categories {

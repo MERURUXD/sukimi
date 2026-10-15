@@ -12,7 +12,7 @@ import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
-import { galleryOrder, isCompleted, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
+import { galleryOrder, isCompleted, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry } from './readMorph'
 import './gallery.css'
 
@@ -30,7 +30,7 @@ export function GalleryPage() {
   const from = (location.state as { from?: string } | null)?.from
   const origin = from === 'library' || from === 'home' ? from : null
   const sharedWall = origin === 'home'
-  const { all, stats, categories, loading, error, refetch } = useGalleryLibrary()
+  const { all, full, stats, categories, loading, error, refetch } = useGalleryLibrary()
   const mobile = useMobile()
   const homeWindowVisible = useAppearance((s) => s.homeGallery)
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
@@ -109,6 +109,8 @@ export function GalleryPage() {
     }, { replace: true, preventScrollReset: true, state: { ...(location.state as object | null), keepScroll: true } })
 
   const empty = !loading && !error && all.length === 0
+  // 书库有作品但全被 NSFW 隐藏：不能当成空书库，提示去哪里调整
+  const allHidden = empty && full.length > 0
   const ordered = useMemo(() => galleryOrder(all), [all])
 
   /*
@@ -199,7 +201,7 @@ export function GalleryPage() {
 
           {loading && <LibrarySkeleton density={mobile ? 'compact' : 'comfy'} />}
           {error && <LoadError message={error.message} onRetry={() => void refetch()} />}
-          {empty && <p className="px-6 py-20 text-center text-muted">书库是空的，去「发现」页添加漫画吧。</p>}
+          {empty && <p className="px-6 py-20 text-center text-muted">{allHidden ? NSFW_ALL_HIDDEN : '书库是空的，去「发现」页添加漫画吧。'}</p>}
           <LibraryGrid
             items={items}
             intro={intro}

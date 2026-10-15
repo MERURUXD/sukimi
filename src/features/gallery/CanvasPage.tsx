@@ -41,7 +41,7 @@ import { BACK_SLOT, GalleryBack } from './GalleryBack'
 import { armCanvasBack } from './readMorph'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { useForceDark } from '@/design/settings'
-import { galleryOrder, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
+import { galleryOrder, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { GalleryPeek } from './queries'
 import { PERSPECTIVE, poseTransform, screenCenter, tileTransform, type TilePose } from './coverPose'
 import { PlayView, type PlayEntry } from './PlayView'
@@ -75,7 +75,7 @@ const pad = (i: number) => String(i + 1).padStart(2, '0')
 /** 无限画布：整个书库铺成一颗可以拖动的球面。固定深色、全屏，不在 AppShell 里。 */
 export function CanvasPage() {
   useForceDark()
-  const { all, totals, stats, categories, loading, error, refetch } = useGalleryLibrary()
+  const { all, full, totals, stats, categories, loading, error, refetch } = useGalleryLibrary()
   const items = useMemo(() => galleryOrder(all), [all])
   const n = items.length
   const mobile = useMobile()
@@ -834,7 +834,7 @@ export function CanvasPage() {
                 </button>
               </>
             ) : (
-              <p className="m-0 text-muted">{loading ? '正在加载书库…' : '书库是空的，去「发现」页添加漫画吧。'}</p>
+              <p className="m-0 text-muted">{loading ? '正在加载书库…' : full.length ? NSFW_ALL_HIDDEN : '书库是空的，去「发现」页添加漫画吧。'}</p>
             )}
             {!loading && (
               <Link to={GALLERY} className={error ? 'gbtn no-underline' : 'solid no-underline'}>

@@ -11,6 +11,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
+import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
@@ -151,6 +152,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
   return (
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
+      data-nsfw={useNsfwBlur(c.manga)}
       style={rise}
       className={cn('-mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
     >

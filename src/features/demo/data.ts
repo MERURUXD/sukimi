@@ -75,6 +75,8 @@ const SOURCE = { id: '9000', name: '演示画室', displayName: '演示画室', 
 /** 只给「同名漫画迁移」演示用：不出现在来源列表里，只作为漫画自带的来源 */
 const ALT_SOURCE = { ...SOURCE, id: '9002', name: '演示图书馆', displayName: '演示图书馆' }
 const OPEN_SOURCE = { ...SOURCE, id: '9001', name: '开放漫画（本地缓存）', displayName: '开放漫画（本地缓存）' }
+/** 标明 NSFW 的虚构来源：演示按来源自动标记。作品内容和其余演示作品一样，只是来源带了标记 */
+const NSFW_SOURCE = { ...SOURCE, id: '9003', name: '演示夜读社', displayName: '演示夜读社', contentWarning: 'NSFW' }
 
 /** `pnpm fetch:comics` 生成的 manifest 结构；只在开发环境从本地缓存读取，不进仓库与构建产物。 */
 export interface OpenWork {
@@ -242,7 +244,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       description: '一封寄往远方的信，一趟不赶时间的旅程。在山间、森林与小城之间，发现那些被日常忽略的相遇。\n这是为 Sukimi 创作的虚构演示作品，封面和阅读页面均在本地生成。',
       genre: i % 2 ? ['日常', '治愈'] : ['冒险', '奇幻'], status: i % 3 ? 'ONGOING' : 'COMPLETED',
       realUrl: null, initialized: true, inLibrary: i < 10, inLibraryAt: String(Math.floor(now / 1000) - i * 86400),
-      source: SOURCE, categories: { nodes: [categories[i % 2]] }, meta: [],
+      // 第 4、5 部来自 NSFW 来源：第 4 部跟随来源被隐藏，第 5 部在下面的全局元数据里手动放行
+      source: i === 3 || i === 4 ? NSFW_SOURCE : SOURCE, categories: { nodes: [categories[i % 2]] }, meta: [],
     }, chapters)
     // 第 9 部（在书库）和最后一部（不在书库）从没读过，演示「开始阅读」与首页「还没开始读」
     const fresh = i === 8 || i === TITLES.length - 1
@@ -354,6 +357,9 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     [laterOf(12), String(nowSec - 3 * 86400)],
     [laterOf(2001), String(nowSec - 9 * 86400)],
     [laterOf(9), String(nowSec - 40 * 86400)],
+    // NSFW 标记（features/nsfw）：第 7 部手动标记，第 5 部来源是 NSFW 但手动放行
+    [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.7`, '1'],
+    [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.5`, '0'],
   ])
   const root = {
     users: () => connection(demoUsers), userCodes: () => demoCodes,
@@ -435,6 +441,10 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     setGlobalMeta: ({ input }: { input: { meta: { key: string; value: string } } }) => {
       globalMeta.set(input.meta.key, input.meta.value)
       return { meta: input.meta }
+    },
+    setGlobalMetas: ({ input }: { input: { metas: { key: string; value: string }[] } }) => {
+      input.metas.forEach((m) => globalMeta.set(m.key, m.value))
+      return { metas: input.metas }
     },
     deleteGlobalMetas: ({ input }: { input: { keys?: string[]; prefixes?: string[] } }) => {
       const gone = [...globalMeta].filter(([key]) => !!input.keys?.includes(key) || !!input.prefixes?.some((p) => key.startsWith(p)))

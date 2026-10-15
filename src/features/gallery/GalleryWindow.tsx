@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent } fro
 import { Link } from 'react-router'
 import { isVisible } from '@/features/history/history'
 import type { LibraryManga } from '@/features/library/queries'
+import { useNsfw } from '@/features/nsfw/useNsfw'
 import { count } from '@/lib/format'
 import { CoverWall } from './CoverWall'
 import { GALLERY } from './GalleryHero'
@@ -30,8 +31,9 @@ const WALL_VARS = { '--wall-rest': wallTransform(WINDOW_K), '--wall-on': wallTra
 export function GalleryWindow({ library, exclude }: { library: readonly LibraryManga[] | undefined; exclude: ReadonlySet<number> | undefined }) {
   const mobile = useMobile()
   const box = useRef<HTMLDivElement>(null)
-  // 排列和画廊首页的墙一样（按收藏先后），封面才一一对应
-  const items = useMemo(() => galleryOrder(library ?? []), [library])
+  const { hidden } = useNsfw()
+  // 排列和画廊首页的墙一样（按收藏先后、去掉 NSFW），封面才一一对应
+  const items = useMemo(() => galleryOrder((library ?? []).filter((m) => !hidden(m))), [library, hidden])
   // 窗里优先放最近读过的：按阅读时间倒序，跳过首页已有的、没有封面的和阅读历史里隐藏了的
   // exclude 还没有（最近阅读没加载出来）时不换格，等它到了再换
   const picks = useMemo(() => {
@@ -46,7 +48,8 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
 
   // 只取总话数，不用整个 useGalleryLibrary（它还会去查分类）；算式和画廊首页、阅读档案共用
   const counts = useQuery(GalleryCounts, { fetchPolicy: 'cache-first' })
-  const read = readChapters(items, chapterTotals(counts.data))
+  // 数字按完整书库算（NSFW 只计数不露面），和画廊首页、阅读档案一致
+  const read = readChapters(library ?? [], chapterTotals(counts.data))
 
   // 指到橱窗上就把画廊整屏会用到的封面先取回来，窗口揭开时不会一块块冒出来
   const preloaded = useRef(false)
@@ -130,7 +133,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
               都在这面墙上。
             </h2>
             <p className="gwin-stats num">
-              {count(items.length)} 部作品 · 已读 {read == null ? '—' : count(read)} 话
+              {count(library?.length ?? 0)} 部作品 · 已读 {read == null ? '—' : count(read)} 话
             </p>
           </div>
           <Link

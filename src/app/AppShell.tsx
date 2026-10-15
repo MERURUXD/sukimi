@@ -9,6 +9,7 @@ import { showBeforeVerified } from '@/features/auth/userScope'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
+import { NsfwSync } from '@/features/nsfw/useNsfw'
 import { MobileTabBar } from './MobileTabBar'
 import { PreviewBadge } from './PreviewBadge'
 import { takeNavDirection } from './navTabs'
@@ -58,6 +59,7 @@ export function AuthGate() {
       <PreviewBadge />
       {/* 和上面的 Outlet 同在一层，key 不能重复 */}
       <LiveStatus key={`live-${userId}`} />
+      <NsfwSync key={`nsfw-${userId}`} />
     </>
   )
 }
