@@ -11,7 +11,7 @@ function fixture(total = 260) {
   const all = Array.from({ length: total }, (_, i) => ({
     __typename: 'ChapterType', id: i + 1, name: `测试章节 ${i + 1}`, chapterNumber: i + 1,
     lastPageRead: 3, pageCount: 20, isRead: false, lastReadAt: String(100000 - i), meta: [],
-    manga: { __typename: 'MangaType', id: i % 6 + 1, title: `虚构漫画 ${i % 6 + 1}`, thumbnailUrl: '/favicon.svg', source: null },
+    manga: { __typename: 'MangaType', id: i % 6 + 1, title: `虚构漫画 ${i % 6 + 1}`, thumbnailUrl: '/favicon.svg', source: null, categories: { __typename: 'CategoryNodeList', nodes: [] } },
   }))
   const requests = []
   const client = new ApolloClient({

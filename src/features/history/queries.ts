@@ -28,6 +28,13 @@ export const History = graphql(`
           source {
             id
             displayName
+            contentWarning
+          }
+          # NSFW 判定要看分类（features/nsfw）
+          categories {
+            nodes {
+              id
+            }
           }
         }
       }

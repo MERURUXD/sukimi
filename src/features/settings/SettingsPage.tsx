@@ -67,7 +67,7 @@ const GROUPS: { id: GroupId; label: string }[] = [
 ]
 
 const TABS: Tab[] = [
-  { id: 'appearance', label: '外观', icon: Palette, desc: '主题、玻璃效果、动态背景', Component: AppearanceTab, group: 'personal' },
+  { id: 'appearance', label: '外观', icon: Palette, desc: '主题、玻璃效果、动态背景、NSFW 隐私', Component: AppearanceTab, group: 'personal' },
   { id: 'home', label: '首页', icon: House, desc: '首页布局、内容开关、显示顺序', Component: HomeTab, group: 'personal' },
   { id: 'reading', label: '阅读', icon: BookOpen, desc: '阅读模式、翻页、点击分区', Component: ReadingTab, group: 'personal' },
   { id: 'library', label: '书库', icon: LibraryBig, desc: '分类、自动检查更新', Component: LibraryTab, group: 'personal' },

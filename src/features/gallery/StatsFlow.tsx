@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Lock } from 'lucide-react'
 import { useCallback, useLayoutEffect, useRef, type CSSProperties, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
@@ -16,7 +16,12 @@ export interface Ranked {
   rank: number
   read: number
   total: number | null
+  /** NSFW 作品：占着名次，封面换成锁、书名和题材都不显示（manga 已经抹掉这些字段） */
+  masked?: boolean
 }
+
+/** 排行里给 NSFW 作品用的替身：数字照常，能认出是哪部的字段都去掉 */
+export const maskRanked = (m: LibraryManga): LibraryManga => ({ ...m, title: 'NSFW 作品', thumbnailUrl: null, author: null, artist: null, genre: [] })
 
 /** 某一段的进度，写成 CSS：p 由页面每帧写到 --p 上，这里不用跟着重绘 */
 const cssSeg = (a: number, b: number, max = 1) => `clamp(0, calc((var(--p) - ${a}) / ${b - a}), ${max})`
@@ -116,7 +121,14 @@ export function CoverFlow({ ranked, idx, pager, L, width, cy, moved }: { ranked:
               aria-label={`第 ${it.rank} 名：${it.manga.title}，已读 ${it.read} 话`}
               className="cv relative block size-full rounded-[10px] shadow-[0_30px_70px_-18px_rgba(0,0,0,.75)] after:pointer-events-none after:absolute after:inset-0 after:rounded-[inherit] after:shadow-[inset_0_0_0_1px_rgba(255,255,255,.14),inset_0_1px_0_rgba(255,255,255,.32)]"
             >
-              <CoverImg src={it.manga.thumbnailUrl} loading="lazy" draggable={false} />
+              {it.masked ? (
+                <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-[inherit] bg-white/6 text-xs font-bold tracking-[.2em] text-muted" aria-hidden>
+                  <Lock className="size-7" strokeWidth={1.6} />
+                  NSFW
+                </span>
+              ) : (
+                <CoverImg src={it.manga.thumbnailUrl} loading="lazy" draggable={false} />
+              )}
             </Link>
             {/* 两侧的封面压暗 */}
             <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[10px] bg-black" />

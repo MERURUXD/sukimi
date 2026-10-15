@@ -20,6 +20,7 @@ import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { RecentUpdates, type UpdateChapter } from '@/features/home/queries'
 import { UpdateLibrary, UpdateStop } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
+import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
 import { groupByManga } from './group'
@@ -357,6 +358,7 @@ function Row({
   return (
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
+      data-nsfw={useNsfwBlur(c.manga)}
       style={rise}
       className={cn('flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', nested ? 'py-1.5' : 'py-2.5', rise && 'rise')}
     >
@@ -424,6 +426,7 @@ function GroupRow({ rows, rise, expanded, onToggle }: { rows: UpdateChapter[]; r
   return (
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
+      data-nsfw={useNsfwBlur(c.manga)}
       style={rise}
       className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', rise && 'rise')}
     >
