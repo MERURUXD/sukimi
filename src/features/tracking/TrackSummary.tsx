@@ -1,17 +1,20 @@
-import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
+import { useApolloClient, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
 import { ChevronRight, ListChecks, Minus, Plus, Star } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import { toast, toastError } from '@/components/ui/toast'
+import { captureUser, StaleSessionError } from '@/api/userContext'
+import type { BgmSubject } from '@/features/bangumi/rating'
 import { BgmBlock, BgmGuess, BgmLine } from '@/features/bangumi/CommunityRating'
 import { introRise as rise } from '@/features/manga/intro'
 import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
 import { cn } from '@/lib/cn'
-import { BindTrack, MangaTracks, Trackers, type Tracker, type TrackRecord } from './queries'
+import { MangaTracks, Trackers, type Tracker, type TrackRecord } from './queries'
+import { bindBgmSubject } from './bindBgmSubject'
 import { Stars } from './Stars'
 import { TrackDialog } from './TrackPanel'
 import { isRated, scoreString, scoreValue, scoreWord, starScale, statusLabel } from './tracking'
@@ -46,7 +49,6 @@ export function TrackSummary({ mangaId, title, inLibrary = true, placement, dela
   const trackers = useQuery(Trackers).data?.trackers.nodes
   const records = useQuery(MangaTracks, { variables: { id: mangaId }, skip: !inLibrary }).data?.manga.trackRecords.nodes
   const client = useApolloClient()
-  const [bindTrack] = useMutation(BindTrack)
   const [dialog, setDialog] = useState(false)
   const opener = useRef<HTMLElement | null>(null)
   const wide = useWide()
@@ -63,13 +65,17 @@ export function TrackSummary({ mangaId, title, inLibrary = true, placement, dela
   // 只有在书库、Bangumi 已登录且未过期时才能直接绑定
   const canBind = inLibrary && bgm && bgm.isLoggedIn && !bgm.isTokenExpired && !bgmBound ? bgm : null
   const bind = canBind
-    ? async (remoteId: number) => {
+    ? async (subject: BgmSubject) => {
+        const still = captureUser()
         try {
-          await bindTrack({ variables: { mangaId, trackerId: canBind.id, remoteId: String(remoteId), private: null } })
+          await bindBgmSubject(client, mangaId, canBind.id, subject, still)
           await client.refetchQueries({ include: [MangaTracks] })
+          still()
           toast(`已绑定到 ${canBind.name}`)
+          return true
         } catch (err) {
-          toastError('绑定失败', err)
+          if (!(err instanceof StaleSessionError)) toastError('绑定失败', err)
+          return false
         }
       }
     : undefined

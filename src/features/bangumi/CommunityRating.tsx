@@ -178,7 +178,7 @@ function LineButton({ subject, state, guess, onOpen, onRetry }: { subject: BgmSu
  * placement 与追踪一致：side 是宽屏右栏，inline 是窄屏正文里的一行。
  * onBind 只在漫画已在书库、Bangumi 追踪已登录时传入
  */
-export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId: number; title: string; placement: 'side' | 'inline'; onBind?: (id: number) => Promise<void>; delay?: number }) {
+export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId: number; title: string; placement: 'side' | 'inline'; onBind?: (subject: BgmSubject) => Promise<boolean>; delay?: number }) {
   const g = useBgmGuess(mangaId, title)
   const [cached] = useState(() => g.subject !== null)
   const [open, setOpen] = useState<null | 'detail' | 'search'>(null)
@@ -187,7 +187,7 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
   const rejected = g.match?.sure && !g.match.id
   const bind = onBind && subject ? async () => {
     setBinding(true)
-    try { await onBind(subject.id) } finally { setBinding(false) }
+    try { return await onBind(subject) } finally { setBinding(false) }
   } : undefined
   const detail = (
     <Detail
@@ -282,7 +282,7 @@ interface GuessProps {
   search: boolean
   onSearch: () => void
   onPicked: () => void
-  bind?: () => Promise<void>
+  bind?: () => Promise<boolean>
   binding: boolean
 }
 
@@ -344,7 +344,7 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                 )}
                 {guess && (guess.bind || !guess.match?.sure) && (
                   <div className="flex flex-wrap gap-2">
-                    {guess.bind && <button type="button" className="fopt inc" disabled={guess.binding} onClick={() => void guess.bind!().then(onClose)}>{guess.binding ? '正在绑定…' : guess.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>}
+                    {guess.bind && <button type="button" className="fopt inc" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? '正在绑定…' : guess.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>}
                     {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>就是这部</button>}
                     {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>不是这部</button>}
                     {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>换一个</button>}
