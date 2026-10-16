@@ -28,8 +28,9 @@ import { useLongPress } from '@/lib/useLongPress'
 import { useSelection } from '@/lib/useSelection'
 import type { Chapter } from './queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
+import { parsePageBookmarks } from '@/features/reader/pageTools'
 import { Can } from '@/features/auth/Can'
-import { useCan } from '@/api/auth'
+import { useAuth, useCan } from '@/api/auth'
 import { captureUser } from '@/api/userContext'
 import { useChapterView, type ChapterFilter } from './store'
 import { mangaIntro, mangaIntroDelay } from './intro'
@@ -333,6 +334,8 @@ const ChapterRow = memo(function ChapterRow({
   const canDownload = useCan('DOWNLOAD_CHAPTERS')
   const press = useLongPress(() => !selecting && onLongPress(c.id, index))
   const inProgress = !c.isRead && c.lastPageRead > 0
+  const userId = useAuth((s) => s.user?.id)
+  const marks = parsePageBookmarks(c.meta, userId)
   const sub = inProgress
     ? `继续阅读 · 第 ${c.lastPageRead + 1}${c.pageCount > 0 ? ` / ${c.pageCount}` : ''} 页`
     : (c.scanlator ?? '')
@@ -375,6 +378,18 @@ const ChapterRow = memo(function ChapterRow({
         {inProgress && c.pageCount > 0 && (
           <span className="mt-[7px] block h-[3px] w-40 overflow-hidden rounded-full bg-track">
             <i className="block h-full bg-accent" style={{ width: `${((c.lastPageRead + 1) / c.pageCount) * 100}%` }} />
+          </span>
+        )}
+        {/* 页面书签：点页码直接打开到那一页；叠在整行链接上面才能点到 */}
+        {marks.length > 0 && !selecting && (
+          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-xs text-muted" aria-label="页面书签">
+            <Bookmark className="size-3 flex-none" strokeWidth={2} aria-hidden />
+            {marks.slice(0, 4).map((p) => (
+              <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} className="text-muted no-underline num hover:text-text">
+                第 {p + 1} 页
+              </Link>
+            ))}
+            {marks.length > 4 && <span className="whitespace-nowrap">等 {marks.length} 页</span>}
           </span>
         )}
       </span>

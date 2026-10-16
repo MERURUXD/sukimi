@@ -20,7 +20,7 @@ const SOURCES = [
 ]
 const chapter = (id: number, n: number, o: Record<string, unknown> = {}) => ({
   __typename: 'ChapterType', id, name: `第 ${n} 话`, chapterNumber: n, sourceOrder: n, scanlator: null, uploadDate: '0',
-  isRead: false, isBookmarked: false, isDownloaded: false, lastPageRead: 0, pageCount: -1, lastReadAt: '0', ...o,
+  isRead: false, isBookmarked: false, isDownloaded: false, lastPageRead: 0, pageCount: -1, lastReadAt: '0', meta: [], ...o,
 })
 // 当前漫画：12 话，读到第 8 话（第 5 话跳过），第 3、10 话有书签，前 4 话已下载
 const OLD = Array.from({ length: 12 }, (_, i) =>

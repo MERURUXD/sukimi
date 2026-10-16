@@ -24,15 +24,33 @@ export interface Meta {
   value: string
 }
 
-export const readerMetaKey = (field: PerMangaKey) => `${READER_META_PREFIX}${field}`
+/**
+ * 设备类型。「这台设备单独记住」开着时，按漫画的设置写进带设备类型的键，
+ * 同类设备（例如两台手机）共用；没写过的键沿用不带设备类型的通用值。
+ */
+export type DeviceKind = 'phone' | 'tablet' | 'desktop'
+export const DEVICE_LABEL: Record<DeviceKind, string> = { phone: '手机', tablet: '平板', desktop: '电脑' }
+
+/** 粗指针（触屏）里短边不到 600 的算手机，其余触屏算平板；精确指针一律算电脑 */
+export function classifyDevice({ coarse, shortSide }: { coarse: boolean; shortSide: number }): DeviceKind {
+  if (!coarse) return 'desktop'
+  return shortSide < 600 ? 'phone' : 'tablet'
+}
+
+export const readerMetaKey = (field: PerMangaKey, device?: DeviceKind) =>
+  device ? `${READER_META_PREFIX}${device}.${field}` : `${READER_META_PREFIX}${field}`
 
 export const hasReaderMeta = (meta: readonly { key: string }[] = []) => meta.some((m) => m.key.startsWith(READER_META_PREFIX))
 
-export function parseReaderMeta(meta: readonly Meta[] = []): PerMangaSettings {
+/** 读出按漫画的设置；给了设备类型时，该类设备自己的值优先，没有再用通用值 */
+export function parseReaderMeta(meta: readonly Meta[] = [], device?: DeviceKind): PerMangaSettings {
   const out: Record<string, string> = {}
+  const valid = (field: PerMangaKey, value: string | undefined) => !!value && (VALID[field] as readonly string[]).includes(value)
   for (const field of PER_MANGA) {
-    const value = meta.find((m) => m.key === readerMetaKey(field))?.value
-    if (value && (VALID[field] as readonly string[]).includes(value)) out[field] = value
+    const own = device ? meta.find((m) => m.key === readerMetaKey(field, device))?.value : undefined
+    const shared = meta.find((m) => m.key === readerMetaKey(field))?.value
+    if (valid(field, own)) out[field] = own!
+    else if (valid(field, shared)) out[field] = shared!
   }
   return out as PerMangaSettings
 }
@@ -49,8 +67,8 @@ export function splitPatch(patch: Partial<ReaderSettings>) {
   return { local: local as PerMangaSettings, global: global as Partial<ReaderSettings> }
 }
 
-export function toReaderMeta(patch: PerMangaSettings): Meta[] {
-  return PER_MANGA.filter((f) => patch[f] !== undefined).map((f) => ({ key: readerMetaKey(f), value: String(patch[f]) }))
+export function toReaderMeta(patch: PerMangaSettings, device?: DeviceKind): Meta[] {
+  return PER_MANGA.filter((f) => patch[f] !== undefined).map((f) => ({ key: readerMetaKey(f, device), value: String(patch[f]) }))
 }
 
 /** 写入后的元数据列表：同键覆盖，其余保留 */
