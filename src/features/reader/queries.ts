@@ -98,3 +98,16 @@ export const ClearReaderMeta = graphql(`
     }
   }
 `)
+
+/** 页面书签：整话的书签页写成一个章节元数据（键见 pageTools 的 PAGE_BOOKMARK_KEY） */
+export const SetPageBookmarks = graphql(`
+  mutation SetPageBookmarks($id: Int!, $value: String!) {
+    setChapterMetas(input: { items: [{ chapterIds: [$id], metas: [{ key: "sukimi.pageBookmarks", value: $value }] }] }) {
+      metas {
+        chapterId
+        key
+        value
+      }
+    }
+  }
+`)

@@ -2,14 +2,17 @@ import { AnimatePresence } from 'motion/react'
 import {
   ArrowLeftRight,
   BookOpen,
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   Columns2,
+  Download,
   Expand,
   GalleryVertical,
   RectangleVertical,
   Rows3,
   Settings2,
+  Share2,
   Shrink,
 } from 'lucide-react'
 import { MotionGlass } from '@/components/glass/Glass'
@@ -54,6 +57,11 @@ export function ReaderChrome({
   hasNext,
   onPrevChapter,
   onNextChapter,
+  bookmarks,
+  bookmarked,
+  onToggleBookmark,
+  saving,
+  onSave,
 }: {
   visible: boolean
   suspendRefract: boolean
@@ -76,12 +84,22 @@ export function ReaderChrome({
   hasNext: boolean
   onPrevChapter: () => void
   onNextChapter: () => void
+  /** 本话的页面书签（从 0 开始的页码） */
+  bookmarks: number[]
+  /** 当前页有没有书签 */
+  bookmarked: boolean
+  onToggleBookmark: () => void
+  saving: boolean
+  onSave: () => void
 }) {
   const paged = settings.mode === 'single' || settings.mode === 'double'
   const rtl = paged && settings.dir === 'rtl'
   const first = Math.min(...shown)
   const last = Math.max(...shown)
   const manyPages = pageCount > 60
+  // 触屏调起系统分享（可存到相册），电脑直接下载
+  const touch = matchMedia('(pointer: coarse)').matches
+  const saveLabel = touch ? '分享此页' : '保存此页'
 
   return (
     <AnimatePresence>
@@ -136,7 +154,8 @@ export function ReaderChrome({
               </span>
               <button
                 type="button"
-                className={tb}
+                // 手机上收进设置面板，给书名和书签、分享按钮腾地方
+                className={cn(tb, 'max-sm:hidden')}
                 disabled={!paged}
                 onClick={() => set({ dir: settings.dir === 'rtl' ? 'ltr' : 'rtl' })}
                 title="切换翻页方向（D）"
@@ -147,11 +166,31 @@ export function ReaderChrome({
               <button type="button" className={cn(tb, 'max-sm:hidden')} onClick={() => set({ fit: cycle(FITS, settings.fit) })} title="切换缩放（Z）">
                 {FITS.find((f) => f.value === settings.fit)?.label}
               </button>
-              <span className="mx-1 h-[22px] w-px self-center bg-line" />
+              <span className="mx-1 h-[22px] w-px self-center bg-line max-sm:hidden" />
+              <button
+                type="button"
+                className={cn(ib, bookmarked && on)}
+                onClick={onToggleBookmark}
+                aria-label={bookmarked ? '取消这页的书签' : '给这页加书签'}
+                aria-pressed={bookmarked}
+                title={`${bookmarked ? '取消这页的书签' : '给这页加书签'}（B）`}
+              >
+                <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
+              </button>
+              <button type="button" className={cn(ib, 'max-[380px]:hidden')} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
+                {touch ? <Share2 className="size-5" strokeWidth={1.8} /> : <Download className="size-5" strokeWidth={1.8} />}
+              </button>
               <button type="button" className={cn(ib, panel && on)} onClick={onTogglePanel} aria-label="阅读设置" aria-pressed={panel}>
                 <Settings2 className="size-5" strokeWidth={1.8} />
               </button>
-              <button type="button" className={ib} onClick={onFullscreen} aria-label={fullscreen ? '退出全屏' : '全屏'} title="全屏（F）">
+              <button
+                type="button"
+                // 不支持全屏的浏览器（iPhone Safari）不显示
+                className={cn(ib, !document.fullscreenEnabled && 'hidden')}
+                onClick={onFullscreen}
+                aria-label={fullscreen ? '退出全屏' : '全屏'}
+                title="全屏（F）"
+              >
                 {fullscreen ? <Shrink className="size-5" strokeWidth={1.8} /> : <Expand className="size-5" strokeWidth={1.8} />}
               </button>
             </MotionGlass>
@@ -179,15 +218,18 @@ export function ReaderChrome({
               >
                 {Array.from({ length: pageCount }, (_, i) => {
                   const cur = i >= first && i <= last
+                  const marked = bookmarks.includes(i)
                   return (
                     <button
                       key={i}
                       type="button"
                       onClick={() => onJump(i)}
-                      aria-label={`第 ${i + 1} 页`}
-                      title={`第 ${i + 1} 页`}
+                      aria-label={`第 ${i + 1} 页${marked ? '（书签）' : ''}`}
+                      title={`第 ${i + 1} 页${marked ? ' · 书签' : ''}`}
                       className={cn(
-                        'h-1.5 min-w-0 flex-1 rounded-[3px] transition-[height] hover:h-3',
+                        'relative h-1.5 min-w-0 flex-1 rounded-[3px] transition-[height] hover:h-3',
+                        // 有书签的页上方一个小点
+                        marked && "after:absolute after:-top-2 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-accent after:content-['']",
                         cur
                           ? 'h-3.5 bg-accent'
                           : i < first

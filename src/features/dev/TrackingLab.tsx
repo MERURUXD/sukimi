@@ -88,7 +88,7 @@ export function TrackingLab() {
               // 第 30 话后插了一张编成「2026 话」的贺图，同步时应跳过
               observer.next({ data: { chapters: { __typename: 'ChapterNodeList', nodes: [...Array.from({ length: 30 }, (_, i) => i + 1), 2026, 31, 32].map((n, i) => ({
                 __typename: 'ChapterType', id: 9000 + i, name: n === 2026 ? '新年贺图' : `第 ${n} 话`, chapterNumber: n, sourceOrder: i + 1, scanlator: null,
-                uploadDate: '0', isRead: n <= 20 || n === 2026, isBookmarked: false, isDownloaded: false, lastPageRead: 0, pageCount: 1, lastReadAt: '0',
+                uploadDate: '0', isRead: n <= 20 || n === 2026, isBookmarked: false, isDownloaded: false, lastPageRead: 0, pageCount: 1, lastReadAt: '0', meta: [],
               })) } } })
               break
             case 'LoginTrackerCredentials':
