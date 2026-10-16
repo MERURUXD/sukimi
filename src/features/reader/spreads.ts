@@ -11,8 +11,7 @@
  * 并用 pickSpread 把已经显示的拼版钉住。
  */
 
-/** 宽高比超过这个值的页当作跨页大图，独占一屏 */
-const WIDE = 1.1
+import { WIDE } from './pageTools.ts'
 
 const wide = (aspects: readonly (number | undefined)[], i: number) => (aspects[i] ?? 0.7) > WIDE
 

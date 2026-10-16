@@ -85,6 +85,11 @@ export const MangaChapters = graphql(`
         lastPageRead
         pageCount
         lastReadAt
+        # 页面书签等章节元数据（阅读器的书签页、详情页的跳转链接）
+        meta {
+          key
+          value
+        }
       }
     }
   }

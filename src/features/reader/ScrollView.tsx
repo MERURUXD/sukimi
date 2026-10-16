@@ -1,18 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 import { aspectOf, rememberAspect } from './pageCache'
+import { halfAspect, type Half } from './pageTools'
 import type { ReaderSettings } from './settings'
 
 /**
  * 纵向连续 / Webtoon：页面竖排滚动。
  * 当前页 = 跨过视口 45% 高度那条线的页面。
  * 未加载的页按已知宽高比（或 0.7）占位，Chrome 的滚动锚定会抵消加载后的高度变化。
+ * 拆分宽页时一页显示成上下两张（先读的一半在上），两张都标着同一个页码。
  */
 export function ScrollView({
   pages,
+  src,
+  splits,
   startPage,
   settings,
   onPage,
+  onAspect,
   onCenter,
   onScroll,
   onScrolling,
@@ -20,9 +25,16 @@ export function ScrollView({
   scrollerRef,
 }: {
   pages: string[]
+  /** 实际显示的地址（裁边 / 拆半后的图）；拆半页还没处理好时为 undefined */
+  src: (i: number, half?: Half) => string | undefined
+  /** 这一页要不要拆成两半 */
+  splits: (i: number) => boolean
+  /** 记下一页的宽高比后通知外层，宽页才能重新判定要不要拆 */
+  onAspect: () => void
   startPage: number
   settings: ReaderSettings
-  onPage: (i: number) => void
+  /** 跨过视口那条线的页；拆成两半的页同时给出是哪一半 */
+  onPage: (i: number, half?: Half) => void
   onCenter: () => void
   /** 点击分区翻屏：1 向下、-1 向上 */
   onScroll: (d: 1 | -1) => void
@@ -30,14 +42,16 @@ export function ScrollView({
   footer: ReactNode
   scrollerRef: React.RefObject<HTMLDivElement | null>
 }) {
-  const items = useRef<(HTMLImageElement | null)[]>([])
   const onPageRef = useRef(onPage)
   onPageRef.current = onPage
   const webtoon = settings.mode === 'webtoon'
+  const entries = pages.flatMap((url, i) => (splits(i) ? ([0, 1] as const).map((h) => ({ url, i, half: h as Half | undefined })) : [{ url, i, half: undefined }]))
+  // 哪些页拆成了两半、哪半还在占位：变了 DOM 元素就换了，要重新登记当前页的观察对象
+  const layout = entries.map((e) => `${e.i}${e.half ?? ''}${src(e.i, e.half) ? '' : '?'}`).join(',')
 
   // 打开时跳到续读的页
   useLayoutEffect(() => {
-    items.current[startPage]?.scrollIntoView({ block: 'start' })
+    scrollerRef.current?.querySelector(`[data-i="${startPage}"]`)?.scrollIntoView({ block: 'start' })
     scrollerRef.current?.focus({ preventScroll: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -47,13 +61,17 @@ export function ScrollView({
     if (!root) return
     const io = new IntersectionObserver(
       (entries) => {
-        for (const e of entries) if (e.isIntersecting) onPageRef.current(Number((e.target as HTMLElement).dataset.i))
+        for (const e of entries) {
+          if (!e.isIntersecting) continue
+          const { i, half } = (e.target as HTMLElement).dataset
+          onPageRef.current(Number(i), half === undefined ? undefined : (Number(half) as Half))
+        }
       },
       { root, rootMargin: '-45% 0px -55% 0px' },
     )
-    items.current.forEach((el) => el && io.observe(el))
+    root.querySelectorAll('[data-i]').forEach((el) => io.observe(el))
     return () => io.disconnect()
-  }, [pages, scrollerRef])
+  }, [pages, scrollerRef, layout])
 
   // 滚动中通知外层（工具栏的折射临时退回毛玻璃）
   useEffect(() => {
@@ -94,23 +112,33 @@ export function ScrollView({
       className="absolute inset-0 overflow-y-auto overscroll-none outline-none [overflow-anchor:auto] [-webkit-touch-callout:none]"
     >
       <div className={cn('mx-auto flex flex-col items-center', webtoon ? 'gap-0' : 'gap-4 py-4')}>
-        {pages.map((src, i) => (
-          <img
-            key={src}
-            ref={(el) => {
-              items.current[i] = el
-            }}
-            data-i={i}
-            src={src}
-            alt={`第 ${i + 1} 页`}
-            loading={Math.abs(i - startPage) <= settings.preload ? 'eager' : 'lazy'}
-            decoding="async"
-            draggable={false}
-            onLoad={(e) => rememberAspect(src, e.currentTarget)}
-            className="block h-auto max-w-full select-none"
-            style={{ width, aspectRatio: aspectOf(src) ?? 'auto 0.7' }}
-          />
-        ))}
+        {entries.map(({ url, i, half }) => {
+          const shown = src(i, half)
+          const known = aspectOf(url)
+          // 处理过的图宽高比和原图不同：先按估计值占位，载入后按图片自己的比例
+          const ratio = shown === url ? (known ?? 'auto 0.7') : half === undefined ? `auto ${known ?? 0.7}` : `auto ${halfAspect(known) ?? 0.7}`
+          const key = `${url}#${half ?? ''}`
+          if (!shown) return <div key={key} data-i={i} data-half={half} className="block max-w-full" style={{ width, aspectRatio: ratio }} aria-label={`第 ${i + 1} 页（处理中）`} />
+          return (
+            <img
+              key={key}
+              data-i={i}
+              data-half={half}
+              src={shown}
+              alt={`第 ${i + 1} 页`}
+              loading={Math.abs(i - startPage) <= settings.preload ? 'eager' : 'lazy'}
+              decoding="async"
+              draggable={false}
+              onLoad={(e) => {
+                if (shown !== url) return
+                rememberAspect(url, e.currentTarget)
+                onAspect()
+              }}
+              className="reader-page block h-auto max-w-full select-none"
+              style={{ width, aspectRatio: ratio }}
+            />
+          )
+        })}
         {footer}
       </div>
     </div>

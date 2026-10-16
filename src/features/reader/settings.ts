@@ -8,7 +8,7 @@ import { useAuth } from '@/api/auth'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { USER_KEYS } from '@/features/auth/userScope'
 import { ReaderMangaMeta, ReaderMetaOf, SetReaderMeta } from './queries'
-import { READER_META_PREFIX, createWriteOrder, mergeServerMeta, parseReaderMeta, planMigration, splitPatch, toReaderMeta, type Meta } from './remote'
+import { READER_META_PREFIX, classifyDevice, createWriteOrder, mergeServerMeta, parseReaderMeta, planMigration, splitPatch, toReaderMeta, type DeviceKind, type Meta } from './remote'
 
 export type ReadMode = 'single' | 'double' | 'vertical' | 'webtoon'
 export type ReadDir = 'ltr' | 'rtl'
@@ -29,6 +29,17 @@ export interface ReaderSettings {
   /** 读完自动进入下一话 */
   autoNext: boolean
   tapZones: TapZones
+  /** 阅读时屏幕常亮 */
+  keepAwake: boolean
+  /** 自动裁掉页面四周的白边 / 黑边（Webtoon 模式不裁，免得条漫接缝错开） */
+  crop: boolean
+  /** 单页与纵向模式下，把跨页大图拆成两半依次显示 */
+  split: boolean
+  /** 图像滤镜：亮度、暖色百分比，灰度、反色 */
+  brightness: number
+  warmth: number
+  grayscale: boolean
+  invert: boolean
 }
 
 export const MODES: { value: ReadMode; label: string; hint: string }[] = [
@@ -67,6 +78,22 @@ export const DEFAULTS: ReaderSettings = {
   offsetFirst: true,
   autoNext: true,
   tapZones: 'auto',
+  keepAwake: true,
+  crop: false,
+  split: false,
+  brightness: 100,
+  warmth: 0,
+  grayscale: false,
+  invert: false,
+}
+
+/** 这台设备的类型；屏幕尺寸和指针类型在一次会话里基本不变，取一次即可 */
+let device: DeviceKind | undefined
+export function deviceKind(): DeviceKind {
+  return (device ??= classifyDevice({
+    coarse: matchMedia('(pointer: coarse)').matches,
+    shortSide: Math.min(screen.width, screen.height),
+  }))
 }
 
 interface Store {
@@ -75,19 +102,23 @@ interface Store {
   perManga: Record<number, Partial<ReaderSettings>>
   rememberPerManga: boolean
   setRemember: (v: boolean) => void
+  /** 按漫画记住的设置只对这一类设备（手机 / 平板 / 电脑）生效；这个开关本身存在浏览器里，每台设备各自决定 */
+  perDevice: boolean
+  setPerDevice: (v: boolean) => void
   /** 设置页：直接改全局默认值 */
   setDefaults: (patch: Partial<ReaderSettings>) => void
   /** 清掉浏览器里旧的按漫画设置 */
   clearPerManga: () => void
 }
 
-const INITIAL: Pick<Store, 'defaults' | 'perManga' | 'rememberPerManga'> = { defaults: DEFAULTS, perManga: {}, rememberPerManga: true }
+const INITIAL: Pick<Store, 'defaults' | 'perManga' | 'rememberPerManga' | 'perDevice'> = { defaults: DEFAULTS, perManga: {}, rememberPerManga: true, perDevice: false }
 
 export const useReaderStore = create<Store>()(
   persist(
     (set) => ({
       ...INITIAL,
       setRemember: (rememberPerManga) => set({ rememberPerManga }),
+      setPerDevice: (perDevice) => set({ perDevice }),
       setDefaults: (patch) => set((s) => ({ defaults: { ...s.defaults, ...patch } })),
       clearPerManga: () => set({ perManga: {} }),
     }),
@@ -237,12 +268,13 @@ export function useReaderMetaSync(mangaId: number) {
 export function useReaderSettings(mangaId: number) {
   const defaults = useReaderStore((s) => s.defaults)
   const remember = useReaderStore((s) => s.rememberPerManga)
+  const device = useReaderStore((s) => (s.perDevice ? deviceKind() : undefined))
   const legacy = useReaderStore((s) => s.perManga[mangaId])
   const setDefaults = useReaderStore((s) => s.setDefaults)
   const remote = useQuery(ReaderMangaMeta, { variables: { id: mangaId }, skip: !remember, fetchPolicy: 'cache-only' })
   const client = useApolloClient()
   const meta = remote.data?.manga.meta
-  const local = remember ? { ...legacy && splitPatch(legacy).local, ...parseReaderMeta(meta) } : undefined
+  const local = remember ? { ...legacy && splitPatch(legacy).local, ...parseReaderMeta(meta, device) } : undefined
   // 旧版本存下的默认值可能缺新字段，用内置默认补齐
   const settings: ReaderSettings = { ...DEFAULTS, ...defaults, ...local }
 
@@ -250,7 +282,7 @@ export function useReaderSettings(mangaId: number) {
     if (!remember) return setDefaults(patch)
     const { local, global } = splitPatch(patch)
     if (Object.keys(global).length) setDefaults(global)
-    const metas = toReaderMeta(local)
+    const metas = toReaderMeta(local, device)
     if (!metas.length) return
     // 先按写入成功显示；保存排队依次发送，只有这次仍是最新修改时才用响应更新界面
     const keys = metas.map((m) => m.key)

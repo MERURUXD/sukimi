@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { useDrag } from '@use-gesture/react'
 import { ChevronRight } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { toastError } from '@/components/ui/toast'
@@ -14,13 +14,18 @@ import { captureUser } from '@/api/userContext'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
-import { PagedView } from './PagedView'
+import { pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { usePageBookmarks } from './pageBookmarks'
+import { WIDE, filterCss, type Half } from './pageTools'
+import { PagedView, type Screen } from './PagedView'
 import { SaveProgress } from './queries'
+import { savePages } from './savePage'
 import { ReaderChrome } from './ReaderChrome'
 import { ScrollView } from './ScrollView'
 import { SettingsPanel } from './SettingsPanel'
 import { BGS, FITS, MODES, cycle, useMigrateReaderPrefs, useReaderMetaSync, useReaderSettings } from './settings'
 import { buildSpreads, nextOf, pickSpread, prevOf } from './spreads'
+import { useWakeLock } from './wakeLock'
 
 export function ReaderPage() {
   const mangaId = Number(useParams().id)
@@ -56,7 +61,8 @@ export function ReaderPage() {
   return (
     <div
       className="fixed inset-0 overflow-hidden text-text"
-      style={{ background: bg.color }}
+      // 图像滤镜只作用在页面图片上（.reader-page），工具栏和设置面板不受影响
+      style={{ background: bg.color, '--page-filter': filterCss(settings) } as CSSProperties}
       data-theme={settings.bg === 'white' ? 'light' : 'dark'}
       data-sfw={sfwAttr(manga.data?.manga.source?.displayName)}
     >
@@ -154,16 +160,30 @@ function ReaderSession({
   const back = useBackToDetail(mangaId)
   const paged = settings.mode === 'single' || settings.mode === 'double'
   const last = pages.length - 1
+  useWakeLock(settings.keepAwake)
 
-  // 续读：没读完的话从上次的页开始
-  const startPage = !chapter.isRead && chapter.lastPageRead > 0 ? Math.min(chapter.lastPageRead, last) : 0
+  // 从页面书签进来时（?page=第几页）直接到那一页；否则没读完的话从上次的页开始
+  const wanted = Number(new URLSearchParams(location.search).get('page'))
+  const startPage =
+    Number.isInteger(wanted) && wanted >= 1
+      ? Math.min(wanted - 1, last)
+      : !chapter.isRead && chapter.lastPageRead > 0
+        ? Math.min(chapter.lastPageRead, last)
+        : 0
   const [page, setPage] = useState(startPage)
+  // 书签页参数只用一次：去掉它，刷新或返回时按阅读进度续读
+  useEffect(() => {
+    if (location.search) navigate(location.pathname, { replace: true, state: location.state })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // 单页模式拆分宽页时，当前显示的是先读的一半（0）还是后读的一半（1）
+  const [half, setHalf] = useState<Half>(0)
   const [atEnd, setAtEnd] = useState(false)
   const [ui, setUi] = useState(true)
   const [panel, setPanel] = useState(false)
   const [scrolling, setScrolling] = useState(false)
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement)
-  const [, bump] = useState(0)
+  const [aspectTick, bump] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
 
   /* 工具栏自动隐藏：显示后 3 秒没有操作就收起；设置面板打开时不收。
@@ -217,6 +237,18 @@ function ReaderSession({
   const prevSpread = paged ? prevOf(spreads, shown) : undefined
   const nextSpread = paged ? nextOf(pages.length, double, shown, aspects) : undefined
   const onAspect = useCallback(() => bump((n) => n + 1), [])
+
+  /* 裁白边与拆分宽页：处理好的图换掉原图显示；页码、进度仍按原来的页算 */
+  usePageImages()
+  const rtl = settings.dir === 'rtl'
+  // Webtoon 是无缝长条，裁边会让接缝错开；双页模式的宽页本来就独占一屏，不拆
+  const cropOn = settings.crop && settings.mode !== 'webtoon'
+  const splitOn = settings.split && (settings.mode === 'vertical' || (paged && !double))
+  const variant = (h?: Half): Variant => ({ crop: cropOn, half: h, rtl })
+  // 拆不了的宽页（太大或读不了像素）整页显示一屏
+  const splits = (i: number) => splitOn && (aspects[i] ?? 0) > WIDE && !splitFailed(pages[i], variant(0))
+  // 只为当前页附近（预加载范围内）的页开始处理；纵向模式会一次渲染整话，远处的页先用原图或占位
+  const srcOf = (i: number, h?: Half) => pageSrc(pages[i], variant(h), Math.abs(i - page) <= settings.preload + 1)
   // 这一屏和下一页的宽高比都知道了才钉：没加载完时按竖页算的配对随时可能变
   const settled = [...shown, Math.max(...shown) + 1].every((i) => i >= pages.length || aspects[i] !== undefined)
   const shownKey = shown.join('-')
@@ -224,17 +256,30 @@ function ReaderSession({
     if (double && settled && pin?.join('-') !== shownKey) setPin(shownKey.split('-').map(Number))
   }, [double, settled, shownKey, pin])
 
+  // 拆分宽页：一页分成先读、后读两屏，翻页时先在两半之间走
+  const curHalf = paged && shown.length === 1 && splits(shown[0]) ? half : undefined
+  const screenOf = (sp: number[] | undefined, h: Half): Screen | undefined =>
+    sp && { pages: sp, half: sp.length === 1 && splits(sp[0]) ? h : undefined }
+  const screen: Screen = { pages: shown, half: curHalf }
+  const nextScreen = curHalf === 0 ? { pages: shown, half: 1 as const } : screenOf(nextSpread, 0)
+  const prevScreen = curHalf === 1 ? { pages: shown, half: 0 as const } : screenOf(prevSpread, 1)
+
   /* 预加载后面几页；快读完时预取下一话 */
   useEffect(() => {
     const from = Math.max(...shown) + 1
-    for (let i = from; i < Math.min(pages.length, from + settings.preload); i++) warm(pages[i], onAspect)
+    for (let i = from; i < Math.min(pages.length, from + settings.preload); i++) {
+      warm(pages[i], onAspect)
+      // 要裁边或拆分的页提前处理好，翻到时直接显示
+      if (cropOn && !splits(i)) requestPage(pages[i], variant())
+      if (splits(i)) for (const h of [0, 1] as const) requestPage(pages[i], variant(h))
+    }
     if (next && page >= last - settings.preload) {
       void loadPages(client, next.id)
         .then((urls) => urls.slice(0, settings.preload).forEach((u) => warm(u)))
         .catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, settings.preload, pages, next, client])
+  }, [page, settings.preload, pages, next, client, cropOn, splitOn, rtl, aspectTick])
 
   /* 进度回写：翻页后 0.6 秒写一次，读到最后一页标为已读；离开时立即写 */
   const [save] = useMutation(SaveProgress)
@@ -260,7 +305,8 @@ function ReaderSession({
       .catch((e) => toastError('进度同步失败', e))
   }, [save, chapter.id, client, mangaId])
 
-  const reachedEnd = Math.max(...shown) >= last
+  // 最后一页是拆成两半的宽页时，读到后一半才算读完
+  const reachedEnd = Math.max(...shown) >= last && (!splits(last) || half === 1)
   useEffect(() => {
     if (page === chapter.lastPageRead && !reachedEnd) return
     pending.current = { page, read: reachedEnd && !chapter.isRead, still: captureUser() }
@@ -282,31 +328,32 @@ function ReaderSession({
     [flush, navigate, mangaId, chapter.sourceOrder, chapter.isRead, last, location.state],
   )
 
-  const step = useCallback(
-    (d: 1 | -1) => {
-      if (atEnd) {
-        if (d < 0) setAtEnd(false)
-        else if (next && settings.autoNext) goChapter(next)
-        return
-      }
-      const to = d > 0 ? nextSpread : prevSpread
-      if (to) {
-        setPage(to[0])
-        setPin(to)
-      } else if (d > 0) setAtEnd(true)
-      else if (prev) goChapter(prev)
-      setUi(false)
-    },
-    [atEnd, next, prev, settings.autoNext, goChapter, nextSpread, prevSpread],
-  )
+  // 相邻屏每次渲染都重新算，这里不缓存函数
+  const step = (d: 1 | -1) => {
+    if (atEnd) {
+      if (d < 0) setAtEnd(false)
+      else if (next && settings.autoNext) goChapter(next)
+      return
+    }
+    const to = d > 0 ? nextScreen : prevScreen
+    if (to) {
+      setPage(to.pages[0])
+      // 往回翻进宽高比还不知道的页时先记成后一半：图载入后判定是宽页，就停在后一半而不是跳回先读的那半
+      setHalf(to.half ?? (d < 0 ? 1 : 0))
+      setPin(to.pages)
+    } else if (d > 0) setAtEnd(true)
+    else if (prev) goChapter(prev)
+    setUi(false)
+  }
 
   // 屏幕左右：RTL 时左边是下一页
-  const left = useCallback(() => step(settings.dir === 'rtl' ? 1 : -1), [step, settings.dir])
-  const right = useCallback(() => step(settings.dir === 'rtl' ? -1 : 1), [step, settings.dir])
+  const left = () => step(settings.dir === 'rtl' ? 1 : -1)
+  const right = () => step(settings.dir === 'rtl' ? -1 : 1)
 
   const jump = (i: number) => {
     setAtEnd(false)
     setPage(i)
+    setHalf(0)
     if (!paged) scroller.current?.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ block: 'start' })
   }
 
@@ -319,6 +366,26 @@ function ReaderSession({
     document.addEventListener('fullscreenchange', on)
     return () => document.removeEventListener('fullscreenchange', on)
   }, [])
+
+  /* 页面书签：记在章节元数据里，详情页的章节列表能直接跳到那一页 */
+  const [bookmarks, toggleBookmarkAt] = usePageBookmarks(chapter)
+  const bookmarkPage = atEnd ? last : page
+  const toggleBookmark = () => toggleBookmarkAt(bookmarkPage)
+
+  /* 保存 / 分享当前页：存原图（不带裁边、滤镜），双页时两页一起 */
+  const [saving, setSaving] = useState(false)
+  const saveCurrent = async () => {
+    if (saving) return
+    setSaving(true)
+    const list = atEnd ? [last] : [...shown].sort((a, b) => a - b)
+    try {
+      await savePages(list.map((i) => ({ url: pages[i], name: `${title} ${chapterLabel(chapter)} 第${i + 1}页` })))
+    } catch (e) {
+      toastError('没能保存这一页', e)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   /* 键盘 */
   useEffect(() => {
@@ -337,6 +404,7 @@ function ReaderSession({
       else if (k === 'z' || k === 'Z') set({ fit: cycle(FITS, settings.fit) })
       else if (k === 'd' || k === 'D') set({ dir: settings.dir === 'rtl' ? 'ltr' : 'rtl' })
       else if (k === 'f' || k === 'F') toggleFullscreen()
+      else if (k === 'b' || k === 'B') toggleBookmark()
       else if (k === 'Escape') panel ? setPanel(false) : setUi((v) => !v)
       else return
       e.preventDefault()
@@ -383,9 +451,10 @@ function ReaderSession({
         ) : (
           <PagedView
             pages={pages}
-            spread={shown}
-            prevSpread={prevSpread}
-            nextSpread={nextSpread}
+            screen={screen}
+            prevScreen={prevScreen}
+            nextScreen={nextScreen}
+            src={srcOf}
             settings={settings}
             onLeft={left}
             onRight={right}
@@ -399,9 +468,15 @@ function ReaderSession({
           key={settings.mode}
           scrollerRef={scroller}
           pages={pages}
+          src={srcOf}
+          splits={splits}
+          onAspect={onAspect}
           startPage={page}
           settings={settings}
-          onPage={setPage}
+          onPage={(i, h) => {
+            setPage(i)
+            setHalf(h ?? 0)
+          }}
           onCenter={() => setUi((v) => !v)}
           onScroll={(d) => scroller.current && glide(scroller.current, d * window.innerHeight * 0.85)}
           onScrolling={setScrolling}
@@ -435,8 +510,13 @@ function ReaderSession({
         hasNext={!!next}
         onPrevChapter={() => goChapter(prev)}
         onNextChapter={() => goChapter(next)}
+        bookmarks={bookmarks}
+        bookmarked={bookmarks.includes(bookmarkPage)}
+        onToggleBookmark={toggleBookmark}
+        saving={saving}
+        onSave={saveCurrent}
       />
-      <SettingsPanel open={ui && panel} settings={settings} set={set} syncLabel={syncLabel} />
+      <SettingsPanel open={ui && panel} settings={settings} set={set} syncLabel={syncLabel} bookmarks={bookmarks} onJump={jump} />
     </>
   )
 }
