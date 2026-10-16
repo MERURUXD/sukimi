@@ -5,11 +5,11 @@ import { buildSchema, executeSync } from 'graphql'
 import * as docs from '../src/api/gql/graphql.ts'
 import { createDemoData } from '../src/features/demo/data.ts'
 import {
-  PAGE_BOOKMARK_KEY,
   contentBox,
   filterCss,
   formatPageBookmarks,
   halfBox,
+  pageBookmarkKey,
   parsePageBookmarks,
   togglePageBookmark,
 } from '../src/features/reader/pageTools.ts'
@@ -88,28 +88,37 @@ test('图像滤镜：默认不加 filter，各项按顺序拼接并限制范围'
   assert.equal(filterCss({ ...base, warmth: 90 }), 'sepia(0.6)')
 })
 
-test('页面书签：解析容错、去重排序，切换加上或去掉', () => {
-  assert.deepEqual(parsePageBookmarks([]), [])
-  assert.deepEqual(parsePageBookmarks([{ key: PAGE_BOOKMARK_KEY, value: '12,3, x,3,,-1,7' }]), [3, 7, 12])
-  assert.deepEqual(parsePageBookmarks([{ key: 'other', value: '1' }]), [])
+test('页面书签：按账号分开，解析容错、去重排序，切换加上或去掉', () => {
+  assert.deepEqual(parsePageBookmarks([], 1), [])
+  assert.deepEqual(parsePageBookmarks([{ key: pageBookmarkKey(1), value: '12,3, x,3,,-1,7' }], 1), [3, 7, 12])
+  // 别的账号的书签读不到，未登录时什么都不显示
+  const meta = [
+    { key: pageBookmarkKey(1), value: '1,2' },
+    { key: pageBookmarkKey(2), value: '9' },
+  ]
+  assert.deepEqual(parsePageBookmarks(meta, 2), [9])
+  assert.deepEqual(parsePageBookmarks(meta, 3), [])
+  assert.deepEqual(parsePageBookmarks(meta, undefined), [])
   assert.deepEqual(togglePageBookmark([3, 7], 5), [3, 5, 7])
   assert.deepEqual(togglePageBookmark([3, 5, 7], 5), [3, 7])
   assert.equal(formatPageBookmarks([7, 3, 7]), '3,7')
   assert.equal(formatPageBookmarks([]), '')
 })
 
-test('页面书签：演示数据里写入后，章节列表查询能读到，清空后为空', () => {
+test('页面书签：演示数据里写入后，章节列表查询能读到，另一个账号读不到，清空后为空', () => {
   const root = createDemoData()
   const before = ok(root, docs.MangaChaptersDocument, { mangaId: 1 }).chapters.nodes
   const id = before[0].id
-  assert.deepEqual(parsePageBookmarks(before[0].meta), [])
-  const saved = ok(root, docs.SetPageBookmarksDocument, { id, value: '2,5' })
-  assert.deepEqual(JSON.parse(JSON.stringify(saved.setChapterMetas.metas)), [{ chapterId: id, key: PAGE_BOOKMARK_KEY, value: '2,5' }])
+  const key = pageBookmarkKey(1)
+  assert.deepEqual(parsePageBookmarks(before[0].meta, 1), [])
+  const saved = ok(root, docs.SetPageBookmarksDocument, { id, key, value: '2,5' })
+  assert.deepEqual(JSON.parse(JSON.stringify(saved.setChapterMetas.metas)), [{ chapterId: id, key, value: '2,5' }])
   const after = ok(root, docs.MangaChaptersDocument, { mangaId: 1 }).chapters.nodes.find((c) => c.id === id)
-  assert.deepEqual(parsePageBookmarks(after.meta), [2, 5])
-  ok(root, docs.SetPageBookmarksDocument, { id, value: '' })
+  assert.deepEqual(parsePageBookmarks(after.meta, 1), [2, 5])
+  assert.deepEqual(parsePageBookmarks(after.meta, 2), [])
+  ok(root, docs.SetPageBookmarksDocument, { id, key, value: '' })
   const cleared = ok(root, docs.MangaChaptersDocument, { mangaId: 1 }).chapters.nodes.find((c) => c.id === id)
-  assert.deepEqual(parsePageBookmarks(cleared.meta), [])
+  assert.deepEqual(parsePageBookmarks(cleared.meta, 1), [])
 })
 
 test('按设备区分：设备类型判断', () => {

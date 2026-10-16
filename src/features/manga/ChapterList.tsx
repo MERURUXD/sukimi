@@ -30,7 +30,7 @@ import type { Chapter } from './queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { parsePageBookmarks } from '@/features/reader/pageTools'
 import { Can } from '@/features/auth/Can'
-import { useCan } from '@/api/auth'
+import { useAuth, useCan } from '@/api/auth'
 import { captureUser } from '@/api/userContext'
 import { useChapterView, type ChapterFilter } from './store'
 import { mangaIntro, mangaIntroDelay } from './intro'
@@ -334,7 +334,8 @@ const ChapterRow = memo(function ChapterRow({
   const canDownload = useCan('DOWNLOAD_CHAPTERS')
   const press = useLongPress(() => !selecting && onLongPress(c.id, index))
   const inProgress = !c.isRead && c.lastPageRead > 0
-  const marks = parsePageBookmarks(c.meta)
+  const userId = useAuth((s) => s.user?.id)
+  const marks = parsePageBookmarks(c.meta, userId)
   const sub = inProgress
     ? `继续阅读 · 第 ${c.lastPageRead + 1}${c.pageCount > 0 ? ` / ${c.pageCount}` : ''} 页`
     : (c.scanlator ?? '')

@@ -16,7 +16,7 @@ export interface Variant {
 
 /** 检测白边时先缩到这么宽，几毫秒就能扫完 */
 const SAMPLE = 200
-/** 超过这么多像素不处理：手机浏览器画布有面积上限，超长条漫画也没必要裁 */
+/** 画布超过这么多像素不处理：手机浏览器画布有面积上限，超长条漫画也没必要裁 */
 const MAX_PIXELS = 16_000_000
 /** 处理结果最多留这么多张，旧的释放掉 */
 const KEEP = 60
@@ -87,11 +87,12 @@ async function render(url: string, v: Variant): Promise<string | null> {
   if (area === FULL) return null
   const w = img.naturalWidth
   const h = img.naturalHeight
-  if (w * h > MAX_PIXELS) return null
   const sx = Math.round(area.left * w)
   const sy = Math.round(area.top * h)
   const sw = Math.max(1, Math.round((area.right - area.left) * w))
   const sh = Math.max(1, Math.round((area.bottom - area.top) * h))
+  // 只看画出来的那部分：超大的双页扫描拆成两半后通常就在上限内
+  if (sw * sh > MAX_PIXELS) return null
   const canvas = document.createElement('canvas')
   canvas.width = sw
   canvas.height = sh
@@ -148,6 +149,9 @@ export function pageSrc(url: string, v: Variant): string | undefined {
   // 处理不了（读不了像素或太大）：裁白边退回原图；拆半页也只能退回整张
   return url
 }
+
+/** 这张宽页拆不了（读不了或太大）：调用方让它整页显示、不再分两屏，免得同一张整页看两遍 */
+export const splitFailed = (url: string, v: Variant) => v.half !== undefined && done.get(keyOf(url, v)) === null
 
 /** 处理结果变化时重新渲染 */
 export function usePageImages() {

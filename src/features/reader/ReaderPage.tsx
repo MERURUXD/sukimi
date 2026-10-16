@@ -14,7 +14,7 @@ import { captureUser } from '@/api/userContext'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
-import { pageSrc, requestPage, usePageImages, type Variant } from './pageImage'
+import { pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
 import { usePageBookmarks } from './pageBookmarks'
 import { WIDE, filterCss, type Half } from './pageTools'
 import { PagedView, type Screen } from './PagedView'
@@ -244,8 +244,9 @@ function ReaderSession({
   // Webtoon 是无缝长条，裁边会让接缝错开；双页模式的宽页本来就独占一屏，不拆
   const cropOn = settings.crop && settings.mode !== 'webtoon'
   const splitOn = settings.split && (settings.mode === 'vertical' || (paged && !double))
-  const splits = (i: number) => splitOn && (aspects[i] ?? 0) > WIDE
   const variant = (h?: Half): Variant => ({ crop: cropOn, half: h, rtl })
+  // 拆不了的宽页（太大或读不了像素）整页显示一屏
+  const splits = (i: number) => splitOn && (aspects[i] ?? 0) > WIDE && !splitFailed(pages[i], variant(0))
   const srcOf = (i: number, h?: Half) => pageSrc(pages[i], variant(h))
   // 这一屏和下一页的宽高比都知道了才钉：没加载完时按竖页算的配对随时可能变
   const settled = [...shown, Math.max(...shown) + 1].every((i) => i >= pages.length || aspects[i] !== undefined)

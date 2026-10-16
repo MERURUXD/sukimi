@@ -112,11 +112,16 @@ export function filterCss({ brightness, warmth, grayscale, invert }: FilterSetti
   return parts.length ? parts.join(' ') : 'none'
 }
 
-/** 页面书签存在章节元数据里：值是逗号分隔、从 0 开始的页码 */
-export const PAGE_BOOKMARK_KEY = 'sukimi.pageBookmarks'
+/**
+ * 页面书签存在章节元数据里，按账号分开（章节元数据所有账号共用，和 NSFW、稍后再看一样把账号 id 编进键）；
+ * 值是逗号分隔、从 0 开始的页码
+ */
+export const pageBookmarkKey = (userId: number) => `sukimi.pageBookmarks.${userId}`
 
-export function parsePageBookmarks(meta: readonly { key: string; value: string }[] = []): number[] {
-  const value = meta.find((m) => m.key === PAGE_BOOKMARK_KEY)?.value ?? ''
+export function parsePageBookmarks(meta: readonly { key: string; value: string }[] = [], userId: number | undefined): number[] {
+  if (userId === undefined) return []
+  const key = pageBookmarkKey(userId)
+  const value = meta.find((m) => m.key === key)?.value ?? ''
   const pages = value
     .split(',')
     .map((s) => s.trim())
