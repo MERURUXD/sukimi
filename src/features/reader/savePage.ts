@@ -22,12 +22,12 @@ export async function savePages(items: { url: string; name: string }[]) {
   if (touch && navigator.canShare?.({ files })) {
     try {
       await navigator.share({ files })
+      return
     } catch (e) {
       // 用户关掉了分享面板
       if ((e as Error).name === 'AbortError') return
-      throw e
+      // 其他失败（例如图片下载太久、点击带来的分享权限已过期）：改为下载
     }
-    return
   }
   for (const file of files) {
     const href = URL.createObjectURL(file)

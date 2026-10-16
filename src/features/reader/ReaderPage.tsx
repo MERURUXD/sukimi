@@ -247,7 +247,8 @@ function ReaderSession({
   const variant = (h?: Half): Variant => ({ crop: cropOn, half: h, rtl })
   // 拆不了的宽页（太大或读不了像素）整页显示一屏
   const splits = (i: number) => splitOn && (aspects[i] ?? 0) > WIDE && !splitFailed(pages[i], variant(0))
-  const srcOf = (i: number, h?: Half) => pageSrc(pages[i], variant(h))
+  // 只为当前页附近（预加载范围内）的页开始处理；纵向模式会一次渲染整话，远处的页先用原图或占位
+  const srcOf = (i: number, h?: Half) => pageSrc(pages[i], variant(h), Math.abs(i - page) <= settings.preload + 1)
   // 这一屏和下一页的宽高比都知道了才钉：没加载完时按竖页算的配对随时可能变
   const settled = [...shown, Math.max(...shown) + 1].every((i) => i >= pages.length || aspects[i] !== undefined)
   const shownKey = shown.join('-')

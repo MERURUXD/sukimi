@@ -132,14 +132,15 @@ export function requestPage(url: string, v: Variant) {
 }
 
 /**
- * 要显示的地址。不需要处理时就是原图；处理中时：只裁白边先显示原图，
+ * 要显示的地址。不需要处理时就是原图；处理中（或还没开始）时：只裁白边先显示原图，
  * 拆半页返回 undefined（先显示整张再换成半张会闪），由调用方占位。
  */
-export function pageSrc(url: string, v: Variant): string | undefined {
+export function pageSrc(url: string, v: Variant, start = true): string | undefined {
   if (!v.crop && v.half === undefined) return url
   const key = keyOf(url, v)
   if (!done.has(key)) {
-    requestPage(url, v)
+    // start = false：离当前页还远，只看有没有现成结果，不开始处理（纵向模式一话的页一次全渲染出来）
+    if (start) requestPage(url, v)
     if (v.half === undefined) return url
     // 拆半页处理中：如果有只拆不裁的结果也先不用，等这一份
     return undefined
