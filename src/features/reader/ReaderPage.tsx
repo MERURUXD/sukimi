@@ -337,7 +337,8 @@ function ReaderSession({
     const to = d > 0 ? nextScreen : prevScreen
     if (to) {
       setPage(to.pages[0])
-      setHalf(to.half ?? 0)
+      // 往回翻进宽高比还不知道的页时先记成后一半：图载入后判定是宽页，就停在后一半而不是跳回先读的那半
+      setHalf(to.half ?? (d < 0 ? 1 : 0))
       setPin(to.pages)
     } else if (d > 0) setAtEnd(true)
     else if (prev) goChapter(prev)
@@ -468,6 +469,7 @@ function ReaderSession({
           pages={pages}
           src={srcOf}
           splits={splits}
+          onAspect={onAspect}
           startPage={page}
           settings={settings}
           onPage={(i, h) => {

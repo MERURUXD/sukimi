@@ -17,6 +17,7 @@ export function ScrollView({
   startPage,
   settings,
   onPage,
+  onAspect,
   onCenter,
   onScroll,
   onScrolling,
@@ -28,6 +29,8 @@ export function ScrollView({
   src: (i: number, half?: Half) => string | undefined
   /** 这一页要不要拆成两半 */
   splits: (i: number) => boolean
+  /** 记下一页的宽高比后通知外层，宽页才能重新判定要不要拆 */
+  onAspect: () => void
   startPage: number
   settings: ReaderSettings
   /** 跨过视口那条线的页；拆成两半的页同时给出是哪一半 */
@@ -126,7 +129,11 @@ export function ScrollView({
               loading={Math.abs(i - startPage) <= settings.preload ? 'eager' : 'lazy'}
               decoding="async"
               draggable={false}
-              onLoad={(e) => shown === url && rememberAspect(url, e.currentTarget)}
+              onLoad={(e) => {
+                if (shown !== url) return
+                rememberAspect(url, e.currentTarget)
+                onAspect()
+              }}
               className="reader-page block h-auto max-w-full select-none"
               style={{ width, aspectRatio: ratio }}
             />
