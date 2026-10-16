@@ -30,7 +30,8 @@ export function ScrollView({
   splits: (i: number) => boolean
   startPage: number
   settings: ReaderSettings
-  onPage: (i: number) => void
+  /** 跨过视口那条线的页；拆成两半的页同时给出是哪一半 */
+  onPage: (i: number, half?: Half) => void
   onCenter: () => void
   /** 点击分区翻屏：1 向下、-1 向上 */
   onScroll: (d: 1 | -1) => void
@@ -41,8 +42,9 @@ export function ScrollView({
   const onPageRef = useRef(onPage)
   onPageRef.current = onPage
   const webtoon = settings.mode === 'webtoon'
-  // 哪些页拆成了两半：变了就重新登记当前页的观察对象
-  const layout = pages.flatMap((_, i) => (splits(i) ? [i] : [])).join(',')
+  const entries = pages.flatMap((url, i) => (splits(i) ? ([0, 1] as const).map((h) => ({ url, i, half: h as Half | undefined })) : [{ url, i, half: undefined }]))
+  // 哪些页拆成了两半、哪半还在占位：变了 DOM 元素就换了，要重新登记当前页的观察对象
+  const layout = entries.map((e) => `${e.i}${e.half ?? ''}${src(e.i, e.half) ? '' : '?'}`).join(',')
 
   // 打开时跳到续读的页
   useLayoutEffect(() => {
@@ -56,7 +58,11 @@ export function ScrollView({
     if (!root) return
     const io = new IntersectionObserver(
       (entries) => {
-        for (const e of entries) if (e.isIntersecting) onPageRef.current(Number((e.target as HTMLElement).dataset.i))
+        for (const e of entries) {
+          if (!e.isIntersecting) continue
+          const { i, half } = (e.target as HTMLElement).dataset
+          onPageRef.current(Number(i), half === undefined ? undefined : (Number(half) as Half))
+        }
       },
       { root, rootMargin: '-45% 0px -55% 0px' },
     )
@@ -88,8 +94,6 @@ export function ScrollView({
     original: undefined,
   }[settings.fit]
 
-  const entries = pages.flatMap((url, i) => (splits(i) ? ([0, 1] as const).map((h) => ({ url, i, half: h as Half | undefined })) : [{ url, i, half: undefined }]))
-
   return (
     <div
       ref={scrollerRef}
@@ -111,11 +115,12 @@ export function ScrollView({
           // 处理过的图宽高比和原图不同：先按估计值占位，载入后按图片自己的比例
           const ratio = shown === url ? (known ?? 'auto 0.7') : half === undefined ? `auto ${known ?? 0.7}` : `auto ${halfAspect(known) ?? 0.7}`
           const key = `${url}#${half ?? ''}`
-          if (!shown) return <div key={key} data-i={i} className="block max-w-full" style={{ width, aspectRatio: ratio }} aria-label={`第 ${i + 1} 页（处理中）`} />
+          if (!shown) return <div key={key} data-i={i} data-half={half} className="block max-w-full" style={{ width, aspectRatio: ratio }} aria-label={`第 ${i + 1} 页（处理中）`} />
           return (
             <img
               key={key}
               data-i={i}
+              data-half={half}
               src={shown}
               alt={`第 ${i + 1} 页`}
               loading={Math.abs(i - startPage) <= settings.preload ? 'eager' : 'lazy'}

@@ -303,7 +303,8 @@ function ReaderSession({
       .catch((e) => toastError('进度同步失败', e))
   }, [save, chapter.id, client, mangaId])
 
-  const reachedEnd = Math.max(...shown) >= last
+  // 最后一页是拆成两半的宽页时，读到后一半才算读完
+  const reachedEnd = Math.max(...shown) >= last && (!splits(last) || half === 1)
   useEffect(() => {
     if (page === chapter.lastPageRead && !reachedEnd) return
     pending.current = { page, read: reachedEnd && !chapter.isRead, still: captureUser() }
@@ -468,7 +469,10 @@ function ReaderSession({
           splits={splits}
           startPage={page}
           settings={settings}
-          onPage={setPage}
+          onPage={(i, h) => {
+            setPage(i)
+            setHalf(h ?? 0)
+          }}
           onCenter={() => setUi((v) => !v)}
           onScroll={(d) => scroller.current && glide(scroller.current, d * window.innerHeight * 0.85)}
           onScrolling={setScrolling}

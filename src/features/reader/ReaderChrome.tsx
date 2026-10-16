@@ -177,7 +177,7 @@ export function ReaderChrome({
               >
                 <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
               </button>
-              <button type="button" className={cn(ib, 'max-[380px]:hidden')} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
+              <button type="button" className={ib} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
                 {touch ? <Share2 className="size-5" strokeWidth={1.8} /> : <Download className="size-5" strokeWidth={1.8} />}
               </button>
               <button type="button" className={cn(ib, panel && on)} onClick={onTogglePanel} aria-label="阅读设置" aria-pressed={panel}>
