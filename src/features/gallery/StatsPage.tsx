@@ -547,15 +547,22 @@ function Stats(p: BodyProps) {
   /* ── 尺寸 ── */
   const side = mobile ? 24 : Math.round(Math.max(32, Math.min(64, w * 0.044)))
   const top = mobile ? 64 : 88
-  const kpiW = w >= 1200 ? 196 : 168
+  // 大屏放大倍数：按 1440×860 排版，更高更宽的窗口里数字、表盘和封面一起放大，不让内容缩在中间、四周空一大片
+  const u = mobile ? 1 : Math.max(1, Math.min(h / 860, w / 1440, 1.3))
+  const kpiW = Math.round((w >= 1200 ? 196 : 168) * u)
+  const kpiGap = Math.round(80 * u)
   // 表盘（连年轮和外面的字）的边长；时钟本身按 360 / DIAL_UNITS 缩
-  const dial = mobile ? Math.round(Math.max(260, Math.min(w - 16, h * 0.47))) : Math.round(Math.max(300, Math.min(h - top - 92, w - side * 2 - kpiW * 2 - 96, 700)))
+  const dial = mobile ? Math.round(Math.max(260, Math.min(w - 16, h * 0.47))) : Math.round(Math.max(300, Math.min(h - top - 92, w - side * 2 - kpiW * 2 - kpiGap * 2, 960)))
   const clock = Math.round((dial * 360) / DIAL_UNITS)
   const text = read == null ? '—' : count(read)
-  const numSize = Math.round(Math.max(36, Math.min(mobile ? 64 : 112, (clock * 0.6 - 36) / ([...text].length * 0.56))))
-  const tasteW = Math.round(Math.max(260, Math.min(330, w * 0.22)))
-  const flowW = mobile ? w : w - side * 2 - tasteW - 48
-  const cw = Math.round(mobile ? Math.max(120, Math.min(160, h * 0.2, w * 0.4)) : Math.max(150, Math.min(240, (h - top - 230) / 1.5, flowW / 2.9)))
+  const numSize = Math.round(Math.max(36, Math.min(mobile ? 64 : 136, (clock * 0.6 - 36) / ([...text].length * 0.56))))
+  const tasteW = Math.round(Math.max(260, Math.min(330 * u, w * 0.22)))
+  const tasteGap = Math.round(56 * u)
+  // 第二屏的舞台：超宽屏上也收在中间，封面和口味不各自贴到两边
+  const stage = Math.min(w - side * 2, Math.round(1600 * u))
+  const stageL = (w - stage) / 2
+  const flowW = mobile ? w : stage - tasteW - tasteGap
+  const cw = Math.round(mobile ? Math.max(120, Math.min(160, h * 0.2, w * 0.4)) : Math.max(150, Math.min(380, (h - top - 230 * u) / 1.5, flowW / 2.9)))
   const L = useMemo(() => flowLayout(cw, mobile), [cw, mobile])
   const flowH = L.ch + (mobile ? 40 : 60)
 
@@ -608,14 +615,14 @@ function Stats(p: BodyProps) {
 
   const kpiDrift = (dir: -1 | 1): CSSProperties =>
     mobile ? { opacity: 'calc(1 - var(--ek))', translate: '0 calc(var(--ek) * 30px)' } : { opacity: 'calc(1 - var(--ek))', translate: `calc(var(--ek) * ${dir * 60}px) 0` }
-  const stripSize = mobile ? { w: Math.floor((w - side * 2 - 24) / 2), h: 18 } : { w: kpiW, h: 22 }
+  const stripSize = mobile ? { w: Math.floor((w - side * 2 - 24) / 2), h: 18 } : { w: kpiW, h: Math.round(22 * u) }
   const group = (title: string, items: Kpi[], right: boolean, at: number) => (
     <section aria-label={title} className={cn('flex flex-col gap-10', right && 'items-end')} style={kpiDrift(right ? 1 : -1)}>
       <h2 className="m-0 text-xs font-bold tracking-[.32em] text-muted" style={upStyle(t, at - 0.04)}>
         {title}
       </h2>
       {items.map((k, i) => (
-        <KpiBlock key={k.key} k={k} t={t} at={at + i * 0.06} right={right} size={52} strip={stripSize} />
+        <KpiBlock key={k.key} k={k} t={t} at={at + i * 0.06} right={right} size={Math.round(52 * u)} strip={stripSize} />
       ))}
     </section>
   )
@@ -674,7 +681,7 @@ function Stats(p: BodyProps) {
     </div>
   )
 
-  const info = current && <FlowInfo it={current} tone={tone} phone={mobile} onStep={mobile ? undefined : (d) => pager.flip(pager.goal + d)} first={idx === 0} last={idx === ranked.length - 1} />
+  const info = current && <FlowInfo it={current} tone={tone} phone={mobile} u={u} onStep={mobile ? undefined : (d) => pager.flip(pager.goal + d)} first={idx === 0} last={idx === ranked.length - 1} />
   const rankLabel = (
     <span className="text-xs font-bold tracking-[.32em] text-muted" style={{ opacity: seg01('0.6', '0.85') }}>
       已读排行 · 前 {ranked.length} 部
@@ -707,9 +714,10 @@ function Stats(p: BodyProps) {
               )}
             </div>
           ) : (
-            <div className="absolute grid items-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px minmax(0,1fr) ${kpiW}px` }}>
+            // 两侧数字贴着表盘，整组居中；不铺满整个窗口，宽屏上中间才不会空出一大片
+            <div className="absolute grid items-center justify-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px ${dial}px ${kpiW}px`, columnGap: kpiGap }}>
               <div>{kpis && group('进度', kpis.progress, false, 0.38)}</div>
-              <div className="flex justify-center">{dialEl}</div>
+              {dialEl}
               <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
             </div>
           )}
@@ -735,15 +743,15 @@ function Stats(p: BodyProps) {
               </>
             ) : (
               <>
-                {glows(side + flowW / 2, top + (h - top - 40) / 2 - 60)}
-                <div className="absolute grid" style={{ left: side, right: side, top, bottom: 40, gridTemplateColumns: `${flowW}px ${tasteW}px`, columnGap: 48 }}>
+                {glows(stageL + flowW / 2, top + (h - top - 40) / 2 - 60)}
+                <div className="absolute grid" style={{ left: stageL, width: stage, top, bottom: 40, gridTemplateColumns: `${flowW}px ${tasteW}px`, columnGap: tasteGap }}>
                   <section aria-label="已读排行" className="relative flex min-w-0 flex-col justify-center">
                     <div className="absolute top-0 left-0">{rankLabel}</div>
                     {flowBox}
                     {info}
                   </section>
                   <div className="flex items-center">
-                    <TastePanel taste={taste} it={current} tone={tone} phone={false} />
+                    <TastePanel taste={taste} it={current} tone={tone} phone={false} u={u} />
                   </div>
                 </div>
               </>
