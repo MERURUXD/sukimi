@@ -1,0 +1,18 @@
+/* 柱状图：带数据挂载时从底部逐根长出；先显示占位再来数据时，原地过渡到真实高度。
+   每根晚 28ms，--d 是整组的起始延迟（详情页进场时接在评分行之后） */
+@keyframes bgm-grow {
+  from { scale: 1 0; }
+}
+.bgm-bar {
+  transform-origin: bottom;
+  transition: height 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s;
+  transition-delay: calc(var(--i) * 28ms);
+}
+.bgm-bar.grow {
+  animation: bgm-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--d, 0ms) + var(--i) * 28ms);
+}
+.bgm-bar.wait { animation: skel 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .bgm-bar, .bgm-bar.grow { animation-delay: 0ms; transition-delay: 0ms; }
+}

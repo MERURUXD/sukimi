@@ -1,10 +1,11 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, ClockFading, Download, FolderInput, LibraryBig } from 'lucide-react'
+import { BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { GalleryPill } from '@/features/gallery/GalleryPill'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
+import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
 import { captureUser, StaleSessionError } from '@/api/userContext'
@@ -139,6 +140,8 @@ export function LibraryPage() {
   const [setInLibrary] = useMutation(SetInLibrary)
   const [setCats] = useMutation(SetMangasCategories)
   const [busy, setBusy] = useState(false)
+  const nsfw = useNsfw()
+  const { setManga: setNsfw } = useNsfwActions()
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [catPop, setCatPop] = useState(false)
   const ids = [...sel.selected]
@@ -207,6 +210,15 @@ export function LibraryPage() {
       await removeLater(ids)
       exitSelect()
       return `已将 ${ids.length} 部移出稍后再看`
+    })
+
+  // 和其他批量操作一样按全部已选算（筛选或搜索后看不见的也算）；都已是 NSFW 时按钮变成取消
+  const picked = base.filter((m) => sel.selected.has(m.id))
+  const allNsfw = picked.length > 0 && picked.every(nsfw.test)
+  const toggleNsfw = () =>
+    run(allNsfw ? '取消 NSFW 标记' : '标为 NSFW', async () => {
+      await setNsfw(picked, !allNsfw)
+      return allNsfw ? `已取消 ${picked.length} 部的 NSFW 标记` : `已将 ${picked.length} 部标为 NSFW，首页和画廊不再显示`
     })
 
   const realCategories = (catData?.categories.nodes ?? []).filter((c) => !c.default)
@@ -324,6 +336,10 @@ export function LibraryPage() {
         <button type="button" className="bb" disabled={busy || !ids.length} onClick={markRead}>
           <BookCheck className="size-5" strokeWidth={1.8} />
           全部已读
+        </button>
+        <button type="button" className="bb" disabled={busy || !ids.length} onClick={toggleNsfw}>
+          {allNsfw ? <Eye className="size-5" strokeWidth={1.8} /> : <EyeOff className="size-5" strokeWidth={1.8} />}
+          {allNsfw ? '取消 NSFW' : '标为 NSFW'}
         </button>
         <Can permission="DOWNLOAD_CHAPTERS">
           <button type="button" className="bb" disabled={busy || !ids.length} onClick={downloadUnread}>

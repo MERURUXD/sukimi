@@ -31,6 +31,13 @@ export const RecentReads = graphql(`
           source {
             id
             displayName
+            contentWarning
+          }
+          # NSFW 判定要看分类（features/nsfw）
+          categories {
+            nodes {
+              id
+            }
           }
           firstUnreadChapter {
             id
@@ -81,6 +88,13 @@ export const RecentUpdates = graphql(`
           source {
             id
             displayName
+            contentWarning
+          }
+          # NSFW 判定要看分类（features/nsfw）
+          categories {
+            nodes {
+              id
+            }
           }
         }
       }

@@ -3,7 +3,16 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { cn } from '@/lib/cn'
 import { clampPan, MAX_ZOOM, NO_ZOOM, panBounds, settle, swipeResult, TAP_ZOOM, zoomAround, type Zoom } from './gestures'
 import { rememberAspect } from './pageCache'
+import type { Half } from './pageTools'
 import type { ReaderSettings } from './settings'
+
+/** 一屏显示的页；拆分宽页时 half 是这一屏显示的那一半 */
+export interface Screen {
+  pages: number[]
+  half?: Half
+}
+
+const screenKey = (s: Screen) => s.pages.join('-') + (s.half === undefined ? '' : `h${s.half}`)
 
 /** 缩放复位、双击放大、弹回的过渡时长 */
 const SLIDE_MS = 200
@@ -43,9 +52,10 @@ function decode(src: string | undefined) {
  */
 export function PagedView({
   pages,
-  spread,
-  prevSpread,
-  nextSpread,
+  screen,
+  prevScreen,
+  nextScreen,
+  src,
   settings,
   onLeft,
   onRight,
@@ -53,11 +63,14 @@ export function PagedView({
   onCenter,
   onAspect,
 }: {
+  /** 原图地址；页码、宽高比都按原图算 */
   pages: string[]
-  spread: number[]
-  /** 相邻的拼版：拖动时摆在当前页两边，翻过去时直接接上 */
-  prevSpread?: number[]
-  nextSpread?: number[]
+  screen: Screen
+  /** 相邻的一屏：拖动时摆在当前页两边，翻过去时直接接上 */
+  prevScreen?: Screen
+  nextScreen?: Screen
+  /** 实际显示的地址（裁边 / 拆半后的图）；拆半页还没处理好时为 undefined */
+  src: (i: number, half?: Half) => string | undefined
   settings: ReaderSettings
   onLeft: () => void
   onRight: () => void
@@ -87,7 +100,7 @@ export function PagedView({
   // 放大时这一下拖动开始时顶着哪边：1 = 左边缘（内容右移到底），-1 = 右边缘
   const startEdge = useRef(0)
   const zoomed = zoom.s > 1.01
-  const key = spread.join('-')
+  const key = screenKey(screen)
 
   // 翻页后：复位缩放，滚动回到起点（适应宽度时页面比屏幕高）
   useEffect(() => {
@@ -95,12 +108,16 @@ export function PagedView({
     scroller.current?.scrollTo({ top: 0, left: settings.dir === 'rtl' ? scroller.current.scrollWidth : 0 })
   }, [key, settings.dir])
 
-  // 当前页前后各两页提前解码，翻页时直接有画面
+  // 相邻两屏和再往外一页提前解码，翻页时直接有画面
+  const near = [nextScreen, prevScreen].flatMap((sc) => (sc ? sc.pages.map((i) => src(i, sc.half)) : []))
+  const nearKey = near.join('|')
   useEffect(() => {
-    const lo = Math.min(...spread)
-    const hi = Math.max(...spread)
-    for (const i of [hi + 1, hi + 2, lo - 1, lo - 2]) void decode(pages[i])
-  }, [key, pages, spread])
+    const lo = Math.min(...screen.pages)
+    const hi = Math.max(...screen.pages)
+    for (const u of nearKey.split('|')) void decode(u || undefined)
+    for (const i of [hi + 2, lo - 2]) void decode(pages[i])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, pages, nearKey])
 
   useEffect(
     () => () => {
@@ -264,32 +281,40 @@ export function PagedView({
     width: 'w-full h-auto',
     original: 'max-w-none',
   }[fit]
-  const imgsOf = (sp: number[]) => {
+  const imgsOf = ({ pages: sp, half }: Screen) => {
     const style = fit === 'screen' ? { maxWidth: `${100 / sp.length}vw` } : fit === 'width' ? { width: `${100 / sp.length}vw` } : undefined
-    return (settings.dir === 'rtl' ? [...sp].reverse() : sp).map((i) => (
-      <img
-        key={pages[i]}
-        src={pages[i]}
-        alt={`第 ${i + 1} 页`}
-        draggable={false}
-        decoding="async"
-        onLoad={(e) => {
-          rememberAspect(pages[i], e.currentTarget)
-          onAspect()
-        }}
-        className={cn('block flex-none', imgCls)}
-        style={style}
-      />
-    ))
+    return (settings.dir === 'rtl' ? [...sp].reverse() : sp).map((i) => {
+      const shown = src(i, half)
+      const k = `${pages[i]}#${half ?? ''}`
+      // 拆半页还没处理好：先空着，免得整张闪一下再换成半张
+      if (!shown) return <div key={k} className="h-dvh w-screen flex-none" aria-label={`第 ${i + 1} 页（处理中）`} />
+      return (
+        <img
+          key={k}
+          src={shown}
+          alt={`第 ${i + 1} 页`}
+          draggable={false}
+          decoding="async"
+          onLoad={(e) => {
+            // 宽高比只记原图的：拼版和「是不是宽页」都按原图判断
+            if (shown !== pages[i]) return
+            rememberAspect(pages[i], e.currentTarget)
+            onAspect()
+          }}
+          className={cn('reader-page block flex-none', imgCls)}
+          style={style}
+        />
+      )
+    })
   }
 
   // 屏幕左边那页：RTL 是下一页，LTR 是上一页
   const rtl = settings.dir === 'rtl'
   const panels = [
-    { sp: rtl ? nextSpread : prevSpread, pos: -1 },
-    { sp: spread, pos: 0 },
-    { sp: rtl ? prevSpread : nextSpread, pos: 1 },
-  ].filter((p): p is { sp: number[]; pos: number } => !!p.sp)
+    { sp: rtl ? nextScreen : prevScreen, pos: -1 },
+    { sp: screen, pos: 0 },
+    { sp: rtl ? prevScreen : nextScreen, pos: 1 },
+  ].filter((p): p is { sp: Screen; pos: number } => !!p.sp)
 
   return (
     // 外层裁切：轨道平移时内容不会被推出边缘冒出滚动条；手势、点击都挂在这里
@@ -321,7 +346,7 @@ export function PagedView({
           return (
             // key 用页码：翻页后相邻页就是同一个元素，只是位置挪到中间
             <div
-              key={sp.join('-')}
+              key={screenKey(sp)}
               ref={active ? scroller : undefined}
               aria-hidden={!active || undefined}
               // 当前页：放大后平移靠变换，容器不滚动；overscroll-none：滚到顶再下拉不会触发浏览器的下拉刷新

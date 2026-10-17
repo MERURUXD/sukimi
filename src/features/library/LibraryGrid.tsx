@@ -7,6 +7,7 @@ import { useRestoredOffset } from '@/app/ScrollManager'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
+import { useNsfw, useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseDelay, useIntro } from '@/lib/intro'
@@ -190,6 +191,7 @@ const Tile = memo(function Tile({
 }) {
   const press = useLongPress(() => !selecting && onLongPress(m.id, index))
   const prefetch = usePrefetchManga(m.id)
+  const nsfw = useNsfwBlur(m)
   const body = (
     <>
       <span
@@ -235,11 +237,11 @@ const Tile = memo(function Tile({
 
   const cls = cn('group flex min-w-0 flex-col gap-2 text-left text-text no-underline', rise && 'rise')
   return selecting ? (
-    <button type="button" className={cls} style={rise} aria-pressed={selected} data-sfw={sfwAttr(m.source?.displayName)} {...press} onClick={(e) => onToggle(m.id, index, e)}>
+    <button type="button" className={cls} style={rise} aria-pressed={selected} data-sfw={sfwAttr(m.source?.displayName)} data-nsfw={nsfw} {...press} onClick={(e) => onToggle(m.id, index, e)}>
       {body}
     </button>
   ) : (
-    <Link to={`/manga/${m.id}`} viewTransition className={cls} style={rise} data-sfw={sfwAttr(m.source?.displayName)} {...prefetch} {...press}>
+    <Link to={`/manga/${m.id}`} viewTransition className={cls} style={rise} data-sfw={sfwAttr(m.source?.displayName)} data-nsfw={nsfw} {...prefetch} {...press}>
       {body}
     </Link>
   )
@@ -250,6 +252,7 @@ const LIST_ROW = 68
 
 function ListView({ items, intro, selecting, selected, onToggle, scoreOf, top }: Props & { top: number }) {
   const initialOffset = useRestoredOffset()
+  const { blurred } = useNsfw()
   const v = useWindowVirtualizer({
     count: items.length,
     estimateSize: () => LIST_ROW,
@@ -296,11 +299,11 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf, top }:
           </>
         )
         return selecting ? (
-          <button key={m.id} type="button" className={cls} style={style} aria-pressed={isSel} data-sfw={sfwAttr(m.source?.displayName)} onClick={(e) => onToggle(m.id, r.index, e)}>
+          <button key={m.id} type="button" className={cls} style={style} aria-pressed={isSel} data-sfw={sfwAttr(m.source?.displayName)} data-nsfw={blurred(m) ? '' : undefined} onClick={(e) => onToggle(m.id, r.index, e)}>
             {body}
           </button>
         ) : (
-          <Link key={m.id} to={`/manga/${m.id}`} viewTransition className={cls} style={style} data-sfw={sfwAttr(m.source?.displayName)}>
+          <Link key={m.id} to={`/manga/${m.id}`} viewTransition className={cls} style={style} data-sfw={sfwAttr(m.source?.displayName)} data-nsfw={blurred(m) ? '' : undefined}>
             {body}
           </Link>
         )

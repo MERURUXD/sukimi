@@ -52,7 +52,7 @@ interface DemoChapter {
 }
 interface DemoManga {
   id: number; title: string; thumbnailUrl: string | null; author: string | null; artist: string | null; description: string | null;
-  genre: string[]; status: string; realUrl: null; initialized: boolean; inLibrary: boolean; inLibraryAt: string;
+  genre: string[]; status: string; updateStrategy?: string; realUrl: null; initialized: boolean; inLibrary: boolean; inLibraryAt: string;
   source: typeof SOURCE; categories: { nodes: Category[] }; chapters: { nodes: DemoChapter[]; totalCount: number };
   unreadCount: number; downloadCount: number; bookmarkCount: number;
   firstUnreadChapter: DemoChapter | null; lastReadChapter: DemoChapter | null; latestReadChapter: DemoChapter | null;
@@ -75,6 +75,8 @@ const SOURCE = { id: '9000', name: '演示画室', displayName: '演示画室', 
 /** 只给「同名漫画迁移」演示用：不出现在来源列表里，只作为漫画自带的来源 */
 const ALT_SOURCE = { ...SOURCE, id: '9002', name: '演示图书馆', displayName: '演示图书馆' }
 const OPEN_SOURCE = { ...SOURCE, id: '9001', name: '开放漫画（本地缓存）', displayName: '开放漫画（本地缓存）' }
+/** 标明 NSFW 的虚构来源：演示按来源自动标记。作品内容和其余演示作品一样，只是来源带了标记 */
+const NSFW_SOURCE = { ...SOURCE, id: '9003', name: '演示夜读社', displayName: '演示夜读社', contentWarning: 'NSFW' }
 
 /** `pnpm fetch:comics` 生成的 manifest 结构；只在开发环境从本地缓存读取，不进仓库与构建产物。 */
 export interface OpenWork {
@@ -214,12 +216,39 @@ function edgeLibrary(now: number, categories: Category[], makeManga: MakeManga) 
   })
 }
 
+/**
+ * 更新日历的演示节奏：书库里几部连载按不同规律出新话（周更、晚了、三日更、没有发布日期的双周更、不规律、今天刚更）。
+ * last 是最新一话在几天前，gaps 从新到旧依次是每两话之间隔几天；hour 缺省时像多数来源一样只给日期。
+ */
+const RHYTHM: Record<number, { last: number; gaps: number[]; hour?: number; noUpload?: boolean }> = {
+  1: { last: 6, gaps: [7], hour: 20 },
+  2: { last: 10, gaps: [7] },
+  4: { last: 3, gaps: [3] },
+  5: { last: 6, gaps: [14], noUpload: true },
+  7: { last: 2, gaps: [5, 19, 9, 30, 12, 25, 8] },
+  8: { last: 0, gaps: [7], hour: 9 },
+}
+function rhythmTimes(i: number, n: number, now: number) {
+  const r = RHYTHM[i]
+  if (!r) return {}
+  let ago = r.last
+  for (let k = 0; k < 8 - n; k++) ago += r.gaps[k % r.gaps.length]
+  const day = new Date(now)
+  day.setHours(0, 0, 0, 0)
+  day.setDate(day.getDate() - ago)
+  const upload = Math.min(now - 60_000, day.getTime() + (r.hour ?? 0) * 3_600_000)
+  // 服务端检查要过一阵才抓到；没给发布日期的来源只剩这个时间
+  const fetched = Math.min(now, upload + (r.hour === undefined ? 21 : 2) * 3_600_000)
+  return { uploadDate: r.noUpload ? '0' : String(upload), fetchedAt: String(Math.floor(fetched / 1000)) }
+}
+
 /** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
 export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0, edge = false }: { scale?: number; edge?: boolean } = {}) {
   const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }, ...(edge ? EDGE_CATEGORIES : [])]
   /** 各项统计都按章节现算，改了已读、书签后跟着变 */
   const makeManga: MakeManga = (fields, chapters) => {
     const m: DemoManga = {
+      updateStrategy: 'ALWAYS_UPDATE',
       ...fields,
       chapters: { nodes: chapters, get totalCount() { return chapters.length } },
       get trackRecords() { return connection(tracks.filter((t) => t.mangaId === m.id)) },
@@ -242,7 +271,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       description: '一封寄往远方的信，一趟不赶时间的旅程。在山间、森林与小城之间，发现那些被日常忽略的相遇。\n这是为 Sukimi 创作的虚构演示作品，封面和阅读页面均在本地生成。',
       genre: i % 2 ? ['日常', '治愈'] : ['冒险', '奇幻'], status: i % 3 ? 'ONGOING' : 'COMPLETED',
       realUrl: null, initialized: true, inLibrary: i < 10, inLibraryAt: String(Math.floor(now / 1000) - i * 86400),
-      source: SOURCE, categories: { nodes: [categories[i % 2]] }, meta: [],
+      // 第 4、5 部来自 NSFW 来源：第 4 部跟随来源被隐藏，第 5 部在下面的全局元数据里手动放行
+      source: i === 3 || i === 4 ? NSFW_SOURCE : SOURCE, categories: { nodes: [categories[i % 2]] }, meta: [],
     }, chapters)
     // 第 9 部（在书库）和最后一部（不在书库）从没读过，演示「开始阅读」与首页「还没开始读」
     const fresh = i === 8 || i === TITLES.length - 1
@@ -257,6 +287,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
       lastReadAt: !fresh && !imported && n <= 3 ? String(Math.floor(now / 1000) - away - i * 7200 - (3 - n) * 300) : '0',
       // 第 1 部的后三话同一天抓到，演示更新页的折叠
       fetchedAt: String(Math.floor(now / 1000) - (i === 0 && n >= 6 ? 3600 + (8 - n) * 60 : (8 - n) * 86400 + i * 600)), uploadDate: String(now - (8 - n) * 86400000 - i * 600000),
+      ...rhythmTimes(i, n, now),
     })
     return m
   })
@@ -354,6 +385,9 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     [laterOf(12), String(nowSec - 3 * 86400)],
     [laterOf(2001), String(nowSec - 9 * 86400)],
     [laterOf(9), String(nowSec - 40 * 86400)],
+    // NSFW 标记（features/nsfw）：第 7 部手动标记，第 5 部来源是 NSFW 但手动放行
+    [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.7`, '1'],
+    [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.5`, '0'],
   ])
   const root = {
     users: () => connection(demoUsers), userCodes: () => demoCodes,
@@ -388,6 +422,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     },
     fetchTrack: ({ input }: { input: { recordId: number } }) => ({ trackRecord: findTrack(input.recordId) }),
     lastUpdateTimestamp: () => ({ timestamp: String(now) }),
+    // 只有更新日历读检查频率（小时）；设置页在演示里不连服务端
+    settings: () => ({ globalUpdateInterval: 12 }),
     // 按来源过滤：否则切到「开放漫画」时还是演示画室的作品
     fetchSourceManga: ({ input }: { input: { source: string; page: number; query?: string; type: string } }) => ({
       hasNextPage: false,
@@ -435,6 +471,10 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     setGlobalMeta: ({ input }: { input: { meta: { key: string; value: string } } }) => {
       globalMeta.set(input.meta.key, input.meta.value)
       return { meta: input.meta }
+    },
+    setGlobalMetas: ({ input }: { input: { metas: { key: string; value: string }[] } }) => {
+      input.metas.forEach((m) => globalMeta.set(m.key, m.value))
+      return { metas: input.metas }
     },
     deleteGlobalMetas: ({ input }: { input: { keys?: string[]; prefixes?: string[] } }) => {
       const gone = [...globalMeta].filter(([key]) => !!input.keys?.includes(key) || !!input.prefixes?.some((p) => key.startsWith(p)))

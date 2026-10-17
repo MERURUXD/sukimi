@@ -27,7 +27,8 @@ function chapters() {
         id: -3000 - m,
         title: ['虚构漫画 甲', '虚构漫画 乙：标题稍微长一点用来检查截断的效果', '虚构漫画 丙', '虚构漫画 丁', '虚构漫画 戊', '虚构漫画 己'][m],
         thumbnailUrl: '/favicon.svg',
-        source: { __typename: 'SourceType', id: '900', displayName: '测试来源' },
+        source: { __typename: 'SourceType', id: '900', displayName: '测试来源', contentWarning: 'SAFE' },
+        categories: { __typename: 'CategoryNodeList', nodes: [] },
       },
     }
   })

@@ -30,6 +30,7 @@ import {
   type ImportSettings,
   type RunResult,
 } from './importPlan'
+import { BulkRead } from './BulkRead'
 import { DevToolsLibraryTitles, DevToolsPing } from './queries'
 import { clearRecords, downloadJson, loadRecords, saveRecord, type ImportRecord } from './records'
 
@@ -53,13 +54,17 @@ export function DevToolsPage() {
           {/* 验收页复用这个页面，但来源、版本和写入结果都是本机生成的，不能沿用真实后端的风险提示 */}
           {isDevLab
             ? '这是虚构验收页：服务端版本、来源、书库和加入结果都在本机生成，不连接 Suwayomi，任何操作都不会写到真实书库。'
-            : '这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。'}
+            : __TEST_INSTANCE__
+              ? '这个构建声明连的是独立测试服务端：批量已读 / 未读等大面积写入只在这里提供。写之前核对下方诊断里的服务端版本和登录账号，确认不是日用书库。'
+              : '这里连的是和日用版同一个 Suwayomi：加入书库等写入都是真实数据，其他设备和账号也会看到。批量删除、换源、恢复备份等高风险操作不在这里提供，需要时用独立的测试服务端。'}
         </p>
       </div>
       <Diagnostics />
       <RequestMonitor />
       <MockData />
       <BulkImport />
+      {/* 构建常量直接比较：没声明测试服务端的 Preview 和本地开发连的是日用书库，只给说明，不提供入口 */}
+      {__TEST_INSTANCE__ || isDevLab ? <BulkRead /> : <BulkReadOff />}
       <LocalCache />
     </div>
   )
@@ -600,6 +605,17 @@ function Records({ records, onClear }: { records: ImportRecord[]; onClear: () =>
       ) : (
         <p className="m-0 text-sm text-faint">还没有导入过</p>
       )}
+    </Section>
+  )
+}
+
+function BulkReadOff() {
+  return (
+    <Section
+      title="批量已读 / 未读"
+      desc="会一次改掉大量阅读进度，只在连独立测试服务端的构建里提供（构建时设 SUKIMI_TEST_INSTANCE=1）。当前连的是和日用版同一个书库，已停用；用虚构书库试用见上方「开发者工具箱」验收页。"
+    >
+      {null}
     </Section>
   )
 }

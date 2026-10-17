@@ -35,6 +35,8 @@ export interface HeatDay {
   /** 当天本地零点（毫秒） */
   date: number
   count: number
+  /** 当天读完的页数（只算页数大于 0 的已读章节） */
+  pages: number
   /** 今天之后的格子（本周还没到的几天） */
   future: boolean
 }
@@ -103,6 +105,7 @@ export function longestStreak(days: Iterable<number>) {
 export function summarize(chapters: readonly StatChapter[], mangas: readonly StatManga[], now = Date.now()): ReadingStats {
   const hours = Array.from({ length: 24 }, () => 0)
   const perDay = new Map<number, number>()
+  const pagesPerDay = new Map<number, number>()
   const perManga = new Map<number, { read: number; last: number }>()
   let read = 0
   let pages = 0
@@ -124,6 +127,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
         hours[new Date(at).getHours()]++
         const day = dayStart(at)
         perDay.set(day, (perDay.get(day) ?? 0) + 1)
+        if (c.isRead && c.pageCount > 0) pagesPerDay.set(day, (pagesPerDay.get(day) ?? 0) + c.pageCount)
       }
     }
     perManga.set(c.mangaId, entry)
@@ -141,7 +145,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
     const count = perDay.get(date) ?? 0
     const future = date > today
     if (!future && count > 0) activeDays++
-    days.push({ date, count: future ? 0 : count, future })
+    days.push({ date, count: future ? 0 : count, pages: future ? 0 : (pagesPerDay.get(date) ?? 0), future })
   }
 
   const known = mangas.every((m) => m.total != null)
@@ -170,3 +174,34 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
 
 /** 热力图分档：0 没读，1～4 越来越多 */
 export const heatLevel = (n: number) => (n <= 0 ? 0 : n <= 3 ? 1 : n <= 6 ? 2 : n <= 10 ? 3 : 4)
+
+/** 热力图范围内最长的一段连续阅读：起止下标（含）与天数；没有阅读时为 null。并列取较晚的一段 */
+export function bestRun(days: readonly HeatDay[]) {
+  let best: { from: number; to: number; len: number } | null = null
+  let from = -1
+  days.forEach((d, i) => {
+    if (d.count > 0) {
+      if (from < 0) from = i
+      const len = i - from + 1
+      if (!best || len >= best.len) best = { from, to: i, len }
+    } else from = -1
+  })
+  return best as { from: number; to: number; len: number } | null
+}
+
+/** 每周有阅读的天数（0～7），一周一项 */
+export const weekActive = (days: readonly HeatDay[]) =>
+  Array.from({ length: Math.floor(days.length / 7) }, (_, w) => days.slice(w * 7, w * 7 + 7).filter((d) => d.count > 0).length)
+
+/**
+ * 累计页数在热力图范围内怎么涨上来的：把范围等分成 n 段，每段末尾的累计页数。
+ * total 是全部记录的页数，范围之前读的（含没有时间的）算作起点，所以最后一段就是 total
+ */
+export function pageGrowth(days: readonly HeatDay[], total: number, n: number) {
+  const inRange = days.reduce((a, d) => a + d.pages, 0)
+  let acc = Math.max(0, total - inRange)
+  return Array.from({ length: n }, (_, i) => {
+    for (const d of days.slice(Math.floor((i * days.length) / n), Math.floor(((i + 1) * days.length) / n))) acc += d.pages
+    return acc
+  })
+}

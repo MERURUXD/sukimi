@@ -5,8 +5,9 @@ import { confirm } from '@/components/ui/Confirm'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ClearReaderMeta, ReaderMetaIndex } from '@/features/reader/queries'
-import { READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
-import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, settleReaderWrites, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
+import { DEVICE_LABEL, READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
+import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, deviceKind, settleReaderWrites, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
+import { wakeLockSupported } from '@/features/reader/wakeLock'
 import { cn } from '@/lib/cn'
 import { Row, Switch } from './parts'
 
@@ -17,6 +18,9 @@ export function ReaderDefaults() {
   const set = useReaderStore((s) => s.setDefaults)
   const remember = useReaderStore((s) => s.rememberPerManga)
   const setRemember = useReaderStore((s) => s.setRemember)
+  const perDevice = useReaderStore((s) => s.perDevice)
+  const setPerDevice = useReaderStore((s) => s.setPerDevice)
+  const device = DEVICE_LABEL[deviceKind()]
   const legacy = useReaderStore((s) => s.perManga)
   const clearLegacy = useReaderStore((s) => s.clearPerManga)
   useMigrateReaderPrefs()
@@ -113,6 +117,15 @@ export function ReaderDefaults() {
       <Row label="读完自动进入下一话">
         <Switch on={d.autoNext} onChange={(autoNext) => set({ autoNext })} label="读完自动进入下一话" />
       </Row>
+      <Row label="阅读时屏幕常亮" hint={wakeLockSupported() ? undefined : '当前浏览器不支持，或页面不是通过 HTTPS / localhost 打开的'}>
+        <Switch on={d.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label="阅读时屏幕常亮" />
+      </Row>
+      <Row label="自动裁掉白边" hint="裁掉页面四周的白边或黑边；Webtoon 模式不裁">
+        <Switch on={d.crop} onChange={(crop) => set({ crop })} label="自动裁掉白边" />
+      </Row>
+      <Row label="宽页拆成两半" hint="单页与纵向模式下，跨页大图按阅读方向分两次显示">
+        <Switch on={d.split} onChange={(split) => set({ split })} label="宽页拆成两半" />
+      </Row>
       <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存到服务器，换设备也一致${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
         <div className="flex items-center gap-3">
           {perMangaCount > 0 && (
@@ -128,6 +141,11 @@ export function ReaderDefaults() {
           <Switch on={remember} onChange={setRemember} label="按漫画记住阅读模式" />
         </div>
       </Row>
+      {remember && (
+        <Row label={`${device}上单独记住`} hint={`这台${device}上改的模式、方向和缩放只对${device}生效，其他设备不受影响；没改过的漫画沿用通用设置。开关只对这台设备生效`}>
+          <Switch on={perDevice} onChange={setPerDevice} label={`${device}上单独记住`} />
+        </Row>
+      )}
     </>
   )
 }

@@ -1,0 +1,162 @@
+/*
+ * 按最近几话的发布时间推算下一话大概什么时候出。服务端没有「预计更新」字段，只能在前端算。
+ * 纯函数，不依赖路径别名，scripts/verify-update-predict.test.mjs 直接导入。
+ */
+
+const DAY = 86_400_000
+
+/** 参与推算的最近发布日数：太多会被早年的节奏带偏，太少一次延期就乱 */
+export const RECENT_DAYS = 10
+/** 至少要有几天发布过才推算（三天才有两个间隔） */
+export const MIN_DAYS = 3
+/** 间隔上下限（天）：日更以下按 1 天算，三个月以上的已经谈不上规律 */
+export const MIN_INTERVAL = 1
+export const MAX_INTERVAL = 90
+
+/** 能推算的连载状态：完结、腰斩、休刊等都不推算 */
+const PREDICTABLE_STATUS = new Set(['ONGOING', 'UNKNOWN'])
+
+export interface ChapterTimes {
+  /** 毫秒；来源没给时为 0 */
+  uploadDate: number
+  /** 毫秒（已经过 sec() 换算） */
+  fetchedAt: number
+}
+
+export type Regularity = 'high' | 'mid' | 'low'
+
+export type Prediction =
+  | { kind: 'none'; reason: 'ended' | 'once' | 'few' }
+  | {
+      kind: 'next'
+      /** 预计那天的本地零点 */
+      next: number
+      /** 间隔天数 */
+      interval: number
+      regular: Regularity
+      /** 来源没给发布日期，改用抓取时间推算，只能参考 */
+      approx: boolean
+      /** 比预计晚了几天；没晚为 0 */
+      late: number
+      /** 一天里通常几点发（距零点的分钟数）；来源只给日期时没有 */
+      minute?: number
+      /** 参与推算的发布日（本地零点，从早到晚），详情页画节奏用 */
+      days: number[]
+    }
+
+export function startOfDay(t: number) {
+  return new Date(t).setHours(0, 0, 0, 0)
+}
+
+export function addDays(day: number, n: number) {
+  const d = new Date(day)
+  d.setDate(d.getDate() + n)
+  return d.getTime()
+}
+
+/** 两个本地零点之间差几天；四舍五入抵消夏令时 */
+export function daysBetween(a: number, b: number) {
+  return Math.round((b - a) / DAY)
+}
+
+function median(xs: number[]) {
+  const s = [...xs].sort((a, b) => a - b)
+  const m = s.length >> 1
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+}
+
+/**
+ * 推算一部漫画的下一话。
+ * - 同一天出的多话算一次发布；只看最近 RECENT_DAYS 个发布日。
+ * - 间隔取中位数，一次延期或补发不会把结果带偏。
+ * - 多数章节没有可信的发布日期时改用抓取时间，并标成 approx。
+ */
+export function predict(
+  chapters: readonly ChapterTimes[],
+  { status, updateStrategy, now = Date.now() }: { status: string; updateStrategy?: string; now?: number },
+): Prediction {
+  if (!PREDICTABLE_STATUS.has(status)) return { kind: 'none', reason: 'ended' }
+  if (updateStrategy === 'ONLY_FETCH_ONCE') return { kind: 'none', reason: 'once' }
+
+  // 发布日期为 0、早于 2000 年或在明天之后的，都当作来源没给
+  const valid = (t: number) => t > 946_684_800_000 && t < now + DAY
+  const withUpload = chapters.filter((c) => valid(c.uploadDate)).length
+  const approx = withUpload < chapters.length * 0.6
+  const times = chapters.map((c) => (approx ? c.fetchedAt : c.uploadDate)).filter(valid)
+
+  const days = [...new Set(times.map(startOfDay))].sort((a, b) => a - b).slice(-RECENT_DAYS)
+  if (days.length < MIN_DAYS) return { kind: 'none', reason: 'few' }
+
+  const gaps = days.slice(1).map((d, i) => daysBetween(days[i], d))
+  const interval = Math.min(MAX_INTERVAL, Math.max(MIN_INTERVAL, Math.round(median(gaps))))
+  // 和间隔相差不到两成（至少容忍一天）算准时
+  const slack = Math.max(1, Math.round(interval * 0.2))
+  const hits = gaps.filter((g) => Math.abs(g - interval) <= slack).length / gaps.length
+  // 抓取时间受服务端检查频率影响，再准也只算「偶尔会晚」
+  const regular: Regularity = hits >= 0.75 && !approx ? 'high' : hits >= 0.5 ? 'mid' : 'low'
+
+  const next = addDays(days[days.length - 1], interval)
+  const late = Math.max(0, daysBetween(next, startOfDay(now)))
+
+  // 来源只给日期时时间都是零点；有一半以上带了时刻才推算几点
+  let minute: number | undefined
+  if (!approx) {
+    const recent = times.filter((t) => t >= days[0])
+    const minutes = recent.map((t) => (t - startOfDay(t)) / 60_000).filter((m) => m > 0)
+    if (minutes.length >= recent.length / 2 && minutes.length) minute = Math.round(median(minutes))
+  }
+
+  return { kind: 'next', next, interval, regular, approx, late, minute, days }
+}
+
+/** 从 next 往后、落在 [from, to) 里的每一次预计发布（日历往后翻几周时用） */
+export function occurrences(p: Extract<Prediction, { kind: 'next' }>, from: number, to: number) {
+  const out: number[] = []
+  for (let k = 0; k < 400; k++) {
+    const d = addDays(p.next, p.interval * k)
+    if (d >= to) break
+    if (d >= from) out.push(d)
+  }
+  return out
+}
+
+/* ───────── 文案 ───────── */
+
+const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+export function intervalLabel(n: number) {
+  if (n === 1) return '每天'
+  if (n === 7) return '每周'
+  if (n === 14) return '每两周'
+  if (n >= 28 && n <= 31) return '约每月'
+  return `每 ${n} 天`
+}
+
+export function regularLabel(p: Extract<Prediction, { kind: 'next' }>) {
+  if (p.approx) return '仅供参考'
+  return p.regular === 'high' ? '很准' : p.regular === 'mid' ? '偶尔会晚' : '不太规律'
+}
+
+export function clockLabel(minute: number) {
+  return `${Math.floor(minute / 60)}:${String(minute % 60).padStart(2, '0')}`
+}
+
+/** 「今天」「明天」「周三 10/21」；不太规律且间隔较长时只说到上中下旬 */
+export function dayText(p: Extract<Prediction, { kind: 'next' }>, now = Date.now()) {
+  const d = new Date(p.next)
+  if (p.regular === 'low' && p.interval >= 20) return `约 ${d.getMonth() + 1} 月${d.getDate() <= 10 ? '上' : d.getDate() <= 20 ? '中' : '下'}旬`
+  const diff = daysBetween(startOfDay(now), p.next)
+  const md = `${d.getMonth() + 1}/${d.getDate()}`
+  if (p.regular === 'low') return `约 ${md} 前后`
+  return diff === 0 ? '今天' : diff === 1 ? '明天' : `${WEEK[d.getDay()]} ${md}`
+}
+
+/** 详情页元信息里那一小段：「预计周三 10/21 更新」「晚了 3 天」 */
+export function shortText(p: Extract<Prediction, { kind: 'next' }>, now = Date.now()) {
+  if (p.late > 0) return `晚了 ${p.late} 天`
+  const day = dayText(p, now)
+  const time = p.minute !== undefined && p.regular !== 'low' && daysBetween(startOfDay(now), p.next) <= 1 ? ` ${clockLabel(p.minute)}` : ''
+  const text = day.startsWith('约') ? day : `预计${day}${time}`
+  // 以数字结尾时空一格，免得「10/21更新」挤在一起
+  return /\d$/.test(text) ? `${text} 更新` : `${text}更新`
+}

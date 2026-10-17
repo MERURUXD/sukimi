@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
-import { ArrowLeftRight, ChevronLeft, Download, ExternalLink, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -19,17 +19,21 @@ import { TrackDialog } from '@/features/tracking/TrackPanel'
 import { TrackSummary } from '@/features/tracking/TrackSummary'
 import { Can } from '@/features/auth/Can'
 import { MangaTracks } from '@/features/tracking/queries'
+import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
+import { StaleSessionError } from '@/api/userContext'
 import { findSameTitle } from './migrate'
 import { SameTitleDialog } from './SameTitleDialog'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
 import { STATUS } from './status'
+import { NextUpdate, type NextPrediction } from './NextUpdate'
 import './MangaHero.css'
 
 export function MangaHero({
   manga,
   chapters,
+  prediction = null,
   fetching,
   onRefresh,
   onDownloadUnread,
@@ -41,6 +45,8 @@ export function MangaHero({
   intro?: boolean
   manga: Manga
   chapters: readonly Chapter[] | undefined
+  /** 预计下次更新；推算不出时为 null */
+  prediction?: NextPrediction | null
   fetching: boolean
   onRefresh: () => void
   onDownloadUnread: () => void
@@ -114,7 +120,15 @@ export function MangaHero({
                 ))}
               </span>
             )}
-            <span style={delay(mangaIntro.meta)} className={cn('manga-hero-meta text-muted', animate && 'rise')}>{[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}</span>
+            {/* 进场动画放在各段文字上，不放在这一行：弹层在动画元素里面会挡不住后面的简介，玻璃也采样不到背景 */}
+            <div className="manga-hero-meta text-muted">
+              <span style={delay(mangaIntro.meta)} className={cn('inline-block', animate && 'rise')}>
+                {[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}
+                {prediction && ' · '}
+              </span>
+              {/* 写进这一行，不另占位置：桌面中栏已经排满 */}
+              {prediction && <NextUpdate p={prediction} style={delay(mangaIntro.meta)} className={cn(animate && 'rise')} />}
+            </div>
           </div>
           {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
           {genres.length > 0 && <div className="manga-hero-tags flex flex-wrap gap-1.5">
@@ -152,10 +166,11 @@ export function MangaHero({
             document.body,
           )}
           <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label="阅读记录">{recent}</p>
-          {manga.inLibrary && !placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
+          {!placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
         </div>
-        {/* 宽屏放到右侧空白处直接展开，不把头部撑高 */}
-        {manga.inLibrary && !placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} style={delay(mangaIntro.byline)} className={cn('manga-hero-side', animate && 'rise')} />}
+        {/* 宽屏放到右侧空白处直接展开，不把头部撑高；不在书库时只有 Bangumi 站内评分 */}
+        {/* 右栏不整块进场，里面逐行接在作者行之后，和左栏同一节奏 */}
+        {!placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} delay={animate ? mangaIntro.side : undefined} className="manga-hero-side" />}
       </div>
     </section>
   )
@@ -246,6 +261,7 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
   </> : <>
     <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? '正在刷新…' : '刷新信息与章节'}</button>
     {manga.realUrl && <a className="opt no-underline" href={manga.realUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
+    <NsfwItem manga={manga} />
     {manga.inLibrary && <>
       <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />管理分类</button>
       <button type="button" className="opt" onClick={() => { close(); setTracking(true) }}><ListChecks className="size-5" /><span className="flex-1">追踪</span>{bound > 0 && <span className="text-xs text-muted">已绑定 {bound} 个</span>}</button>
@@ -260,6 +276,35 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
       <AnimatePresence>{tracking && <TrackDialog mangaId={manga.id} title={manga.title} onClose={() => { setTracking(false); trigger.current?.focus({ preventScroll: true }) }} />}</AnimatePresence>
     </>, document.body)}
   </>
+}
+
+/** 标记为 NSFW；来源或分类判定为 NSFW 的，也能在这里单独放行这一部 */
+function NsfwItem({ manga }: { manga: Manga }) {
+  const { reason } = useNsfw()
+  const { setManga } = useNsfwActions()
+  const [busy, setBusy] = useState(false)
+  const why = reason(manga)
+  const on = why !== null
+  const toggle = async () => {
+    setBusy(true)
+    try {
+      await setManga([manga], !on)
+      toast(on ? '已取消 NSFW 标记' : '已标记为 NSFW，首页和画廊不再显示')
+    } catch (e) {
+      if (!(e instanceof StaleSessionError)) toastError('修改 NSFW 标记失败', e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button type="button" role="menuitemcheckbox" aria-checked={on} className="opt" disabled={busy} onClick={() => void toggle()}>
+      <EyeOff className="size-5" />
+      <span className="flex-1">标记为 NSFW</span>
+      {why === 'source' && <span className="text-xs text-muted">来自来源</span>}
+      {why === 'category' && <span className="text-xs text-muted">来自分类</span>}
+      {on && <span aria-hidden>✓</span>}
+    </button>
+  )
 }
 
 function CategoryChoices({ manga }: { manga: Manga }) {

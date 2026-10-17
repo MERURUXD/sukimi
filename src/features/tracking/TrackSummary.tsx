@@ -1,14 +1,20 @@
-import { useQuery } from '@apollo/client/react'
+import { useApolloClient, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
 import { ChevronRight, ListChecks, Minus, Plus, Star } from 'lucide-react'
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
+import { toast, toastError } from '@/components/ui/toast'
+import { captureUser, StaleSessionError } from '@/api/userContext'
+import type { BgmSubject } from '@/features/bangumi/rating'
+import { BgmBlock, BgmGuess, BgmLine } from '@/features/bangumi/CommunityRating'
+import { introRise as rise } from '@/features/manga/intro'
 import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { MangaTracks, Trackers, type Tracker, type TrackRecord } from './queries'
+import { bindBgmSubject } from './bindBgmSubject'
 import { Stars } from './Stars'
 import { TrackDialog } from './TrackPanel'
 import { isRated, scoreString, scoreValue, scoreWord, starScale, statusLabel } from './tracking'
@@ -27,36 +33,75 @@ function useWide() {
   return on
 }
 
+/** Bangumi 追踪：按名字认，演示和验收页里叫「Bangumi（演示）」之类 */
+const isBgm = (t: Tracker) => /bangumi/i.test(t.name)
+/** 绑定记录里的条目号；Bangumi 的 remoteId 就是条目号 */
+const subjectId = (r: TrackRecord) => Number(r.remoteId) || 0
+
 /**
  * 详情页里的追踪。宽屏（≥1280）在头部右侧空白处直接展开面板（placement="side"），顶端与书名对齐；
  * 更窄时在正文里显示占满一行的信息条（placement="inline"），点一下直接打开完整的追踪设置。
- * 两处各挂一份，按宽度只显示其一
+ * 两处各挂一份，按宽度只显示其一。
+ * 另附 Bangumi 站内评分：绑定了 Bangumi 就用绑定的条目，没绑定（含不在书库）按标题猜，查公开接口、与追踪账号无关
  */
-export function TrackSummary({ mangaId, title, placement, className, style }: { mangaId: number; title: string; placement: 'inline' | 'side'; className?: string; style?: CSSProperties }) {
+/** delay：宽屏右栏随详情页进场时的起始延迟，给了就逐行错开进场（不给则不播） */
+export function TrackSummary({ mangaId, title, inLibrary = true, placement, delay, className, style }: { mangaId: number; title: string; inLibrary?: boolean; placement: 'inline' | 'side'; delay?: number; className?: string; style?: CSSProperties }) {
   const trackers = useQuery(Trackers).data?.trackers.nodes
-  const records = useQuery(MangaTracks, { variables: { id: mangaId } }).data?.manga.trackRecords.nodes
+  const records = useQuery(MangaTracks, { variables: { id: mangaId }, skip: !inLibrary }).data?.manga.trackRecords.nodes
+  const client = useApolloClient()
   const [dialog, setDialog] = useState(false)
   const opener = useRef<HTMLElement | null>(null)
   const wide = useWide()
-  if (!trackers || !records || wide !== (placement === 'side')) return null
+  if (wide !== (placement === 'side')) return null
+  if (inLibrary && (!trackers || !records)) return null
 
-  const rows = records.flatMap((r) => {
-    const t = trackers.find((x) => x.id === r.trackerId)
+  const rows = (inLibrary ? records ?? [] : []).flatMap((r) => {
+    const t = trackers?.find((x) => x.id === r.trackerId)
     return t ? [{ t, r }] : []
   })
-  const unbound = trackers.filter((t) => t.isLoggedIn && !records.some((r) => r.trackerId === t.id))
-  if (!rows.length && !unbound.length) return null
+  const unbound = inLibrary ? trackers?.filter((t) => t.isLoggedIn && !records?.some((r) => r.trackerId === t.id)) ?? [] : []
+  const bgm = trackers?.find(isBgm)
+  const bgmBound = rows.some(({ t }) => isBgm(t))
+  // 只有在书库、Bangumi 已登录且未过期时才能直接绑定
+  const canBind = inLibrary && bgm && bgm.isLoggedIn && !bgm.isTokenExpired && !bgmBound ? bgm : null
+  const bind = canBind
+    ? async (subject: BgmSubject) => {
+        const still = captureUser()
+        try {
+          await bindBgmSubject(client, mangaId, canBind.id, subject, still)
+          await client.refetchQueries({ include: [MangaTracks] })
+          still()
+          toast(`已绑定到 ${canBind.name}`)
+          return true
+        } catch (err) {
+          if (!(err instanceof StaleSessionError)) toastError('绑定失败', err)
+          return false
+        }
+      }
+    : undefined
 
+  // 每个追踪面板占 4 行，行间 40ms；后面的块接在前一个面板之后
+  const at = (n: number) => (wide && delay !== undefined ? delay + n * 40 : undefined)
   const openDialog = (el: HTMLElement) => {
     opener.current = el
     setDialog(true)
   }
 
   return (
-    <section aria-label="追踪" style={style} className={cn('flex flex-col', wide ? 'gap-9' : 'gap-1', className)}>
-      {rows.map(({ t, r }) => (wide ? <TrackPanel key={r.id} t={t} r={r} onDetail={openDialog} /> : <TrackStrip key={r.id} t={t} r={r} onOpen={openDialog} />))}
-      {!rows.length && (
-        <button type="button" className="-ml-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-full px-1 text-[13px] font-semibold text-muted transition-colors hover:text-text" onClick={(e) => openDialog(e.currentTarget)}>
+    <section aria-label={inLibrary ? '追踪' : 'Bangumi 站内评分'} style={style} className={cn('flex flex-col', wide ? 'gap-9' : 'gap-1', className)}>
+      {rows.map(({ t, r }, i) =>
+        wide ? (
+          <TrackPanel key={r.id} t={t} r={r} onDetail={openDialog} delay={at(i * 4)} />
+        ) : (
+          <div key={r.id} className="flex flex-col">
+            <TrackStrip t={t} r={r} onOpen={openDialog} />
+            {isBgm(t) && subjectId(r) > 0 && <BgmLine id={subjectId(r)} mine={scoreValue(r.displayScore)} />}
+          </div>
+        ),
+      )}
+      {!bgmBound && <BgmGuess mangaId={mangaId} title={title} placement={placement} onBind={bind} delay={at(rows.length * 4)} />}
+      {inLibrary && !rows.length && unbound.length > 0 && (
+        <button type="button" style={rise(at(5)).style} className={cn('-ml-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-full px-1 text-[13px] font-semibold text-muted transition-colors hover:text-text', rise(at(5)).className)} onClick={(e) => openDialog(e.currentTarget)}>
           <ListChecks className="size-4" strokeWidth={1.8} />
           追踪到 {unbound.map((t) => t.name).join(' / ')}
           <ChevronRight className="size-4" />
@@ -131,8 +176,14 @@ function MiniStars({ value, max }: { value: number; max: number }) {
 
 /* ───────── 宽屏：直接展开，内容全部左对齐 ───────── */
 
-function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: (el: HTMLElement) => void }) {
+function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onDetail: (el: HTMLElement) => void; delay?: number }) {
   const save = useSaveTrack(r)
+  // 详情页进场：标题、进度、星星、站内评分依次错开 40ms
+  const row = (n: number, className?: string) => {
+    const p = rise(delay === undefined ? undefined : delay + n * 40)
+    return { style: p.style, className: cn(className, p.className) }
+  }
+  const bgmDelay = delay === undefined ? undefined : delay + 120
   const scale = starScale(t.scores)
   const score = scoreValue(r.displayScore)
   const total = r.totalChapters
@@ -147,28 +198,35 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
     const status = t.statuses.find((x) => x.value === r.status)
     return (
       <div className="flex flex-col items-start gap-2">
-        <div className="flex w-full items-center gap-2.5">
+        <div {...row(0, 'flex w-full items-center gap-2.5')}>
           <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-semibold">{t.name}</span>
             <span className="truncate text-xs text-muted">{r.title}</span>
           </span>
         </div>
-        <span className="text-sm text-muted num">
+        <span {...row(1, 'text-sm text-muted num')}>
           {[status ? statusLabel(status.name) : null, `读到 ${chapterNo(read)} 话`, isRated(r.displayScore, t.scores) ? `评分 ${r.displayScore}` : null].filter(Boolean).join(' · ')}
         </span>
-        <Link to="/settings/tracking" className="text-[13px] font-semibold text-danger">
+        <Link to="/settings/tracking" {...row(2, 'text-[13px] font-semibold text-danger')}>
           {t.isTokenExpired ? '登录已过期' : '已退出登录'}，去设置里重新登录后才能修改和同步
         </Link>
+        {/* 站内评分查的是公开接口，和追踪登录无关，照常显示 */}
+        {isBgm(t) && subjectId(r) > 0 && <div {...row(3, 'w-full')}><BgmBlock id={subjectId(r)} mine={starScale(t.scores) === 10 ? scoreValue(r.displayScore) : 0} delay={bgmDelay} /></div>}
       </div>
     )
   }
+  const status = t.statuses.find((x) => x.value === r.status)
   return (
     <div className="flex flex-col items-start gap-5">
-      <div className="flex w-full items-center gap-2.5">
+      <div {...row(0, 'flex w-full items-center gap-2.5')}>
         <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-semibold">{t.name}</span>
+          {/* 状态只展示，改状态在「详细设置」里 */}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate font-semibold">{t.name}</span>
+            {status && <span className="flex-none rounded-full bg-hover px-2 py-px text-[11px] font-semibold text-muted">{statusLabel(status.name)}</span>}
+          </span>
           <span className="truncate text-xs text-muted">{r.title}</span>
         </span>
         <button type="button" className="-mr-1 inline-flex min-h-9 flex-none items-center rounded-full pl-2 text-[13px] font-semibold text-muted transition-colors hover:text-text" onClick={(e) => onDetail(e.currentTarget)}>
@@ -177,15 +235,7 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
         </button>
       </div>
 
-      <div role="group" aria-label="阅读状态" className="flex flex-wrap gap-1.5">
-        {t.statuses.map((s) => (
-          <button key={s.value} type="button" className={cn('fopt', r.status === s.value && 'inc')} aria-pressed={r.status === s.value} onClick={() => r.status !== s.value && save({ status: s.value })}>
-            {statusLabel(s.name)}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-3">
+      <div {...row(1, 'flex items-center gap-3')}>
         <button type="button" className="gicon size-10 disabled:opacity-40" aria-label="少一话" disabled={read <= 0} onClick={() => step(-1)}>
           <Minus className="size-4" />
         </button>
@@ -198,18 +248,22 @@ function TrackPanel({ t, r, onDetail }: { t: Tracker; r: TrackRecord; onDetail: 
       </div>
 
       {scale ? (
-        <span className="-ml-1">
+        <span {...row(2, '-ml-1')}>
           <Stars size="md" max={scale} value={Math.min(score, scale)} word={(v) => scoreWord(t.name, v)} onChange={(v) => save({ scoreString: scoreString(t.scores, v) })} />
         </span>
       ) : t.scores.length > 0 ? (
-        <Select
-          label="评分"
-          value={r.displayScore}
-          options={(t.scores.includes(r.displayScore) ? t.scores : [r.displayScore, ...t.scores]).map((s) => ({ value: s, label: s || '未评分' }))}
-          onChange={(s) => save({ scoreString: s })}
-          className="w-[120px]"
-        />
+        <span {...row(2)}>
+          <Select
+            label="评分"
+            value={r.displayScore}
+            options={(t.scores.includes(r.displayScore) ? t.scores : [r.displayScore, ...t.scores]).map((s) => ({ value: s, label: s || '未评分' }))}
+            onChange={(s) => save({ scoreString: s })}
+            className="w-[120px]"
+          />
+        </span>
       ) : null}
+
+      {isBgm(t) && subjectId(r) > 0 && <div {...row(3, 'w-full')}><BgmBlock id={subjectId(r)} mine={scale === 10 ? score : 0} delay={bgmDelay} /></div>}
     </div>
   )
 }

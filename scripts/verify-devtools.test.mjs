@@ -149,3 +149,67 @@ test('虚构验收页和大书库参数只在开发与 Preview 构建开启，�
   assert.match(shell, /if \(isDevLab\) window\.location\.assign\(href\)/)
   assert.match(shell, /if \(isDevLab\) return null\n\s*if \(status === 'checking'/)
 })
+
+test('批量已读 / 未读预演：按分类取舍、按作品分组、超出上限截断', async () => {
+  const { planRead, readPatch, readTargetFilter } = await import('../src/features/devtools/readPlan.ts')
+  // 全部是虚构作品；默认分类 id 由调用方给，没分过类的作品也算在里面
+  const mangas = [
+    { id: 1, title: '甲', categoryIds: [1] },
+    { id: 2, title: '乙', categoryIds: [1, 2] },
+    { id: 3, title: '丙', categoryIds: [] },
+    { id: 4, title: '丁', categoryIds: [2] },
+  ]
+  const chapters = [
+    { id: 11, mangaId: 1 }, { id: 21, mangaId: 2 }, { id: 22, mangaId: 2 }, { id: 31, mangaId: 3 },
+    // 不在书库范围内的章节（作品不在列表里）不该被改
+    { id: 99, mangaId: 9 },
+  ]
+  const all = planRead(mangas, chapters, 'all')
+  assert.equal(all.mangas, 4)
+  assert.deepEqual(all.touched.map((m) => [m.id, m.chapters]), [[2, 2], [1, 1], [3, 1]])
+  assert.deepEqual(all.ids, [21, 22, 11, 31])
+  assert.equal(all.overLimit, 0)
+  assert.deepEqual(planRead(mangas, chapters, 1).ids, [21, 22, 11])
+  assert.deepEqual(planRead(mangas, chapters, 0, { defaultId: 0 }).ids, [31])
+  // 非管理员账号的默认分类 id 不一定是 0
+  assert.deepEqual(planRead(mangas, chapters, 7, { defaultId: 7 }).ids, [31])
+  assert.deepEqual(planRead(mangas, chapters, 0).ids, [])
+  // 分类 2 里的丁没有要改的章节，只计入范围
+  const two = planRead(mangas, chapters, 2)
+  assert.equal(two.mangas, 2)
+  assert.deepEqual(two.touched.map((m) => m.id), [2])
+  const capped = planRead(mangas, chapters, 'all', { limit: 3 })
+  assert.deepEqual(capped.ids, [21, 22, 11])
+  assert.equal(capped.overLimit, 1)
+  // 截断后作品列表也跟着收：超出上限的丙不列出，被截了一半的作品只算会改的话数
+  assert.deepEqual(capped.touched.map((m) => [m.id, m.chapters]), [[2, 2], [1, 1]])
+  assert.deepEqual(planRead(mangas, chapters, 'all', { limit: 1 }).touched.map((m) => [m.id, m.chapters]), [[2, 1]])
+  // 标为未读同时清掉读到的页数
+  assert.deepEqual(readPatch(true), { isRead: true })
+  assert.deepEqual(readPatch(false), { isRead: false, lastPageRead: 0 })
+  // 标为未读时读了一半的章节也要找出来，才能把页数归零
+  assert.deepEqual(readTargetFilter(true), { inLibrary: { equalTo: true }, isRead: { equalTo: false } })
+  assert.deepEqual(readTargetFilter(false).or, [{ isRead: { equalTo: true } }, { lastPageRead: { greaterThan: 0 } }])
+})
+
+test('批量已读 / 未读只在声明测试服务端的构建或虚构验收页出现', async () => {
+  const { readFileSync } = await import('node:fs')
+  const page = readFileSync('src/features/devtools/DevToolsPage.tsx', 'utf8')
+  assert.match(page, /\{__TEST_INSTANCE__ \|\| isDevLab \? <BulkRead \/> : <BulkReadOff \/>\}/)
+  // 只有工具箱页面引用它，别处挂出来就绕过了这道判断
+  const { readdirSync } = await import('node:fs')
+  const refs = []
+  const scan = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const path = `${dir}/${e.name}`
+      if (e.isDirectory()) scan(path)
+      else if (/\.tsx?$/.test(path) && path !== 'src/features/devtools/BulkRead.tsx' && /['/]BulkRead['"]/.test(readFileSync(path, 'utf8'))) refs.push(path)
+    }
+  }
+  scan('src')
+  assert.deepEqual(refs, ['src/features/devtools/DevToolsPage.tsx'])
+  // 开关只认 SUKIMI_TEST_INSTANCE=1，默认关
+  const vite = readFileSync('vite.config.ts', 'utf8')
+  assert.match(vite, /const testInstance = env\.SUKIMI_TEST_INSTANCE === '1'/)
+  assert.match(vite, /__TEST_INSTANCE__: JSON\.stringify\(testInstance\)/)
+})

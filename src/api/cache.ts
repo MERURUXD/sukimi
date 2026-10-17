@@ -20,6 +20,8 @@ export function createCache() {
       ExtensionType: { keyFields: ['pkgName'] },
       // 漫画元数据没有 id，整组随漫画存；每次查询或写入后的结果直接替换旧列表
       MangaType: { fields: { meta: { merge: false } } },
+      // 章节元数据同理（历史隐藏标记、页面书签）
+      ChapterType: { fields: { meta: { merge: false } } },
     },
   })
 }

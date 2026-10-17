@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toast'
 import { Glass } from '@/components/glass/Glass'
 import { PreviewBadge } from '@/app/PreviewBadge'
 import { useApplyAppearance } from '@/design/settings'
+import { NsfwSync } from '@/features/nsfw/useNsfw'
 
 export function DemoGate() {
   useApplyAppearance()
@@ -12,6 +13,7 @@ export function DemoGate() {
     <Toaster />
     <ConfirmHost />
     <PreviewBadge />
+    <NsfwSync />
   </div>
 }
 

@@ -25,9 +25,10 @@ export function ReaderGesturesLab() {
     <div className="fixed inset-0 bg-black" data-sfw="">
       <PagedView
         pages={PAGES}
-        spread={[i]}
-        prevSpread={i > 0 ? [i - 1] : undefined}
-        nextSpread={i < PAGES.length - 1 ? [i + 1] : undefined}
+        screen={{ pages: [i] }}
+        prevScreen={i > 0 ? { pages: [i - 1] } : undefined}
+        nextScreen={i < PAGES.length - 1 ? { pages: [i + 1] } : undefined}
+        src={(n) => PAGES[n]}
         settings={settings}
         onLeft={() => go(dir === 'rtl' ? 1 : -1)}
         onRight={() => go(dir === 'rtl' ? -1 : 1)}

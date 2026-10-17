@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@apollo/client/react'
+import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { Play, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
@@ -11,16 +11,20 @@ import { toast, toastError } from '@/components/ui/toast'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { sfwAttr } from '@/lib/devSafe'
+import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
 import { groupHistory, HIDDEN_KEY, hiddenValue, type HistoryEntry } from './history'
-import { HideHistory, History, HISTORY_PAGE, type HistoryItem } from './queries'
+import { HideHistory, History, type HistoryItem } from './queries'
+import { HISTORY_PAGE, historyVariables } from './pagination'
 
 /** 阅读历史：按天分组，同一天同一部漫画合成一条；可以搜索和删除单条 */
 export function HistoryPage() {
+  const client = useApolloClient()
+  const [variables] = useState(() => historyVariables(client.cache))
   const history = useQuery(History, {
-    variables: { first: HISTORY_PAGE, offset: 0 },
+    variables,
     fetchPolicy: 'cache-and-network',
     notifyOnNetworkStatusChange: true,
   })
@@ -39,7 +43,7 @@ export function HistoryPage() {
 
   const more = () =>
     fetchMore({
-      variables: { offset: list.length },
+      variables: { first: HISTORY_PAGE, offset: list.length },
       updateQuery: (prev, { fetchMoreResult }) => ({
         chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
       }),
@@ -148,6 +152,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
   return (
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
+      data-nsfw={useNsfwBlur(c.manga)}
       style={rise}
       className={cn('-mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
     >

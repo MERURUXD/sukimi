@@ -18,6 +18,7 @@ export const LibraryMangaFields = graphql(`
     source {
       id
       displayName
+      contentWarning
     }
     categories {
       nodes {

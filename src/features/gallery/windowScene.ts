@@ -48,7 +48,7 @@ export function attachWindowWall(anchor: Anchor) {
   if (flight) {
     if ((flight.kind === 'open' ? 'gallery' : 'window') === anchor.kind) {
       flight.target = anchor
-      if (!flight.waiting) scene.transfer(flight.from, flight.w, flight.h)
+      if (!flight.waiting && !flight.copy) scene.transfer(flight.from, flight.w, flight.h)
       if (anchor.shade) scene.heroShade.style.background = anchor.shade
       waitForTransition(flight)
     }
@@ -246,6 +246,8 @@ function begin(kind: Flight['kind'], from: WindowPose) {
   flight = f
   document.documentElement.toggleAttribute(kind === 'open' ? 'data-gallery-window' : 'data-gallery-window-back', true)
   document.documentElement.toggleAttribute('data-gallery-window-live', !!copy)
+  // 桌面背景副本已盖住原页面，必须在本帧把真实墙移到它上面，不能等目标路由挂载。
+  if (copy) scene.transfer(from, f.w, f.h)
   f.timer = window.setTimeout(() => finish(f), 8000)
   return true
 }

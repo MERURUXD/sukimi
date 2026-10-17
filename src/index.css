@@ -817,6 +817,31 @@ html:not(:has([data-vt-glass="tabbar-tabs"]))::view-transition-group(nav-tabbar-
   }
 }
 
+/* ───────── NSFW 封面模糊（见 features/nsfw）─────────
+   书库、更新、历史里给 NSFW 作品的整行或格子加 data-nsfw；桌面指上去或键盘聚焦时显示原图。
+   放大一点再模糊，边缘不会透出底色 */
+[data-nsfw] .cv img {
+  filter: blur(18px) saturate(0.6);
+  scale: 1.15;
+  transition: filter 0.25s, scale 0.25s;
+}
+@media (hover: hover) {
+  [data-nsfw]:hover .cv img {
+    filter: none;
+    scale: 1;
+  }
+}
+[data-nsfw]:focus-within .cv img,
+[data-nsfw]:focus-visible .cv img {
+  filter: none;
+  scale: 1;
+}
+
+/* 阅读器图像滤镜：亮度、暖色、灰度、反色只作用在页面图片上（ReaderPage 设置 --page-filter） */
+.reader-page {
+  filter: var(--page-filter, none);
+}
+
 /* ───────── 开发用安全模式（只在 dev 构建里生效）─────────
    localStorage['suwayomi-web.dev.safe'] = '1' 后刷新：隐藏图片、文字打码，
    用于截图检查版式而不暴露书库内容（图片完全隐藏，只留封面占位）。
