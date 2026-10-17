@@ -128,3 +128,15 @@ test('过去的更新按来源发布日期摆；来源没给日期的整部改�
   const week = buildWeek(chapters, seriesOf(chapters, NOW), weekStart(NOW), NOW)
   assert.deepEqual(week.map((d) => d.entries.map((e) => e.mangaId)), [[1], [], [2], [], [], [], []])
 })
+
+test('当天更新的章节显示最新一话的标题', async () => {
+  const { buildWeek, seriesOf, weekStart } = await import('../src/features/updates/calendar.ts')
+  const manga = { status: 'ONGOING', updateStrategy: 'ALWAYS_UPDATE' }
+  const row = (mangaId, chapterNumber, h, name = `第 ${chapterNumber} 话`) => ({ mangaId, chapterNumber, name, uploadDate: at(10, 14, h), fetchedAt: at(10, 14, h), manga })
+  const chapters = [row(1, 67, 9), row(1, 66, 8), row(1, 65, 10), row(2, -1, 8, '特别篇 A'), row(2, -1, 9, '特别篇 B')]
+  const week = buildWeek(chapters, seriesOf(chapters, NOW), weekStart(NOW), NOW)
+  const byId = Object.fromEntries(week[2].entries.map((e) => [e.mangaId, e]))
+  assert.equal(byId[1].latest.name, '第 67 话')
+  assert.equal(byId[1].count, 3)
+  assert.equal(byId[2].latest.name, '特别篇 B', '没有章节号时按发布时间')
+})
