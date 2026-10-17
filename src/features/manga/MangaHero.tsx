@@ -27,11 +27,13 @@ import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from 
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
 import { STATUS } from './status'
+import { NextUpdate, type NextPrediction } from './NextUpdate'
 import './MangaHero.css'
 
 export function MangaHero({
   manga,
   chapters,
+  prediction = null,
   fetching,
   onRefresh,
   onDownloadUnread,
@@ -43,6 +45,8 @@ export function MangaHero({
   intro?: boolean
   manga: Manga
   chapters: readonly Chapter[] | undefined
+  /** 预计下次更新；推算不出时为 null */
+  prediction?: NextPrediction | null
   fetching: boolean
   onRefresh: () => void
   onDownloadUnread: () => void
@@ -116,7 +120,15 @@ export function MangaHero({
                 ))}
               </span>
             )}
-            <span style={delay(mangaIntro.meta)} className={cn('manga-hero-meta text-muted', animate && 'rise')}>{[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}</span>
+            {/* 进场动画放在各段文字上，不放在这一行：弹层在动画元素里面会挡不住后面的简介，玻璃也采样不到背景 */}
+            <div className="manga-hero-meta text-muted">
+              <span style={delay(mangaIntro.meta)} className={cn('inline-block', animate && 'rise')}>
+                {[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}
+                {prediction && ' · '}
+              </span>
+              {/* 写进这一行，不另占位置：桌面中栏已经排满 */}
+              {prediction && <NextUpdate p={prediction} style={delay(mangaIntro.meta)} className={cn(animate && 'rise')} />}
+            </div>
           </div>
           {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
           {genres.length > 0 && <div className="manga-hero-tags flex flex-wrap gap-1.5">

@@ -12,6 +12,8 @@ export const MangaDetail = graphql(`
       description
       genre
       status
+      # 只抓一次的漫画不推算下次更新（features/updates/predict）
+      updateStrategy
       realUrl
       inLibrary
       initialized
@@ -57,6 +59,7 @@ export function placeholderManga(peek: { id: number; title: string; thumbnailUrl
     description: null,
     genre: [],
     status: 'UNKNOWN',
+    updateStrategy: 'ALWAYS_UPDATE',
     realUrl: null,
     inLibrary: false,
     initialized: true,
@@ -79,6 +82,8 @@ export const MangaChapters = graphql(`
         sourceOrder
         scanlator
         uploadDate
+        # 来源没给发布日期时，推算下次更新改用抓取时间
+        fetchedAt
         isRead
         isBookmarked
         isDownloaded

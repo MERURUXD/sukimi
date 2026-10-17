@@ -10,6 +10,7 @@ import { useIntro } from '@/lib/intro'
 import { ChapterList, useChapterActions } from './ChapterList'
 import { MangaBackdrop } from './MangaBackdrop'
 import { MangaHero } from './MangaHero'
+import { mangaPrediction } from './NextUpdate'
 import { FetchMangaAndChapters, MangaChapters, MangaDetail, MangaPeek, placeholderManga } from './queries'
 import { useLive } from '@/api/live'
 import { cn } from '@/lib/cn'
@@ -32,6 +33,8 @@ export function MangaPage() {
   const [fetchRemote, { loading: fetching }] = useMutation(FetchMangaAndChapters)
 
   const list = chapters.data?.chapters.nodes
+  const detail = manga.data?.manga
+  const prediction = useMemo(() => (detail && list ? mangaPrediction(detail, list) : null), [detail, list])
   const refetchChapters = chapters.refetch
   const refetchManga = manga.refetch
 
@@ -98,6 +101,7 @@ export function MangaPage() {
       <MangaHero
         manga={m}
         chapters={manga.data ? list : undefined}
+        prediction={prediction}
         fetching={fetching}
         placeholder={!manga.data}
         intro={intro}
@@ -107,7 +111,7 @@ export function MangaPage() {
       </div>
       {manga.data &&
         (list ? (
-          <ChapterList mangaId={id} chapters={list} queue={queue} actions={actions} intro={intro} />
+          <ChapterList mangaId={id} chapters={list} prediction={prediction} queue={queue} actions={actions} intro={intro} />
         ) : (
           <p style={mangaIntroDelay(mangaIntro.chapterTitle)} className={cn('wrap text-muted', intro && 'rise')}>正在加载章节…</p>
         ))}
