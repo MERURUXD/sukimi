@@ -6,6 +6,7 @@ import {
   BookmarkMinus,
   BookCheck,
   BookOpen,
+  CalendarClock,
   Check,
   CheckCheck,
   CircleCheck,
@@ -23,6 +24,8 @@ import { Popover } from '@/components/ui/Popover'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { formatFullDate, ms } from '@/lib/format'
+import { intervalLabel, regularLabel, shortText } from '@/features/updates/predict'
+import type { NextPrediction } from './NextUpdate'
 import { cn } from '@/lib/cn'
 import { useLongPress } from '@/lib/useLongPress'
 import { useSelection } from '@/lib/useSelection'
@@ -113,12 +116,15 @@ const FILTERS: { value: ChapterFilter; label: string; test: (c: Chapter) => bool
 export function ChapterList({
   mangaId,
   chapters,
+  prediction = null,
   queue,
   actions,
   intro = false,
 }: {
   mangaId: number
   chapters: readonly Chapter[]
+  /** 预计下次更新；有的话在最新一话上面多一格预计的下一话 */
+  prediction?: NextPrediction | null
   queue: ReadonlyMap<number, QueueItem>
   actions: Actions
   intro?: boolean
@@ -230,6 +236,13 @@ export function ChapterList({
 
       {visible.length === 0 && <p style={mangaIntroDelay(mangaIntro.chapterRow)} className={cn('py-16 text-center text-muted', intro && 'rise')}>{chapters.length ? '没有符合筛选的章节' : '还没有章节'}</p>}
 
+      {/* 只在「最新在上」且看全部或未读时出现，排在列表外面，不参与虚拟列表、多选和筛选计数 */}
+      {prediction && desc && (filter === 'all' || filter === 'unread') && !selecting && (
+        <div className={cn(cols > 1 && 'grid grid-cols-2 gap-x-6')}>
+          <PredictedRow p={prediction} chapters={chapters} fill={cols > 1} introDelay={intro ? mangaIntro.chapterRow : undefined} />
+        </div>
+      )}
+
       <div ref={box} role="list" aria-label="章节列表" className="relative" style={{ height: v.getTotalSize() }}>
         {v.getVirtualItems().map((r, i) => {
           const row = visible.slice(r.index * cols, r.index * cols + cols)
@@ -298,6 +311,34 @@ export function ChapterList({
         </button>
       </BatchBar>
     </section>
+  )
+}
+
+/** 预计的下一话：和章节行同样的排版，半透明、不能点；话数按现有最大话数加一，凑不出整数时只写「下一话」 */
+function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; chapters: readonly Chapter[]; fill: boolean; introDelay?: number }) {
+  const max = Math.max(-1, ...chapters.map((c) => c.chapterNumber))
+  const name = max >= 0 && Number.isInteger(max) ? `第 ${max + 1} 话` : '下一话'
+  const when = p.late > 0 ? `晚了 ${p.late} 天` : `约 ${formatFullDate(p.next)}`
+  return (
+    <div
+      style={introDelay === undefined ? undefined : mangaIntroDelay(introDelay)}
+      className={cn(
+        'grid min-h-[62px] items-center gap-3 rounded-2xl px-3 py-1.5 text-faint max-sm:grid-cols-[16px_minmax(0,1fr)_auto]',
+        fill ? 'grid-cols-[20px_minmax(0,1fr)_104px_72px_44px]' : 'grid-cols-[20px_minmax(0,20rem)_104px_72px_44px]',
+        introDelay !== undefined && 'rise',
+      )}
+      aria-label={`预计的下一话：${shortText(p)}`}
+    >
+      <span className="flex items-center justify-center" aria-hidden>
+        <CalendarClock className="size-4" strokeWidth={1.8} />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate text-[15px] font-medium">{name}</span>
+        <span className="truncate text-xs">预计 · {intervalLabel(p.interval)}更新 · {regularLabel(p)}</span>
+      </span>
+      <span className="text-[13px] num max-sm:hidden">{when}</span>
+      <span className="text-xs num sm:hidden">{when}</span>
+    </div>
   )
 }
 
