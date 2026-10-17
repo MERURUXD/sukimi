@@ -121,10 +121,11 @@ export function MangaHero({
               </span>
             )}
             {/* 进场动画放在各段文字上，不放在这一行：弹层在动画元素里面会挡不住后面的简介，玻璃也采样不到背景 */}
-            <div className="manga-hero-meta text-muted">
-              <span style={delay(mangaIntro.meta)} className={cn('inline-block', animate && 'rise')}>
+            {/* 用 flex 居中对齐：按钮里有图标，按基线排会比前面的文字高一截 */}
+            <div className="manga-hero-meta flex flex-wrap items-center gap-x-1 text-muted">
+              <span style={delay(mangaIntro.meta)} className={cn(animate && 'rise')}>
                 {[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}
-                {prediction && ' · '}
+                {prediction && ' ·'}
               </span>
               {/* 写进这一行，不另占位置：桌面中栏已经排满 */}
               {prediction && <NextUpdate p={prediction} style={delay(mangaIntro.meta)} className={cn(animate && 'rise')} />}

@@ -52,7 +52,7 @@ export function NextUpdate({ p, className, style }: { p: NextPrediction; classNa
   return (
     <>
       {mobile ? button : (
-        <Popover id={id} open={open} onClose={() => setOpen(false)} label={label} align="left" rootClassName="inline-block" className="w-[320px] max-w-[calc(100vw-32px)] p-4" trigger={button}>
+        <Popover id={id} open={open} onClose={() => setOpen(false)} label={label} align="left" rootClassName="flex" className="w-[320px] max-w-[calc(100vw-32px)] p-4" trigger={button}>
           {content}
         </Popover>
       )}
