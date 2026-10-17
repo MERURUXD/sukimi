@@ -83,6 +83,12 @@ export default defineConfig(({ mode, command }) => {
       },
     },
     server: {
+      // Vite 8 在检测到 AI 编程代理的环境变量时会自动加上 vite:forward-console 插件，插件名会进依赖预构建的配置哈希。
+      // 不固定的话，从代理、预览工具和自己的终端轮流启动，哈希就来回变，每次都整包重新预构建（首个请求卡几十秒）。
+      forwardConsole: false,
+      // .claude/ 里有十几万个验收截图和记录，不忽略的话 Vite 启动时给其中上万个文件逐个建监听，
+      // 同步卡住主线程十几秒（页面空白、请求超时）；它们和前端源码无关
+      watch: { ignored: ['**/.claude/**', '**/.agents/**', '**/.codex/**', '**/.cache/**', '**/.codex-remote-attachments/**', '**/dist/**'] },
       // 同源代理：令牌 Cookie 才能随 <img> 和 WebSocket 一起发出去
       proxy: {
         '/api': { target, changeOrigin: true, ws: true },
