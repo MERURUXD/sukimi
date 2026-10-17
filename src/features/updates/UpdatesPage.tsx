@@ -4,7 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 
 import { Link, useSearchParams } from 'react-router'
 import { captureUser } from '@/api/userContext'
 import { syncTrackProgressMany } from '@/features/tracking/sync'
-import { useSharedServer } from '@/api/auth'
+import { useCan, useSharedServer } from '@/api/auth'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
@@ -33,7 +33,9 @@ export function UpdatesPage() {
   const [params, setParams] = useSearchParams()
   const view = params.get('view') === 'calendar' ? 'calendar' : 'recent'
   const setView = (v: 'recent' | 'calendar') => setParams(v === 'calendar' ? { view: v } : {}, { replace: true })
-  const interval = useQuery(UpdateInterval, { skip: view !== 'calendar', fetchPolicy: 'cache-first' })
+  // 没有 MANAGE_SETTINGS 时服务端给的是默认值的遮蔽视图，不能当真实检查频率，干脆不查、不显示下次检查
+  const canReadInterval = useCan('MANAGE_SETTINGS')
+  const interval = useQuery(UpdateInterval, { skip: view !== 'calendar' || !canReadInterval, fetchPolicy: 'cache-first' })
   const [filter, setFilter] = useState<UpdatesFilter>('all')
   const updates = useQuery(RecentUpdates, {
     variables: { first: UPDATES_PAGE, offset: 0, filter: UPDATES_FILTERS[filter] },
