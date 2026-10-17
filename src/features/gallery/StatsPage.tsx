@@ -285,7 +285,7 @@ interface BodyProps {
 /* ───────── 背景与噪点 ───────── */
 function Backdrop({ glow, className, style }: { glow: [Rgb, Rgb]; className?: string; style?: CSSProperties }) {
   return (
-    <div aria-hidden className={cn('pointer-events-none overflow-hidden', className)} style={style}>
+    <div aria-hidden data-stats-progress="p" className={cn('pointer-events-none overflow-hidden', className)} style={style}>
       <div
         className="gallery-blob-a absolute top-[-16%] left-[36%] aspect-square w-[min(920px,90vw)] rounded-full opacity-85 blur-[30px] max-md:top-[-12%] max-md:left-[-30%] max-md:w-[520px]"
         style={{ background: `radial-gradient(closest-side, ${rgbCss(glow[0], 0.87)} 0%, ${rgbCss(glow[0], 0.33)} 45%, transparent 100%)` }}
@@ -576,12 +576,14 @@ function Stats(p: BodyProps) {
 
   /* ── 每帧：穿过表盘、写 --p 给 CSS、记下停在哪一屏和哪一部 ── */
   useLayoutEffect(() => {
+    // 进度只传给使用它的区域，避免每帧让表盘的整棵 SVG 子树重算继承样式。
+    const progress = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="p"]')
+    const drift = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="ek"]')
     const paint = () => {
       const pp = pager.p
       const ud = ease(seg(pp, 0.04, 0.56))
-      const s = root.current?.style
-      s?.setProperty('--p', pp.toFixed(4))
-      s?.setProperty('--ek', ease(seg(pp, 0, 0.3)).toFixed(4))
+      progress?.forEach((el) => el.style.setProperty('--p', pp.toFixed(4)))
+      drift?.forEach((el) => el.style.setProperty('--ek', ease(seg(pp, 0, 0.3)).toFixed(4)))
       if (zoom.current) {
         zoom.current.style.transform = ud ? `scale(${(1 + ud * 1.9).toFixed(4)})` : ''
         zoom.current.style.opacity = `${1 - seg(pp, 0.14, 0.56)}`
@@ -598,7 +600,7 @@ function Stats(p: BodyProps) {
     }
     paint()
     return pager.subscribe(paint)
-  }, [pager])
+  }, [pager, mobile, stats, ranked.length])
 
   // 正中那部的封面主色：背景光和地面光跟着换；翻页途中不取，停下再取
   const [tone, setTone] = useState<Rgb>(NEUTRAL)
@@ -617,7 +619,7 @@ function Stats(p: BodyProps) {
     mobile ? { opacity: 'calc(1 - var(--ek))', translate: '0 calc(var(--ek) * 30px)' } : { opacity: 'calc(1 - var(--ek))', translate: `calc(var(--ek) * ${dir * 60}px) 0` }
   const stripSize = mobile ? { w: Math.floor((w - side * 2 - 24) / 2), h: 18 } : { w: kpiW, h: Math.round(22 * u) }
   const group = (title: string, items: Kpi[], right: boolean, at: number) => (
-    <section aria-label={title} className={cn('flex flex-col gap-10', right && 'items-end')} style={kpiDrift(right ? 1 : -1)}>
+    <section aria-label={title} data-stats-progress="ek" className={cn('flex flex-col gap-10', right && 'items-end')} style={kpiDrift(right ? 1 : -1)}>
       <h2 className="m-0 text-xs font-bold tracking-[.32em] text-muted" style={upStyle(t, at - 0.04)}>
         {title}
       </h2>
@@ -696,7 +698,7 @@ function Stats(p: BodyProps) {
   )
 
   return (
-    <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none" style={{ '--p': pager.p, '--ek': 0 } as CSSProperties}>
+    <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none">
       <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
         <Backdrop glow={p.glow} className="absolute inset-0" style={{ opacity: `calc(1 - ${seg01('0.3', '0.8')} * .6)` }} />
 
@@ -706,7 +708,7 @@ function Stats(p: BodyProps) {
             <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
               {dialEl}
               {kpis && (
-                <div className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side, ...kpiDrift(1) }}>
+                <div data-stats-progress="ek" className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side, ...kpiDrift(1) }}>
                   {[...kpis.progress, ...kpis.rhythm].map((k, i) => (
                     <KpiBlock key={k.key} k={k} t={t} at={0.38 + i * 0.05} size={36} strip={stripSize} />
                   ))}
@@ -721,14 +723,14 @@ function Stats(p: BodyProps) {
               <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
             </div>
           )}
-          <div className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
+          <div data-stats-progress="p" className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
             <Hint p={p} t={t} pager={pager} mobile={mobile} />
           </div>
         </div>
 
         {/* ───── 第二屏 ───── */}
         {current && taste && (
-          <div className="absolute inset-0" inert={screen === 0} aria-hidden={screen === 0}>
+          <div data-stats-progress="p" className="absolute inset-0" inert={screen === 0} aria-hidden={screen === 0}>
             {mobile ? (
               <>
                 {glows(w / 2, top + 30 + flowH / 2)}
