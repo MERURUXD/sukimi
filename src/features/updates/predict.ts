@@ -66,6 +66,17 @@ function median(xs: number[]) {
 }
 
 /**
+ * 一部漫画每话的「发布时间」：用来源给的发布日期；多数章节没有可信日期时整部改用抓取时间（approx）。
+ * 推算和日历摆放共用，同一部漫画两处按同一种时间。取不到的记 0。
+ */
+export function releaseTimes(chapters: readonly ChapterTimes[], now = Date.now()) {
+  // 发布日期为 0、早于 2000 年或在明天之后的，都当作来源没给
+  const valid = (t: number) => t > 946_684_800_000 && t < now + DAY
+  const approx = chapters.filter((c) => valid(c.uploadDate)).length < chapters.length * 0.6
+  return { approx, times: chapters.map((c) => (approx ? c.fetchedAt : c.uploadDate)).map((t) => (valid(t) ? t : 0)) }
+}
+
+/**
  * 推算一部漫画的下一话。
  * - 同一天出的多话算一次发布；只看最近 RECENT_DAYS 个发布日。
  * - 间隔取中位数，一次延期或补发不会把结果带偏。
@@ -78,11 +89,8 @@ export function predict(
   if (!PREDICTABLE_STATUS.has(status)) return { kind: 'none', reason: 'ended' }
   if (updateStrategy === 'ONLY_FETCH_ONCE') return { kind: 'none', reason: 'once' }
 
-  // 发布日期为 0、早于 2000 年或在明天之后的，都当作来源没给
-  const valid = (t: number) => t > 946_684_800_000 && t < now + DAY
-  const withUpload = chapters.filter((c) => valid(c.uploadDate)).length
-  const approx = withUpload < chapters.length * 0.6
-  const times = chapters.map((c) => (approx ? c.fetchedAt : c.uploadDate)).filter(valid)
+  const { approx, times: all } = releaseTimes(chapters, now)
+  const times = all.filter((t) => t > 0)
 
   const days = [...new Set(times.map(startOfDay))].sort((a, b) => a - b).slice(-RECENT_DAYS)
   if (days.length < MIN_DAYS) return { kind: 'none', reason: 'few' }

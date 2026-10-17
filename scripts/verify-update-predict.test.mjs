@@ -115,3 +115,16 @@ test('一周的日历：过去放实际抓到的、今天以后放预计；同�
   const next = buildWeek(chapters, series, at(10, 19), NOW)
   assert.deepEqual(next.flatMap((d) => d.entries.map((e) => `${e.kind}${e.mangaId}`)).sort(), ['pred1', 'pred2'])
 })
+
+test('过去的更新按来源发布日期摆；来源没给日期的整部改按抓取时间', async () => {
+  const { buildWeek, seriesOf, weekStart } = await import('../src/features/updates/calendar.ts')
+  const manga = { status: 'ONGOING', updateStrategy: 'ALWAYS_UPDATE' }
+  const chapters = [
+    // 1：周一发布、周四才抓到 → 摆在周一
+    { mangaId: 1, uploadDate: at(10, 12, 10), fetchedAt: at(10, 15, 21), manga },
+    // 2：来源不给发布日期 → 摆在抓到的周三
+    { mangaId: 2, uploadDate: 0, fetchedAt: at(10, 14, 21), manga },
+  ]
+  const week = buildWeek(chapters, seriesOf(chapters, NOW), weekStart(NOW), NOW)
+  assert.deepEqual(week.map((d) => d.entries.map((e) => e.mangaId)), [[1], [], [2], [], [], [], []])
+})

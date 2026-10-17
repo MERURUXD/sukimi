@@ -2,7 +2,7 @@
  * 更新日历的排布：把近半年的章节按漫画分组、逐部推算，再排进某一周的七天。
  * 纯函数，scripts/verify-update-predict.test.mjs 直接导入。
  */
-import { addDays, occurrences, predict, startOfDay, type Prediction } from './predict.ts'
+import { addDays, occurrences, predict, releaseTimes, startOfDay, type Prediction } from './predict.ts'
 
 type Next = Extract<Prediction, { kind: 'next' }>
 
@@ -55,8 +55,8 @@ export function weekStart(t: number) {
 export const onCalendar = (p: Prediction): p is Next => p.kind === 'next' && p.regular !== 'low' && p.late === 0
 
 /**
- * 某一周的七天。过去和今天放实际抓到的更新（按抓取时间，和「最近」列表一致），
- * 今天及以后放推算；同一天已经抓到的不再重复显示预计。
+ * 某一周的七天。过去和今天放实际的更新，按来源的发布日期摆（来源没给日期的整部改按抓取时间），
+ * 和推算用的是同一种时间；今天及以后放推算，同一天已经出了的不再重复显示预计。
  */
 export function buildWeek<M>(chapters: readonly CalendarInput<M>[], series: readonly Series<M>[], start: number, now: number): CalendarDay<M>[] {
   const today = startOfDay(now)
@@ -64,9 +64,21 @@ export function buildWeek<M>(chapters: readonly CalendarInput<M>[], series: read
   const end = addDays(start, 7)
   const index = new Map(days.map((d, i) => [d.day, i]))
 
-  const done = new Map<string, Extract<DayEntry<M>, { kind: 'done' }>>()
+  const byManga = new Map<number, CalendarInput<M>[]>()
   for (const c of chapters) {
-    const day = startOfDay(c.fetchedAt)
+    const g = byManga.get(c.mangaId)
+    if (g) g.push(c)
+    else byManga.set(c.mangaId, [c])
+  }
+  const placed: { c: CalendarInput<M>; t: number }[] = []
+  for (const g of byManga.values()) {
+    const { times } = releaseTimes(g, now)
+    g.forEach((c, i) => { if (times[i]) placed.push({ c, t: times[i] }) })
+  }
+
+  const done = new Map<string, Extract<DayEntry<M>, { kind: 'done' }>>()
+  for (const { c, t } of placed) {
+    const day = startOfDay(t)
     const i = index.get(day)
     if (i === undefined) continue
     const key = `${day}#${c.mangaId}`

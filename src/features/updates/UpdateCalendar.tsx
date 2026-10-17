@@ -23,7 +23,7 @@ const MIN_WEEK = -25
 const MAX_WEEK = 8
 
 /**
- * 更新日历：一周七天，过去显示实际抓到的更新，今天以后显示按规律推算的预计更新；
+ * 更新日历：一周七天，过去按来源发布日期显示实际的更新，今天以后显示按规律推算的预计更新；
  * 晚了的、推算不出的放在下面。桌面七列，手机是按天的日程列表。
  */
 export function UpdateCalendar() {
@@ -62,7 +62,7 @@ export function UpdateCalendar() {
   return (
     <section aria-label="更新日历" className="pb-6">
       <div className="mt-5 mb-4 flex items-center justify-between gap-3">
-        <p className="m-0 min-w-0 text-[13px] text-muted md:text-sm">{summary || (offset < 0 ? '这周没有抓到新章节' : '这周没有预计的更新')}</p>
+        <p className="m-0 min-w-0 text-[13px] text-muted md:text-sm">{summary || (offset < 0 ? '这周没有新章节' : '这周没有预计的更新')}</p>
         <div className="flex flex-none items-center gap-1.5">
           <Glass as="button" type="button" className="gicon size-10 rounded-full" disabled={offset <= MIN_WEEK} onClick={() => setOffset((o) => o - 1)} aria-label="上一周">
             <ChevronLeft className="size-[18px]" strokeWidth={1.8} />
@@ -84,7 +84,7 @@ export function UpdateCalendar() {
         <div className="mt-9">
           <h2 className="m-0 mb-2 flex items-baseline gap-2.5 text-lg font-bold">
             晚了
-            <span className="text-[13px] font-medium text-muted">按规律该出新话了，还没有抓到</span>
+            <span className="text-[13px] font-medium text-muted">按规律该出新话了，还没有出</span>
           </h2>
           <div className="grid gap-x-6 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
             {rest.late.map((s) => (
@@ -231,7 +231,7 @@ function Legend() {
     <div className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
       <span className="flex items-center gap-1.5">
         <i className="block h-3 w-2 rounded-[2px] bg-text/70" aria-hidden />
-        已抓到的更新
+        已发布的更新
       </span>
       <span className="flex items-center gap-1.5">
         <i className="block h-3 w-2 rounded-[2px] bg-text/70 opacity-45 outline-1 outline-offset-1 outline-dashed outline-text/60" aria-hidden />
