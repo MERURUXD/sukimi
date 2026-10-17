@@ -1,6 +1,9 @@
-@import 'tailwindcss';
+@import 'tailwindcss' source(none);
 @import '@fontsource-variable/space-grotesk';
 @import '@fontsource-variable/noto-sans-sc';
+/* 只扫前端源码：自动检测会把 .claude/ 里十几万个截图和记录也扫一遍，dev 首个请求要同步卡二十几秒 */
+@source '../src';
+@source '../index.html';
 
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
