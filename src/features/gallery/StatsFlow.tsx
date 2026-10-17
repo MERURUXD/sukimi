@@ -142,7 +142,7 @@ export function CoverFlow({ ranked, idx, pager, L, width, cy, moved }: { ranked:
 const statusOf = (m: LibraryManga) => (isCompleted(m) ? '已完结' : m.status === 'ONGOING' ? '连载中' : null)
 
 /** 正中那部的信息：名次、书名、作者 · 题材 · 连载状态、读到哪了 */
-export function FlowInfo({ it, tone, phone, onStep, first, last }: { it: Ranked; tone: Rgb; phone: boolean; onStep?: (d: -1 | 1) => void; first: boolean; last: boolean }) {
+export function FlowInfo({ it, tone, phone, u = 1, onStep, first, last }: { it: Ranked; tone: Rgb; phone: boolean; u?: number; onStep?: (d: -1 | 1) => void; first: boolean; last: boolean }) {
   const m = it.manga
   const caught = it.total != null && it.total > 0 && it.read >= it.total
   const pct = it.total ? Math.min(100, (it.read / it.total) * 100) : 0
@@ -156,16 +156,18 @@ export function FlowInfo({ it, tone, phone, onStep, first, last }: { it: Ranked;
   return (
     <div className="flex items-center justify-center gap-6" style={{ opacity: cssSeg(0.68, 0.9), translate: `0 calc((1 - ${cssSeg(0.68, 0.9)}) * 10px)` }}>
       {arrow(-1)}
-      <div key={m.id} aria-live="polite" className="gallery-info-in flex w-[min(440px,calc(100vw-48px))] min-w-0 flex-col items-center text-center">
+      <div key={m.id} aria-live="polite" className="gallery-info-in flex min-w-0 flex-col items-center text-center" style={{ width: `min(${Math.round(440 * u)}px, calc(100vw - 48px))` }}>
         <span className="text-xs font-bold tracking-[.2em] text-muted num">
           NO.{it.rank}
           {it.rank === 1 && ' · 读得最多'}
         </span>
-        <span className={`mt-2 max-w-full truncate font-cjk font-black ${phone ? 'text-xl' : 'text-2xl'}`}>{m.title}</span>
+        <span className="mt-2 max-w-full truncate font-cjk font-black" style={{ fontSize: phone ? 20 : Math.round(24 * u) }}>
+          {m.title}
+        </span>
         {meta && <span className="mt-1.5 max-w-full truncate text-xs text-muted">{meta}</span>}
         <span className={`flex items-center gap-3 ${phone ? 'mt-3' : 'mt-4'}`}>
           {it.total != null && it.total > 0 && (
-            <span aria-hidden className="block h-1 overflow-hidden rounded-sm bg-white/14" style={{ width: phone ? 140 : 180 }}>
+            <span aria-hidden className="block h-1 overflow-hidden rounded-sm bg-white/14" style={{ width: phone ? 140 : Math.round(180 * u) }}>
               <span className="block h-full rounded-sm transition-[width] duration-500" style={{ width: `${pct}%`, background: rgbCss(mix(tone, 0.72)) }} />
             </span>
           )}
@@ -186,7 +188,7 @@ const mix = ([r, g, b]: Rgb, k: number): Rgb => [r + (1 - r) * k, g + (1 - g) * 
  * 口味：常读的题材（按已读话数平分算占比）和作者。翻到哪部，它的题材和作者亮起来，其余变暗。
  * 进场时从上往下逐行出现，占比的细条从 0 长出来
  */
-export function TastePanel({ taste, it, tone, phone }: { taste: Taste; it: Ranked | undefined; tone: Rgb; phone: boolean }) {
+export function TastePanel({ taste, it, tone, phone, u = 1 }: { taste: Taste; it: Ranked | undefined; tone: Rgb; phone: boolean; u?: number }) {
   const mine = new Set(it ? genresOf(it.manga.genre) : [])
   const who = new Set(it ? authorsOf(it.manga.author) : [])
   const gmax = taste.genres[0]?.pct || 1
@@ -207,17 +209,17 @@ export function TastePanel({ taste, it, tone, phone }: { taste: Taste; it: Ranke
     <section aria-label="口味" className="flex w-full flex-col">
       {head('口味')}
       {taste.genres.length ? (
-        <ul className={`m-0 mt-3 grid list-none p-0 ${phone ? 'gap-x-6 gap-y-3.5' : 'gap-y-[22px]'}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        <ul className={`m-0 mt-3 grid list-none p-0 ${phone ? 'gap-x-6 gap-y-3.5' : ''}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, rowGap: phone ? undefined : Math.round(22 * u) }}>
           {taste.genres.map((g) => {
             const on = mine.has(g.name)
             const a = 0.74 + row * 0.02
             return (
               <li key={g.name} style={rowStyle(!!it && !on)}>
                 <span className="flex items-baseline justify-between gap-3">
-                  <span className="truncate font-cjk font-black" style={{ fontSize: phone ? 16 : Math.round(18 + (g.pct / gmax) * 12) }}>
+                  <span className="truncate font-cjk font-black" style={{ fontSize: phone ? 16 : Math.round((18 + (g.pct / gmax) * 12) * u) }}>
                     {g.name}
                   </span>
-                  <span className="text-[15px] font-bold num md:text-lg">
+                  <span className="text-[15px] font-bold num md:text-lg" style={phone ? undefined : { fontSize: Math.round(18 * u) }}>
                     {/* 读得很少的题材四舍五入成 0 像是没读过 */}
                     {g.pct < 1 ? '<1' : Math.round(g.pct)}
                     <span className="ml-0.5 text-[11px] text-muted">%</span>
@@ -244,7 +246,9 @@ export function TastePanel({ taste, it, tone, phone }: { taste: Taste; it: Ranke
           <ul className={`m-0 mt-3 list-none p-0 ${phone ? 'grid grid-cols-3 gap-3' : 'flex flex-col gap-4'}`}>
             {taste.authors.map((a) => (
               <li key={a.name} className={phone ? 'min-w-0' : 'flex items-baseline justify-between gap-3'} style={rowStyle(!!it && !who.has(a.name))}>
-                <span className={`block truncate font-cjk font-black ${phone ? 'text-sm' : 'text-lg'}`}>{a.name}</span>
+                <span className={`block truncate font-cjk font-black ${phone ? 'text-sm' : 'text-lg'}`} style={phone ? undefined : { fontSize: Math.round(18 * u) }}>
+                  {a.name}
+                </span>
                 <span className={`text-xs whitespace-nowrap text-muted num ${phone ? 'mt-0.5 block' : ''}`}>
                   {a.works} 部 · {count(a.read)} 话
                 </span>
