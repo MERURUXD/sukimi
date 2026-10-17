@@ -69,7 +69,7 @@
   .manga-hero-info { display: contents; }
   .manga-hero-identity { grid-area: 1 / 2; align-self: center; gap: 8px; }
   .manga-hero-title { font-size: 24px; line-height: 1.35; text-wrap: balance; }
-  .manga-hero-identity > span { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+  .manga-hero-identity > span, .manga-hero-identity > .manga-hero-meta { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
   .manga-hero-description { grid-column: 1 / -1; order: 1; min-width: 0; overflow-wrap: anywhere; }
   .manga-hero-expand { min-height: 44px; margin-top: 0; }
   .manga-hero-tags { grid-column: 1 / -1; order: 2; min-width: 0; margin-top: -8px; }

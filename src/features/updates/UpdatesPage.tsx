@@ -1,10 +1,10 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, MoreHorizontal, RefreshCw, Square } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { captureUser } from '@/api/userContext'
 import { syncTrackProgressMany } from '@/features/tracking/sync'
-import { useSharedServer } from '@/api/auth'
+import { useCan, useSharedServer } from '@/api/auth'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { useLive } from '@/api/live'
@@ -24,10 +24,18 @@ import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
 import { groupByManga } from './group'
-import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE, type UpdatesFilter } from './queries'
-import { chapterLabel, count, dayLabel, sec, timeAgo } from '@/lib/format'
+import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE, UpdateInterval, type UpdatesFilter } from './queries'
+import { UpdateCalendar } from './UpdateCalendar'
+import { chapterLabel, clock, count, dayLabel, formatDate, sec, timeAgo } from '@/lib/format'
 
 export function UpdatesPage() {
+  // 视图放在网址里：从详情页返回时还停在日历
+  const [params, setParams] = useSearchParams()
+  const view = params.get('view') === 'calendar' ? 'calendar' : 'recent'
+  const setView = (v: 'recent' | 'calendar') => setParams(v === 'calendar' ? { view: v } : {}, { replace: true })
+  // 没有 MANAGE_SETTINGS 时服务端给的是默认值的遮蔽视图，不能当真实检查频率，干脆不查、不显示下次检查
+  const canReadInterval = useCan('MANAGE_SETTINGS')
+  const interval = useQuery(UpdateInterval, { skip: view !== 'calendar' || !canReadInterval, fetchPolicy: 'cache-first' })
   const [filter, setFilter] = useState<UpdatesFilter>('all')
   const updates = useQuery(RecentUpdates, {
     variables: { first: UPDATES_PAGE, offset: 0, filter: UPDATES_FILTERS[filter] },
@@ -161,18 +169,33 @@ export function UpdatesPage() {
   }
 
   const ts = Number(lastData?.lastUpdateTimestamp.timestamp ?? 0)
+  const hours = interval.data?.settings.globalUpdateInterval
   const status = updater.isRunning
     ? `正在检查更新 · ${updater.finished} / ${updater.total}`
-    : [ts ? `上次检查 ${timeAgo(ts)}` : null, data ? `${count(data.chapters.totalCount)} 话` : null, syncing ? '正在同步…' : null]
-        .filter(Boolean)
-        .join(' · ')
+    : view === 'calendar'
+      ? [ts ? `上次检查 ${timeAgo(ts)}` : null, nextCheck(ts, hours)].filter(Boolean).join(' · ')
+      : [ts ? `上次检查 ${timeAgo(ts)}` : null, data ? `${count(data.chapters.totalCount)} 话` : null, syncing ? '正在同步…' : null]
+          .filter(Boolean)
+          .join(' · ')
 
   return (
     <>
       <div className="wrap pb-10">
         <header className="pt-4 md:pt-7 md:pb-3">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
+            <div className="flex min-w-0 items-center gap-3 md:gap-4">
+              <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
+              <Seg
+                label="视图"
+                className="[&>button]:min-h-11 md:[&>button]:min-h-9"
+                items={[
+                  { value: 'recent', label: '最近' },
+                  { value: 'calendar', label: '日历' },
+                ]}
+                value={view}
+                onChange={setView}
+              />
+            </div>
             {updater.isRunning ? (
               <button type="button" className="solid min-h-11 shrink-0" onClick={() => void stop()}>
                 <Square className="size-4 fill-current" strokeWidth={2} />
@@ -186,7 +209,7 @@ export function UpdatesPage() {
             )}
           </div>
           <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || ' '}</p>
-          <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">
+          {view === 'recent' && <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">
             <Seg
               label="筛选"
               className="[&>button]:min-h-11 md:[&>button]:min-h-9"
@@ -209,7 +232,7 @@ export function UpdatesPage() {
               </Can>
             </div>
             <UpdatesMore onMarkRead={markAllRead} onDownload={downloadAll} />
-          </div>
+          </div>}
         </header>
         {updater.isRunning && (
           <div className="mt-1 h-[3px] overflow-hidden rounded-full bg-track">
@@ -220,7 +243,7 @@ export function UpdatesPage() {
           </div>
         )}
 
-        <section aria-label="新章节" className="pb-6">
+        {view === 'calendar' ? <UpdateCalendar /> : <section aria-label="新章节" className="pb-6">
           {data && list.length === 0 && <p className="py-20 text-center text-muted">没有符合条件的章节</p>}
           {days.map((d, di) => (
             <div key={d.label}>
@@ -257,12 +280,23 @@ export function UpdatesPage() {
           {loading && !data && <RowsSkeleton />}
           {updates.error && !data && <LoadError message={updates.error.message} onRetry={() => void refetch().catch(() => {})} />}
           {loading && data && !syncing && <p className="py-6 text-center text-muted">正在加载…</p>}
-        </section>
+        </section>}
 
         <DownloadPill />
       </div>
     </>
   )
+}
+
+/** 下次自动检查：上次检查时间加上检查频率；关闭自动检查或时间已过时另说 */
+function nextCheck(last: number, hours: number | null | undefined) {
+  if (hours == null || !last) return null
+  if (hours <= 0) return '自动检查已关闭'
+  const at = last + hours * 3_600_000
+  if (at <= Date.now()) return '即将自动检查'
+  // dayLabel 只会往回数，往后的日子在这里单独说
+  const days = Math.round((new Date(new Date(at).toDateString()).getTime() - new Date(new Date().toDateString()).getTime()) / 86_400_000)
+  return `下次检查 ${days === 0 ? '今天' : days === 1 ? '明天' : formatDate(at)} ${clock(at)}`
 }
 
 function UpdatesMore({ onMarkRead, onDownload }: { onMarkRead: () => Promise<void>; onDownload: () => Promise<void> }) {
