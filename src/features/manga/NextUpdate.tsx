@@ -85,24 +85,33 @@ function Rhythm({ p, titled }: { p: NextPrediction; titled: boolean }) {
         {titled && <span className="font-semibold">更新节奏</span>}
         <span className="text-xs text-muted">{intervalLabel(p.interval)} · {regularLabel(p)}</span>
       </div>
-      <svg viewBox={`0 0 ${W} 40`} className="block w-full overflow-visible text-text" aria-hidden>
-        <line x1={pad} y1={12} x2={lastX} y2={12} stroke="currentColor" strokeOpacity={0.3} />
-        <line x1={lastX} y1={12} x2={W - pad} y2={12} stroke="currentColor" strokeOpacity={0.45} strokeDasharray="3 3" />
-        {days.map((d) => <circle key={d} cx={x(d)} cy={12} r={3.5} fill="currentColor" />)}
-        <circle cx={W - pad} cy={12} r={5} fill="none" stroke="currentColor" strokeDasharray="2 2" />
-        <text x={pad} y={34} fontSize={11} fill="currentColor" fillOpacity={0.5}>{md(days[0])}</text>
-        {lastX - pad > 60 && W - pad - lastX > 30 && <text x={lastX} y={34} fontSize={11} textAnchor="middle" fill="currentColor" fillOpacity={0.6}>{md(days[days.length - 1])}</text>}
-        <text x={W - pad} y={34} fontSize={11} textAnchor="end" fill="currentColor">{p.late > 0 ? '应在' : '预计'} {md(p.next)}</text>
+      <svg viewBox={`0 0 ${W} 20`} className="block w-full overflow-visible text-text" aria-hidden>
+        <line x1={pad} y1={10} x2={lastX} y2={10} stroke="currentColor" strokeOpacity={0.3} />
+        <line x1={lastX} y1={10} x2={W - pad} y2={10} stroke="currentColor" strokeOpacity={0.45} strokeDasharray="3 3" />
+        {days.map((d) => <circle key={d} cx={x(d)} cy={10} r={3.5} fill="currentColor" />)}
+        <circle cx={W - pad} cy={10} r={5} fill="none" stroke="currentColor" strokeDasharray="2 2" />
       </svg>
-      <p className="m-0 mt-2.5 leading-relaxed text-muted">
-        {gaps.length > 0 && <>最近 {gaps.length} 次间隔里 {onTime} 次准时<br /></>}
-        最近一次 {md(days[days.length - 1])}
-        {p.late > 0 && `，比平时晚了 ${p.late} 天`}
-      </p>
-      <p className="m-0 mt-2 text-xs leading-relaxed text-muted">
-        {p.approx ? '来源没给发布日期，按服务端抓到的时间推算，仅供参考。' : '按最近几话的发布日期推算，仅供参考。'}
-      </p>
-      <Link to="/updates?view=calendar" className="mt-2 inline-block text-xs font-semibold text-text no-underline hover:underline">在更新日历里看</Link>
+      {/* 日期放在 SVG 外：整体缩放时字号不变，两端也不会和轴上的点互相压住 */}
+      <div className="mt-1.5 flex justify-between text-xs text-muted">
+        <span>{md(days[0])}</span>
+        <span className="text-text">{p.late > 0 ? '应在' : '预计'} {md(p.next)}</span>
+      </div>
+      <div className="mt-3.5 flex gap-6">
+        <div>
+          <div className="text-xs text-muted">最近一次</div>
+          <div className="font-semibold">{md(days[days.length - 1])}{p.late > 0 && <span className="ml-1.5 text-xs font-normal text-muted">晚了 {p.late} 天</span>}</div>
+        </div>
+        {gaps.length > 0 && (
+          <div>
+            <div className="text-xs text-muted">近 {gaps.length} 次间隔</div>
+            <div className="font-semibold">{onTime} 次准时</div>
+          </div>
+        )}
+      </div>
+      <div className="mt-3.5 flex items-baseline justify-between gap-3 text-xs leading-relaxed">
+        <span className="text-muted">{p.approx ? '来源没给发布日期，按服务端抓到的时间推算，仅供参考。' : '按最近几话的发布日期推算，仅供参考。'}</span>
+        <Link to="/updates?view=calendar" className="flex-none whitespace-nowrap font-semibold text-text no-underline hover:underline">日历 ›</Link>
+      </div>
     </div>
   )
 }
