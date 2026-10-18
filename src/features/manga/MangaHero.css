@@ -17,6 +17,11 @@
   font-weight: 700;
   line-height: 1.3;
   overflow-wrap: anywhere;
+  /* 超长标题最多三行，完整标题在链接的悬停提示里；否则操作按钮会被顶到很下面 */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 .manga-hero-meta { font-size: 13px; line-height: 1.6; }
 .manga-hero-genre {
