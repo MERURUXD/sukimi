@@ -393,6 +393,7 @@ function Row({
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(c.manga)}
+      data-reader-origin
       style={rise}
       className={cn('flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', nested ? 'py-1.5' : 'py-2.5', rise && 'rise')}
     >
@@ -403,7 +404,7 @@ function Row({
           <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
         </Link>
       )}
-      <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} className="flex min-w-0 flex-1 flex-col text-text no-underline">
+      <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} viewTransition className="flex min-w-0 flex-1 flex-col text-text no-underline">
         <span className="flex min-w-0 items-baseline gap-2">
           {!c.isRead && <span className="size-2 flex-none rounded-full bg-accent" />}
           <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>

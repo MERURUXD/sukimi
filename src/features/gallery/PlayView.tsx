@@ -495,7 +495,7 @@ function PlayStage({
           {/* 进场动画放在每个按钮自身，「作品详情」是玻璃，祖先不能带透明度 */}
           <div className="mt-2 flex gap-3">
             {firstUnread ? (
-              <Link {...UI} to={`/manga/${cur.id}/chapter/${firstUnread}`} className="gallery-up solid h-[54px] px-7 text-base no-underline" style={up(4)}>
+              <Link {...UI} to={`/manga/${cur.id}/chapter/${firstUnread}`} viewTransition className="gallery-up solid h-[54px] px-7 text-base no-underline" style={up(4)}>
                 <BookOpen className="size-[18px]" strokeWidth={1.8} />
                 {Number(cur.lastReadChapter?.lastReadAt) > 0 ? '继续阅读' : '开始阅读'}
               </Link>

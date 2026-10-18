@@ -27,6 +27,6 @@ export function useBackToDetail(mangaId: number) {
   }, [mangaId])
   return useCallback(() => {
     if (fromDetail) navigate(-1)
-    else navigate(`/manga/${mangaId}`, { replace: true })
+    else navigate(`/manga/${mangaId}`, { replace: true, viewTransition: true })
   }, [fromDetail, navigate, mangaId])
 }

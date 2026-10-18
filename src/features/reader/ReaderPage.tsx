@@ -83,6 +83,8 @@ export function ReaderPage() {
       style={{ background: bg.color, '--page-filter': filterCss(settings) } as CSSProperties}
       data-theme={settings.bg === 'white' ? 'light' : 'dark'}
       data-sfw={sfwAttr(manga.data?.manga.source?.displayName)}
+      // 进出转场据此判断方向和落回哪一话（lib/readerTransition.ts）
+      data-reader-root={`${mangaId}:${chapterId}`}
     >
       {notFound ? (
         <Center>
