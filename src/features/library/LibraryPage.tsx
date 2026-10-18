@@ -4,6 +4,7 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'rea
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { GalleryPill } from '@/features/gallery/GalleryPill'
+import { useMobile } from '@/features/gallery/hooks'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
 import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
 import { useLive } from '@/api/live'
@@ -18,7 +19,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { count } from '@/lib/format'
 import { useSelection } from '@/lib/useSelection'
 import { applyView, inCategory, librarySources, SORTS } from './filtering'
-import { LibraryGrid, LibrarySkeleton } from './LibraryGrid'
+import { LibraryGrid, LibrarySkeleton, type TileDisplay } from './LibraryGrid'
 import { LibraryToolbar } from './LibraryToolbar'
 import { libraryScore } from './sortValues'
 import {
@@ -58,10 +59,17 @@ export function LibraryPage() {
   // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
   const trackers = data?.trackers.nodes
   const scales = useMemo(() => new Map(trackers?.map((t) => [t.id, t.scores] as const)), [trackers])
-  // 按评分排序时，封面上标出分数
+  // 按评分排序或打开了评分角标时，封面上标出分数
+  // 列表模式下没有封面标记开关，只在按评分排序时显示评分列
+  const showScore = view.sort === 'score' || (view.badges.score && view.density !== 'list')
   const scoreOf = useMemo(
-    () => (view.sort === 'score' ? (m: LibraryManga) => libraryScore(m.trackRecords.nodes, scales) : undefined),
-    [view.sort, scales],
+    () => (showScore ? (m: LibraryManga) => libraryScore(m.trackRecords.nodes, scales) : undefined),
+    [showScore, scales],
+  )
+  const mobile = useMobile()
+  const display = useMemo<TileDisplay>(
+    () => ({ cols: view.cols[mobile ? 'mobile' : 'desktop'], badges: view.badges, titleLines: view.titleLines, subline: view.subline }),
+    [view.cols, mobile, view.badges, view.titleLines, view.subline],
   )
   const items = useMemo(
     () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test }),
@@ -285,6 +293,7 @@ export function LibraryPage() {
             items={items}
             intro={intro}
             scoreOf={scoreOf}
+            display={display}
             density={view.density}
             selecting={selecting}
             selected={sel.selected}

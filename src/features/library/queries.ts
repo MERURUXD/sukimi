@@ -19,6 +19,8 @@ export const LibraryMangaFields = graphql(`
       id
       displayName
       contentWarning
+      # 封面「语言」角标
+      lang
     }
     categories {
       nodes {
