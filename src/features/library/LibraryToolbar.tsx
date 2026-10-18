@@ -9,12 +9,42 @@ import { Seg, type SegItem } from '@/components/ui/Seg'
 import { useMobile } from '@/features/gallery/hooks'
 import { cn } from '@/lib/cn'
 import { FILTERS, SORTS } from './filtering'
-import { useLibraryView, type Density, type LibraryTab } from './store'
+import { useLibraryView, type BadgeKey, type Density, type LibraryTab, type SublineKey, type TitleLines } from './store'
 
 const DENSITIES: SegItem<Density>[] = [
   { value: 'comfy', label: '舒适网格' },
   { value: 'compact', label: '紧凑网格' },
   { value: 'list', label: '列表' },
+]
+
+const BADGES: { key: BadgeKey; label: string }[] = [
+  { key: 'unread', label: '未读数' },
+  { key: 'downloaded', label: '已下载' },
+  { key: 'score', label: '评分' },
+  { key: 'bookmarks', label: '书签数' },
+  { key: 'completed', label: '已完结' },
+  { key: 'lang', label: '语言' },
+]
+
+const TITLE_LINES: SegItem<`${TitleLines}`>[] = [
+  { value: '0', label: '不显示标题' },
+  { value: '1', label: '标题一行' },
+  { value: '2', label: '标题两行' },
+]
+
+const SUBLINE: { key: SublineKey; label: string }[] = [
+  { key: 'source', label: '来源' },
+  { key: 'time', label: '更新时间' },
+  { key: 'author', label: '作者' },
+  { key: 'genre', label: '题材标签' },
+]
+
+/** 每行封面数的可选范围；从「自动」切到固定时先用中间值 */
+const COLS = { mobile: { min: 2, max: 6, start: 3 }, desktop: { min: 2, max: 12, start: 6 } }
+
+const COL_MODES: SegItem<'auto' | 'fixed'>[] = [
+  { value: 'auto', label: '自动' },
+  { value: 'fixed', label: '固定' },
 ]
 
 type PanelTab = 'filter' | 'sort' | 'display'
@@ -52,6 +82,11 @@ export function LibraryToolbar({
   const activeFilters = FILTERS.filter((f) => view.filters[f.key] !== 0)
   const activeSources = view.sources.map((id) => ({ id, name: sources.find((x) => x.id === id)?.name ?? id }))
   const filtering = activeFilters.length > 0 || activeSources.length > 0
+  // 每行数目按当前屏幕宽窄分开记
+  const device = mobile ? 'mobile' : 'desktop'
+  const cols = view.cols[device]
+  const range = COLS[device]
+  const stepCols = (d: number) => view.setCols(device, Math.min(range.max, Math.max(range.min, (cols || range.start) + (cols ? d : 0))))
 
   const closePanel = () => setPanel(false)
   const button = (
@@ -142,10 +177,72 @@ export function LibraryToolbar({
       )}
 
       {tab === 'display' && (
-        <div>
-          <h3 className="pop-h">显示方式</h3>
-          <Seg label="显示方式" glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
-        </div>
+        <>
+          <div>
+            <h3 className="pop-h">显示方式</h3>
+            <Seg label="显示方式" glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
+          </div>
+          {/* 列表没有封面网格，下面几项只对两种网格生效 */}
+          {view.density !== 'list' && (
+            <>
+              <div>
+                <h3 className="pop-h flex items-center">
+                  <span className="flex-1">每行数目</span>
+                  <span className="tracking-normal normal-case">{mobile ? '手机' : '宽屏'}单独设置</span>
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Seg
+                    label="每行数目"
+                    glass={false}
+                    items={COL_MODES}
+                    value={cols ? 'fixed' : 'auto'}
+                    onChange={(v) => view.setCols(device, v === 'auto' ? 0 : range.start)}
+                    className="grid flex-1 grid-cols-2 [&>button]:justify-center"
+                  />
+                  <button type="button" className="fopt size-9 justify-center px-0" aria-label="每行减少一部" disabled={cols === range.min} onClick={() => stepCols(-1)}>
+                    <Minus className="size-4" strokeWidth={2.4} />
+                  </button>
+                  <span className={cn('w-6 text-center font-semibold num', !cols && 'text-faint')} aria-live="polite">{cols || '—'}</span>
+                  <button type="button" className="fopt size-9 justify-center px-0" aria-label="每行增加一部" disabled={cols === range.max} onClick={() => stepCols(1)}>
+                    <Plus className="size-4" strokeWidth={2.4} />
+                  </button>
+                </div>
+              </div>
+              <div>
+                <h3 className="pop-h">封面标记</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {BADGES.map((b) => (
+                    <button key={b.key} type="button" className={cn('fopt', view.badges[b.key] && 'inc')} aria-pressed={view.badges[b.key]} onClick={() => view.toggleBadge(b.key)}>
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="pop-h">封面下文字</h3>
+                <Seg
+                  label="标题"
+                  glass={false}
+                  items={TITLE_LINES}
+                  value={`${view.titleLines}`}
+                  onChange={(v) => view.setTitleLines(Number(v) as TitleLines)}
+                  className="mb-2.5 grid w-full grid-cols-3 [&>button]:justify-center"
+                />
+                {view.density === 'compact' ? (
+                  <p className="px-1 text-xs text-muted">紧凑网格只显示标题。</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {SUBLINE.map((x) => (
+                      <button key={x.key} type="button" className={cn('fopt', view.subline[x.key] && 'inc')} aria-pressed={view.subline[x.key]} onClick={() => view.toggleSubline(x.key)}>
+                        {x.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </>
       )}
     </>
   )

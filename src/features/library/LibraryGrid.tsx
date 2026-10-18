@@ -1,5 +1,5 @@
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { Check, Download, Star } from 'lucide-react'
+import { Bookmark, Check, Download, Star } from 'lucide-react'
 import { memo, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -11,9 +11,9 @@ import { useNsfw, useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseDelay, useIntro } from '@/lib/intro'
-import { lastUpdated } from './filtering'
+import { isCompleted, lastUpdated } from './filtering'
 import type { LibraryManga } from './queries'
-import type { Density } from './store'
+import { DEFAULT_BADGES, DEFAULT_SUBLINE, type BadgeKey, type Density, type SublineKey, type TitleLines } from './store'
 
 interface Props {
   items: LibraryManga[]
@@ -29,6 +29,32 @@ interface Props {
   minTile?: number
   /** 提供时在封面角标显示评分（书库按评分排序时传入）；返回 null 表示未评分，不显示 */
   scoreOf?: (m: LibraryManga) => number | null
+  /** 书库「显示」里的封面设置；缺省时按加入这些设置之前的样子显示 */
+  display?: TileDisplay
+}
+
+export interface TileDisplay {
+  /** 每行封面数，0 = 按宽度自动 */
+  cols: number
+  badges: Record<BadgeKey, boolean>
+  titleLines: TitleLines
+  subline: Record<SublineKey, boolean>
+}
+
+const DEFAULT_DISPLAY: TileDisplay = { cols: 0, badges: DEFAULT_BADGES, titleLines: 1, subline: DEFAULT_SUBLINE }
+
+const PILL = 'inline-flex h-6 items-center gap-[3px] rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-md num'
+
+/** 来源语言的角标文字；「全部」和本地来源没有具体语言，不显示 */
+const langLabel = (lang?: string) => (!lang || lang === 'all' || lang === 'localsourcelang' ? null : lang.toUpperCase())
+
+/** 封面下文字的高度，虚拟列表按它估算行高；行高 24 / 22、附加信息 16、题材标签 18 + 4 间距，另留 8 余量 */
+function textHeight(d: TileDisplay, compact: boolean) {
+  const title = d.titleLines * (compact ? 22 : 24)
+  const sub = !compact && (d.subline.source || d.subline.time || d.subline.author) ? 16 : 0
+  const genre = !compact && d.subline.genre ? 22 : 0
+  const h = title + sub + genre
+  return h ? h + 8 : 0
 }
 
 const GAP_X = 20
@@ -114,13 +140,14 @@ export function LibrarySkeleton({ density }: { density: Density }) {
 }
 
 /* ───────── 封面网格（按行虚拟化）───────── */
-function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf, width, top }: Props & { width: number; top: number }) {
+function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf, display = DEFAULT_DISPLAY, width, top }: Props & { width: number; top: number }) {
   const initialOffset = useRestoredOffset()
   const minW = minTile ?? (density === 'compact' ? 120 : 160)
-  const cols = Math.max(2, Math.floor((width + GAP_X) / (minW + GAP_X)))
+  const cols = display.cols || Math.max(2, Math.floor((width + GAP_X) / (minW + GAP_X)))
   const tileW = width ? (width - GAP_X * (cols - 1)) / cols : minW
-  const textH = density === 'compact' ? 30 : 48
-  const rowH = tileW * 1.5 + 8 + textH + GAP_Y
+  const textH = textHeight(display, density === 'compact')
+  // 文字区和封面之间的 8px 间距只在有文字时存在
+  const rowH = tileW * 1.5 + (textH ? 8 + textH : 0) + GAP_Y
   const rows = Math.ceil(items.length / cols)
 
   const v = useWindowVirtualizer({
@@ -155,6 +182,7 @@ function GridView({ items, intro, density, selecting, selected, onToggle, onLong
                 rise={intro ? riseDelay(row.index - all[0].index, i) : undefined}
                 compact={density === 'compact'}
                 score={scoreOf?.(m)}
+                display={display}
                 selecting={selecting}
                 selected={selected.has(m.id)}
                 onToggle={onToggle}
@@ -174,6 +202,7 @@ const Tile = memo(function Tile({
   rise,
   compact,
   score,
+  display,
   selecting,
   selected,
   onToggle,
@@ -184,6 +213,7 @@ const Tile = memo(function Tile({
   rise?: CSSProperties
   compact: boolean
   score?: number | null
+  display: TileDisplay
   selecting: boolean
   selected: boolean
   onToggle: Props['onToggle']
@@ -192,6 +222,15 @@ const Tile = memo(function Tile({
   const press = useLongPress(() => !selecting && onLongPress(m.id, index))
   const prefetch = usePrefetchManga(m.id)
   const nsfw = useNsfwBlur(m)
+  const { badges, subline } = display
+  const dl = badges.downloaded && m.downloadCount > 0
+  const lang = badges.lang ? langLabel(m.source?.lang) : null
+  const bookmarks = badges.bookmarks && m.bookmarkCount > 0
+  const completed = badges.completed && isCompleted(m)
+  const marks = bookmarks || completed
+  // 紧凑网格只留标题
+  const sub = compact ? '' : [subline.author && m.author, subline.source && m.source?.displayName, subline.time && timeAgo(lastUpdated(m))].filter(Boolean).join(' · ')
+  const genres = !compact && subline.genre ? m.genre.slice(0, 4) : []
   const body = (
     <>
       <span
@@ -201,21 +240,37 @@ const Tile = memo(function Tile({
         )}
       >
         <CoverImg src={m.thumbnailUrl} loading="lazy" />
-        {m.unreadCount > 0 && (
+        {badges.unread && m.unreadCount > 0 && (
           <span className="absolute top-2 left-2 z-[2] inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-accent px-[7px] text-xs font-bold text-on-accent num">
             {m.unreadCount}
           </span>
         )}
-        {m.downloadCount > 0 && !selecting && (
-          <span className="absolute top-2 right-2 z-[2] inline-flex h-6 items-center gap-[3px] rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-md num">
-            <Download className="size-3" strokeWidth={2.4} />
-            {m.downloadCount}
+        {!selecting && (dl || lang) && (
+          <span className="absolute top-2 right-2 z-[2] flex flex-col items-end gap-1">
+            {dl && (
+              <span className={PILL}>
+                <Download className="size-3" strokeWidth={2.4} />
+                {m.downloadCount}
+              </span>
+            )}
+            {lang && <span className={PILL}>{lang}</span>}
           </span>
         )}
-        {score != null && (
-          <span className="absolute bottom-2 left-2 z-[2] inline-flex h-6 items-center gap-[3px] rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-md num">
-            <Star className="size-3" strokeWidth={2.4} />
-            {score.toFixed(1)}
+        {(score != null || marks) && (
+          <span className={cn('absolute bottom-2 left-2 z-[2] flex flex-wrap gap-1', selected ? 'right-11' : 'right-2')}>
+            {score != null && (
+              <span className={PILL}>
+                <Star className="size-3" strokeWidth={2.4} />
+                {score.toFixed(1)}
+              </span>
+            )}
+            {bookmarks && (
+              <span className={PILL}>
+                <Bookmark className="size-3" strokeWidth={2.4} />
+                {m.bookmarkCount}
+              </span>
+            )}
+            {completed && <span className={PILL}>完结</span>}
           </span>
         )}
         {selected && (
@@ -224,14 +279,21 @@ const Tile = memo(function Tile({
           </span>
         )}
       </span>
-      <span className="flex min-w-0 flex-col">
-        <span className={cn('truncate font-semibold', compact && 'text-[13px]')}>{m.title}</span>
-        {!compact && (
-          <span className="truncate text-xs text-muted">
-            {[m.source?.displayName, timeAgo(lastUpdated(m))].filter(Boolean).join(' · ')}
-          </span>
-        )}
-      </span>
+      {display.titleLines + (sub ? 1 : 0) + (genres.length ? 1 : 0) > 0 && (
+        <span className="flex min-w-0 flex-col">
+          {display.titleLines > 0 && (
+            <span className={cn('font-semibold', display.titleLines === 1 ? 'truncate' : 'line-clamp-2 break-words', compact && 'text-[13px]')}>{m.title}</span>
+          )}
+          {sub && <span className="truncate text-xs text-muted">{sub}</span>}
+          {genres.length > 0 && (
+            <span className="mt-1 flex h-[18px] gap-1 overflow-hidden">
+              {genres.map((g) => (
+                <span key={g} className="flex-none rounded-full bg-hover px-1.5 text-[11px] leading-[18px] text-muted">{g}</span>
+              ))}
+            </span>
+          )}
+        </span>
+      )}
     </>
   )
 
