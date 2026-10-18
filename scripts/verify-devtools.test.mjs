@@ -213,3 +213,12 @@ test('批量已读 / 未读只在声明测试服务端的构建或虚构验收�
   assert.match(vite, /const testInstance = env\.SUKIMI_TEST_INSTANCE === '1'/)
   assert.match(vite, /__TEST_INSTANCE__: JSON\.stringify\(testInstance\)/)
 })
+
+test('演示和验收页不会通过上传或匿名请求碰真实服务端', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const upload = await readFile(new URL('../src/api/upload.ts', import.meta.url), 'utf8')
+  const auth = await readFile(new URL('../src/api/auth.ts', import.meta.url), 'utf8')
+  // 这两处自己 fetch，绕过了验收页的模拟 Apollo 客户端，必须同时拦 isDemo 与 isDevLab
+  assert.match(upload, /if \(isDemo \|\| isDevLab\) throw/)
+  assert.match(auth, /async function anonymousRequest[\s\S]{0,200}?if \(isDemo \|\| isDevLab\) throw/)
+})

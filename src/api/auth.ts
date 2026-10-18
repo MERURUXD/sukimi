@@ -126,7 +126,7 @@ export function getAccessToken() {
 
 /** 不带 Cookie 与登录态直接请求（登录、续期用）；`token` 只给取当前用户这类刚拿到令牌、尚未生效的请求 */
 async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V, token?: string): Promise<R> {
-  if (isDemo) throw new TypeError('演示模式不会请求真实服务端')
+  if (isDemo || isDevLab) throw new TypeError('演示和验收页不会请求真实服务端')
   let res: Response
   try {
     res = await fetch('/api/graphql', {
