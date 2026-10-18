@@ -3,15 +3,16 @@ import test from 'node:test'
 
 // 时区要在用到 Date 之前定下；统计按浏览器本地时区分天、分钟点
 process.env.TZ = 'Asia/Taipei'
-const { HIDDEN_KEY } = await import('../src/features/history/history.ts')
+const { hiddenKey } = await import('../src/features/history/history.ts')
 const { addDays, dayStart, heatLevel, longestStreak, mondayOf, summarize, HEAT_WEEKS } = await import('../src/features/gallery/stats.ts')
 
 // 虚构阅读记录：台北时间 2026-10-09（周五）中午为「现在」
 const NOW = Date.UTC(2026, 9, 9, 4) // 台北 12:00
 const at = (y, m, d, h, min = 0) => String(Math.floor(new Date(y, m - 1, d, h, min).getTime() / 1000))
+const USER = 1
 const ch = (mangaId, { read = true, pages = 20, time = '0', hidden } = {}) => ({
   mangaId, isRead: read, pageCount: pages, lastReadAt: time,
-  meta: hidden == null ? [] : [{ key: HIDDEN_KEY, value: String(hidden) }],
+  meta: hidden == null ? [] : [{ key: hiddenKey(USER), value: String(hidden) }],
 })
 
 test('小时分布按本地时区，高峰并列取较早的钟点', () => {
@@ -57,7 +58,7 @@ test('最长连续天数跨月、跨年也连续', () => {
 
 test('从历史里删掉的记录不进时间图表，但仍计入已读', () => {
   const t = at(2026, 10, 9, 10)
-  const s = summarize([ch(1, { time: t, hidden: Number(t) }), ch(1, { time: at(2026, 10, 9, 11), hidden: Number(t) })], [{ id: 1, total: 4 }], NOW)
+  const s = summarize([ch(1, { time: t, hidden: Number(t) }), ch(1, { time: at(2026, 10, 9, 11), hidden: Number(t) })], [{ id: 1, total: 4 }], NOW, USER)
   assert.equal(s.read, 2)
   assert.equal(s.hours[10], 0)
   assert.equal(s.hours[11], 1) // 删除之后又读过，重新出现

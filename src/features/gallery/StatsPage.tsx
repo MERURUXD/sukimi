@@ -1,6 +1,7 @@
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
 import { useLocation, useNavigate, useNavigationType } from 'react-router'
+import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
 import { BACK_SLOT, GalleryBack } from './GalleryBack'
 import { NEUTRAL, coverColor, rgbCss } from '@/lib/coverColor'
@@ -133,13 +134,14 @@ export function StatsPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const navType = useNavigationType()
+  const userId = useAuth((s) => s.user?.id)
   const [now] = useState(() => Date.now())
   // 从作品详情返回（阅读记录在缓存里）：不重播进场，停在原来那一屏、那一部
   const [back] = useState(() => navType === 'POP' && memory.shown && reads.chapters != null)
 
   const stats = useMemo(
-    () => (reads.chapters && totals ? summarize(reads.chapters, all.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now) : null),
-    [reads.chapters, totals, all, now],
+    () => (reads.chapters && totals ? summarize(reads.chapters, all.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
+    [reads.chapters, totals, all, now, userId],
   )
   const { ranked, taste } = useMemo(() => {
     if (!stats) return { ranked: [] as Ranked[], taste: null }

@@ -142,7 +142,7 @@ test('书库、分类、章节状态和历史隐藏在演示内生效', () => {
   assert.deepEqual(ok(root, docs.MangaDetailDocument, { id: 1 }).manga.categories.nodes.map((c) => c.id), [2])
   const result = ok(root, docs.UpdateChaptersDocument, { ids: [104, 105], patch: { isRead: true, isBookmarked: true } })
   assert.equal(result.updateChapters.chapters[0].manga.bookmarkCount, 3)
-  ok(root, docs.HideHistoryDocument, { ids: [103], key: 'suwayomi-web.historyHiddenAt', value: '9999999999' })
+  ok(root, docs.HideHistoryDocument, { ids: [103], key: 'suwayomi-web.historyHiddenAt.1', value: '9999999999' })
   assert.equal(ok(root, docs.HistoryDocument, { first: 100, offset: 0 }).chapters.nodes.find((c) => c.id === 103).meta[0].value, '9999999999')
 })
 

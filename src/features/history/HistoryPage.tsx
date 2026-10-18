@@ -3,6 +3,7 @@ import { Play, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { Reference } from '@apollo/client'
+import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
@@ -15,7 +16,7 @@ import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
-import { groupHistory, HIDDEN_KEY, hiddenValue, type HistoryEntry } from './history'
+import { groupHistory, hiddenKey, hiddenValue, type HistoryEntry } from './history'
 import { HideHistory, History, type HistoryItem } from './queries'
 import { HISTORY_PAGE, historyVariables } from './pagination'
 
@@ -31,6 +32,7 @@ export function HistoryPage() {
   const { data, loading, error, fetchMore } = history
   const [introWanted] = useState(() => !data)
   const intro = useIntro(introWanted, !!data)
+  const userId = useAuth((s) => s.user?.id)
   const [query, setQuery] = useState('')
   const list = useMemo(() => data?.chapters.nodes ?? [], [data])
   const hasMore = data?.chapters.pageInfo.hasNextPage ?? false
@@ -38,8 +40,8 @@ export function HistoryPage() {
   const q = query.trim().toLowerCase()
   const days = useMemo(() => {
     const hits = q ? list.filter((c) => c.manga.title.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : list
-    return groupHistory(hits, (t) => dayLabel(t))
-  }, [list, q])
+    return groupHistory(hits, (t) => dayLabel(t), userId)
+  }, [list, q, userId])
 
   const more = () =>
     fetchMore({
@@ -61,6 +63,7 @@ export function HistoryPage() {
   }, [hasMore, loading, list.length])
 
   const [hide] = useMutation(HideHistory)
+  const hiddenKeyOfUser = userId === undefined ? undefined : hiddenKey(userId)
   const remove = async (entry: HistoryEntry<HistoryItem>) => {
     const ok = await confirm({
       title: '删除这条阅读记录？',
@@ -68,10 +71,11 @@ export function HistoryPage() {
       ok: '删除',
     })
     if (!ok) return
+    if (hiddenKeyOfUser === undefined) return
     const value = hiddenValue(entry)
     try {
       await hide({
-        variables: { ids: entry.chapters.map((c) => c.id), key: HIDDEN_KEY, value },
+        variables: { ids: entry.chapters.map((c) => c.id), key: hiddenKeyOfUser, value },
         // 直接改缓存里这些章节的元数据，历史和首页立即生效
         update: (cache) => {
           for (const c of entry.chapters) {
@@ -79,8 +83,8 @@ export function HistoryPage() {
               id: cache.identify({ __typename: 'ChapterType', id: c.id }),
               fields: {
                 meta: (existing: readonly (Reference | { key: string })[] = [], { readField }) => [
-                  ...existing.filter((m) => readField('key', m as Reference) !== HIDDEN_KEY),
-                  { __typename: 'ChapterMetaType', chapterId: c.id, key: HIDDEN_KEY, value },
+                  ...existing.filter((m) => readField('key', m as Reference) !== hiddenKeyOfUser),
+                  { __typename: 'ChapterMetaType', chapterId: c.id, key: hiddenKeyOfUser, value },
                 ],
               },
             })
