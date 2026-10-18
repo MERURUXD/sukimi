@@ -183,7 +183,7 @@ export function UpdatesPage() {
       <div className="wrap pb-10">
         <header className="pt-4 md:pt-7 md:pb-3">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3 md:gap-4">
+            <div className="flex min-w-0 items-center gap-4 md:gap-7">
               <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
               <Seg
                 label="视图"
