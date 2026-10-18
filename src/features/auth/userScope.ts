@@ -11,6 +11,8 @@ export const USER_KEYS = {
   reader: 'suwayomi-web.reader',
   chapters: 'suwayomi-web.chapters',
   extensions: 'suwayomi-web.extensions',
+  /** 隐藏 / 模糊 NSFW 的本机开关；升级前原有的设置由第一个账号继承 */
+  nsfw: 'suwayomi-web.nsfw',
 } as const
 
 /** 旧数据已被某个账号认领的标记，值为认领者的用户 id */

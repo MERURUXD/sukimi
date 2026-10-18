@@ -7,6 +7,7 @@ import { useAuth } from '@/api/auth'
 import { captureUser } from '@/api/userContext'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { toast } from '@/components/ui/toast'
+import { USER_KEYS } from '@/features/auth/userScope'
 import { categoryNsfwKey, isNsfw, mangaNsfwKey, NO_MARKS, nsfwPrefix, nsfwReason, nsfwWrite, parseNsfw, type NsfwMarks, type NsfwSubject } from './nsfw'
 import { NsfwMetas, RemoveNsfwMetas, SetNsfwMetas } from './queries'
 
@@ -31,7 +32,7 @@ export const useNsfwStore = create<NsfwState>()(
   persist(
     (set) => ({ ...INITIAL, revealed: false, set: (patch) => set(patch) }),
     {
-      name: 'suwayomi-web.nsfw',
+      name: USER_KEYS.nsfw,
       storage: userStorage<NsfwState>(),
       partialize: ({ hide, bySource, blur, marks }) => ({ hide, bySource, blur, marks }) as NsfwState,
       merge: scopedMerge<NsfwState>(INITIAL),
