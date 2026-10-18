@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { addDays, dayText, occurrences, predict, shortText, startOfDay } from '../src/features/updates/predict.ts'
+import { addDays, dayText, nextChapterNumber, occurrences, predict, shortText, startOfDay } from '../src/features/updates/predict.ts'
 
 // 虚构时间线：「今天」固定为 2026/10/17 周六中午
 const NOW = new Date(2026, 9, 17, 12).getTime()
@@ -139,4 +139,20 @@ test('当天更新的章节显示最新一话的标题', async () => {
   assert.equal(byId[1].latest.name, '第 67 话')
   assert.equal(byId[1].count, 3)
   assert.equal(byId[2].latest.name, '特别篇 B', '没有章节号时按发布时间')
+})
+
+test('预计的下一话：公告被解析成大话数时不带偏', () => {
+  const main = Array.from({ length: 182 }, (_, i) => ({ chapterNumber: i + 1, name: `第${i + 1}话` }))
+  assert.equal(nextChapterNumber(main), 183)
+  assert.equal(nextChapterNumber([...main, { chapterNumber: 250921, name: '公告250921' }]), 183, '按名字排除公告')
+  assert.equal(nextChapterNumber([...main, { chapterNumber: 250921, name: '第250921话' }]), 183, '名字正常但话数离群也排除')
+  assert.equal(nextChapterNumber([...main, { chapterNumber: 183, name: '番外篇' }]), 183)
+})
+
+test('预计的下一话：小数话数、没有话数时只写「下一话」', () => {
+  assert.equal(nextChapterNumber([{ chapterNumber: 12.1, name: '第12.1话' }, { chapterNumber: 11, name: '第11话' }]), null)
+  assert.equal(nextChapterNumber([{ chapterNumber: -1, name: '序章' }]), null)
+  assert.equal(nextChapterNumber([]), null)
+  // 章节很少时不做离群判断，避免把真实的大话数误删
+  assert.equal(nextChapterNumber([{ chapterNumber: 1100, name: '第1100话' }, { chapterNumber: 50, name: '第50话' }]), 1101)
 })
