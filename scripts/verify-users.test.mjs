@@ -150,3 +150,35 @@ test('重开页面时只在记得上次的用户、快照已读完时提前显�
   assert.equal(showBeforeVerified('checking', 1, true, '/settings/server'), false)
   assert.equal(showBeforeVerified('checking', 1, true, '/manga/3'), false)
 })
+
+test('升级后第一个账号把旧单用户（id 0）的键搬到自己名下，已有的新键不覆盖', async () => {
+  const { planPrefixMove, LEGACY_HEIR_ID } = await import('../src/features/auth/legacyMetas.ts')
+  const old = [
+    { key: 'sukimi.later.0.5', value: '100' },
+    { key: 'sukimi.later.0.6', value: '200' },
+    { key: 'sukimi.later.2.7', value: '300' }, // 别的账号的键不动
+  ]
+  const current = [{ key: 'sukimi.later.1.6', value: '999' }]
+  const plan = planPrefixMove('sukimi.later.0.', `sukimi.later.${LEGACY_HEIR_ID}.`, old, current)
+  assert.deepEqual(plan.set, [{ key: 'sukimi.later.1.5', value: '100' }])
+  assert.deepEqual(plan.remove, ['sukimi.later.0.5', 'sukimi.later.0.6'])
+  assert.deepEqual(planPrefixMove('sukimi.nsfw.0.', 'sukimi.nsfw.1.', [], []), { set: [], remove: [] })
+})
+
+test('本机 NSFW 开关也由第一个账号认领', async () => {
+  const { claimLegacyData, USER_KEYS } = await import('../src/features/auth/userScope.ts')
+  const s = memory({ [USER_KEYS.nsfw]: '{"state":{"hide":false}}' })
+  claimLegacyData(s, 1)
+  assert.equal(s.getItem(`${USER_KEYS.nsfw}.u1`), '{"state":{"hide":false}}')
+})
+
+test('已认领的账号再次登录时补领后来新增的键，别的账号仍不继承', async () => {
+  const { claimLegacyData, LEGACY_CLAIMED_KEY } = await import('../src/features/auth/userScope.ts')
+  // 旧版本只认领了 library；之后新增的 nsfw 键也要让认领者继承
+  const s = memory({ 'suwayomi-web.library': 'L', 'suwayomi-web.nsfw': 'N', [LEGACY_CLAIMED_KEY]: '1', 'suwayomi-web.library.u1': 'L' })
+  claimLegacyData(s, 2, ['suwayomi-web.library', 'suwayomi-web.nsfw'])
+  assert.equal(s.getItem('suwayomi-web.nsfw.u2'), null)
+  claimLegacyData(s, 1, ['suwayomi-web.library', 'suwayomi-web.nsfw'])
+  assert.equal(s.getItem('suwayomi-web.nsfw.u1'), 'N')
+  assert.equal(s.getItem(LEGACY_CLAIMED_KEY), '1')
+})
