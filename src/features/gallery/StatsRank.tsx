@@ -59,7 +59,7 @@ export function BigHead({ eyebrow, fs, phone, children, ref }: { eyebrow: string
 
 function Cover({ it, className, style }: { it: Ranked; className?: string; style?: CSSProperties }) {
   return (
-    <span className={cn('relative block overflow-hidden', className)} style={style}>
+    <span className={cn('cv', className)} style={style}>
       {it.masked ? (
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-white/6 text-[10px] font-bold tracking-[.2em] text-muted" aria-hidden>
           <Lock className="size-1/4 max-w-7" strokeWidth={1.6} />

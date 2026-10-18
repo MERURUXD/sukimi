@@ -132,7 +132,7 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
             {a.ids.slice(0, 2).map((id, i) => (
               <span
                 key={id}
-                className={cn('absolute block overflow-hidden rounded-[2px] bg-white/6 shadow-[0_8px_16px_rgba(0,0,0,.4)]', i === 1 && '-z-10 rotate-6 brightness-70')}
+                className={cn('cv absolute rounded-[2px] bg-white/6 shadow-[0_8px_16px_rgba(0,0,0,.4)]', i === 1 && '-z-10 rotate-6 brightness-70')}
                 style={{ width: cw, height: cw * 1.5, left: i * cw * 0.36, top: i * cw * 0.13 }}
               >
                 <CoverImg src={coverOf(id)} loading="lazy" draggable={false} />
