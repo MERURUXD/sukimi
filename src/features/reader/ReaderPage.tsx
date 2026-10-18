@@ -14,7 +14,8 @@ import { captureUser } from '@/api/userContext'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
-import { pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
 import { WIDE, filterCss, type Half } from './pageTools'
 import { PagedView, type Screen } from './PagedView'
@@ -295,22 +296,29 @@ function ReaderSession({
     if (double && settled && pin?.join('-') !== shownKey) setPin(shownKey.split('-').map(Number))
   }, [double, settled, shownKey, pin])
 
-  // 首次打开一话时，图片没加载完就按竖页配对：先显示成一页或两页，宽高比出来后又换成别的拼版，
-  // 屏幕里的图会整组重建而闪一下。双页模式下等这一屏和下一页的宽高比都知道、拼版钉住后再显示；
-  // 显示过一次就不再隐藏（之后翻页、改设置不受影响）。图片加载失败时 4 秒后照常显示
-  const stable = !(paged && double) || (settled && pin?.join('-') === shownKey)
+  // 拆页和裁边也会改图片地址、尺寸：拼版确定后，还要等最终图片处理并解码完才揭开首屏。
+  // 每一话独立等待；显示过一次不再隐藏，失败时仍保留 4 秒兜底。
+  const curHalf = paged && shown.length === 1 && splits(shown[0]) ? half : undefined
+  const layoutReady = (!double || (settled && pin?.join('-') === shownKey)) && (!splitOn || shown.every((i) => aspects[i] !== undefined))
+  const imagesReady = shown.every((i) => pageReady(pages[i], variant(curHalf)))
+  const stable = !paged || (layoutReady && imagesReady)
+  const firstSources = JSON.stringify(shown.map((i) => srcOf(i, curHalf)))
   const [revealed, setRevealed] = useState(false)
   useEffect(() => {
-    if (stable) setRevealed(true)
-  }, [stable])
+    if (!stable || revealed) return
+    let alive = true
+    void Promise.all((JSON.parse(firstSources) as (string | undefined)[]).map(decodePage)).then(() => {
+      if (alive) setRevealed(true)
+    })
+    return () => { alive = false }
+  }, [stable, firstSources, revealed])
   useEffect(() => {
     const t = setTimeout(() => setRevealed(true), 4000)
     return () => clearTimeout(t)
   }, [])
-  const holding = !revealed && !stable
+  const holding = paged && !revealed
 
   // 拆分宽页：一页分成先读、后读两屏，翻页时先在两半之间走
-  const curHalf = paged && shown.length === 1 && splits(shown[0]) ? half : undefined
   const screenOf = (sp: number[] | undefined, h: Half): Screen | undefined =>
     sp && { pages: sp, half: sp.length === 1 && splits(sp[0]) ? h : undefined }
   const screen: Screen = { pages: shown, half: curHalf }

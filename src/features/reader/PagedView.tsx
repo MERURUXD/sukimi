@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { cn } from '@/lib/cn'
 import { clampPan, MAX_ZOOM, NO_ZOOM, panBounds, settle, swipeResult, TAP_ZOOM, zoomAround, type Zoom } from './gestures'
 import { rememberAspect } from './pageCache'
+import { decodePage } from './pageDecode'
 import type { Half } from './pageTools'
 import type { ReaderSettings } from './settings'
 
@@ -20,25 +21,6 @@ const SLIDE_MS = 200
 const EASE = 'cubic-bezier(0.33, 1, 0.68, 1)'
 /** 触屏双击的判定间隔；单击要等这么久确认不是双击 */
 const DOUBLE_MS = 250
-
-/**
- * 提前解码的图片。只下载不解码时，新页 <img> 换上去的第一帧是空的，翻页会闪一下；
- * 解码过的图片换上去立即有画面。留着 Image 对象，解码结果才不会被回收。
- */
-const decoded = new Map<string, { img: HTMLImageElement; ready: Promise<void> }>()
-function decode(src: string | undefined) {
-  if (!src) return Promise.resolve()
-  let d = decoded.get(src)
-  if (!d) {
-    const img = new Image()
-    img.src = src
-    d = { img, ready: img.decode().catch(() => {}) }
-    decoded.set(src, d)
-    // 只留最近的几十张
-    if (decoded.size > 24) decoded.delete(decoded.keys().next().value!)
-  }
-  return d.ready
-}
 
 /**
  * 单页 / 双页。
@@ -117,8 +99,8 @@ export function PagedView({
   useEffect(() => {
     const lo = Math.min(...screen.pages)
     const hi = Math.max(...screen.pages)
-    for (const u of nearKey.split('|')) void decode(u || undefined)
-    for (const i of [hi + 2, lo - 2]) void decode(pages[i])
+    for (const u of nearKey.split('|')) void decodePage(u || undefined)
+    for (const i of [hi + 2, lo - 2]) void decodePage(pages[i])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, pages, nearKey])
 

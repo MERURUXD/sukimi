@@ -154,6 +154,9 @@ export function pageSrc(url: string, v: Variant, start = true): string | undefin
 /** 这张宽页拆不了（读不了或太大）：调用方让它整页显示、不再分两屏，免得同一张整页看两遍 */
 export const splitFailed = (url: string, v: Variant) => v.half !== undefined && done.get(keyOf(url, v)) === null
 
+/** 首屏要等最终地址确定；处理失败或无需裁边时，原图就是最终结果。 */
+export const pageReady = (url: string, v: Variant) => (!v.crop && v.half === undefined) || done.has(keyOf(url, v))
+
 /** 处理结果变化时重新渲染 */
 export function usePageImages() {
   return useSyncExternalStore(

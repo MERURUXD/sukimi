@@ -68,6 +68,8 @@ async function firstScreen(max: number) {
   while (performance.now() < until) {
     const root = document.querySelector(`[${READER_ROOT_ATTR}]`)
     const imgs = [...(root?.querySelectorAll('img') ?? [])].filter((img) => {
+      // 首屏仍在等拼版、裁边或解码时，隐藏的原图不能算准备好了。
+      if (getComputedStyle(img).visibility === 'hidden') return false
       const b = img.getBoundingClientRect()
       return b.width > 0 && b.height > 0 && b.bottom > 0 && b.top < innerHeight && b.right > 0 && b.left < innerWidth
     })
