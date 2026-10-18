@@ -52,6 +52,19 @@ export function ReaderPage() {
   const list = chapters.data?.chapters.nodes
   const idx = list?.findIndex((c) => c.id === chapterId) ?? -1
   const chapter = list?.[idx]
+  // 章节列表来自缓存，可能是服务端抓到新一话之前的：列表已加载却找不到本话时，重新取一次再下结论
+  const missing = !!list && idx < 0
+  const asked = useRef<number | null>(null)
+  const [askedDone, setAskedDone] = useState<number | null>(null)
+  const refetchChapters = chapters.refetch
+  useEffect(() => {
+    if (!missing || asked.current === chapterId) return
+    asked.current = chapterId
+    refetchChapters()
+      .catch(() => {})
+      .finally(() => setAskedDone(chapterId))
+  }, [missing, chapterId, askedDone, refetchChapters])
+  const notFound = missing && askedDone === chapterId
   const [settings] = useReaderSettings(mangaId)
   const settingsReady = useReaderMetaSync(mangaId)
   useMigrateReaderPrefs()
@@ -66,7 +79,26 @@ export function ReaderPage() {
       data-theme={settings.bg === 'white' ? 'light' : 'dark'}
       data-sfw={sfwAttr(manga.data?.manga.source?.displayName)}
     >
-      {error ? (
+      {notFound ? (
+        <Center>
+          <p className="text-danger">找不到这一话，它可能已被服务端移除。</p>
+          <div className="mt-4 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                asked.current = null
+                setAskedDone(null)
+              }}
+              className="gbtn bg-accent-soft"
+            >
+              重试
+            </button>
+            <button type="button" onClick={back} className="gbtn">
+              返回详情
+            </button>
+          </div>
+        </Center>
+      ) : error ? (
         <Center>
           <p className="text-danger">无法加载本话：{error}</p>
           <div className="mt-4 flex justify-center gap-3">
