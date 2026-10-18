@@ -171,3 +171,14 @@ test('本机 NSFW 开关也由第一个账号认领', async () => {
   claimLegacyData(s, 1)
   assert.equal(s.getItem(`${USER_KEYS.nsfw}.u1`), '{"state":{"hide":false}}')
 })
+
+test('已认领的账号再次登录时补领后来新增的键，别的账号仍不继承', async () => {
+  const { claimLegacyData, LEGACY_CLAIMED_KEY } = await import('../src/features/auth/userScope.ts')
+  // 旧版本只认领了 library；之后新增的 nsfw 键也要让认领者继承
+  const s = memory({ 'suwayomi-web.library': 'L', 'suwayomi-web.nsfw': 'N', [LEGACY_CLAIMED_KEY]: '1', 'suwayomi-web.library.u1': 'L' })
+  claimLegacyData(s, 2, ['suwayomi-web.library', 'suwayomi-web.nsfw'])
+  assert.equal(s.getItem('suwayomi-web.nsfw.u2'), null)
+  claimLegacyData(s, 1, ['suwayomi-web.library', 'suwayomi-web.nsfw'])
+  assert.equal(s.getItem('suwayomi-web.nsfw.u1'), 'N')
+  assert.equal(s.getItem(LEGACY_CLAIMED_KEY), '1')
+})

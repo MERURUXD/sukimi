@@ -31,13 +31,15 @@ type KeyValueStore = Pick<Storage, 'getItem' | 'setItem'>
  * 旧键保留不删，便于回退；之后登录的其他账号从默认值开始。旧服务端的单用户（id 0）本来就用旧键。
  */
 export function claimLegacyData(storage: KeyValueStore, userId: number, bases: readonly string[] = Object.values(USER_KEYS)) {
-  if (userId === 0 || storage.getItem(LEGACY_CLAIMED_KEY) !== null) return
+  const claimed = storage.getItem(LEGACY_CLAIMED_KEY)
+  // 已被别的账号认领就不再继承；认领者自己再登录时补复制后来新增的键（如 nsfw），已有的不覆盖
+  if (userId === 0 || (claimed !== null && claimed !== String(userId))) return
   for (const base of bases) {
     const old = storage.getItem(base)
     const mine = scopedKey(base, userId)!
     if (old !== null && storage.getItem(mine) === null) storage.setItem(mine, old)
   }
-  storage.setItem(LEGACY_CLAIMED_KEY, String(userId))
+  if (claimed === null) storage.setItem(LEGACY_CLAIMED_KEY, String(userId))
 }
 
 /** 快照只给保存它的那个用户用；版本不符的旧快照也作废 */
