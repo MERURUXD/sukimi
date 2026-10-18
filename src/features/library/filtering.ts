@@ -7,8 +7,9 @@ import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga) => boolean }[] = [
   { key: 'unread', label: '未读', test: (m) => m.unreadCount > 0 },
   { key: 'downloaded', label: '已下载', test: (m) => m.downloadCount > 0 },
-  // 没读过的漫画服务端也会给出 lastReadChapter，阅读时间为 0
-  { key: 'started', label: '已开始阅读', test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 },
+  // 没读过的漫画服务端也会给出 lastReadChapter，阅读时间为 0；
+  // 从 Tachiyomi 导入的已读章节没有阅读时间、只有已读标记（latestReadChapter），也算读过，和首页「还没开始读」一致
+  { key: 'started', label: '已开始阅读', test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 || !!m.latestReadChapter },
   { key: 'bookmarked', label: '有书签', test: (m) => m.bookmarkCount > 0 },
   { key: 'completed', label: '已完结', test: (m) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED' },
 ]
