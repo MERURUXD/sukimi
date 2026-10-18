@@ -145,6 +145,7 @@ export function CanvasPage() {
     retTo: null as null | { x: number; y: number; k: number },
   })
   const assigned = useRef(new Map<string, number>())
+  const painted = useRef({ ox: NaN, oy: NaN, t: NaN, playKey: null as string | null })
   /** 正在倒放过渡回首页：不再重放进入过渡，也不记住位置 */
   const leaving = useRef(false)
   const raf = useRef(0)
@@ -191,6 +192,10 @@ export function CanvasPage() {
       v.ox = c.x
       v.oy = c.y
     }
+    // 取景框落位时还会继续请求帧，墙没有移动就沿用已画好的封面。
+    const prev = painted.current
+    if (prev.ox === v.ox && prev.oy === v.oy && prev.t === v.t && prev.playKey === playKey.current) return
+    Object.assign(prev, { ox: v.ox, oy: v.oy, t: v.t, playKey: playKey.current })
     const p = introPhases(v.t)
     const scale = HOME_WALL.scale + (1 - HOME_WALL.scale) * p.wall
     // 过渡时整面墙顺着首页的流动方向再滑一段（首页的墙按同样的偏移画，第一帧正好接上）
@@ -209,7 +214,7 @@ export function CanvasPage() {
     for (let i = 0; i < poolSize; i++) {
       const el = slots.current[i]
       if (!el) continue
-      if (!used.has(i)) {
+      if (!used.has(i) && el.style.visibility !== 'hidden') {
         el.style.visibility = 'hidden'
         continue
       }
@@ -240,9 +245,11 @@ export function CanvasPage() {
       meta.ry = pose.ry
       // 正在详情里展示的那一格先藏起来，看起来就是它飞出去了
       const away = (s && s.key === key && s.index === s.origin) || playKey.current === key
-      el.style.visibility = away ? 'hidden' : ''
+      const visibility = away ? 'hidden' : ''
+      if (el.style.visibility !== visibility) el.style.visibility = visibility
       el.style.opacity = String(pose.opacity)
-      el.style.zIndex = focused ? '3' : '1'
+      const zIndex = focused ? '3' : '1'
+      if (el.style.zIndex !== zIndex) el.style.zIndex = zIndex
       el.style.transform = `translate3d(${cell.x.toFixed(1)}px, ${cell.y.toFixed(1)}px, ${pose.z.toFixed(1)}px) rotateY(${pose.ry.toFixed(2)}deg) rotateX(${pose.rx.toFixed(2)}deg)`
     }
 
@@ -362,6 +369,7 @@ export function CanvasPage() {
   useLayoutEffect(() => {
     cancelAnimationFrame(raf.current)
     raf.current = 0
+    painted.current.t = NaN
     paint()
     kick()
   }, [paint, kick, items, sel, closing, play])
