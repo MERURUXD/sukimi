@@ -382,7 +382,8 @@ function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extens
         </span>
       ) : !e.isInstalled ? (
         canInstall && (
-          <Glass as="button" type="button" className="gbtn min-h-10 rounded-full px-4" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
+          // 行有 content-visibility（隐含绘制裁切），按钮的外投影会被截成行边缘一圈方形阴影，这里去掉
+          <Glass as="button" type="button" className="gbtn min-h-10 rounded-full px-4 [--g-drop:0_0_0_transparent]" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
             安装
           </Glass>
         )
