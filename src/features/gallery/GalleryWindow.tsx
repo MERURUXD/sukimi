@@ -2,6 +2,7 @@ import { useQuery } from '@apollo/client/react'
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent } from 'react'
 import { Link } from 'react-router'
+import { useAuth } from '@/api/auth'
 import { isVisible } from '@/features/history/history'
 import type { LibraryManga } from '@/features/library/queries'
 import { useNsfw } from '@/features/nsfw/useNsfw'
@@ -32,6 +33,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
   const mobile = useMobile()
   const box = useRef<HTMLDivElement>(null)
   const { hidden } = useNsfw()
+  const userId = useAuth((s) => s.user?.id)
   // 排列和画廊首页的墙一样（按收藏先后、去掉 NSFW），封面才一一对应
   const items = useMemo(() => galleryOrder((library ?? []).filter((m) => !hidden(m))), [library, hidden])
   // 窗里优先放最近读过的：按阅读时间倒序，跳过首页已有的、没有封面的和阅读历史里隐藏了的
@@ -41,10 +43,10 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
     const at = (m: LibraryManga) => Number(m.lastReadChapter?.lastReadAt ?? 0)
     const index = new Map(items.map((m, i) => [m.id, i]))
     return items
-      .filter((m) => m.thumbnailUrl && !exclude.has(m.id) && at(m) > 0 && (!m.lastReadChapter || isVisible(m.lastReadChapter)))
+      .filter((m) => m.thumbnailUrl && !exclude.has(m.id) && at(m) > 0 && (!m.lastReadChapter || isVisible(m.lastReadChapter, userId)))
       .sort((a, b) => at(b) - at(a))
       .map((m) => index.get(m.id)!)
-  }, [items, exclude])
+  }, [items, exclude, userId])
 
   // 只取总话数，不用整个 useGalleryLibrary（它还会去查分类）；算式和画廊首页、阅读档案共用
   const counts = useQuery(GalleryCounts, { fetchPolicy: 'cache-first' })
