@@ -66,7 +66,12 @@ export function ReaderPage() {
   }, [missing, chapterId, askedDone, refetchChapters])
   const notFound = missing && askedDone === chapterId
   const [settings] = useReaderSettings(mangaId)
-  const settingsReady = useReaderMetaSync(mangaId)
+  const synced = useReaderMetaSync(mangaId)
+  // 会话一旦挂上就不再因核对状态卸载：读到一半在设置里打开「按漫画记住阅读模式」时，
+  // 核对要重新开始，卸载重挂会把已读的话按起始页重算而跳回第 1 页；核对结果到了再应用设置
+  const [latched, setLatched] = useState<number | null>(null)
+  if (synced && latched !== mangaId) setLatched(mangaId)
+  const settingsReady = synced || latched === mangaId
   useMigrateReaderPrefs()
   const back = useBackToDetail(mangaId)
   const bg = BGS.find((b) => b.value === settings.bg)!
