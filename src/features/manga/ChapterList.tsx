@@ -24,7 +24,7 @@ import { Popover } from '@/components/ui/Popover'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { formatFullDate, ms } from '@/lib/format'
-import { intervalLabel, regularLabel, shortText } from '@/features/updates/predict'
+import { intervalLabel, nextChapterNumber, regularLabel, shortText } from '@/features/updates/predict'
 import type { NextPrediction } from './NextUpdate'
 import { cn } from '@/lib/cn'
 import { useLongPress } from '@/lib/useLongPress'
@@ -316,8 +316,8 @@ export function ChapterList({
 
 /** 预计的下一话：和章节行同样的排版，半透明、不能点；话数按现有最大话数加一，凑不出整数时只写「下一话」 */
 function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; chapters: readonly Chapter[]; fill: boolean; introDelay?: number }) {
-  const max = Math.max(-1, ...chapters.map((c) => c.chapterNumber))
-  const name = max >= 0 && Number.isInteger(max) ? `第 ${max + 1} 话` : '下一话'
+  const next = nextChapterNumber(chapters)
+  const name = next === null ? '下一话' : `第 ${next} 话`
   const when = p.late > 0 ? `晚了 ${p.late} 天` : `约 ${formatFullDate(p.next)}`
   return (
     <div
