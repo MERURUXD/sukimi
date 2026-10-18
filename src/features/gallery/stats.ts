@@ -27,6 +27,8 @@ export interface RankEntry {
   id: number
   read: number
   total: number | null
+  /** 已读页数，只累加页数大于 0 的已读章节，所以是下限 */
+  pages: number
   /** 这部最后一次阅读（毫秒），没有时间的为 0 */
   last: number
 }
@@ -106,18 +108,21 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
   const hours = Array.from({ length: 24 }, () => 0)
   const perDay = new Map<number, number>()
   const pagesPerDay = new Map<number, number>()
-  const perManga = new Map<number, { read: number; last: number }>()
+  const perManga = new Map<number, { read: number; pages: number; last: number }>()
   let read = 0
   let pages = 0
   let untimed = 0
 
   for (const c of chapters) {
     const at = sec(c.lastReadAt)
-    const entry = perManga.get(c.mangaId) ?? { read: 0, last: 0 }
+    const entry = perManga.get(c.mangaId) ?? { read: 0, pages: 0, last: 0 }
     if (c.isRead) {
       read++
       entry.read++
-      if (c.pageCount > 0) pages += c.pageCount
+      if (c.pageCount > 0) {
+        pages += c.pageCount
+        entry.pages += c.pageCount
+      }
       if (at <= 0) untimed++
     }
     if (at > 0) {
@@ -151,9 +156,9 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
   const known = mangas.every((m) => m.total != null)
   let caughtUp = 0
   const ranking: RankEntry[] = mangas.map((m) => {
-    const e = perManga.get(m.id) ?? { read: 0, last: 0 }
+    const e = perManga.get(m.id) ?? { read: 0, pages: 0, last: 0 }
     if (m.total != null && m.total > 0 && e.read >= m.total) caughtUp++
-    return { id: m.id, read: e.read, total: m.total, last: e.last }
+    return { id: m.id, read: e.read, total: m.total, pages: e.pages, last: e.last }
   })
   ranking.sort((a, b) => b.read - a.read || b.last - a.last || a.id - b.id)
 

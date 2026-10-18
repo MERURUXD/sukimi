@@ -65,10 +65,11 @@ test('从历史里删掉的记录不进时间图表，但仍计入已读', () =>
   assert.equal(s.days.at(-3).count, 1)
 })
 
-test('页数只累加页数大于 0 的已读章节', () => {
-  const s = summarize([ch(1, { pages: 20 }), ch(1, { pages: 0 }), ch(1, { pages: -1 }), ch(1, { read: false, pages: 30, time: at(2026, 10, 9, 9) })], [{ id: 1, total: 4 }], NOW)
-  assert.equal(s.pages, 20)
-  assert.equal(s.read, 3)
+test('页数只累加页数大于 0 的已读章节，每部也各记一份', () => {
+  const s = summarize([ch(1, { pages: 20 }), ch(1, { pages: 0 }), ch(1, { pages: -1 }), ch(1, { read: false, pages: 30, time: at(2026, 10, 9, 9) }), ch(2, { pages: 15 })], [{ id: 1, total: 4 }, { id: 2, total: 1 }, { id: 3, total: 2 }], NOW)
+  assert.equal(s.pages, 35)
+  assert.equal(s.read, 4)
+  assert.deepEqual(s.ranking.map((r) => [r.id, r.pages]), [[1, 20], [2, 15], [3, 0]])
 })
 
 test('已读但没有时间的章节只计入总数', () => {
@@ -185,37 +186,63 @@ test('口味：题材归一、去掉无意义标签，按已读话数平分；�
   assert.deepEqual(authorsOf('灯下猫、北窗 / 灯下猫'), ['灯下猫', '北窗'])
   assert.deepEqual(authorsOf(null), [])
   const t = tasteOf([
-    { read: 60, genre: ['恋爱', 'Comedy'], author: '灯下猫' },
-    { read: 30, genre: ['romance'], author: '北窗, 灯下猫' },
-    { read: 10, genre: ['漫画'], author: '青柚' }, // 没有有效题材：不进题材占比
-    { read: 0, genre: ['科幻'], author: '没读过' },
+    { id: 1, read: 60, pages: 1200, genre: ['恋爱', 'Comedy'], author: '灯下猫' },
+    { id: 2, read: 30, pages: 0, genre: ['romance'], author: '北窗, 灯下猫' },
+    { id: 3, read: 10, pages: 200, genre: ['漫画'], author: '青柚' }, // 没有有效题材：不进题材占比
+    { id: 4, read: 0, pages: 0, genre: ['科幻'], author: '没读过' },
   ])
   assert.deepEqual(t.genres.map((g) => g.name), ['恋爱', '喜剧'])
   assert.equal(Math.round(t.genres[0].pct), 67)
   assert.equal(Math.round(t.genres[1].pct), 33)
+  // 话数按题材平分后取整，部数是带这个题材的作品数
+  assert.deepEqual(t.genres.map((g) => [g.read, g.works]), [[60, 2], [30, 1]])
   assert.deepEqual(t.authors, [
-    { name: '灯下猫', read: 90, works: 2 },
-    { name: '北窗', read: 30, works: 1 },
-    { name: '青柚', read: 10, works: 1 },
+    { name: '灯下猫', read: 90, works: 2, pages: 1200, ids: [1, 2] },
+    { name: '北窗', read: 30, works: 1, pages: 0, ids: [2] },
+    { name: '青柚', read: 10, works: 1, pages: 200, ids: [3] },
   ])
 })
 
-test('排行变短时记住的封面位置收回，reset 回到第一屏', async () => {
+test('口味标题：两个题材都放得下才点名，太长换成不带题材名的说法', async () => {
+  const { tasteHeadline } = await import('../src/features/gallery/taste.ts')
+  const g = (...names) => names.map((name) => ({ name }))
+  assert.deepEqual(tasteHeadline(g('恋爱', '校园', '奇幻')), { lead: '你偏爱', strong: '恋爱', tail: '与校园。' })
+  assert.deepEqual(tasteHeadline(g('Supernatural Romantic Comedy', '校园')), { lead: '这些题材，', tail: '你读得最多。' })
+  assert.deepEqual(tasteHeadline(g('Isekai', 'Action')), { lead: '你偏爱', strong: 'Isekai', tail: '与Action。' })
+  assert.deepEqual(tasteHeadline(g('恋爱')), { lead: '你最常读', strong: '恋爱', tail: '。' })
+  assert.deepEqual(tasteHeadline(g('一个特别特别长的题材')), { lead: '你只读', tail: '一类题材。' })
+  assert.deepEqual(tasteHeadline([]), { lead: '还看不出', tail: '你的口味。' })
+})
+
+test('三屏翻页：排行变短时记住的组收回，切屏不越界，汇总前不离开第一屏', async () => {
   globalThis.window ??= globalThis
   globalThis.requestAnimationFrame ??= () => 0
   globalThis.cancelAnimationFrame ??= () => {}
   const { createPager } = await import('../src/features/gallery/statsPager.ts')
-  // 从详情返回：停在第二屏第 8 部，回来时排行只剩 3 部
-  const pager = createPager({ p: 1, cur: 7, count: 0, reduced: true })
+  // 从详情返回：停在口味屏、排行第 5 组，回来时排行只剩 3 组
+  const pager = createPager({ p: 2, cur: 4, count: 0, reduced: true })
   let painted = 0
   pager.subscribe(() => painted++)
   pager.limit(0, false)
-  assert.equal(pager.cur, 7, '还在汇总时不动记住的位置')
+  assert.equal(pager.cur, 4, '还在汇总时不动记住的位置')
   pager.limit(3, true)
   assert.equal(pager.cur, 2)
-  assert.equal(pager.goal, 2)
   assert.ok(painted > 0, '收回后要通知重绘')
+  pager.flip(9)
+  assert.equal(pager.cur, 2, '翻组不越过最后一组')
+  pager.flip(-3)
+  assert.equal(pager.cur, 0)
   pager.reset()
-  assert.deepEqual([pager.p, pager.cur, pager.goal], [0, 0, 0])
+  assert.deepEqual([pager.p, pager.cur], [0, 0])
+  // 减少动态效果时动画只有 260ms；这里直接看目标是否被夹在 0～2 之间
+  let ran = null
+  globalThis.requestAnimationFrame = (fn) => ((ran = fn), 1)
+  pager.go(5)
+  ran(performance.now() + 10_000)
+  assert.equal(pager.p, 2)
+  pager.limit(3, false)
+  pager.reset()
+  pager.go(1)
+  assert.equal(pager.p, 0, '汇总出来之前不能离开第一屏')
   pager.dispose()
 })
