@@ -14,8 +14,11 @@ export interface TasteLayout {
   top: number
   bottom: number
   headFs: number
-  /** 题材名的字号 */
+  /** 题材名的字号、题材行间距；作者小封面宽、作者间距（手机矮屏上按高度压缩） */
   genreFs: number
+  rowGap: number
+  authorCw: number
+  authorGap: number
   u: number
 }
 
@@ -60,7 +63,7 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
   }, [pager, taste, gmax])
 
   const genres = taste.genres.length ? (
-    <ol className="m-0 flex list-none flex-col p-0" style={{ gap: Math.round((phone ? 10 : 18) * u) }}>
+    <ol className="m-0 flex list-none flex-col p-0" style={{ gap: L.rowGap }}>
       {taste.genres.map((g, k) => (
         <li
           key={g.name}
@@ -78,7 +81,8 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
               </span>
             )}
           </span>
-          <span className="font-bold num" style={{ fontSize: phone ? 18 : Math.round(26 * u) }}>
+          {/* 行高和题材名一致：百分比字号小，默认行高反而会把这一行撑高，手机上按高度算的排版就放不下 */}
+          <span className="font-bold num" style={{ fontSize: phone ? 18 : Math.round(26 * u), lineHeight: 1.15 }}>
             {/* 读得很少的题材四舍五入成 0 像是没读过 */}
             {g.pct < 1 ? '<1' : Math.round(g.pct)}
             <span className="ml-0.5 text-[.5em] text-muted">%</span>
@@ -103,9 +107,9 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
     </p>
   )
 
-  const cw = phone ? 30 : Math.round(44 * u)
+  const cw = L.authorCw
   const authors = taste.authors.length > 0 && (
-    <div className="flex min-w-0 flex-col" style={{ gap: Math.round((phone ? 12 : 28) * u), paddingTop: phone ? 0 : 6 }}>
+    <div className="flex min-w-0 flex-col" style={{ gap: L.authorGap, paddingTop: phone ? 0 : 6 }}>
       <span
         ref={(el) => {
           side.current[0] = el

@@ -611,12 +611,27 @@ function Stats(p: BodyProps) {
     const cw1 = Math.round(Math.max(110, Math.min(avail / 1.5, 260 * u, col1 / 1.95)))
     return { phone: false, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.74), shelfW, u }
   }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u])
-  const genreN = Math.max(1, taste?.genres.length ?? 0)
+  const genreN = taste?.genres.length ?? 0
+  const authorN = taste?.authors.length ?? 0
   const tasteL = useMemo<TasteLayout>(() => {
-    const avail = h - pageTop - pageBottom - headH - 46 * u
-    const genreFs = mobile ? 22 : Math.round(Math.max(22, Math.min(42 * u, w * 0.03, (avail / genreN - 30 * u) / 1.15)))
-    return { phone: mobile, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, genreFs, u }
-  }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u, genreN])
+    const base = { phone: mobile, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, u }
+    if (!mobile) {
+      const avail = h - pageTop - pageBottom - headH - 46 * u
+      const genreFs = Math.round(Math.max(22, Math.min(42 * u, w * 0.03, (avail / Math.max(1, genreN) - 30 * u) / 1.15)))
+      return { ...base, genreFs, rowGap: Math.round(18 * u), authorCw: Math.round(44 * u), authorGap: Math.round(28 * u) }
+    }
+    // 手机上题材和作者竖着叠，整屏又不能滚：按剩下的高度压缩题材行，还不够再压作者，矮屏上最后一位作者也不被裁掉。
+    // 每行题材 = 字高 + 6 + 细条 3（中文字体实际略高，按 12 留余量），行间 rowGap；作者区 = 小标题 16 + 每位（封面高 + 间距）
+    const free = h - pageTop - pageBottom - headH - 24 - 28
+    const fit = (authorCw: number, authorGap: number) => {
+      const per = genreN ? (free - (authorN ? 16 + authorN * (authorCw * 1.6 + authorGap) : 0)) / genreN : Infinity
+      const rowGap = per < 44 ? 6 : 10
+      return { genreFs: Math.floor(Math.max(16, Math.min(22, (per - 12 - rowGap) / 1.15))), rowGap, authorCw, authorGap, ok: per >= 16 * 1.15 + 12 + rowGap }
+    }
+    const roomy = fit(30, 12)
+    const l = roomy.ok ? roomy : fit(24, 8)
+    return { ...base, genreFs: l.genreFs, rowGap: l.rowGap, authorCw: l.authorCw, authorGap: l.authorGap }
+  }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u, genreN, authorN])
 
   const run = useMemo(() => (stats ? bestRun(stats.days) : null), [stats])
   const year = useMemo<YearRing | null>(() => (stats ? { days: stats.days, run, weekly: mobile } : null), [stats, run, mobile])
