@@ -1,6 +1,7 @@
 import { ImageOff } from 'lucide-react'
 import { useCallback, useRef, useState, type ImgHTMLAttributes } from 'react'
 import { refreshAccessToken, tokenExpiring, useAuth } from '@/api/auth'
+import { isDemo, isDevLab } from '@/lib/demo'
 import { onCoverVisibility } from '@/lib/coverVisibility'
 import { CoverSkeleton } from './CoverSkeleton'
 
@@ -14,12 +15,13 @@ import { CoverSkeleton } from './CoverSkeleton'
  * 重开页面时书库等页面在登录验证完成前就先显示，这时封面 Cookie 可能已过期而加载失败：
  * 先保持占位，验证完成后重新加载一次，不当成坏图。
  * 同样，令牌过期后（比如服务端停机很久又恢复）Cookie 也失效，先续期再重试一次。
+ * 演示和验收页没有登录验证，状态一直是 checking，不能照此推迟，否则失效的封面永远等不到占位图。
  */
 export function CoverImg({ src, ...rest }: { src: string | null | undefined } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
   const [failed, setFailed] = useState<string | null>(null)
   // 登录验证完成前加载失败的地址，验证完成后重试
   const [deferred, setDeferred] = useState<string | null>(null)
-  const checking = useAuth((s) => s.status === 'checking')
+  const checking = useAuth((s) => s.status === 'checking') && !isDemo && !isDevLab
   const [renewing, setRenewing] = useState(false)
   // 已载入的地址；只对在屏内等待后载入的封面渐显
   const [loaded, setLoaded] = useState<{ src: string; fade: boolean } | null>(null)
@@ -66,7 +68,7 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
         onError={() => {
           const { status } = useAuth.getState()
           if (retry) return setFailed(src)
-          if (status === 'checking') return setDeferred(src)
+          if (status === 'checking' && !isDemo && !isDevLab) return setDeferred(src)
           if (status === 'signedIn' && tokenExpiring()) {
             setDeferred(src)
             setRenewing(true)
