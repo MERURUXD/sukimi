@@ -62,7 +62,10 @@ export function PagedView({
   onStep,
   onCenter,
   onAspect,
+  hidden,
 }: {
+  /** 首屏的拼版还没定下来时先不显示（图片仍照常加载），免得拼版变化时整屏换一遍 */
+  hidden?: boolean
   /** 原图地址；页码、宽高比都按原图算 */
   pages: string[]
   screen: Screen
@@ -332,6 +335,7 @@ export function PagedView({
       className={cn(
         'absolute inset-0 overflow-hidden select-none [-webkit-touch-callout:none]',
         zoomed ? 'cursor-grab touch-none' : 'cursor-pointer touch-pan-y',
+        hidden && 'invisible',
       )}
     >
       <div

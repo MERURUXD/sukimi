@@ -293,6 +293,20 @@ function ReaderSession({
     if (double && settled && pin?.join('-') !== shownKey) setPin(shownKey.split('-').map(Number))
   }, [double, settled, shownKey, pin])
 
+  // 首次打开一话时，图片没加载完就按竖页配对：先显示成一页或两页，宽高比出来后又换成别的拼版，
+  // 屏幕里的图会整组重建而闪一下。双页模式下等这一屏和下一页的宽高比都知道、拼版钉住后再显示；
+  // 显示过一次就不再隐藏（之后翻页、改设置不受影响）。图片加载失败时 4 秒后照常显示
+  const stable = !(paged && double) || (settled && pin?.join('-') === shownKey)
+  const [revealed, setRevealed] = useState(false)
+  useEffect(() => {
+    if (stable) setRevealed(true)
+  }, [stable])
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 4000)
+    return () => clearTimeout(t)
+  }, [])
+  const holding = !revealed && !stable
+
   // 拆分宽页：一页分成先读、后读两屏，翻页时先在两半之间走
   const curHalf = paged && shown.length === 1 && splits(shown[0]) ? half : undefined
   const screenOf = (sp: number[] | undefined, h: Half): Screen | undefined =>
@@ -304,6 +318,8 @@ function ReaderSession({
   /* 预加载后面几页；快读完时预取下一话 */
   useEffect(() => {
     const from = Math.max(...shown) + 1
+    // 当前屏和下一页也要尽早拿到宽高比，首屏拼版才能尽快确定
+    for (const i of [...shown, from]) if (i < pages.length) warm(pages[i], onAspect)
     for (let i = from; i < Math.min(pages.length, from + settings.preload); i++) {
       warm(pages[i], onAspect)
       // 要裁边或拆分的页提前处理好，翻到时直接显示
@@ -487,6 +503,7 @@ function ReaderSession({
           </EndSwipe>
         ) : (
           <PagedView
+            hidden={holding}
             pages={pages}
             screen={screen}
             prevScreen={prevScreen}
@@ -524,6 +541,12 @@ function ReaderSession({
             </>
           }
         />
+      )}
+
+      {paged && holding && (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-muted" aria-hidden>
+          正在加载…
+        </div>
       )}
 
       <ReaderChrome
