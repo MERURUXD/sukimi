@@ -73,40 +73,46 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const run = async () => {
     if (!plan) return
     const still = captureUser()
+    // 失败提示要说停在哪一步：setStep 是异步的，catch 里读到的 step 还是点击那一刻的值
+    let current = '迁移'
+    const go = (name: string) => {
+      current = name
+      setStep(name)
+    }
     try {
       // 手动 NSFW 标记跟着漫画 id 走，先带过去，新版本加入书库后才不会露在首页和画廊里
       if (marked) {
-        setStep('复制 NSFW 标记')
+        go('复制 NSFW 标记')
         await copyManga(from.id, target.id)
         still()
       }
-      setStep('加入书库')
+      go('加入书库')
       await client.mutate({ mutation: SetMangaInLibrary, variables: { id: target.id, inLibrary: true } })
       if (categories && cats.length) {
         still()
-        setStep('复制分类')
+        go('复制分类')
         await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: cats } })
       }
       if (read && plan.read.length) {
         still()
-        setStep('标记已读')
+        go('标记已读')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
         // 新漫画若已绑定追踪，把复制过来的已读进度推过去
         void syncTrackProgress(client, target.id, still)
       }
       if (bookmarks && plan.bookmarked.length) {
         still()
-        setStep('复制书签')
+        go('复制书签')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.bookmarked, patch: { isBookmarked: true } } })
       }
       if (!keepOld) {
         if (deleteDownloads && downloaded.length) {
           still()
-          setStep('删除旧的下载')
+          go('删除旧的下载')
           await client.mutate({ mutation: DeleteDownloads, variables: { ids: downloaded } })
         }
         still()
-        setStep('旧的移出书库')
+        go('旧的移出书库')
         await client.mutate({ mutation: SetMangaInLibrary, variables: { id: from.id, inLibrary: false } })
       }
       still()
@@ -118,7 +124,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     } catch (e) {
       // 中途换了账号：后面的步骤不再发出，对话框早已随页面卸载，不用提示
       if (e instanceof StaleSessionError) return
-      toastError(`${step ?? '迁移'}失败`, e)
+      toastError(`${current}失败`, e)
       setStep(null)
     }
   }
