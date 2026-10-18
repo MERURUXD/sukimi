@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useLocation, useNavigate, useNavigationType } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
@@ -113,6 +113,8 @@ function useWindowSize() {
 /** 排版用的最小高度，低于它整体缩小 */
 const MIN_H = 600
 const MIN_H_PHONE = 680
+/** 桌面上排行、口味两屏排版用的最小高度，低于它这两屏再缩小 */
+const STAGE_MIN_H = 760
 
 const dateLabel = (t: number) => {
   const d = new Date(t)
@@ -587,10 +589,15 @@ function Stats(p: BodyProps) {
   const clock = Math.round((dial * 360) / DIAL_UNITS)
   const text = read == null ? '—' : count(read)
   const numSize = Math.round(Math.max(36, Math.min(mobile ? 64 : 136, (clock * 0.6 - 36) / ([...text].length * 0.56))))
+  // 后两屏在桌面矮窗口里按 STAGE_MIN_H 高排版再整体缩小：标题、领奖台、书架、翻组按钮叠起来比第一屏高，
+  // 600 高时会顶到顶栏、底部按钮被裁掉。第一屏仍按原来的最小高度
+  const k2 = mobile ? 1 : Math.min(1, h / STAGE_MIN_H)
+  const sw = w / k2
+  const sh = h / k2
   // 后两屏的舞台：超宽屏上也收在中间；右边留出切屏小点的位置（手机上靠左，只让出右边一小条）
-  const stage = mobile ? w - side * 2 - 10 : Math.min(w - side * 2 - 48, Math.round(1500 * u))
-  const stageL = mobile ? side : (w - stage) / 2
-  const headFs = Math.round(mobile ? Math.max(30, Math.min(44, w * 0.09)) : Math.max(40, Math.min(82 * u, w * 0.052)))
+  const stage = mobile ? sw - side * 2 - 10 : Math.min(sw - side * 2 - 48, Math.round(1500 * u))
+  const stageL = mobile ? side : (sw - stage) / 2
+  const headFs = Math.round(mobile ? Math.max(30, Math.min(44, sw * 0.09)) : Math.max(40, Math.min(82 * u, sw * 0.052)))
   // 标题占的高度：小字一行加大字（手机两行）
   const headH = mobile ? 30 + headFs * 1.12 * 2 : 34 + headFs * 1.12
   const pageBottom = mobile ? 20 : 36
@@ -599,30 +606,30 @@ function Stats(p: BodyProps) {
     if (mobile) {
       // 第一名封面在左、信息在右，二三名并排，再下面五张小封面：按剩下的高度定封面大小
       const shelfW = Math.min(46, Math.floor((stage - 40) / 5))
-      const avail = h - pageTop - pageBottom - headH - 16 * 3 - 76 - (shelfW * 1.5 + 22) - 50
-      const cw1 = Math.round(Math.max(80, Math.min(w * 0.36, avail / 2.43)))
+      const avail = sh - pageTop - pageBottom - headH - 16 * 3 - 76 - (shelfW * 1.5 + 22) - 50
+      const cw1 = Math.round(Math.max(80, Math.min(sw * 0.36, avail / 2.43)))
       return { phone: true, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.62), shelfW, u }
     }
     const shelfW = Math.round(54 * u)
     // 领奖台第一列占 1.45 份；封面旁边还要放下大名次
     const col1 = ((stage * 0.92) * 1.45) / 3.45
     // 前三名下面的书名、话数、进度条约 125 高；书架、翻组按钮各一行
-    const avail = h - pageTop - pageBottom - headH - 26 * u * 3 - 125 * u - shelfW * 1.5 - 50
+    const avail = sh - pageTop - pageBottom - headH - 26 * u * 3 - 125 * u - shelfW * 1.5 - 50
     const cw1 = Math.round(Math.max(110, Math.min(avail / 1.5, 260 * u, col1 / 1.95)))
     return { phone: false, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.74), shelfW, u }
-  }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u])
+  }, [mobile, stage, stageL, sh, sw, pageTop, pageBottom, headH, headFs, u])
   const genreN = taste?.genres.length ?? 0
   const authorN = taste?.authors.length ?? 0
   const tasteL = useMemo<TasteLayout>(() => {
     const base = { phone: mobile, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, u }
     if (!mobile) {
-      const avail = h - pageTop - pageBottom - headH - 46 * u
-      const genreFs = Math.round(Math.max(22, Math.min(42 * u, w * 0.03, (avail / Math.max(1, genreN) - 30 * u) / 1.15)))
+      const avail = sh - pageTop - pageBottom - headH - 46 * u
+      const genreFs = Math.round(Math.max(22, Math.min(42 * u, sw * 0.03, (avail / Math.max(1, genreN) - 30 * u) / 1.15)))
       return { ...base, genreFs, rowGap: Math.round(18 * u), authorCw: Math.round(44 * u), authorGap: Math.round(28 * u) }
     }
     // 手机上题材和作者竖着叠，整屏又不能滚：按剩下的高度压缩题材行，还不够再压作者，矮屏上最后一位作者也不被裁掉。
     // 每行题材 = 字高 + 6 + 细条 3（中文字体实际略高，按 12 留余量），行间 rowGap；作者区 = 小标题 16 + 每位（封面高 + 间距）
-    const free = h - pageTop - pageBottom - headH - 24 - 28
+    const free = sh - pageTop - pageBottom - headH - 24 - 28
     const fit = (authorCw: number, authorGap: number) => {
       const per = genreN ? (free - (authorN ? 16 + authorN * (authorCw * 1.6 + authorGap) : 0)) / genreN : Infinity
       const rowGap = per < 44 ? 6 : 10
@@ -631,7 +638,7 @@ function Stats(p: BodyProps) {
     const roomy = fit(30, 12)
     const l = roomy.ok ? roomy : fit(24, 8)
     return { ...base, genreFs: l.genreFs, rowGap: l.rowGap, authorCw: l.authorCw, authorGap: l.authorGap }
-  }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u, genreN, authorN])
+  }, [mobile, stage, stageL, sh, sw, pageTop, pageBottom, headH, headFs, u, genreN, authorN])
 
   const run = useMemo(() => (stats ? bestRun(stats.days) : null), [stats])
   const year = useMemo<YearRing | null>(() => (stats ? { days: stats.days, run, weekly: mobile } : null), [stats, run, mobile])
@@ -728,7 +735,13 @@ function Stats(p: BodyProps) {
       <div aria-hidden className="pointer-events-none absolute rounded-full mix-blend-screen blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 360, top: cy - 280, width: 720, height: 560, backgroundColor: rgbCss(color), opacity: `calc(${fade} * .25)` }} />
     </>
   )
-  const midY = pageTop + (h - pageTop - pageBottom) / 2
+  const midY = pageTop + (sh - pageTop - pageBottom) / 2
+  // 后两屏的排版坐标系：矮窗口里整体缩小（见 k2）
+  const stageBox = (children: ReactNode) => (
+    <div className="absolute top-0 left-0 origin-top-left" style={{ width: sw, height: sh, transform: k2 < 1 ? `scale(${k2})` : undefined }}>
+      {children}
+    </div>
+  )
 
   return (
     <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none">
@@ -765,12 +778,20 @@ function Stats(p: BodyProps) {
         {current && taste && (
           <>
             <div data-stats-progress="p" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
-              {glows(stageL + stage * (mobile ? 0.4 : 0.25), midY, tone, `${seg01('0.4', '0.9')} * (1 - ${seg01('1.1', '1.6')})`)}
-              <RankScreen ranked={ranked} group={rankGroup} pager={pager} L={rankL} moved={moved} />
+              {stageBox(
+                <>
+                  {glows(stageL + stage * (mobile ? 0.4 : 0.25), midY, tone, `${seg01('0.4', '0.9')} * (1 - ${seg01('1.1', '1.6')})`)}
+                  <RankScreen ranked={ranked} group={rankGroup} pager={pager} L={rankL} moved={moved} />
+                </>,
+              )}
             </div>
             <div data-stats-progress="p" className="absolute inset-0" inert={screen !== 2} aria-hidden={screen !== 2}>
-              {glows(stageL + stage * 0.3, midY, p.glow[1], `${seg01('1.3', '1.8')} * .7`)}
-              <TasteScreen taste={taste} coverOf={p.coverOf} pager={pager} L={tasteL} />
+              {stageBox(
+                <>
+                  {glows(stageL + stage * 0.3, midY, p.glow[1], `${seg01('1.3', '1.8')} * .7`)}
+                  <TasteScreen taste={taste} coverOf={p.coverOf} pager={pager} L={tasteL} />
+                </>,
+              )}
             </div>
             <ScreenDots screen={screen} pager={pager} mobile={mobile} style={upStyle(t, 0.7)} />
           </>
