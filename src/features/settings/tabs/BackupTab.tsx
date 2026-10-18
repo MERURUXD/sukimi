@@ -9,7 +9,7 @@ import { FILE_SLOT, uploadRequest } from '@/api/upload'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
-import { Row, Section } from '../parts'
+import { Row, Section, Switch } from '../parts'
 import { RequireSettings, SettingsNotice } from '../gate'
 
 const CreateBackup = graphql(`
@@ -61,6 +61,50 @@ const STATE: Record<BackupRestoreState, string> = {
   RESTORING_USER_SETTINGS: '正在恢复个人设置',
   SUCCESS: '恢复完成',
   FAILURE: '恢复失败',
+}
+
+/** 备份里的设置默认不恢复：它们会直接覆盖服务端设置（含换界面的 webUIFlavor）和当前账号的个人设置 */
+interface RestoreOptions {
+  serverSettings: boolean
+  userSettings: boolean
+}
+
+/** 确认框里的两个开关；确认框的内容是静态节点，开关状态通过回调写进调用方的 opts，确认后读取 */
+function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => void; onUser: (v: boolean) => void }) {
+  const [server, setServer] = useState(false)
+  const [user, setUser] = useState(false)
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      <label className="flex items-start justify-between gap-4">
+        <span>
+          同时恢复服务端设置
+          <span className="block text-xs text-muted">会用备份里的值覆盖当前服务端设置，包括使用的网页界面；旧备份可能让下次重启后不再显示 Sukimi。</span>
+        </span>
+        <Switch
+          label="同时恢复服务端设置"
+          on={server}
+          onChange={(v) => {
+            onServer(v)
+            setServer(v)
+          }}
+        />
+      </label>
+      <label className="flex items-start justify-between gap-4">
+        <span>
+          同时恢复我的个人设置
+          <span className="block text-xs text-muted">会覆盖当前账号的 OPDS、同步、自动下载等设置。</span>
+        </span>
+        <Switch
+          label="同时恢复我的个人设置"
+          on={user}
+          onChange={(v) => {
+            onUser(v)
+            setUser(v)
+          }}
+        />
+      </label>
+    </div>
+  )
 }
 
 export function BackupTab() {
@@ -121,6 +165,7 @@ function ManualBackup() {
   const pick = async (file: File) => {
     // 校验与确认期间换了账号：不能把上一个账号选的备份恢复进新账号的书库
     const still = captureUser()
+    const opts: RestoreOptions = { serverSettings: false, userSettings: false }
     try {
       const v = await uploadRequest(ValidateBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
       still()
@@ -130,6 +175,7 @@ function ManualBackup() {
         body: (
           <>
             <p className="m-0">备份里的漫画、分类、章节进度会合并进当前书库，已有的不会被删除。恢复过程中可以继续使用。</p>
+            <p className="mb-0">服务端设置和个人设置默认保持现状，不会被备份里的值覆盖。</p>
             {missingSources.length > 0 && (
               <p className="mb-0">
                 缺少 {missingSources.length} 个来源的扩展，这些漫画能恢复，但要装上扩展才能阅读：
@@ -137,6 +183,10 @@ function ManualBackup() {
               </p>
             )}
             {missingTrackers.length > 0 && <p className="mb-0">未登录的追踪服务：{missingTrackers.map((t) => t.name).join('、')}</p>}
+            <RestoreOptionsPicker
+              onServer={(v) => (opts.serverSettings = v)}
+              onUser={(v) => (opts.userSettings = v)}
+            />
           </>
         ),
         ok: '开始恢复',
@@ -144,7 +194,11 @@ function ManualBackup() {
       })
       if (!ok) return
       still()
-      const r = await uploadRequest(RestoreBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
+      const r = await uploadRequest(
+        RestoreBackup,
+        { input: { backup: FILE_SLOT, flags: { includeServerSettings: opts.serverSettings, includeUserSettings: opts.userSettings } } },
+        { 'input.backup': file },
+      )
       setRestore({ id: r.restoreBackup.id, state: 'IDLE', done: 0, total: 0 })
     } catch (e) {
       if (!(e instanceof StaleSessionError)) toastError('恢复失败', e)
