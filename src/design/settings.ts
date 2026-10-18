@@ -13,6 +13,8 @@ interface AppearanceState {
   theme: ThemePref
   glass: GlassMode
   mangaDetailMotion: boolean
+  /** 进出阅读器时从入口展开 / 缩回 */
+  readerMotion: boolean
   autoHideNav: boolean
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
@@ -25,6 +27,7 @@ interface AppearanceState {
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
   setMangaDetailMotion: (on: boolean) => void
+  setReaderMotion: (on: boolean) => void
   setAutoHideNav: (on: boolean) => void
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
@@ -44,6 +47,8 @@ export const useAppearance = create<AppearanceState>()(
       theme: 'dark',
       glass: 'refract',
       mangaDetailMotion: true,
+      // 旧偏好里没有这个字段，合并默认值后开启
+      readerMotion: true,
       // 旧偏好里没有这个字段，合并默认值后等于关闭
       autoHideNav: false,
       homeMobileLayout: 'poster',
@@ -56,6 +61,7 @@ export const useAppearance = create<AppearanceState>()(
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
+      setReaderMotion: (readerMotion) => set({ readerMotion }),
       setAutoHideNav: (autoHideNav) => set({ autoHideNav }),
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
@@ -67,9 +73,9 @@ export const useAppearance = create<AppearanceState>()(
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+      partialize: ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
         homeSections, homeSectionOrder, homeGallery }) =>
-        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+        ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
           homeSections, homeSectionOrder, homeGallery }),
       merge: (saved, current) => ({ ...current, ...saved as Partial<AppearanceState>, ...normalizeHomePreferences(saved) }),
     },

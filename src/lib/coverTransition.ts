@@ -1,4 +1,5 @@
 import { useAppearance } from '@/design/settings'
+import { READER_VT_ATTR } from './readerTransition'
 
 /** 封面「飞入 / 飞回」用的 view-transition-name；同一时刻页面上只能有一个 */
 export const COVER_VT = 'manga-cover'
@@ -97,7 +98,9 @@ export function installCoverTransition(basePath = '') {
     dropSurfaces()
     const surfaces = new Map<HTMLElement, string>()
     liftedSurfaces = surfaces
-    const coverTransition = !document.documentElement.hasAttribute('data-theme-vt')
+    // 进出阅读器由 readerTransition 接管（它包在外层，先挂标记），这里不提升玻璃，也不按详情页开关跳过
+    const readerTransition = document.documentElement.hasAttribute(READER_VT_ATTR)
+    const coverTransition = !readerTransition && !document.documentElement.hasAttribute('data-theme-vt')
       && (!!document.querySelector('[data-cover-vt]') || !!(from && origins.has(from)))
     if (coverTransition) liftSurfaces(surfaces)
     const t = start({
@@ -106,7 +109,7 @@ export function installCoverTransition(basePath = '') {
         await update?.()
         const to = pagePath()
         // 仅跳过涉及详情页的换页转场，不影响其他页面、菜单动画，以及停在同一页的转场（如切换主题）。
-        if (!useAppearance.getState().mangaDetailMotion && from !== to && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
+        if (!readerTransition && !useAppearance.getState().mangaDetailMotion && from !== to && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
           t.skipTransition()
           return
         }

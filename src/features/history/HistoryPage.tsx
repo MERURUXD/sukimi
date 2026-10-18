@@ -157,6 +157,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(c.manga)}
+      data-reader-origin
       style={rise}
       className={cn('-mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
     >
@@ -174,7 +175,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
       </Link>
       {!c.isRead && (
         // 行有进场动画（改透明度），这里不用玻璃按钮，免得动画期间玻璃失效
-        <Link to={`/manga/${c.manga.id}/chapter/${c.id}`} state={FROM_DETAIL} className="gicon size-10 text-text no-underline" aria-label={`继续阅读 ${c.manga.title}`} title="继续阅读">
+        <Link to={`/manga/${c.manga.id}/chapter/${c.id}`} state={FROM_DETAIL} viewTransition className="gicon size-10 text-text no-underline" aria-label={`继续阅读 ${c.manga.title}`} title="继续阅读">
           <Play className="size-[18px] fill-current" strokeWidth={1.6} />
         </Link>
       )}

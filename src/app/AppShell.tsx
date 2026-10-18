@@ -11,6 +11,7 @@ import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
 import { NsfwSync } from '@/features/nsfw/useNsfw'
+import { useReaderPreload } from '@/features/reader/preload'
 import { MobileTabBar } from './MobileTabBar'
 import { PreviewBadge } from './PreviewBadge'
 import { takeNavDirection } from './navTabs'
@@ -72,6 +73,7 @@ export function AppShell() {
   const tabbar = !useMatch('/manga/:id/*')
   const { pathname } = useLocation()
   const main = useRef<HTMLElement>(null)
+  useReaderPreload()
 
   // 主标签之间切换：新页面带一点水平滑入，淡入淡出由整页过渡负责。
   // 只用位移不用透明度，祖先的透明度会让里面玻璃的背景采样失效；导航栏不在 main 里，保持不动

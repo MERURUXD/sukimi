@@ -9,8 +9,8 @@ import { Row, Section, Switch } from '../parts'
 
 export function AppearanceTab() {
   const {
-    theme, glass, mangaDetailMotion, autoHideNav, homeMotionBg,
-    setTheme, setGlass, setMangaDetailMotion, setAutoHideNav, setHomeMotionBg,
+    theme, glass, mangaDetailMotion, readerMotion, autoHideNav, homeMotionBg,
+    setTheme, setGlass, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setHomeMotionBg,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const canRefract = supportsRefract()
@@ -46,6 +46,9 @@ export function AppearanceTab() {
         </Row>
         <Row label="详情页进场动画" hint="封面转场、背景淡入，以及简介和章节从上到下出现。关闭后直接显示详情内容。">
           <Switch on={mangaDetailMotion} onChange={setMangaDetailMotion} label="详情页进场动画" />
+        </Row>
+        <Row label="阅读器进出动画" hint="打开一话时从点的按钮或章节那一行展开成全屏，返回时缩回原处。关闭后直接切换。">
+          <Switch on={readerMotion} onChange={setReaderMotion} label="阅读器进出动画" />
         </Row>
         <Row label="自动隐藏顶栏" hint="向下滚动时隐藏顶部的导航与按钮，向上滚动再出现，避免盖住正文。关闭后顶栏始终悬浮。">
           <Switch on={autoHideNav} onChange={setAutoHideNav} label="自动隐藏顶栏" />
