@@ -5,6 +5,7 @@ import { isDevLab } from '@/lib/demo'
 import { restoreSession, useAuth } from '@/api/auth'
 import { LiveStatus } from '@/api/live'
 import { useSnapshots } from '@/api/persist'
+import { LegacyMetasMigrate } from '@/features/auth/LegacyMetasMigrate'
 import { showBeforeVerified } from '@/features/auth/userScope'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
@@ -60,6 +61,7 @@ export function AuthGate() {
       {/* 和上面的 Outlet 同在一层，key 不能重复 */}
       <LiveStatus key={`live-${userId}`} />
       <NsfwSync key={`nsfw-${userId}`} />
+      <LegacyMetasMigrate key={`legacy-${userId}`} />
     </>
   )
 }
