@@ -260,3 +260,39 @@ html[data-gallery-morph] .gallery-blob-b {
 .gallery-clock-in {
   animation: gallery-clock-in 0.6s ease-out;
 }
+
+/* 阅读档案排行：前三名封面各有倾角，悬停时摆正、抬起来 */
+.stats-pod-cover {
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (hover: hover) {
+  .stats-pod:hover .stats-pod-cover,
+  .stats-pod:focus-visible .stats-pod-cover {
+    transform: translateY(-10px) scale(1.03);
+  }
+  .stats-pod:hover [data-rank] {
+    color: rgba(255, 255, 255, 0.26) !important;
+  }
+}
+/* 换组：新的一组依次浮上来；--d 是延迟 */
+@keyframes stats-group-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.stats-group-in {
+  display: block;
+  animation: stats-group-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .stats-group-in {
+    animation: none;
+  }
+}
