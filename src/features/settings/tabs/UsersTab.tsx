@@ -245,7 +245,10 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
 
 function EditUser({ user, onDone }: { user: { id: number; username: string; roles: UserRole[]; permissions: UserPermission[] }; onDone: () => void }) {
   // 访客角色服务端不允许授予；已经是访客的保持原样显示
-  const [role, setRole] = useState<UserRole>(user.roles.includes('ADMIN') ? 'ADMIN' : user.roles.includes('VISITOR') ? 'VISITOR' : 'USER')
+  const initialRole: UserRole = user.roles.includes('ADMIN') ? 'ADMIN' : user.roles.includes('VISITOR') ? 'VISITOR' : 'USER'
+  const [role, setRole] = useState<UserRole>(initialRole)
+  // 服务端只允许管理员授予角色：只有「管理用户」权限的账号只能改权限，请求里也不能带 role
+  const isAdmin = useAuth((s) => !!s.user?.roles.includes('ADMIN'))
   const [perms, setPerms] = useState(() => new Set(user.permissions))
   const [save, { loading }] = useMutation(UpdateUser)
 
@@ -258,7 +261,8 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
 
   const submit = async () => {
     try {
-      await save({ variables: { input: { userId: user.id, role, permissions: ALL_PERMISSIONS.filter((p) => perms.has(p)) } } })
+      const permissions = ALL_PERMISSIONS.filter((p) => perms.has(p))
+      await save({ variables: { input: { userId: user.id, permissions, ...(role !== initialRole && { role }) } } })
       toast(`已更新「${user.username}」，最长 5 分钟后对方生效`)
       onDone()
     } catch (e) {
@@ -268,17 +272,19 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
 
   return (
     <div className="flex flex-col gap-4 pl-1 md:pl-4">
-      <Seg
-        glass={false}
-        label="角色"
-        value={role}
-        onChange={setRole}
-        items={[
-          { value: 'USER', label: ROLE_LABEL.USER },
-          { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
-          ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
-        ]}
-      />
+      {isAdmin && (
+        <Seg
+          glass={false}
+          label="角色"
+          value={role}
+          onChange={setRole}
+          items={[
+            { value: 'USER', label: ROLE_LABEL.USER },
+            { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
+            ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
+          ]}
+        />
+      )}
       {role === 'ADMIN' ? (
         <p className="m-0 text-sm text-muted">管理员拥有全部权限，不需要单独勾选。</p>
       ) : (
