@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { USER_KEYS } from '@/features/auth/userScope'
 
-export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed'
+export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed' | 'nsfw'
 /** 0 不限 · 1 包含 · 2 排除 */
 export type TriState = 0 | 1 | 2
 export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded' | 'score'
@@ -31,7 +31,7 @@ interface LibraryView {
   setLaterAutoRemove: (on: boolean) => void
 }
 
-const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0 }
+const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0, nsfw: 0 }
 
 const INITIAL: Pick<LibraryView, 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove'> = {
   category: 'all',
@@ -62,7 +62,11 @@ export const useLibraryView = create<LibraryView>()(
     {
       name: USER_KEYS.library,
       storage: userStorage<typeof INITIAL>(),
-      merge: scopedMerge<LibraryView>(INITIAL),
+      // filters 是整个对象替换：旧偏好里没有后加的筛选项，要补成「不限」，否则 undefined 会被当成已启用
+      merge: (persisted, current) => {
+        const merged = scopedMerge<LibraryView>(INITIAL)!(persisted, current)
+        return { ...merged, filters: { ...NO_FILTERS, ...merged.filters } }
+      },
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
       partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove }) => ({ category, filters, sort, desc, density, sources, laterAutoRemove }),

@@ -1,7 +1,7 @@
 import { useQuery } from '@apollo/client/react'
 import { useMemo, useSyncExternalStore } from 'react'
 import { withSnapshot } from '@/api/persist'
-import { FILTERS } from '@/features/library/filtering'
+import { isCompleted } from '@/features/library/filtering'
 import type { GalleryCountsQuery } from '@/api/gql/graphql'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { useNsfw } from '@/features/nsfw/useNsfw'
@@ -22,7 +22,7 @@ export function useMedia(query: string) {
 export const useMobile = () => useMedia('(max-width: 767px)')
 export const useReducedMotionPref = () => useMedia('(prefers-reduced-motion: reduce)')
 
-export const isCompleted = FILTERS.find((f) => f.key === 'completed')!.test
+export { isCompleted }
 
 /** 书库有作品、但全被 NSFW 隐藏时的提示，不能沿用空书库的文案 */
 export const NSFW_ALL_HIDDEN = '书库里的作品都标成了 NSFW，已隐藏。可以在「设置 → 外观 → 隐私」里调整，或按 Shift + H 临时显示。'

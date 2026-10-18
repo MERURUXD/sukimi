@@ -43,6 +43,7 @@ export function LibraryPage() {
   // 既没有内存缓存也没有本地快照、要等网络时，数据到了播一次进场动画
   const [intro] = useState(() => !lib.data && !hasSnapshot('library'))
   const view = useLibraryView()
+  const nsfw = useNsfw()
   const [query, setQuery] = useState('')
   const deferredQuery = useDeferredValue(query.trim())
 
@@ -63,8 +64,8 @@ export function LibraryPage() {
     [view.sort, scales],
   )
   const items = useMemo(
-    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales }),
-    [base, view, defaultCategoryId, deferredQuery, scales],
+    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test }),
+    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
@@ -140,7 +141,6 @@ export function LibraryPage() {
   const [setInLibrary] = useMutation(SetInLibrary)
   const [setCats] = useMutation(SetMangasCategories)
   const [busy, setBusy] = useState(false)
-  const nsfw = useNsfw()
   const { setManga: setNsfw } = useNsfwActions()
   const [confirmRemove, setConfirmRemove] = useState(false)
   const [catPop, setCatPop] = useState(false)
