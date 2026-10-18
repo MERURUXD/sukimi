@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
 import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
+import { useAuth } from '@/api/auth'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
@@ -88,7 +89,8 @@ export function HomePage() {
   const libData = withSnapshot('library', lib.data)
   // NSFW 作品在首页一律不出现（见 features/nsfw）：从源头去掉，大图区、书架和橱窗都不用各自判断
   const { hidden } = useNsfw()
-  const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter((c) => isVisible(c) && !hidden(c.manga))), [readsData, hidden])
+  const userId = useAuth((s) => s.user?.id)
+  const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter((c) => isVisible(c, userId) && !hidden(c.manga))), [readsData, hidden, userId])
   const library = useMemo(() => libData?.mangas.nodes.filter((m) => !hidden(m)), [libData, hidden])
   const updateChapters = useMemo(() => updatesData?.chapters.nodes.filter((c) => !hidden(c.manga)), [updatesData, hidden])
   const [heroSeed, heroBatch, nextHero] = useBatch('hero')
@@ -108,10 +110,10 @@ export function HomePage() {
     // 大图区正在展示的不再重复出现
     const shown = new Set(hero.items.map((c) => c.manga.id))
     return {
-      stale: library.filter((m) => isStale(m, now) && !shown.has(m.id)),
+      stale: library.filter((m) => isStale(m, now, userId) && !shown.has(m.id)),
       fresh: library.filter(notStarted),
     }
-  }, [library, hero.items])
+  }, [library, hero.items, userId])
 
   // 首页别处已经出现的作品：橱窗里尽量不重复它们（大图区正在展示的、最近阅读那三条）
   const onPage = useMemo(() => new Set([...hero.items, ...(homeSections.recent ? recent.slice(0, 3) : [])].map((c) => c.manga.id)), [hero.items, recent, homeSections.recent])

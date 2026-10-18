@@ -102,7 +102,7 @@ export function longestStreak(days: Iterable<number>) {
   return best
 }
 
-export function summarize(chapters: readonly StatChapter[], mangas: readonly StatManga[], now = Date.now()): ReadingStats {
+export function summarize(chapters: readonly StatChapter[], mangas: readonly StatManga[], now = Date.now(), userId?: number): ReadingStats {
   const hours = Array.from({ length: 24 }, () => 0)
   const perDay = new Map<number, number>()
   const pagesPerDay = new Map<number, number>()
@@ -123,7 +123,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
     if (at > 0) {
       entry.last = Math.max(entry.last, at)
       // 从历史里删掉的记录不进时间图表（重新读过后又会算上）
-      if (isVisible(c)) {
+      if (isVisible(c, userId)) {
         hours[new Date(at).getHours()]++
         const day = dayStart(at)
         perDay.set(day, (perDay.get(day) ?? 0) + 1)
