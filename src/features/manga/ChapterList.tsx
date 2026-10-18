@@ -385,6 +385,7 @@ const ChapterRow = memo(function ChapterRow({
     <div
       role="listitem"
       aria-selected={selecting ? selected : undefined}
+      data-reader-origin
       style={introDelay === undefined ? undefined : mangaIntroDelay(introDelay)}
       {...press}
       onClick={selecting ? (e) => onToggle(c.id, index, e) : undefined}
@@ -407,6 +408,7 @@ const ChapterRow = memo(function ChapterRow({
           <Link
             to={`/manga/${mangaId}/chapter/${c.id}`}
             state={FROM_DETAIL}
+            viewTransition
             className={cn(
               'truncate text-[15px] no-underline after:absolute after:inset-0 after:rounded-2xl',
               c.isRead ? 'font-medium text-faint' : 'font-semibold text-text',
@@ -426,7 +428,7 @@ const ChapterRow = memo(function ChapterRow({
           <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-xs text-muted" aria-label="页面书签">
             <Bookmark className="size-3 flex-none" strokeWidth={2} aria-hidden />
             {marks.slice(0, 4).map((p) => (
-              <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} className="text-muted no-underline num hover:text-text">
+              <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} viewTransition className="text-muted no-underline num hover:text-text">
                 第 {p + 1} 页
               </Link>
             ))}

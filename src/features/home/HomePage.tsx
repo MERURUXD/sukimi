@@ -325,7 +325,7 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
                 )}
                 <div data-home-actions className={cn('grid w-full items-center gap-2 md:mt-2.5 md:flex md:flex-wrap md:gap-2.5', m.inLibrary ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto]')}>
                   {target ? (
-                    <Link to={`/manga/${m.id}/chapter/${target.id}`} className={cn('solid min-w-0 px-3 text-sm no-underline md:px-6 md:text-base', immersive && 'max-md:ring-1 max-md:ring-white/20')}>
+                    <Link to={`/manga/${m.id}/chapter/${target.id}`} viewTransition className={cn('solid min-w-0 px-3 text-sm no-underline md:px-6 md:text-base', immersive && 'max-md:ring-1 max-md:ring-white/20')}>
                       <Play className="size-4 fill-current md:size-5" strokeWidth={1.6} />
                       继续阅读
                     </Link>
@@ -618,13 +618,13 @@ function RecentRow({ c }: { c: ReadChapter }) {
   const pct = progressOf(c)
   const detail = `/manga/${c.manga.id}`
   return (
-    <div data-sfw={sfwAttr(c.manga.source?.displayName)} className="-mx-2.5 flex items-center gap-[18px] rounded-[18px] p-2.5 transition-colors hover:bg-hover">
+    <div data-sfw={sfwAttr(c.manga.source?.displayName)} data-reader-origin className="-mx-2.5 flex items-center gap-[18px] rounded-[18px] p-2.5 transition-colors hover:bg-hover">
       <Link to={detail} viewTransition {...prefetch} className="cv w-[72px] flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]" aria-label={`${c.manga.title} 详情`}>
         <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
       </Link>
       <Link
         to={r ? `${detail}/chapter/${r.id}` : detail}
-        viewTransition={!r}
+        viewTransition
         className="flex min-w-0 flex-1 flex-col gap-1 text-text no-underline"
       >
         {/* 时间放进标题行：文字列宽度固定，各行进度条右端才对齐 */}

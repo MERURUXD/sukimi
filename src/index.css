@@ -648,6 +648,36 @@ html[data-theme-vt='light']::view-transition-old(root) {
   z-index: 9999;
   clip-path: circle(var(--vt-r) at var(--vt-x) var(--vt-y));
 }
+/* 进出阅读器（lib/readerTransition.ts）：脚本缩放、裁切整页快照，让阅读器从入口长出来、缩回入口。
+   只留入口元素一个过渡名 reader-src；其他过渡名（详情页大封面、导航玻璃）会单独成组浮在最上层，一律压掉，
+   !important 才压得过内联样式。变换原点放在左上角，脚本按视口坐标算位置。
+   起始状态写在样式里，脚本挂上动画前不会闪一帧：进入时阅读器还缩在入口、透明；退出时落点的入口先藏起来。 */
+html[data-reader-vt] *:not([data-reader-src]) {
+  view-transition-name: none !important;
+}
+html[data-reader-vt] [data-reader-src] {
+  view-transition-name: reader-src !important;
+}
+html[data-reader-vt]::view-transition-old(root),
+html[data-reader-vt]::view-transition-new(root),
+html[data-reader-vt]::view-transition-old(reader-src),
+html[data-reader-vt]::view-transition-new(reader-src),
+html[data-reader-vt]::view-transition-group(reader-src) {
+  animation: none;
+  mix-blend-mode: normal;
+  transform-origin: 0 0;
+}
+html[data-reader-vt='in']::view-transition-new(root) {
+  transform: var(--reader-vt-transform);
+  clip-path: var(--reader-vt-clip);
+  opacity: 0;
+}
+html[data-reader-vt='out']::view-transition-old(root) {
+  z-index: 9999;
+}
+html[data-reader-vt='out']::view-transition-group(reader-src) {
+  opacity: 0;
+}
 
 /* 主题按钮的悬停效果（参考 BewlyCat 的 Dock）：深色下浮出偏移的月光并让星星闪烁，浅色下太阳光芒自转 */
 .theme-halo {

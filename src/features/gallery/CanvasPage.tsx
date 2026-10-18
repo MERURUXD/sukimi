@@ -1112,7 +1112,7 @@ function CanvasDetail({
           {/* 进场动画放在每个按钮自身，「作品详情」是玻璃，祖先不能带透明度 */}
           <div className="mt-3 flex flex-wrap gap-3 max-md:justify-center">
             {firstUnread ? (
-              <Link to={`/manga/${manga.id}/chapter/${firstUnread}`} className="gallery-up solid h-14 px-[30px] text-[17px] no-underline" style={up(4)}>
+              <Link to={`/manga/${manga.id}/chapter/${firstUnread}`} viewTransition className="gallery-up solid h-14 px-[30px] text-[17px] no-underline" style={up(4)}>
                 <BookOpen className="size-[19px]" strokeWidth={1.8} />
                 {manga.unreadCount > 0 && Number(manga.lastReadChapter?.lastReadAt) > 0 ? '继续阅读' : '开始阅读'}
               </Link>
