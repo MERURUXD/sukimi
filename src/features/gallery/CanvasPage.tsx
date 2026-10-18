@@ -365,14 +365,15 @@ export function CanvasPage() {
     if (!raf.current) raf.current = requestAnimationFrame((t) => tickRef.current(t))
   }, [])
 
-  // 尺寸、书目、格子池变化后重画；新的 tick 闭包接手正在进行的动画
+  // 尺寸、书目、格子池变化后重画；新的 tick 闭包接手正在进行的动画。
+  // ready 变化时首屏层（stage）会重新挂上，样式要重画一遍：返回倒放的第一帧与上次画的位置相同，paint 会直接跳过
   useLayoutEffect(() => {
     cancelAnimationFrame(raf.current)
     raf.current = 0
     painted.current.t = NaN
     paint()
     kick()
-  }, [paint, kick, items, sel, closing, play])
+  }, [paint, kick, items, sel, closing, play, ready])
   useEffect(
     () => () => {
       cancelAnimationFrame(raf.current)
