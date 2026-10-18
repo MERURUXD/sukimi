@@ -16,9 +16,10 @@ import { useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { afterViewTransition, armReadMorph, useLanded } from './readMorph'
 import { bestRun, pageGrowth, summarize, weekActive, type ReadingStats } from './stats'
 import { Clock, DIAL_UNITS, Strip, useDialTilt, type Tip, type YearRing } from './StatsDial'
-import { CoverFlow, FlowInfo, TastePanel, flowLayout, maskRanked, type Ranked } from './StatsFlow'
+import { GROUP, RankScreen, maskRanked, type RankLayout, type Ranked } from './StatsRank'
+import { TasteScreen, type TasteLayout } from './StatsTaste'
 import { useNsfw } from '@/features/nsfw/useNsfw'
-import { createPager, ease, easeOut, seg, type Pager } from './statsPager'
+import { LAST_SCREEN, createPager, ease, easeOut, seg, type Pager } from './statsPager'
 import { tasteOf, type Taste } from './taste'
 import { useReadChapters } from './useReadChapters'
 import './gallery.css'
@@ -27,7 +28,7 @@ import './gallery.css'
 const TOP = 40
 
 /**
- * 本页在这次会话里的记忆：进场播完过、停在第几屏、封面翻到第几部。
+ * 本页在这次会话里的记忆：进场播完过、停在第几屏、排行翻到第几组。
  * 从作品详情返回时直接显示原来的画面（阅读记录也有缓存），不再从头进场
  */
 const memory = { shown: false, p: 0, cur: 0 }
@@ -119,8 +120,9 @@ const dateLabel = (t: number) => {
 }
 
 /**
- * 阅读档案，分两屏：第一屏「读了多少、什么时候读」——24 小时时钟外套近半年年轮，正中是已读话数，两侧四项数字；
- * 第二屏「读了什么」——已读排行的 3D 封面翻页和口味。往下滚（手机上滑）时镜头穿过表盘，封面从深处飞出来。
+ * 阅读档案，分三屏：第一屏「读了多少、什么时候读」——24 小时时钟外套近半年年轮，正中是已读话数，两侧四项数字；
+ * 第二屏「读得最多的」——已读排行，一组八部，前三名放大；第三屏「口味」——常读的题材和作者。
+ * 往下滚（手机上滑）一次翻一屏：镜头先穿过表盘，排行的封面从低处升起；再往下排行往上飘走，口味一行行长出来。
  * 固定深色。从画廊首页点「已读话数」进来时，那个数字由换页动画飞成这里的大数字；返回时再飞回去（见 readMorph）。
  */
 export function StatsPage() {
@@ -151,12 +153,17 @@ export function StatsPage() {
       ranked: read.slice(0, TOP).map((r, i) => {
         const m = byId.get(r.id)!
         const masked = hidden(m)
-        return { manga: masked ? maskRanked(m) : m, masked, rank: i + 1, read: r.read, total: r.total }
+        return { manga: masked ? maskRanked(m) : m, masked, rank: i + 1, read: r.read, total: r.total, pages: r.pages }
       }),
       // 口味按全部读过的作品算，不只排行里的前几十部；NSFW 作品不计入，免得题材和作者认出是哪部
-      taste: tasteOf(read.filter((r) => !hidden(byId.get(r.id)!)).map((r) => ({ read: r.read, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
+      taste: tasteOf(read.filter((r) => !hidden(byId.get(r.id)!)).map((r) => ({ id: r.id, read: r.read, pages: r.pages, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
     }
   }, [stats, all, hidden])
+  // 口味屏里作者那两张小封面
+  const coverOf = useMemo(() => {
+    const m = new Map(all.map((x) => [x.id, x.thumbnailUrl ?? null]))
+    return (id: number) => m.get(id) ?? null
+  }, [all])
   const { t, leave, out } = useIntroProgress(!!stats, reduced, back)
   // 一进来还没有汇总结果：先摆出空时钟（刻度、外圈），加载时扫光、外圈走进度，汇总出来后刻度就地长出来
   const [primed] = useState(() => !stats)
@@ -164,14 +171,14 @@ export function StatsPage() {
 
   const [pager] = useState(() => createPager({ p: back ? memory.p : 0, cur: back ? memory.cur : 0, count: 0, reduced }))
   useLayoutEffect(() => {
-    pager.limit(ranked.length, !!stats && ranked.length > 0)
-    // 汇总出来却没有排行（比如唯一读过的作品刚移出书库）：第二屏没东西可放，回到第一屏，不留一片空背景
+    pager.limit(Math.ceil(ranked.length / GROUP), !!stats && ranked.length > 0)
+    // 汇总出来却没有排行（比如唯一读过的作品刚移出书库）：后两屏没东西可放，回到第一屏，不留一片空背景
     if (stats && !ranked.length && pager.p > 0) pager.reset()
   }, [pager, ranked.length, stats])
   useEffect(
     () => () => {
-      memory.p = pager.p > 0.5 ? 1 : 0
-      memory.cur = Math.max(0, Math.round(pager.cur))
+      memory.p = Math.round(pager.p)
+      memory.cur = pager.cur
       pager.dispose()
     },
     [pager],
@@ -193,7 +200,7 @@ export function StatsPage() {
   }, [firstCover, secondCover])
 
   /*
-   * 离开：第一屏先倒放进场再换页，已读话数飞回首页。第二屏上看不到那个数字，不倒回第一屏，直接淡出换页，免得等太久；
+   * 离开：第一屏先倒放进场再换页，已读话数飞回首页。后两屏上看不到那个数字，不倒回第一屏，直接淡出换页，免得等太久；
    * 切屏途中（还偏第一屏）先快速收回再走第一屏的流程。浏览器后退时来不及倒放，在第一屏照样让数字飞回去
    */
   const leaving = useRef(false)
@@ -247,6 +254,7 @@ export function StatsPage() {
         read={stats?.read ?? lib.read}
         ranked={ranked}
         taste={taste}
+        coverOf={coverOf}
         works={all.length}
         t={t}
         reduced={reduced}
@@ -270,6 +278,7 @@ interface BodyProps {
   read: number | null
   ranked: Ranked[]
   taste: Taste | null
+  coverOf: (id: number) => string | null
   works: number
   t: number
   reduced: boolean
@@ -315,79 +324,84 @@ const upStyle = (t: number, at: number): CSSProperties => {
 }
 
 /**
- * 两屏的手势：滚轮 / 方向键 / 竖向拖动切换两屏，第二屏上横向拖动、横向滚动、左右键翻封面。
+ * 三屏的手势：滚轮 / 方向键 / 竖向拖动一次翻一屏；排行那屏上横向拖动、横向滚动、左右键换一组。
  * 拖动按最先移动的方向分横竖；拖过就吞掉随后的点击，免得松手时点进了作品
  */
-function usePagerInput(root: RefObject<HTMLDivElement | null>, pager: Pager, gap: number) {
+function usePagerInput(root: RefObject<HTMLDivElement | null>, pager: Pager) {
   const moved = useRef(false)
   useEffect(() => {
     const el = root.current
     if (!el) return
+    const here = () => Math.round(pager.p)
+    const onRank = () => Math.abs(pager.p - 1) < 0.02
+    const step = (d: -1 | 1) => {
+      const to = here() + d
+      if (to >= 0 && to <= LAST_SCREEN) pager.go(to)
+    }
     let acc = 0
     let accT = 0
-    let snapT = 0
+    let accX = 0
+    let lastFlip = 0
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) return
       e.preventDefault()
-      const dx = e.deltaX
+      const dx = e.deltaX * (e.deltaMode === 1 ? 40 : 1)
       const dy = e.deltaY * (e.deltaMode === 1 ? 40 : 1)
-      if (pager.p > 0.98 && Math.abs(dx) > Math.abs(dy)) {
-        pager.setCur(pager.cur + dx / 160)
-        window.clearTimeout(snapT)
-        snapT = window.setTimeout(() => pager.flip(pager.cur), 120)
+      if (onRank() && Math.abs(dx) > Math.abs(dy)) {
+        // 触控板横划一次会来一串事件：攒够一段才换组，换完歇一会儿，免得一划翻好几组
+        const now = performance.now()
+        if (now - lastFlip < 450) return
+        accX += dx
+        window.clearTimeout(accT)
+        accT = window.setTimeout(() => (accX = 0), 180)
+        if (Math.abs(accX) < 60) return
+        pager.flip(pager.cur + (accX > 0 ? 1 : -1))
+        accX = 0
+        lastFlip = now
         return
       }
-      // 斜着划的触控板手势不算竖向，免得翻封面时一不小心退回第一屏
+      // 斜着划的触控板手势不算竖向，免得换组时一不小心切屏
       if (Math.abs(dy) < Math.abs(dx) * 1.2 || pager.busy) return
       acc += dy
       window.clearTimeout(accT)
       accT = window.setTimeout(() => (acc = 0), 180)
-      if (acc > 40 && pager.p < 0.5) pager.go(1)
-      else if (acc < -40 && pager.p > 0.5) pager.go(0)
+      if (acc > 40) step(1)
+      else if (acc < -40) step(-1)
       else return
       acc = 0
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || (e.target as HTMLElement).closest?.('input, textarea, [contenteditable]')) return
       const k = e.key
-      if ((k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !(e.target as HTMLElement).closest?.('button, a'))) && pager.p < 0.5 && pager.enabled) pager.go(1)
-      else if ((k === 'ArrowUp' || k === 'PageUp') && pager.p > 0.5) pager.go(0)
-      else if ((k === 'ArrowLeft' || k === 'ArrowRight') && pager.p > 0.98) pager.flip(pager.goal + (k === 'ArrowLeft' ? -1 : 1))
+      if (k === 'ArrowDown' || k === 'PageDown' || (k === ' ' && !(e.target as HTMLElement).closest?.('button, a'))) step(1)
+      else if (k === 'ArrowUp' || k === 'PageUp') step(-1)
+      else if ((k === 'ArrowLeft' || k === 'ArrowRight') && onRank()) pager.flip(pager.cur + (k === 'ArrowLeft' ? -1 : 1))
       else return
       e.preventDefault()
     }
-    let ptr: { id: number; x: number; y: number; cur: number; axis: 'x' | 'y' | null; lastX: number; lastT: number; v: number } | null = null
+    let ptr: { id: number; x: number; y: number; axis: 'x' | 'y' | null } | null = null
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return
       moved.current = false
-      ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, cur: pager.cur, axis: null, lastX: e.clientX, lastT: performance.now(), v: 0 }
+      ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, axis: null }
     }
     const onMove = (e: PointerEvent) => {
-      if (!ptr || e.pointerId !== ptr.id) return
+      if (!ptr || e.pointerId !== ptr.id || ptr.axis) return
       const dx = e.clientX - ptr.x
       const dy = e.clientY - ptr.y
-      if (!ptr.axis) {
-        if (Math.hypot(dx, dy) < 8) return
-        ptr.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
-        moved.current = true
-        el.setPointerCapture(e.pointerId)
-      }
-      if (ptr.axis === 'x' && pager.p > 0.98) {
-        const now = performance.now()
-        ptr.v = (e.clientX - ptr.lastX) / Math.max(1, now - ptr.lastT)
-        ptr.lastX = e.clientX
-        ptr.lastT = now
-        pager.setCur(ptr.cur - dx / gap)
-      }
+      if (Math.hypot(dx, dy) < 8) return
+      ptr.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y'
+      moved.current = true
+      el.setPointerCapture(e.pointerId)
     }
     const onUp = (e: PointerEvent) => {
       if (!ptr || e.pointerId !== ptr.id) return
+      const dx = e.clientX - ptr.x
       const dy = e.clientY - ptr.y
-      // 松手时的速度决定多滑几张
-      if (ptr.axis === 'x' && pager.p > 0.98) pager.flip(pager.cur - (ptr.v * 180) / gap)
+      if (ptr.axis === 'x' && onRank() && Math.abs(dx) > 40) pager.flip(pager.cur + (dx < 0 ? 1 : -1))
       else if (ptr.axis === 'y') {
-        if (dy < -40 && pager.p < 0.5) pager.go(1)
-        else if (dy > 40 && pager.p > 0.5) pager.go(0)
+        if (dy < -40) step(1)
+        else if (dy > 40) step(-1)
       }
       ptr = null
     }
@@ -406,7 +420,6 @@ function usePagerInput(root: RefObject<HTMLDivElement | null>, pager: Pager, gap
     window.addEventListener('keydown', onKey)
     return () => {
       window.clearTimeout(accT)
-      window.clearTimeout(snapT)
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('pointerdown', onDown)
       el.removeEventListener('pointermove', onMove)
@@ -415,7 +428,7 @@ function usePagerInput(root: RefObject<HTMLDivElement | null>, pager: Pager, gap
       el.removeEventListener('click', onClick, true)
       window.removeEventListener('keydown', onKey)
     }
-  }, [root, pager, gap])
+  }, [root, pager])
   return useCallback(() => moved.current, [])
 }
 
@@ -526,13 +539,28 @@ function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; 
   )
 }
 
+const SCREENS = ['概览', '已读排行', '口味']
+
+/** 右侧三个小点：当前这屏拉长，点哪个切到哪屏 */
+function ScreenDots({ screen, pager, mobile, style }: { screen: number; pager: Pager; mobile: boolean; style: CSSProperties }) {
+  return (
+    <nav aria-label="切换屏幕" className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
+      {SCREENS.map((label, i) => (
+        <button key={label} type="button" aria-label={label} aria-current={screen === i ? 'true' : undefined} onClick={() => pager.go(i)} className="group grid place-items-center p-2">
+          <span className={cn('block w-1.5 rounded-full transition-[height,background-color] duration-400 ease-out', screen === i ? 'h-[22px] bg-white' : 'h-1.5 bg-white/30 group-hover:bg-white/60')} />
+        </button>
+      ))}
+    </nav>
+  )
+}
+
 /** 一段进度写成 CSS（--p 每帧由页面写入） */
 const seg01 = (a: string, b: string) => `clamp(0, calc((var(--p) - ${a}) / (${b} - ${a})), 1)`
 
 function Stats(p: BodyProps) {
   const { mobile, stats, read, ranked, taste, works, t, reduced, pager } = p
   const win = useWindowSize()
-  // 太矮的窗口（手机横屏、小屏手机）按最小高度排版再整体缩小：两屏都固定在一屏里，滚轮和上下滑留给切屏，不能改成滚动
+  // 太矮的窗口（手机横屏、小屏手机）按最小高度排版再整体缩小：三屏都固定在一屏里，滚轮和上下滑留给切屏，不能改成滚动
   const k = Math.min(1, win.h / (mobile ? MIN_H_PHONE : MIN_H))
   const w = win.w / k
   const h = win.h / k
@@ -541,10 +569,11 @@ function Stats(p: BodyProps) {
   const num = useRef<HTMLDivElement>(null)
   const tilt = useRef<HTMLDivElement>(null)
   const [tip, setTip] = useState<Tip>(null)
-  const [screen, setScreen] = useState(pager.p > 0.5 ? 1 : 0)
-  const [at, setIdx] = useState(() => Math.round(pager.cur))
+  const [screen, setScreen] = useState(() => Math.round(pager.p))
+  const [at, setGroup] = useState(pager.cur)
   // 排行变短时（比如刚汇总完）不越界
-  const idx = Math.min(at, Math.max(0, ranked.length - 1))
+  const groups = Math.ceil(ranked.length / GROUP)
+  const rankGroup = Math.min(at, Math.max(0, groups - 1))
 
   /* ── 尺寸 ── */
   const side = mobile ? 24 : Math.round(Math.max(32, Math.min(64, w * 0.044)))
@@ -558,15 +587,36 @@ function Stats(p: BodyProps) {
   const clock = Math.round((dial * 360) / DIAL_UNITS)
   const text = read == null ? '—' : count(read)
   const numSize = Math.round(Math.max(36, Math.min(mobile ? 64 : 136, (clock * 0.6 - 36) / ([...text].length * 0.56))))
-  const tasteW = Math.round(Math.max(260, Math.min(330 * u, w * 0.22)))
-  const tasteGap = Math.round(56 * u)
-  // 第二屏的舞台：超宽屏上也收在中间，封面和口味不各自贴到两边
-  const stage = Math.min(w - side * 2, Math.round(1600 * u))
-  const stageL = (w - stage) / 2
-  const flowW = mobile ? w : stage - tasteW - tasteGap
-  const cw = Math.round(mobile ? Math.max(120, Math.min(160, h * 0.2, w * 0.4)) : Math.max(150, Math.min(380, (h - top - 230 * u) / 1.5, flowW / 2.9)))
-  const L = useMemo(() => flowLayout(cw, mobile), [cw, mobile])
-  const flowH = L.ch + (mobile ? 40 : 60)
+  // 后两屏的舞台：超宽屏上也收在中间；右边留出切屏小点的位置（手机上靠左，只让出右边一小条）
+  const stage = mobile ? w - side * 2 - 10 : Math.min(w - side * 2 - 48, Math.round(1500 * u))
+  const stageL = mobile ? side : (w - stage) / 2
+  const headFs = Math.round(mobile ? Math.max(30, Math.min(44, w * 0.09)) : Math.max(40, Math.min(82 * u, w * 0.052)))
+  // 标题占的高度：小字一行加大字（手机两行）
+  const headH = mobile ? 30 + headFs * 1.12 * 2 : 34 + headFs * 1.12
+  const pageBottom = mobile ? 20 : 36
+  const pageTop = top + 8
+  const rankL = useMemo<RankLayout>(() => {
+    if (mobile) {
+      // 第一名封面在左、信息在右，二三名并排，再下面五张小封面：按剩下的高度定封面大小
+      const shelfW = Math.min(46, Math.floor((stage - 40) / 5))
+      const avail = h - pageTop - pageBottom - headH - 16 * 3 - 76 - (shelfW * 1.5 + 22) - 50
+      const cw1 = Math.round(Math.max(80, Math.min(w * 0.36, avail / 2.43)))
+      return { phone: true, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.62), shelfW, u }
+    }
+    const shelfW = Math.round(54 * u)
+    // 领奖台第一列占 1.45 份；封面旁边还要放下大名次
+    const col1 = ((stage * 0.92) * 1.45) / 3.45
+    // 前三名下面的书名、话数、进度条约 125 高；书架、翻组按钮各一行
+    const avail = h - pageTop - pageBottom - headH - 26 * u * 3 - 125 * u - shelfW * 1.5 - 50
+    const cw1 = Math.round(Math.max(110, Math.min(avail / 1.5, 260 * u, col1 / 1.95)))
+    return { phone: false, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.74), shelfW, u }
+  }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u])
+  const genreN = Math.max(1, taste?.genres.length ?? 0)
+  const tasteL = useMemo<TasteLayout>(() => {
+    const avail = h - pageTop - pageBottom - headH - 46 * u
+    const genreFs = mobile ? 22 : Math.round(Math.max(22, Math.min(42 * u, w * 0.03, (avail / genreN - 30 * u) / 1.15)))
+    return { phone: mobile, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, genreFs, u }
+  }, [mobile, stage, stageL, h, w, pageTop, pageBottom, headH, headFs, u, genreN])
 
   const run = useMemo(() => (stats ? bestRun(stats.days) : null), [stats])
   const year = useMemo<YearRing | null>(() => (stats ? { days: stats.days, run, weekly: mobile } : null), [stats, run, mobile])
@@ -574,9 +624,9 @@ function Stats(p: BodyProps) {
   const peak = stats && stats.peak >= 0 ? stats.peak : -1
 
   useDialTilt(tilt, reduced || mobile, pager)
-  const moved = usePagerInput(root, pager, L.gap1 * k)
+  const moved = usePagerInput(root, pager)
 
-  /* ── 每帧：穿过表盘、写 --p 给 CSS、记下停在哪一屏和哪一部 ── */
+  /* ── 每帧：穿过表盘、写 --p 给 CSS、记下停在哪一屏和哪一组 ── */
   useLayoutEffect(() => {
     // 进度只传给使用它的区域，避免每帧让表盘的整棵 SVG 子树重算继承样式。
     const progress = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="p"]')
@@ -597,16 +647,16 @@ function Stats(p: BodyProps) {
         num.current.style.opacity = `${1 - seg(pp, 0.06, 0.44)}`
         num.current.style.filter = pp > 0.04 ? `blur(${(ud * 4).toFixed(2)}px)` : ''
       }
-      setScreen(pp > 0.5 ? 1 : 0)
-      setIdx(Math.max(0, Math.round(pager.cur)))
+      setScreen(Math.round(pp))
+      setGroup(pager.cur)
     }
     paint()
     return pager.subscribe(paint)
   }, [pager, mobile, stats, ranked.length])
 
-  // 正中那部的封面主色：背景光和地面光跟着换；翻页途中不取，停下再取
+  // 这一组第一名的封面主色：排行背后的光跟着换
   const [tone, setTone] = useState<Rgb>(NEUTRAL)
-  const current = ranked[idx]
+  const current = ranked[rankGroup * GROUP]
   const toneSrc = current?.manga.thumbnailUrl
   useEffect(() => {
     let alive = true
@@ -656,48 +706,14 @@ function Stats(p: BodyProps) {
     </div>
   )
 
-  const flowBox = current && (
-    <div className="relative w-full flex-none" style={{ height: flowH }}>
-      {/* 名次大字垫在封面后面；手机上露出的部分太少，看着像一团色块，不放 */}
-      {!mobile && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 -translate-x-1/2 font-bold tracking-[-0.06em] text-white/[.055] num"
-          style={{ top: flowH / 2 - L.ch * 0.62, fontSize: L.ch * 0.83, lineHeight: 1, opacity: seg01('0.6', '0.9') }}
-        >
-          {String(current.rank).padStart(2, '0')}
-        </span>
-      )}
-      {/* 地面上铺一片这部封面颜色的光 */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute rounded-[50%] transition-[background] duration-700"
-        style={{
-          left: flowW / 2 - L.cw * 1.6,
-          top: flowH / 2 + L.ch / 2 - L.cw * 0.14,
-          width: L.cw * 3.2,
-          height: L.cw * 0.5,
-          background: `radial-gradient(closest-side, ${rgbCss(tone, 0.5)}, ${rgbCss(tone, 0.12)} 60%, transparent)`,
-          opacity: seg01('0.55', '0.95'),
-        }}
-      />
-      <CoverFlow ranked={ranked} idx={idx} pager={pager} L={L} width={flowW} cy={flowH / 2} moved={moved} />
-    </div>
-  )
-
-  const info = current && <FlowInfo it={current} tone={tone} phone={mobile} u={u} onStep={mobile ? undefined : (d) => pager.flip(pager.goal + d)} first={idx === 0} last={idx === ranked.length - 1} />
-  const rankLabel = (
-    <span className="text-xs font-bold tracking-[.32em] text-muted" style={{ opacity: seg01('0.6', '0.85') }}>
-      已读排行 · 前 {ranked.length} 部
-    </span>
-  )
-  // 正中封面背后的两团光，颜色跟着正中那部
-  const glows = (cx: number, cy: number) => (
+  // 后两屏背后的两团光：排行跟着这一组第一名的封面颜色，口味用背景的第二种颜色，切屏时交替淡入淡出
+  const glows = (cx: number, cy: number, color: Rgb, fade: string) => (
     <>
-      <div aria-hidden className="pointer-events-none absolute rounded-full blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 380, top: cy - 300, width: 760, height: 600, backgroundColor: rgbCss(tone), opacity: `calc(${seg01('0.4', '0.9')} * .55)` }} />
-      <div aria-hidden className="pointer-events-none absolute rounded-full mix-blend-screen blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 360, top: cy - 280, width: 720, height: 560, backgroundColor: rgbCss(tone), opacity: `calc(${seg01('0.5', '0.95')} * .25)` }} />
+      <div aria-hidden className="pointer-events-none absolute rounded-full blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 380, top: cy - 300, width: 760, height: 600, backgroundColor: rgbCss(color), opacity: `calc(${fade} * .55)` }} />
+      <div aria-hidden className="pointer-events-none absolute rounded-full mix-blend-screen blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 360, top: cy - 280, width: 720, height: 560, backgroundColor: rgbCss(color), opacity: `calc(${fade} * .25)` }} />
     </>
   )
+  const midY = pageTop + (h - pageTop - pageBottom) / 2
 
   return (
     <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none">
@@ -705,7 +721,7 @@ function Stats(p: BodyProps) {
         <Backdrop glow={p.glow} className="absolute inset-0" style={{ opacity: `calc(1 - ${seg01('0.3', '0.8')} * .6)` }} />
 
         {/* ───── 第一屏 ───── */}
-        <div className="absolute inset-0" inert={screen === 1}>
+        <div className="absolute inset-0" inert={screen !== 0}>
           {mobile ? (
             <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
               {dialEl}
@@ -730,40 +746,22 @@ function Stats(p: BodyProps) {
           </div>
         </div>
 
-        {/* ───── 第二屏 ───── */}
+        {/* ───── 第二屏：已读排行 · 第三屏：口味 ───── */}
         {current && taste && (
-          <div data-stats-progress="p" className="absolute inset-0" inert={screen === 0} aria-hidden={screen === 0}>
-            {mobile ? (
-              <>
-                {glows(w / 2, top + 30 + flowH / 2)}
-                <div className="absolute inset-x-0 flex flex-col" style={{ top: top + 4, bottom: 0 }}>
-                  <div style={{ paddingInline: side }}>{rankLabel}</div>
-                  {flowBox}
-                  <div className="px-6">{info}</div>
-                  <div className="mt-6" style={{ paddingInline: side }}>
-                    <TastePanel taste={taste} it={current} tone={tone} phone />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <>
-                {glows(stageL + flowW / 2, top + (h - top - 40) / 2 - 60)}
-                <div className="absolute grid" style={{ left: stageL, width: stage, top, bottom: 40, gridTemplateColumns: `${flowW}px ${tasteW}px`, columnGap: tasteGap }}>
-                  <section aria-label="已读排行" className="relative flex min-w-0 flex-col justify-center">
-                    <div className="absolute top-0 left-0">{rankLabel}</div>
-                    {flowBox}
-                    {info}
-                  </section>
-                  <div className="flex items-center">
-                    <TastePanel taste={taste} it={current} tone={tone} phone={false} u={u} />
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <>
+            <div data-stats-progress="p" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
+              {glows(stageL + stage * (mobile ? 0.4 : 0.25), midY, tone, `${seg01('0.4', '0.9')} * (1 - ${seg01('1.1', '1.6')})`)}
+              <RankScreen ranked={ranked} group={rankGroup} pager={pager} L={rankL} moved={moved} />
+            </div>
+            <div data-stats-progress="p" className="absolute inset-0" inert={screen !== 2} aria-hidden={screen !== 2}>
+              {glows(stageL + stage * 0.3, midY, p.glow[1], `${seg01('1.3', '1.8')} * .7`)}
+              <TasteScreen taste={taste} coverOf={p.coverOf} pager={pager} L={tasteL} />
+            </div>
+            <ScreenDots screen={screen} pager={pager} mobile={mobile} style={upStyle(t, 0.7)} />
+          </>
         )}
 
-        {/* ───── 顶栏：两屏共用，不跟着穿过表盘 ───── */}
+        {/* ───── 顶栏：三屏共用，不跟着穿过表盘 ───── */}
         {mobile ? (
           <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
             <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" className="gicon size-11 rounded-full text-text">
