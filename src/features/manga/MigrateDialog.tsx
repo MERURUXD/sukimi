@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { DeleteDownloads, UpdateChapters } from '@/api/chapters'
 import { captureUser, StaleSessionError } from '@/api/userContext'
+import { useNsfwActions, useNsfwStore } from '@/features/nsfw/useNsfw'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -36,6 +37,8 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   onDone: (to: number) => void
 }) {
   const client = useApolloClient()
+  const { copyManga } = useNsfwActions()
+  const marked = useNsfwStore((s) => s.marks.manga[from.id] !== undefined)
   const [info, setInfo] = useState<Target>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [read, setRead] = useState(true)
@@ -71,6 +74,12 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     if (!plan) return
     const still = captureUser()
     try {
+      // 手动 NSFW 标记跟着漫画 id 走，先带过去，新版本加入书库后才不会露在首页和画廊里
+      if (marked) {
+        setStep('复制 NSFW 标记')
+        await copyManga(from.id, target.id)
+        still()
+      }
       setStep('加入书库')
       await client.mutate({ mutation: SetMangaInLibrary, variables: { id: target.id, inLibrary: true } })
       if (categories && cats.length) {

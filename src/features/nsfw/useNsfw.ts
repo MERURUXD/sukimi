@@ -166,5 +166,12 @@ export function useNsfwActions() {
     await write([[categoryNsfwKey(currentUserId(), categoryId), on ? '1' : null]])
   }, [write])
 
-  return { setManga, setCategory }
+  /** 换源迁移：手动标记（或手动放行）跟着作品走，原样复制到新版本；没有手动标记时什么都不写 */
+  const copyManga = useCallback(async (fromId: number, toId: number) => {
+    const manual = useNsfwStore.getState().marks.manga[fromId]
+    if (manual === undefined) return
+    await write([[mangaNsfwKey(currentUserId(), toId), manual ? '1' : '0']])
+  }, [write])
+
+  return { setManga, setCategory, copyManga }
 }
