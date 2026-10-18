@@ -13,7 +13,7 @@ import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { galleryOrder, isCompleted, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry } from './readMorph'
+import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry, withoutHiddenCovers } from './readMorph'
 import './gallery.css'
 
 type FilterValue = 'all' | 'done' | number
@@ -40,7 +40,10 @@ export function GalleryPage() {
   const [params, setParams] = useSearchParams()
 
   // 从书库点「画廊」进来：书库里的封面从原位飞上墙，标题和暗角等封面上墙了再淡入
-  const [entry] = useState(libraryCoversForEntry)
+  const [rawEntry] = useState(libraryCoversForEntry)
+  // 画廊里被 NSFW 过滤的作品，进出场叠层不能露出书库里记下的原图
+  const visibleIds = useMemo(() => new Set(all.map((m) => m.id)), [all])
+  const entry = useMemo(() => rawEntry && withoutHiddenCovers(rawEntry, visibleIds), [rawEntry, visibleIds])
   // 首页来路保留同一面墙，取景范围和标题一起展开。
   const [reveal] = useState(windowEntryForEntry)
   const [canvasBack] = useState(canvasBackForEntry)
@@ -146,12 +149,13 @@ export function GalleryPage() {
         navigate(-1)
         return
       }
-      const rects = fromLibrary ? libraryCoversForReturn() : null
+      const returning = fromLibrary ? libraryCoversForReturn() : null
+      const rects = returning && withoutHiddenCovers(returning, visibleIds)
       if (reduced || !rects || window.scrollY > 2) return go()
       fadeUi()
       if (!flyWallToLibrary(rects, go)) go()
     },
-    [origin, navigate, reduced, homeWindowVisible],
+    [origin, navigate, reduced, homeWindowVisible, visibleIds],
   )
   const toBack = useCallback(() => leave('back'), [leave])
 
