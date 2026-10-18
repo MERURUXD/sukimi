@@ -3,14 +3,16 @@ import { X } from 'lucide-react'
 import { useEffect, useRef, type ReactNode } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
+import { cn } from '@/lib/cn'
 import './BottomSheet.css'
 
 /** 手机底部浮层：使用全局玻璃外观，内容过长时在面板内滚动。 */
-export function BottomSheet({ id, label, closeLabel = '关闭更多操作', onClose, children }: {
+export function BottomSheet({ id, label, closeLabel = '关闭更多操作', onClose, className, children }: {
   id: string
   label: string
   closeLabel?: string
   onClose: () => void
+  className?: string
   children: ReactNode
 }) {
   const panel = useRef<HTMLElement>(null)
@@ -65,7 +67,7 @@ export function BottomSheet({ id, label, closeLabel = '关闭更多操作', onCl
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: reducedMotion ? 0 : 16 }}
         transition={reducedMotion ? { duration: 0 } : spring.fast}
-        className="manga-bottom-sheet relative flex min-h-0 w-full max-w-[480px] flex-col rounded-[26px] p-3 outline-none"
+        className={cn('manga-bottom-sheet relative flex min-h-0 w-full max-w-[480px] flex-col rounded-[26px] p-3 outline-none', className)}
       >
         <div className="flex shrink-0 items-center gap-3 pl-3">
           <h2 className="m-0 flex-1 text-base font-semibold">{label}</h2>

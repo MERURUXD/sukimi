@@ -299,7 +299,7 @@ export function LibraryToolbar({
           onClose={closePanel}
           label="筛选与排序"
           fitViewport
-          className="flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 px-4 py-4"
+          className="glass-legible flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 px-4 py-4"
           trigger={button}
         >
           {content}
@@ -308,7 +308,7 @@ export function LibraryToolbar({
       {mobile && createPortal(
         <AnimatePresence>
           {panel && (
-            <BottomSheet id="library-panel" label="筛选与排序" closeLabel="关闭筛选与排序" onClose={closePanel}>
+            <BottomSheet id="library-panel" label="筛选与排序" closeLabel="关闭筛选与排序" onClose={closePanel} className="glass-legible">
               <div className="flex flex-col gap-4 px-2 pt-3 pb-2">{content}</div>
             </BottomSheet>
           )}

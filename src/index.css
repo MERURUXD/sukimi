@@ -229,6 +229,11 @@
     background: color-mix(in srgb, var(--bg) var(--refract-tint-dense, 45%), transparent);
   }
 
+  /* 文字密集的弹出面板（书库筛选与排序）：深色主题下背后多是亮封面，底色压得更深，文字才看得清 */
+  html[data-theme='dark']:not([data-glass='solid']) .glass.glass-legible {
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+  }
+
   [data-glass='solid'] .glass {
     background: var(--surface);
     -webkit-backdrop-filter: none;
