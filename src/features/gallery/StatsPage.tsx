@@ -477,9 +477,9 @@ function kpiItems(s: ReadingStats, works: number, run: ReturnType<typeof bestRun
         key: 'pages',
         value: () => pg.v,
         unit: pg.u,
-        caption: '至少翻过 · 近半年累计',
+        caption: '约翻过 · 近半年累计',
         bars: growth.map((v, i) => ({ v: v - base, on: true, lit: i === growth.length - 1 })),
-        label: `至少翻过 ${count(s.pages)} 页`,
+        label: `约翻过 ${count(s.pages)} 页`,
       },
     ],
   }

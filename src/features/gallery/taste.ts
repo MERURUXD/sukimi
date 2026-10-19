@@ -67,7 +67,7 @@ export const authorsOf = (raw: string | null | undefined) => [
 export interface TasteWork {
   id: number
   read: number
-  /** 已读页数（下限） */
+  /** 已读页数估算 */
   pages: number
   genre: readonly string[] | null | undefined
   author: string | null | undefined

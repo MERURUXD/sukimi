@@ -65,11 +65,19 @@ test('从历史里删掉的记录不进时间图表，但仍计入已读', () =>
   assert.equal(s.days.at(-3).count, 1)
 })
 
-test('页数只累加页数大于 0 的已读章节，每部也各记一份', () => {
+test('页数未知的已读话按这部已知话的平均页数补，每部也各记一份', () => {
   const s = summarize([ch(1, { pages: 20 }), ch(1, { pages: 0 }), ch(1, { pages: -1 }), ch(1, { read: false, pages: 30, time: at(2026, 10, 9, 9) }), ch(2, { pages: 15 })], [{ id: 1, total: 4 }, { id: 2, total: 1 }, { id: 3, total: 2 }], NOW)
-  assert.equal(s.pages, 35)
+  assert.equal(s.pages, 75)
   assert.equal(s.read, 4)
-  assert.deepEqual(s.ranking.map((r) => [r.id, r.pages]), [[1, 20], [2, 15], [3, 0]])
+  assert.deepEqual(s.ranking.map((r) => [r.id, r.pages]), [[1, 60], [2, 15], [3, 0]])
+})
+
+test('整部都没有已知页数的作品用全库平均页数；全库都没有时为 0', () => {
+  const s = summarize([ch(1, { pages: 20 }), ch(2, { pages: 10 }), ch(3, { pages: 0 }), ch(3, { pages: 0 })], [1, 2, 3].map((id) => ({ id, total: 5 })), NOW)
+  assert.deepEqual(s.ranking.map((r) => [r.id, r.pages]), [[3, 30], [1, 20], [2, 10]])
+  assert.equal(s.pages, 60)
+  const none = summarize([ch(1, { pages: 0 })], [{ id: 1, total: 5 }], NOW)
+  assert.equal(none.pages, 0)
 })
 
 test('已读但没有时间的章节只计入总数', () => {
@@ -154,12 +162,12 @@ test('热力图每天记下当天读完的页数；累计页数以全部页数�
     ch(2, { pages: 50 }), // 没有时间：只算进总页数
   ], [{ id: 1, total: 5 }, { id: 2, total: 1 }], NOW)
   const today = s.days.find((d) => d.date === dayStart(NOW))
-  assert.equal(today.pages, 30)
-  assert.equal(s.pages, 92)
+  assert.equal(today.pages, 51) // 30 + 页数未知的那话按这部平均 21 补
+  assert.equal(s.pages, 113)
   const g = pageGrowth(s.days, s.pages, 24)
   assert.equal(g.length, 24)
   assert.equal(g[0], 50)
-  assert.equal(g.at(-1), 92)
+  assert.equal(g.at(-1), 113)
   assert.ok(g.every((v, i) => i === 0 || v >= g[i - 1]))
 })
 

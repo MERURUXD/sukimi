@@ -14,7 +14,7 @@ export interface Ranked {
   rank: number
   read: number
   total: number | null
-  /** 已读页数（下限：没取过页数的章节不算） */
+  /** 已读页数估算：没取过页数的章节按这部的平均页数补 */
   pages: number
   /** NSFW 作品：占着名次，封面换成锁、书名和题材都不显示（manga 已经抹掉这些字段） */
   masked?: boolean
@@ -180,7 +180,7 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
               {count(it.read)}
               <span className="ml-1 font-cjk text-[11px] font-bold tracking-normal text-muted">话</span>
             </span>
-            {it.pages > 0 && <span className="text-[11px] whitespace-nowrap text-muted num">至少 {count(it.pages)} 页</span>}
+            {it.pages > 0 && <span className="text-[11px] whitespace-nowrap text-muted num">约 {count(it.pages)} 页</span>}
           </span>
           {it.total != null && it.total > 0 && (
             <span className="mt-2.5 flex items-center gap-2.5 text-[10px] whitespace-nowrap text-white/45 num">
