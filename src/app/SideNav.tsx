@@ -5,6 +5,7 @@ import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
+import { BrandMark } from './BrandMark'
 import { markNavDirection, TABS } from './navTabs'
 
 /**
@@ -20,7 +21,7 @@ export function SideNav() {
       <div className="flex h-[var(--nav-h)] w-[72px] items-center justify-center">
         <NavLink to="/" aria-label="Sukimi 首页" className="pointer-events-auto rounded-full text-text no-underline">
           <Glass as="span" data-vt-glass="sidenav-brand" className="flex rounded-full p-[5px] text-[17px] font-bold">
-            <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
+            <BrandMark />
           </Glass>
         </NavLink>
       </div>
