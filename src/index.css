@@ -813,6 +813,7 @@ html:is([data-gallery-window], [data-gallery-window-back]) [data-gallery-copy="b
 /* 每块导航玻璃独立于封面和墙；命名节点自身的滤镜由浏览器复制到 group。
    group 的圆角也约束背景滤镜，避免胶囊外出现矩形模糊。 */
 .glass[data-vt-glass] { view-transition-class: nav-glass; }
+.nav-blur-layer[data-vt-glass] { view-transition-class: nav-glass nav-blur; }
 html:is([data-gallery-window], [data-gallery-window-back]) {
   [data-vt-glass="topnav-brand"] { view-transition-name: nav-topnav-brand; }
   [data-vt-glass="topnav-back"] { view-transition-name: nav-topnav-back; }
@@ -825,10 +826,22 @@ html:is([data-gallery-window], [data-gallery-window-back]) {
   [data-vt-glass="sidenav-brand"] { view-transition-name: nav-sidenav-brand; }
   [data-vt-glass="sidenav-tabs"] { view-transition-name: nav-sidenav-tabs; }
   [data-vt-glass="tabbar-tabs"] { view-transition-name: nav-tabbar-tabs; }
+  [data-vt-glass="topnav-blur-0"] { view-transition-name: nav-topnav-blur-0; }
+  [data-vt-glass="topnav-blur-1"] { view-transition-name: nav-topnav-blur-1; }
+  [data-vt-glass="topnav-blur-2"] { view-transition-name: nav-topnav-blur-2; }
+  [data-vt-glass="topnav-blur-3"] { view-transition-name: nav-topnav-blur-3; }
+  [data-vt-glass="topnav-blur-4"] { view-transition-name: nav-topnav-blur-4; }
 }
 ::view-transition-group(.nav-glass) { animation: none; z-index: 3; border-radius: 999px; }
 ::view-transition-group(nav-sidenav-tabs), ::view-transition-group(nav-tabbar-tabs) { border-radius: 26px; }
 ::view-transition-group(nav-topnav-appearance-panel) { border-radius: 22px; }
+/* 渐进模糊层：矩形，遮罩按 TopNav 的分段（BLUR_LAYERS = 5，每层从自己那一段盖到顶端）重写 */
+::view-transition-group(.nav-blur) { border-radius: 0; }
+::view-transition-group(nav-topnav-blur-0) { mask-image: linear-gradient(to top, transparent 0%, #000 20%); }
+::view-transition-group(nav-topnav-blur-1) { mask-image: linear-gradient(to top, transparent 20%, #000 40%); }
+::view-transition-group(nav-topnav-blur-2) { mask-image: linear-gradient(to top, transparent 40%, #000 60%); }
+::view-transition-group(nav-topnav-blur-3) { mask-image: linear-gradient(to top, transparent 60%, #000 80%); }
+::view-transition-group(nav-topnav-blur-4) { mask-image: linear-gradient(to top, transparent 80%, #000 100%); }
 ::view-transition-old(.nav-glass) { display: none; }
 ::view-transition-new(.nav-glass) { animation: none; mix-blend-mode: normal; height: 100%; }
 /* 只有旧快照的分组也要隐藏：即使 old 图片不画，group 的背景滤镜仍会留下玻璃残影。 */
@@ -836,7 +849,8 @@ html:not(:has([data-vt-glass="topnav-brand"]))::view-transition-group(nav-topnav
 html:not(:has([data-vt-glass="topnav-back"]))::view-transition-group(nav-topnav-back),
 html:not(:has([data-vt-glass="topnav-downloads"]))::view-transition-group(nav-topnav-downloads),
 html:not(:has([data-vt-glass="topnav-appearance-panel"]))::view-transition-group(nav-topnav-appearance-panel),
-html:not(:has([data-vt-glass="tabbar-tabs"]))::view-transition-group(nav-tabbar-tabs) { display: none; }
+html:not(:has([data-vt-glass="tabbar-tabs"]))::view-transition-group(nav-tabbar-tabs),
+html:not(:has(.nav-blur-layer))::view-transition-group(.nav-blur) { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .cover-skeleton::before {
