@@ -144,7 +144,7 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
               {a.name}
             </span>
             <span className={cn('block text-[11px] text-muted num', phone ? 'mt-0.5' : 'mt-1.5')}>
-              {a.works} 部 · {count(a.read)} 话{a.pages > 0 && ` · 至少 ${count(a.pages)} 页`}
+              {a.works} 部 · {count(a.read)} 话{a.pages > 0 && ` · 约 ${count(a.pages)} 页`}
             </span>
           </span>
         </div>

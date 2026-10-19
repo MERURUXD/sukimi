@@ -27,7 +27,7 @@ export interface RankEntry {
   id: number
   read: number
   total: number | null
-  /** 已读页数，只累加页数大于 0 的已读章节，所以是下限 */
+  /** 已读页数估算（取整）：页数已知的话按实际页数，未知的按这部已知话的平均页数补，整部都未知则用全库平均 */
   pages: number
   /** 这部最后一次阅读（毫秒），没有时间的为 0 */
   last: number
@@ -37,7 +37,7 @@ export interface HeatDay {
   /** 当天本地零点（毫秒） */
   date: number
   count: number
-  /** 当天读完的页数（只算页数大于 0 的已读章节） */
+  /** 当天读完的页数估算，口径同 ReadingStats.pages */
   pages: number
   /** 今天之后的格子（本周还没到的几天） */
   future: boolean
@@ -50,7 +50,10 @@ export interface ReadingStats {
   total: number | null
   /** 已追平的部数：已读等于总话数且总话数大于 0 */
   caughtUp: number
-  /** 已读页数，只累加页数大于 0 的已读章节，所以是下限 */
+  /**
+   * 已读页数估算（取整）。服务端只在章节页面被取过后才有页数，批量标已读、同步进度的话没有，
+   * 这些话按所属作品已知话的平均页数补，整部都没有已知页数的用全库平均
+   */
   pages: number
   /** 已读但没有阅读时间的话数（不进时间图表） */
   untimed: number
@@ -113,16 +116,34 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
   let pages = 0
   let untimed = 0
 
+  // 先量出每部、全库已读话的平均页数，再给页数未知的话补上
+  const sample = new Map<number, { n: number; sum: number }>()
+  let allN = 0
+  let allSum = 0
+  for (const c of chapters) {
+    if (!c.isRead || c.pageCount <= 0) continue
+    const e = sample.get(c.mangaId) ?? { n: 0, sum: 0 }
+    e.n++
+    e.sum += c.pageCount
+    sample.set(c.mangaId, e)
+    allN++
+    allSum += c.pageCount
+  }
+  const pagesOf = (c: StatChapter) => {
+    if (c.pageCount > 0) return c.pageCount
+    const e = sample.get(c.mangaId)
+    return e ? e.sum / e.n : allN ? allSum / allN : 0
+  }
+
   for (const c of chapters) {
     const at = sec(c.lastReadAt)
     const entry = perManga.get(c.mangaId) ?? { read: 0, pages: 0, last: 0 }
     if (c.isRead) {
       read++
       entry.read++
-      if (c.pageCount > 0) {
-        pages += c.pageCount
-        entry.pages += c.pageCount
-      }
+      const p = pagesOf(c)
+      pages += p
+      entry.pages += p
       if (at <= 0) untimed++
     }
     if (at > 0) {
@@ -132,7 +153,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
         hours[new Date(at).getHours()]++
         const day = dayStart(at)
         perDay.set(day, (perDay.get(day) ?? 0) + 1)
-        if (c.isRead && c.pageCount > 0) pagesPerDay.set(day, (pagesPerDay.get(day) ?? 0) + c.pageCount)
+        if (c.isRead) pagesPerDay.set(day, (pagesPerDay.get(day) ?? 0) + pagesOf(c))
       }
     }
     perManga.set(c.mangaId, entry)
@@ -158,7 +179,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
   const ranking: RankEntry[] = mangas.map((m) => {
     const e = perManga.get(m.id) ?? { read: 0, pages: 0, last: 0 }
     if (m.total != null && m.total > 0 && e.read >= m.total) caughtUp++
-    return { id: m.id, read: e.read, total: m.total, pages: e.pages, last: e.last }
+    return { id: m.id, read: e.read, total: m.total, pages: Math.round(e.pages), last: e.last }
   })
   ranking.sort((a, b) => b.read - a.read || b.last - a.last || a.id - b.id)
 
@@ -166,7 +187,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
     read,
     total: known ? mangas.reduce((n, m) => n + (m.total ?? 0), 0) : null,
     caughtUp,
-    pages,
+    pages: Math.round(pages),
     untimed,
     hours,
     peak,
