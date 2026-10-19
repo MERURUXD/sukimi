@@ -9,8 +9,8 @@ import { Row, Section, Switch } from '../parts'
 
 export function AppearanceTab() {
   const {
-    theme, glass, mangaDetailMotion, readerMotion, autoHideNav, homeMotionBg,
-    setTheme, setGlass, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setHomeMotionBg,
+    theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMotionBg,
+    setTheme, setGlass, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setNavBlur, setHomeMotionBg,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const canRefract = supportsRefract()
@@ -52,6 +52,9 @@ export function AppearanceTab() {
         </Row>
         <Row label="自动隐藏顶栏" hint="向下滚动时隐藏顶部的导航与按钮，向上滚动再出现，避免盖住正文。关闭后顶栏始终悬浮。">
           <Switch on={autoHideNav} onChange={setAutoHideNav} label="自动隐藏顶栏" />
+        </Row>
+        <Row label="顶栏渐进模糊" hint="顶栏背后的内容越靠近屏幕顶端越模糊，滚动时标题和封面不会和按钮挤在一起。比较耗性能，手机上可能影响滚动流畅度。">
+          <Switch on={navBlur} onChange={setNavBlur} label="顶栏渐进模糊" />
         </Row>
         <Row label="动态背景" hint="首页（「封面与文字」「居中海报」布局）和漫画详情页的背景取封面主色缓慢流动，详情页更慢。关闭后首页显示静态模糊封面、详情页色块静止；系统开启「减弱动态效果」时同样静止。">
           <Switch on={homeMotionBg} onChange={setHomeMotionBg} label="动态背景" />

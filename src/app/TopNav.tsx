@@ -35,6 +35,7 @@ export function TopNav() {
 
   const bar = useRef<HTMLElement>(null)
   const hidden = useHideOnScroll(useAppearance((s) => s.autoHideNav), bar)
+  const blur = useAppearance((s) => s.navBlur)
 
   return (
     // 隐藏用独立的 translate（不用透明度或滤镜），玻璃的背景采样不受影响
@@ -44,6 +45,7 @@ export function TopNav() {
       className={cn('fixed inset-x-0 top-0 z-40 transition-[translate] duration-300 ease-out', hidden && '-translate-y-full pointer-events-none')}
       inert={hidden || undefined}
     >
+      {blur && <NavBlur hidden={hidden} />}
       {/* 宽桌面用居中三栏网格；窄桌面按两侧实际宽度分配空间，放大后仍能操作顶栏 */}
       <div className="topnav-layout wrap h-[var(--nav-h)] items-center justify-between gap-4">
         {inManga ? (
@@ -96,6 +98,48 @@ export function TopNav() {
         </div>
       </div>
     </header>
+  )
+}
+
+/** 模糊带比顶栏多出的高度，渐隐到这里为止 */
+const BLUR_TAIL = 20
+const BLUR_LAYERS = 5
+const BLUR_MAX = 16
+
+/** 越往上越模糊：t 为距模糊带底边的比例，指数曲线让模糊集中在屏幕顶端 */
+const blurAt = (t: number) => (BLUR_MAX * (2 ** (4 * t) - 1)) / 15
+
+/**
+ * 每层从自己那一段开始一直盖到顶端；高斯模糊叠加时方差相加，
+ * 所以每层半径取相邻两档的平方差开方，叠起来正好是该高度的目标模糊
+ */
+const BLUR_STACK = Array.from({ length: BLUR_LAYERS }, (_, i) => {
+  const from = i / BLUR_LAYERS
+  const to = (i + 1) / BLUR_LAYERS
+  const r = Math.sqrt(blurAt(to) ** 2 - blurAt(from) ** 2)
+  return {
+    backdropFilter: `blur(${r.toFixed(2)}px)`,
+    maskImage: `linear-gradient(to top, transparent ${from * 100}%, #000 ${to * 100}%)`,
+  }
+})
+
+/**
+ * 顶栏背后的渐进模糊（参考 React Bits 的 Gradual Blur，不加色调）。
+ * 是导航内容的兄弟元素而不是父元素：父元素带滤镜或遮罩会把玻璃的背景采样截断。
+ * 比顶栏多出的那段尾巴在顶栏隐藏时再往上收，不留一条模糊边；只用位移，不动透明度
+ */
+function NavBlur({ hidden }: { hidden: boolean }) {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-x-0 top-0 -z-10 transition-[translate] duration-300 ease-out"
+      // 收起距离和尾巴同用 px，浏览器改了默认字号也不会留边
+      style={{ height: `calc(var(--nav-h) + ${BLUR_TAIL}px)`, translate: hidden ? `0 -${BLUR_TAIL}px` : undefined }}
+    >
+      {BLUR_STACK.map((style, i) => (
+        <div key={i} className="absolute inset-0" style={style} />
+      ))}
+    </div>
   )
 }
 
