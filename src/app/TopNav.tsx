@@ -1,5 +1,5 @@
 import { AnimatePresence } from 'motion/react'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowDown, ChevronLeft } from 'lucide-react'
 import { NavLink, useLocation, useMatch, useNavigate } from 'react-router'
 import { useLive } from '@/api/live'
@@ -10,6 +10,7 @@ import { cn } from '@/lib/cn'
 import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { AppearanceMenu } from './AppearanceMenu'
+import { BrandMark } from './BrandMark'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection } from './navTabs'
 import { ThemeToggle } from './ThemeToggle'
@@ -32,6 +33,15 @@ export function TopNav() {
   const { ref: pillRef, box: pillBox } = useNavPill(pathname)
   // 从站内进来就后退，直接打开的详情页回书库
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/library'))
+  // 左上角在标志和返回键之间切换时，新出现的图形淡入（玻璃本身照常直接换）；刚打开页面时不播
+  const lead = inManga ? 'back' : 'brand'
+  const [prevLead, setPrevLead] = useState(lead)
+  const [swapped, setSwapped] = useState(false)
+  if (lead !== prevLead) {
+    setPrevLead(lead)
+    setSwapped(true)
+  }
+  const leadIn = swapped ? 'lead-in' : undefined
 
   const bar = useRef<HTMLElement>(null)
   const hidden = useHideOnScroll(useAppearance((s) => s.autoHideNav), bar)
@@ -51,14 +61,14 @@ export function TopNav() {
         {inManga ? (
           // 网格项默认会拉满整列，要贴着一侧只占自身宽度
           <Glass as="button" data-vt-glass="topnav-back" type="button" className="gicon rounded-full justify-self-start" onClick={back} aria-label="返回">
-            <ChevronLeft className="size-6" strokeWidth={1.8} />
+            <ChevronLeft className={cn('size-6', leadIn)} strokeWidth={1.8} />
           </Glass>
         ) : (
           // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏
           <NavLink to="/" aria-label="Sukimi 首页" className="topnav-brand rounded-full text-text no-underline justify-self-start">
             <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
-              <span className="grid size-10 place-items-center rounded-full bg-solid text-on-solid">S</span>
-              <span className="max-sm:hidden md:max-xl:hidden">Sukimi</span>
+              <BrandMark className={leadIn} />
+              <span className={cn('max-sm:hidden md:max-xl:hidden', leadIn)}>Sukimi</span>
             </Glass>
           </NavLink>
         )}

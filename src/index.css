@@ -589,6 +589,17 @@
   animation-delay: calc(var(--d, 0ms) + (sibling-index() - 1) * 30ms);
 }
 
+/* 顶栏左上角标志 ↔ 返回键：只动里面的图形，玻璃自身不加透明度和缩放，背景采样不受影响 */
+@keyframes lead-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+.lead-in {
+  animation: lead-in 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
 /* 详情页背景：从页面底色淡入，轻微缩小到位 */
 @keyframes bg-in {
   from {
