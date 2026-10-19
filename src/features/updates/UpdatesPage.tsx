@@ -254,10 +254,12 @@ export function UpdatesPage() {
           {data && list.length === 0 && <p className="py-20 text-center text-muted">没有符合条件的章节</p>}
           {days.map((d, di) => (
             <div key={d.label}>
-              <h2 className="mt-[26px] mb-2.5 flex items-baseline gap-2.5 text-lg font-bold">
+              <h2 className="mt-[26px] mb-2.5 flex items-baseline gap-2.5 text-lg font-bold lg:text-xl">
                 {d.label}
                 <span className="text-[13px] font-medium text-muted">{d.rows.length} 话</span>
               </h2>
+              {/* 宽屏分两栏，条目才能放大又不在右边空出一大片；items-start 让展开的组只撑高自己 */}
+              <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
                 const row = (c: UpdateChapter, nested = false) => (
@@ -281,6 +283,7 @@ export function UpdatesPage() {
                   </div>
                 )
               })}
+              </div>
             </div>
           ))}
           <div ref={sentinel} />
@@ -364,10 +367,10 @@ function rowIndex(days: { groups: unknown[] }[], di: number, gi: number) {
 
 function RowsSkeleton() {
   return (
-    <div className="flex flex-col gap-1 pt-[26px]" aria-hidden>
+    <div className="flex flex-col gap-1 pt-[26px] xl:grid xl:grid-cols-2 xl:gap-x-6" aria-hidden>
       {Array.from({ length: 8 }, (_, i) => (
-        <div key={i} className="flex items-center gap-4 py-2.5 pl-2.5">
-          <span className="skel aspect-[2/3] w-[46px] rounded-md" style={riseStep(i)} />
+        <div key={i} className="flex items-center gap-4 py-2.5 pl-2.5 lg:gap-[18px] lg:py-3">
+          <span className="skel aspect-[2/3] w-[46px] rounded-md lg:w-[72px] lg:rounded-lg" style={riseStep(i)} />
           <span className="flex flex-1 flex-col gap-2">
             <span className="skel h-3.5 w-2/5 rounded-full" style={riseStep(i)} />
             <span className="skel h-3 w-1/4 rounded-full" style={riseStep(i)} />
@@ -402,29 +405,31 @@ function Row({
       data-nsfw={useNsfwBlur(c.manga)}
       data-reader-origin
       style={rise}
-      className={cn('flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', nested ? 'py-1.5' : 'py-2.5', rise && 'rise')}
+      className={cn('flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4 lg:gap-[18px]', nested ? 'py-1.5' : 'py-2.5 lg:py-3', rise && 'rise')}
     >
       {nested ? (
-        <span className="w-[46px] flex-none" aria-hidden />
+        <span className="w-[46px] flex-none lg:w-[72px]" aria-hidden />
       ) : (
-        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md" aria-label={`${c.manga.title} 详情`}>
+        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md lg:w-[72px] lg:rounded-lg" aria-label={`${c.manga.title} 详情`}>
           <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
         </Link>
       )}
-      <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} viewTransition className="flex min-w-0 flex-1 flex-col text-text no-underline">
+      <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} viewTransition className="flex min-w-0 flex-1 flex-col text-text no-underline lg:gap-0.5">
         <span className="flex min-w-0 items-baseline gap-2">
           {!c.isRead && <span className="size-2 flex-none rounded-full bg-accent" />}
-          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>
+          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', nested ? 'lg:text-[15px]' : 'lg:text-lg', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>
         </span>
-        {!nested && <span className="truncate text-xs text-muted">{chapterLabel(c)}</span>}
+        {!nested && <span className={cn('truncate text-xs text-muted lg:text-[15px]', !c.isRead && 'lg:text-text')}>{chapterLabel(c)}</span>}
         {/* 手机把时间与下载状态放回文字区，给标题和章节名留出宽度。 */}
         <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted num sm:hidden">
           <span>{time}</span>
           {queued && <span>{downloadStatus}</span>}
         </span>
+        {/* 宽屏同理：来源和时间收进文字区第三行，不再占两列，两栏时每栏才放得下大封面和大字 */}
+        <span className="hidden truncate text-[13px] text-muted num lg:block" title={nested ? undefined : c.manga.source?.displayName}>{nested ? time : [c.manga.source?.displayName, time].filter(Boolean).join(' · ')}</span>
       </Link>
-      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
-      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden">{time}</span>
+      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
+      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden lg:hidden">{time}</span>
       <span className="flex w-11 flex-none justify-end sm:w-24">
         {queued ? (
           <span className="flex w-11 flex-col items-center gap-1 sm:w-[84px] sm:items-stretch" title={downloadStatus}>
@@ -436,12 +441,12 @@ function Row({
           </span>
         ) : c.isDownloaded ? (
           <span className="grid size-11 place-items-center text-accent" title="已下载">
-            <CircleCheck className="size-5" strokeWidth={1.8} />
+            <CircleCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />
           </span>
         ) : (
           <Can permission="DOWNLOAD_CHAPTERS">
             <button type="button" className="gicon text-muted hover:text-text" onClick={onEnqueue} aria-label={`下载 ${c.manga.title} ${chapterLabel(c)}`}>
-              <Download className="size-5" strokeWidth={1.8} />
+              <Download className="size-5 lg:size-[22px]" strokeWidth={1.8} />
             </button>
           </Can>
         )}
@@ -453,7 +458,7 @@ function Row({
         aria-label={c.isRead ? '标为未读' : '标为已读'}
         title={c.isRead ? '标为未读' : '标为已读'}
       >
-        {c.isRead ? <BookOpen className="size-5" strokeWidth={1.8} /> : <BookCheck className="size-5" strokeWidth={1.8} />}
+        {c.isRead ? <BookOpen className="size-5 lg:size-[22px]" strokeWidth={1.8} /> : <BookCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />}
       </button>
     </div>
   )
@@ -470,30 +475,31 @@ function GroupRow({ rows, rise, expanded, onToggle }: { rows: UpdateChapter[]; r
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(c.manga)}
       style={rise}
-      className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4', rise && 'rise')}
+      className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4 lg:gap-[18px] lg:py-3', rise && 'rise')}
     >
       {/* 封面后面露出两层，像叠在一起的几话；右下角的数字是话数 */}
-      <span className="relative mt-2 w-[46px] flex-none">
-        <span aria-hidden className="absolute inset-x-2 -top-2.5 h-full rounded-md bg-text/15" />
-        <span aria-hidden className="absolute inset-x-1 -top-[5px] h-full rounded-md bg-text/30" />
-        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv relative rounded-md" aria-label={`${c.manga.title} 详情`}>
+      <span className="relative mt-2 w-[46px] flex-none lg:w-[72px]">
+        <span aria-hidden className="absolute inset-x-2 -top-2.5 h-full rounded-md bg-text/15 lg:inset-x-3 lg:rounded-lg" />
+        <span aria-hidden className="absolute inset-x-1 -top-[5px] h-full rounded-md bg-text/30 lg:inset-x-1.5 lg:rounded-lg" />
+        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv relative rounded-md lg:rounded-lg" aria-label={`${c.manga.title} 详情`}>
           <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
         </Link>
         <span aria-hidden className="pointer-events-none absolute -right-2 -bottom-2 grid h-[22px] min-w-[22px] place-items-center rounded-full bg-accent px-1.5 text-[12px] leading-none font-bold text-on-accent num">{rows.length}</span>
       </span>
-      <button type="button" className="flex min-w-0 flex-1 cursor-pointer flex-col border-0 bg-transparent p-0 text-left text-text" aria-expanded={expanded} onClick={onToggle}>
+      <button type="button" className="flex min-w-0 flex-1 cursor-pointer flex-col border-0 bg-transparent p-0 text-left text-text lg:gap-0.5" aria-expanded={expanded} onClick={onToggle}>
         <span className="flex min-w-0 items-baseline gap-2">
           {unread > 0 && <span className="size-2 flex-none rounded-full bg-accent" />}
-          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', unread ? 'font-semibold' : 'font-medium text-muted')}>{c.manga.title}</span>
+          <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate lg:text-lg', unread ? 'font-semibold' : 'font-medium text-muted')}>{c.manga.title}</span>
         </span>
-        <span className="truncate text-xs text-muted">{summary}</span>
+        <span className={cn('truncate text-xs text-muted lg:text-[15px]', unread > 0 && 'lg:text-text')}>{summary}</span>
         <span className="mt-0.5 text-xs text-muted num sm:hidden">{time}</span>
+        <span className="hidden truncate text-[13px] text-muted num lg:block" title={c.manga.source?.displayName}>{[c.manga.source?.displayName, time].filter(Boolean).join(' · ')}</span>
       </button>
-      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
-      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden">{time}</span>
+      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
+      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden lg:hidden">{time}</span>
       <span className="w-11 flex-none sm:w-24" aria-hidden />
       <button type="button" className="gicon text-muted hover:text-text" onClick={onToggle} tabIndex={-1} aria-hidden>
-        <ChevronDown className={cn('size-5 transition-transform', expanded && 'rotate-180')} strokeWidth={1.8} />
+        <ChevronDown className={cn('size-5 transition-transform lg:size-[22px]', expanded && 'rotate-180')} strokeWidth={1.8} />
       </button>
     </div>
   )
