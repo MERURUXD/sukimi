@@ -28,6 +28,9 @@ function unmark(el: HTMLElement) {
   delete el.dataset.coverVt
 }
 
+/** 导航玻璃表面，以及顶栏渐进模糊的各层（它们同样靠背景模糊，被封面盖住就失效） */
+const LIFTED = '.glass[data-vt-glass], .nav-blur-layer[data-vt-glass]'
+
 /**
  * 导航的实际玻璃表面用 data-vt-glass 标记，过渡名不加在透明外壳上。
  * 过渡动画的伪元素都画在页面最上层，封面从栏下面的格子里飞出或飞回时会盖在栏上。
@@ -37,7 +40,7 @@ function unmark(el: HTMLElement) {
 let liftedSurfaces: Map<HTMLElement, string> | undefined
 
 function liftSurfaces(surfaces: Map<HTMLElement, string>) {
-  document.querySelectorAll<HTMLElement>('.glass[data-vt-glass]').forEach((surface) => {
+  document.querySelectorAll<HTMLElement>(LIFTED).forEach((surface) => {
     const r = surface.getBoundingClientRect()
     if (!r.width || !r.height || r.right <= 0 || r.bottom <= 0 || r.left >= innerWidth || r.top >= innerHeight) return
     if (!surfaces.has(surface)) surfaces.set(surface, surface.style.viewTransitionName)

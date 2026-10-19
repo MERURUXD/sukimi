@@ -126,7 +126,9 @@ const BLUR_STACK = Array.from({ length: BLUR_LAYERS }, (_, i) => {
 /**
  * 顶栏背后的渐进模糊（参考 React Bits 的 Gradual Blur，不加色调）。
  * 是导航内容的兄弟元素而不是父元素：父元素带滤镜或遮罩会把玻璃的背景采样截断。
- * 比顶栏多出的那段尾巴在顶栏隐藏时再往上收，不留一条模糊边；只用位移，不动透明度
+ * 比顶栏多出的那段尾巴在顶栏隐藏时再往上收，不留一条模糊边；只用位移，不动透明度。
+ * 页面转场的伪元素画在最上层，封面飞过顶栏时会盖住这些层：转场期间每层和玻璃一样单独成组，
+ * 背景模糊由浏览器带到分组上；遮罩不会被带过去，index.css 里按同样的分段重写。
  */
 function NavBlur({ hidden }: { hidden: boolean }) {
   return (
@@ -137,7 +139,8 @@ function NavBlur({ hidden }: { hidden: boolean }) {
       style={{ height: `calc(var(--nav-h) + ${BLUR_TAIL}px)`, translate: hidden ? `0 -${BLUR_TAIL}px` : undefined }}
     >
       {BLUR_STACK.map((style, i) => (
-        <div key={i} className="absolute inset-0" style={style} />
+        // data-vt-glass 让封面等转场把这些层和导航玻璃一起提成独立分组（见 lib/coverTransition.ts、index.css）
+        <div key={i} data-vt-glass={`topnav-blur-${i}`} className="nav-blur-layer absolute inset-0" style={style} />
       ))}
     </div>
   )
