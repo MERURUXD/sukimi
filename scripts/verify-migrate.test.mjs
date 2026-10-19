@@ -47,6 +47,14 @@ test('候选来源：排除本地和当前来源，同语言包含多语言和�
   assert.deepEqual(migrationSources(sources, null, 'lang').map((s) => s.id), ['1', '2', '3', '4', '5'])
 })
 
+test('追踪记录：只搬可用网站的，新漫画已有绑定的网站不覆盖', async () => {
+  const { planTrackCopy } = await import('../src/features/manga/migrate.ts')
+  const from = [{ id: 1, trackerId: 1 }, { id: 2, trackerId: 2 }, { id: 3, trackerId: 3 }]
+  assert.deepEqual(planTrackCopy(from, [{ trackerId: 2 }], new Set([1, 2])).map((r) => r.id), [1])
+  assert.deepEqual(planTrackCopy(from, [], new Set()), [])
+  assert.deepEqual(planTrackCopy([], [], new Set([1])), [])
+})
+
 test('同名判断：忽略大小写、全半角、空白与标点，排除自己', async () => {
   const { findSameTitle, titleKey } = await import('../src/features/manga/migrate.ts')
   assert.equal(titleKey('Ｆoo Bar！'), titleKey('foo-bar'))
