@@ -27,6 +27,17 @@ const OLD = Array.from({ length: 12 }, (_, i) =>
   chapter(-600 - i, i + 1, { isRead: i < 8 && i !== 4, isBookmarked: i === 2 || i === 9, isDownloaded: i < 4 }),
 )
 
+const tracker = (id: number, name: string, loggedIn: boolean) => ({
+  __typename: 'TrackerType', id, name, icon: '', isLoggedIn: loggedIn, isTokenExpired: false, authUrl: null, supportsPrivateTracking: false,
+  supportsReadingDates: false, supportsTrackDeletion: false, scores: [], statuses: [],
+})
+const record = (id: number, trackerId: number, mangaId: number, title: string) => ({
+  __typename: 'TrackRecordType', id, trackerId, mangaId, remoteId: `r${trackerId}`, remoteUrl: '', title, status: 1, lastChapterRead: 3,
+  totalChapters: 0, score: 0, displayScore: '', startDate: '0', finishDate: '0', private: false,
+})
+/** 本次打开期间新绑定的记录 */
+const bound: ReturnType<typeof record>[] = []
+
 /** 只在开发路由挂载；所有请求在本机生成，不连接服务端 */
 export function MigrateLab() {
   useApplyAppearance()
@@ -90,6 +101,30 @@ export function MigrateLab() {
               case 'DeleteDownloads':
                 observer.next({ data: { deleteDownloadedChapters: { __typename: 'DeleteDownloadedChaptersPayload', chapters: [] } } })
                 break
+              case 'Trackers':
+                observer.next({ data: { trackers: { __typename: 'TrackerNodeList', nodes: [
+                  tracker(1, '虚构追踪甲', true),
+                  tracker(2, '虚构追踪乙', true),
+                  tracker(3, '虚构追踪丙', false),
+                ] } } })
+                break
+              case 'MangaTracks':
+                observer.next({ data: { manga: { __typename: 'MangaType', id: v.id, trackRecords: { __typename: 'TrackRecordNodeList', nodes:
+                  v.id === ID ? [record(-910, 1, ID, '虚构条目 甲'), record(-911, 2, ID, '虚构条目 乙'), record(-912, 3, ID, '虚构条目 丙')] : bound.filter((r) => r.mangaId === v.id),
+                } } } })
+                break
+              case 'SearchTracker':
+                // 乙网站搜不到，用来验收「个别网站绑不上」的提示
+                observer.next({ data: { searchTracker: { __typename: 'SearchTrackerPayload', trackSearches: v.trackerId === 2 ? [] : [{
+                  __typename: 'TrackSearchType', id: -1, remoteId: `r${v.trackerId}`, title: v.query, coverUrl: '', summary: '', publishingStatus: '', publishingType: '', startDate: '', totalChapters: 0, trackingUrl: '',
+                }] } } })
+                break
+              case 'BindTrack': {
+                const rec = record(-920 - bound.length, v.trackerId, v.mangaId, '虚构条目')
+                bound.push(rec)
+                observer.next({ data: { bindTrack: { __typename: 'BindTrackPayload', trackRecord: rec } } })
+                break
+              }
               default:
                 observer.error(new Error('迁移验收页不连接服务端'))
                 return

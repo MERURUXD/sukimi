@@ -51,6 +51,15 @@ export function planMigration(from: readonly MigrationChapter[], to: readonly Mi
   return plan
 }
 
+/**
+ * 要搬到新漫画的追踪记录：旧漫画绑定过、网站仍可用（已登录且未过期），
+ * 并且新漫画在这个网站上还没有自己的绑定（已有的不覆盖）
+ */
+export function planTrackCopy<R extends { trackerId: number }>(from: readonly R[], existing: readonly { trackerId: number }[], usable: ReadonlySet<number>): R[] {
+  const taken = new Set(existing.map((r) => r.trackerId))
+  return from.filter((r) => usable.has(r.trackerId) && !taken.has(r.trackerId))
+}
+
 /** 候选来源：排除本地来源和当前来源；「同语言」再加上多语言来源 */
 export function migrationSources<S extends { id: string; lang: string }>(sources: readonly S[], current: { id: string; lang: string } | null, scope: 'lang' | 'all'): S[] {
   const others = sources.filter((s) => s.id !== '0' && s.id !== current?.id)
