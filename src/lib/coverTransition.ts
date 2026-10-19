@@ -39,8 +39,13 @@ const LIFTED = '.glass[data-vt-glass], .nav-blur-layer[data-vt-glass]'
  */
 let liftedSurfaces: Map<HTMLElement, string> | undefined
 
-function liftSurfaces(surfaces: Map<HTMLElement, string>) {
+/**
+ * blur = false 时不提模糊层。转场开头只有旧快照的那几帧里，模糊层的分组拿不到遮罩，
+ * 渐进的模糊带会变成一整块硬边的矩形（点击的一瞬闪一下）；所以它们等新页面渲染好、新旧快照配成对再提。
+ */
+function liftSurfaces(surfaces: Map<HTMLElement, string>, blur = true) {
   document.querySelectorAll<HTMLElement>(LIFTED).forEach((surface) => {
+    if (!blur && surface.classList.contains('nav-blur-layer')) return
     const r = surface.getBoundingClientRect()
     if (!r.width || !r.height || r.right <= 0 || r.bottom <= 0 || r.left >= innerWidth || r.top >= innerHeight) return
     if (!surfaces.has(surface)) surfaces.set(surface, surface.style.viewTransitionName)
@@ -105,7 +110,7 @@ export function installCoverTransition(basePath = '') {
     const readerTransition = document.documentElement.hasAttribute(READER_VT_ATTR)
     const coverTransition = !readerTransition && !document.documentElement.hasAttribute('data-theme-vt')
       && (!!document.querySelector('[data-cover-vt]') || !!(from && origins.has(from)))
-    if (coverTransition) liftSurfaces(surfaces)
+    if (coverTransition) liftSurfaces(surfaces, false)
     const t = start({
       ...(typeof arg === 'object' ? arg : {}),
       update: async () => {
