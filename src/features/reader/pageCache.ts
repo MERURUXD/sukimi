@@ -26,6 +26,9 @@ export function rememberAspect(url: string, img: HTMLImageElement) {
   if (img.naturalWidth && img.naturalHeight) aspects.set(url, img.naturalWidth / img.naturalHeight)
 }
 
+/** 重新加载一页前忘掉预加载的结果，下次预加载重新请求 */
+export const forgetWarm = (url: string) => void warmed.delete(url)
+
 /** 预加载图片（同源 Cookie 鉴权，直接 new Image 即可） */
 export function warm(url: string, onAspect?: () => void) {
   if (warmed.has(url)) return

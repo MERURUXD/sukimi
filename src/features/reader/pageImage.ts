@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import { rememberAspect } from './pageCache'
+import { forgetWarm, rememberAspect } from './pageCache'
+import { forgetDecoded } from './pageDecode'
 import { FULL, contentBox, halfBox, type Box, type Half } from './pageTools'
 
 /**
@@ -108,6 +109,24 @@ async function render(url: string, v: Variant): Promise<string | null> {
     }
   })
   return blob ? URL.createObjectURL(blob) : null
+}
+
+/**
+ * 重新加载一页：忘掉它失败的原图、处理结果和预加载记录，让这一页从头来过。
+ * 失败的原图会被 load() 缓存成 null，不清掉的话换了网络也永远用不上。
+ */
+export function reloadPage(url: string) {
+  sources.delete(url)
+  forgetWarm(url)
+  forgetDecoded(url)
+  for (const key of [...done.keys()]) {
+    if (!key.endsWith(`|${url}`)) continue
+    const out = done.get(key)
+    if (out) URL.revokeObjectURL(out)
+    done.delete(key)
+  }
+  for (const key of [...running]) if (key.endsWith(`|${url}`)) running.delete(key)
+  notify()
 }
 
 /** 开始处理（已在处理或已完成则什么也不做） */

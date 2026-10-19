@@ -2,6 +2,7 @@ import { useGesture } from '@use-gesture/react'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { cn } from '@/lib/cn'
 import { clampPan, MAX_ZOOM, NO_ZOOM, panBounds, settle, swipeResult, TAP_ZOOM, zoomAround, type Zoom } from './gestures'
+import { ReaderImage } from './ReaderImage'
 import { rememberAspect } from './pageCache'
 import { decodePage } from './pageDecode'
 import type { Half } from './pageTools'
@@ -19,13 +20,13 @@ const screenKey = (s: Screen) => s.pages.join('-') + (s.half === undefined ? '' 
 const SLIDE_MS = 200
 /** 减速曲线：起步快、末尾缓，松手时接着手指的速度滑完 */
 const EASE = 'cubic-bezier(0.33, 1, 0.68, 1)'
-/** 触屏双击的判定间隔；单击要等这么久确认不是双击 */
+/** 双击的判定间隔；单击要等这么久确认不是双击 */
 const DOUBLE_MS = 250
 
 /**
  * 单页 / 双页。
  * 点击：左 30% / 中 40% / 右 30%。两侧按阅读方向翻页，中间切换工具栏。
- *       鼠标点两侧立即翻页（连点就连翻），只有中间能双击；触屏任何位置都能双击，单击稍等确认后才生效。
+ *       鼠标和触屏任何位置都能双击，单击稍等确认不是双击后才生效。
  *       双击在点到的位置放大 / 复位。
  * 滚轮：向下 = 下一页，向上 = 上一页；页面比屏幕高时先滚到底 / 顶再翻。
  * 手势：横向拖动时整条「上一页 | 当前页 | 下一页」跟着手指走，松手按距离和速度决定翻页或弹回；
@@ -78,8 +79,6 @@ export function PagedView({
   const dragged = useRef(false)
   const wheel = useRef({ last: 0, acc: 0, locked: false })
   const pendingTap = useRef<ReturnType<typeof setTimeout>>(undefined)
-  // 最近一次按下是不是鼠标：鼠标点两侧立即翻页，触屏要等等看是不是双击
-  const mouse = useRef(true)
   // 翻页动画的序号：卸载或新的翻页开始后，旧的那次不再继续
   const flipping = useRef(0)
   // 放大时这一下拖动开始时顶着哪边：1 = 左边缘（内容右移到底），-1 = 右边缘
@@ -247,9 +246,8 @@ export function PagedView({
     const center = zones === 'off' || zoomed || (pos >= 0.3 && pos <= 0.7)
     const action = center ? onCenter : zones === 'tb' ? () => onStep(pos < 0.3 ? -1 : 1) : pos < 0.3 ? onLeft : onRight
 
-    // 鼠标点两侧立即翻页（连点就连翻），双击只在中间；
-    // 触屏任何位置都能双击放大，所以单击要等一下确认不是双击。双击按时间和距离自己判断
-    if (mouse.current && !center) return action()
+    // 鼠标和触屏一样，任何位置都能双击放大，所以单击要等一下确认不是双击（两次点击不再算连翻两页）。
+    // 双击按时间和距离自己判断
     clearTimeout(pendingTap.current)
     const now = performance.now()
     const prev = lastTap.current
@@ -274,12 +272,11 @@ export function PagedView({
       // 拆半页还没处理好：先空着，免得整张闪一下再换成半张
       if (!shown) return <div key={k} className="h-dvh w-screen flex-none" aria-label={`第 ${i + 1} 页（处理中）`} />
       return (
-        <img
+        <ReaderImage
           key={k}
+          page={i}
+          url={pages[i]}
           src={shown}
-          alt={`第 ${i + 1} 页`}
-          draggable={false}
-          decoding="async"
           onLoad={(e) => {
             // 宽高比只记原图的：拼版和「是不是宽页」都按原图判断
             if (shown !== pages[i]) return
@@ -288,6 +285,7 @@ export function PagedView({
           }}
           className={cn('reader-page block flex-none', imgCls)}
           style={style}
+          fallback={{ width: `${100 / sp.length}vw`, height: '100dvh' }}
         />
       )
     })
@@ -306,10 +304,9 @@ export function PagedView({
     <div
       ref={root}
       onClick={onClick}
-      onPointerDown={(e) => {
+      onPointerDown={() => {
         // 每次按下先清掉「刚拖动过」：手指横滑后浏览器不补发 click，标记留着会吞掉下一次真正的点击
         dragged.current = false
-        mouse.current = e.pointerType === 'mouse'
       }}
       // 手机长按图片不弹「保存图片」菜单，免得拖动翻页时误触；鼠标右键照常
       onContextMenu={(e) => (e.nativeEvent as PointerEvent).pointerType === 'touch' && e.preventDefault()}

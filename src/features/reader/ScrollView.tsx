@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 import { aspectOf, rememberAspect } from './pageCache'
+import { ReaderImage } from './ReaderImage'
 import { halfAspect, type Half } from './pageTools'
 import type { ReaderSettings } from './settings'
 
@@ -120,15 +121,13 @@ export function ScrollView({
           const key = `${url}#${half ?? ''}`
           if (!shown) return <div key={key} data-i={i} data-half={half} className="block max-w-full" style={{ width, aspectRatio: ratio }} aria-label={`第 ${i + 1} 页（处理中）`} />
           return (
-            <img
+            <ReaderImage
               key={key}
-              data-i={i}
-              data-half={half}
+              marks={{ 'data-i': i, 'data-half': half }}
+              page={i}
+              url={url}
               src={shown}
-              alt={`第 ${i + 1} 页`}
               loading={Math.abs(i - startPage) <= settings.preload ? 'eager' : 'lazy'}
-              decoding="async"
-              draggable={false}
               onLoad={(e) => {
                 if (shown !== url) return
                 rememberAspect(url, e.currentTarget)
@@ -136,6 +135,7 @@ export function ScrollView({
               }}
               className="reader-page block h-auto max-w-full select-none"
               style={{ width, aspectRatio: ratio }}
+              fallback={{ width, aspectRatio: ratio, minHeight: 240 }}
             />
           )
         })}
