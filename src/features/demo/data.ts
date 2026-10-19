@@ -330,6 +330,13 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     // 大书库里再混进不在任何分类、同时在三个分类的作品；不消耗随机数，同样规模的其余数据不变
     for (const m of mangas) if (m.id > 5000 && (m.id - 5001) % 7 < 2) m.categories.nodes = (m.id - 5001) % 7 ? categories.slice(0, 3) : []
   }
+  // 更新页只列加入书库之后才抓到的章节：把加入时间挪到最早一话之前；
+  // 只有第 9 部当作刚迁移过来的，它的章节都是加入书库前一刻抓的，更新页不列
+  for (const m of mangas) {
+    if (!m.inLibrary || !m.chapters.nodes.length) continue
+    const fetched = m.chapters.nodes.map((c) => Number(c.fetchedAt))
+    m.inLibraryAt = String(m.id === 9 ? Math.max(...fetched) : Math.min(Number(m.inLibraryAt), Math.min(...fetched) - 1))
+  }
   const allChapters = mangas.flatMap((m) => m.chapters.nodes)
   // 第一部已绑定，读过两话、打了 8 分
   const tracks: DemoTrack[] = [{
