@@ -17,14 +17,16 @@ import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { toast, toastError } from '@/components/ui/toast'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
-import { RecentUpdates, type UpdateChapter } from '@/features/home/queries'
+import { type UpdateChapter } from '@/features/home/queries'
 import { UpdateLibrary, UpdateStop } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
 import { groupByManga } from './group'
-import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE, UpdateInterval, type UpdatesFilter } from './queries'
+import { UPDATES_PAGE, updatesVariables } from './pagination'
+import { LastUpdate, UPDATES_FEEDS, UPDATES_FILTERS, UpdateInterval, type UpdatesFilter } from './queries'
+import { isFreshUpdate } from './visible'
 import { UpdateCalendar } from './UpdateCalendar'
 import { chapterLabel, clock, count, dayLabel, formatDate, sec, timeAgo } from '@/lib/format'
 
@@ -37,8 +39,12 @@ export function UpdatesPage() {
   const canReadInterval = useCan('MANAGE_SETTINGS')
   const interval = useQuery(UpdateInterval, { skip: view !== 'calendar' || !canReadInterval, fetchPolicy: 'cache-first' })
   const [filter, setFilter] = useState<UpdatesFilter>('all')
-  const updates = useQuery(RecentUpdates, {
-    variables: { first: UPDATES_PAGE, offset: 0, filter: UPDATES_FILTERS[filter] },
+  const client = useApolloClient()
+  // 起始范围按筛选各算一次：切换筛选时重算，缓存变化不会改它（否则每加载一页就换一次查询）
+  const feed = UPDATES_FEEDS[filter]
+  const variables = useMemo(() => updatesVariables(client.cache, feed, UPDATES_FILTERS[filter]), [client, feed, filter])
+  const updates = useQuery(feed, {
+    variables,
     fetchPolicy: 'cache-and-network',
     notifyOnNetworkStatusChange: true,
   })
@@ -51,7 +57,9 @@ export function UpdatesPage() {
   // 既没有缓存也没有快照、要等网络时，数据到了播一次进场动画
   const [introWanted] = useState(() => !updates.data && !hasSnapshot('updates'))
   const intro = useIntro(introWanted, !!data)
-  const list = useMemo(() => data?.chapters.nodes ?? [], [data])
+  // 服务端原始条数用来分页；迁移时一并抓到的章节不显示，所以显示的条数可能少于它
+  const loaded = data?.chapters.nodes.length ?? 0
+  const list = useMemo(() => (data?.chapters.nodes ?? []).filter(isFreshUpdate), [data])
   const hasMore = data?.chapters.pageInfo.hasNextPage ?? false
 
   // 按抓取日期分组，同一天里同一部漫画的多话再折叠成一行
@@ -82,7 +90,7 @@ export function UpdatesPage() {
         // 快照数据只用来先显示，网络数据到了再分页
         if (e.isIntersecting && !loading && updates.data)
           void fetchMore({
-            variables: { offset: list.length },
+            variables: { first: UPDATES_PAGE, offset: loaded },
             updateQuery: (prev, { fetchMoreResult }) => ({
               chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
             }),
@@ -92,7 +100,7 @@ export function UpdatesPage() {
     )
     io.observe(el)
     return () => io.disconnect()
-  }, [hasMore, loading, fetchMore, list.length, updates.data])
+  }, [hasMore, loading, fetchMore, loaded, updates.data])
 
   /* 检查更新 */
   const updater = useLive((s) => s.updater)
@@ -142,7 +150,6 @@ export function UpdatesPage() {
   const queue = useLive((s) => s.queue)
   const queued = useMemo(() => new Map(queue.map((d) => [d.chapter.id, d])), [queue])
 
-  const client = useApolloClient()
   const markAllRead = async () => {
     const unread = list.filter((c) => !c.isRead)
     const ids = unread.map((c) => c.id)
@@ -174,7 +181,7 @@ export function UpdatesPage() {
     ? `正在检查更新 · ${updater.finished} / ${updater.total}`
     : view === 'calendar'
       ? [ts ? `上次检查 ${timeAgo(ts)}` : null, nextCheck(ts, hours)].filter(Boolean).join(' · ')
-      : [ts ? `上次检查 ${timeAgo(ts)}` : null, data ? `${count(data.chapters.totalCount)} 话` : null, syncing ? '正在同步…' : null]
+      : [ts ? `上次检查 ${timeAgo(ts)}` : null, data ? `${count(Math.max(0, data.chapters.totalCount - (loaded - list.length)))} 话` : null, syncing ? '正在同步…' : null]
           .filter(Boolean)
           .join(' · ')
 

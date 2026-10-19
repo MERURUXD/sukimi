@@ -10,7 +10,8 @@ import type { ApolloClient, DocumentNode, OperationVariables, TypedDocumentNode 
 import { create } from 'zustand'
 import { IN_LIBRARY, RecentReads, RecentUpdates } from '@/features/home/queries'
 import { Categories, LibraryMangas } from '@/features/library/queries'
-import { LastUpdate, UPDATES_FILTERS, UPDATES_PAGE } from '@/features/updates/queries'
+import { UPDATES_PAGE } from '@/features/updates/pagination'
+import { LastUpdate, UPDATES_FILTERS, UpdatesFeedAll } from '@/features/updates/queries'
 import { snapshotUsable } from '@/features/auth/userScope'
 import { isDevLab } from '@/lib/demo'
 import { useAuth } from './auth'
@@ -28,14 +29,14 @@ const entry = <R, V extends OperationVariables>(key: string, query: TypedDocumen
 })
 
 /** 改了这些查询的字段就把版本号加一，旧快照直接作废 */
-const VERSION = 9
+const VERSION = 10
 const ENTRIES = [
   entry('library', LibraryMangas),
   entry('categories', Categories),
   entry('recentReads', RecentReads),
   entry('recentUpdates', RecentUpdates, { first: 200, offset: 0, filter: IN_LIBRARY }),
   // 更新页「全部」筛选的第一页（往下加载的后续页也合并在这条查询里，一起保存）
-  entry('updates', RecentUpdates, { first: UPDATES_PAGE, offset: 0, filter: UPDATES_FILTERS.all }),
+  entry('updates', UpdatesFeedAll, { first: UPDATES_PAGE, offset: 0, filter: UPDATES_FILTERS.all }),
   entry('lastUpdate', LastUpdate),
 ]
 
