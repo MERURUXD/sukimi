@@ -6,7 +6,7 @@
  * 时间图表套用阅读历史的隐藏规则；Tachiyomi 时期导入的「已读但没有时间」的章节只计入总数。
  */
 import { isVisible } from '../history/history.ts'
-import { sec } from '../../lib/format.ts'
+import { count, sec } from '../../lib/format.ts'
 
 export interface StatChapter {
   mangaId: number
@@ -230,4 +230,79 @@ export function pageGrowth(days: readonly HeatDay[], total: number, n: number) {
     for (const d of days.slice(Math.floor((i * days.length) / n), Math.floor(((i + 1) * days.length) / n))) acc += d.pages
     return acc
   })
+}
+
+/** 3.1 万页；不到一万照常写 */
+export const pagesText = (n: number) => (n >= 10000 ? { v: (n / 10000).toFixed(1).replace(/\.0$/, ''), u: '万页' } : { v: count(n), u: '页' })
+
+export interface KpiBar {
+  v: number
+  on?: boolean
+  lit?: boolean
+}
+
+export interface Kpi {
+  key: string
+  /** 进场时从 0 数上来的目标值；不数的（页数、还没有总话数）为 null，直接显示 text */
+  num: number | null
+  text: string
+  unit: string
+  caption: string
+  bars: KpiBar[]
+  label: string
+}
+
+/**
+ * 档案页两侧的四项数字（每项一个大数字、一行说明和一条细竖条小图）。分享海报画同样的四项，
+ * 数字和说法放在这里共用，两边才一致
+ */
+export function kpiData(s: ReadingStats, works: number, run: ReturnType<typeof bestRun>): { progress: [Kpi, Kpi]; rhythm: [Kpi, Kpi] } {
+  const ratio = (f: number) => Array.from({ length: 24 }, (_, i) => ({ v: 1, lit: (i + 0.5) / 24 <= f }))
+  const frac = s.total ? s.read / s.total : 0
+  const growth = pageGrowth(s.days, s.pages, 24)
+  const base = s.pages - s.days.reduce((a, d) => a + d.pages, 0)
+  const pg = pagesText(s.pages)
+  const runWeeks = run ? [Math.floor(run.from / 7), Math.floor(run.to / 7)] : null
+  return {
+    progress: [
+      {
+        key: 'read',
+        num: s.total ? frac * 100 : null,
+        text: s.total ? `${Math.round(frac * 100)}` : '—',
+        unit: '%',
+        caption: `已读 · ${count(s.read)} / ${s.total == null ? '—' : count(s.total)} 话`,
+        bars: ratio(frac),
+        label: `书库已读 ${Math.round(frac * 100)}%`,
+      },
+      {
+        key: 'caught',
+        num: s.caughtUp,
+        text: `${s.caughtUp}`,
+        unit: ` / ${works}`,
+        caption: '部已追平',
+        bars: ratio(works ? s.caughtUp / works : 0),
+        label: `已追平 ${s.caughtUp} / ${works} 部`,
+      },
+    ],
+    rhythm: [
+      {
+        key: 'days',
+        num: s.activeDays,
+        text: `${s.activeDays}`,
+        unit: '天',
+        caption: '近半年有阅读 · 按周',
+        bars: weekActive(s.days).map((v, w) => ({ v, on: v > 0, lit: !!runWeeks && v > 0 && w >= runWeeks[0] && w <= runWeeks[1] })),
+        label: `近半年有 ${s.activeDays} 天有阅读`,
+      },
+      {
+        key: 'pages',
+        num: null,
+        text: pg.v,
+        unit: pg.u,
+        caption: '约翻过 · 近半年累计',
+        bars: growth.map((v, i) => ({ v: v - base, on: true, lit: i === growth.length - 1 })),
+        label: `约翻过 ${count(s.pages)} 页`,
+      },
+    ],
+  }
 }

@@ -121,6 +121,23 @@ export function tasteOf(works: readonly TasteWork[], genreTop = 6, authorTop = 3
   }
 }
 
+/**
+ * 读过的作品的口味（read 按排行顺序传入）；skip 为 true 的不计入。阅读档案和分享海报都跳过 NSFW 作品，
+ * 免得题材和作者认出是哪部
+ */
+export function readTaste<M extends { genre?: readonly string[] | null; author?: string | null }>(
+  read: readonly { id: number; read: number; pages: number }[],
+  byId: ReadonlyMap<number, M>,
+  skip: (m: M) => boolean,
+) {
+  return tasteOf(
+    read.flatMap((r) => {
+      const m = byId.get(r.id)
+      return m && !skip(m) ? [{ id: r.id, read: r.read, pages: r.pages, genre: m.genre, author: m.author }] : []
+    }),
+  )
+}
+
 /** 标题里放得下的题材名：英文 12 个字符、中文 6 个字以内（来源没归一的题材可能是一长串英文） */
 const fits = (name: string) => name.length <= (/^[ -~]+$/.test(name) ? 12 : 6)
 
