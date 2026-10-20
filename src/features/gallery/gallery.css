@@ -51,28 +51,17 @@
 }
 
 /* ───────── 阅读档案 ───────── */
-/* 背景光晕缓慢漂移 */
-@keyframes gallery-drift-a {
-  from {
-    transform: translate(-8%, -6%) scale(1);
-  }
-  to {
-    transform: translate(10%, 8%) scale(1.18);
-  }
-}
-@keyframes gallery-drift-b {
-  from {
-    transform: translate(6%, 10%) scale(1.1);
-  }
-  to {
-    transform: translate(-9%, -6%) scale(0.92);
-  }
-}
+/* 柔光直接由渐变绘制；静置时不再为整屏漂移与模糊持续合成。 */
 .gallery-blob-a {
-  animation: gallery-drift-a 18s ease-in-out infinite alternate;
+  transform: translate(-8%, -6%);
 }
 .gallery-blob-b {
-  animation: gallery-drift-b 24s ease-in-out infinite alternate;
+  transform: translate(6%, 10%) scale(1.1);
+}
+.gallery-grain {
+  pointer-events: none;
+  background-image: url('../../assets/gallery-grain.png');
+  opacity: .035;
 }
 /* 时钟上「现在」的位置一圈圈扩散 */
 @keyframes gallery-ping {
@@ -141,12 +130,10 @@
   from {
     opacity: 0;
     transform: translateY(-56px) scale(1.18);
-    filter: blur(10px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: blur(0);
   }
 }
 .gallery-char {

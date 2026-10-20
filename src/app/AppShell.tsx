@@ -19,6 +19,7 @@ import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
 import { TopNav } from './TopNav'
 import { UpdatePrompt } from './UpdatePrompt'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 
 /** 需要登录的页面外壳：未登录跳登录页，连不上服务器给重试 */
 export function AuthGate() {
@@ -85,6 +86,7 @@ export function AppShell() {
 
   return (
     // overflow-x: clip：滑入时 main 暂时比屏幕宽，不能撑出横向滚动条
+    <MovingGlassBackdrop value={pathname === '/' || pathname.startsWith('/library/gallery')}>
     <div className={cn('app-shell relative isolate min-h-dvh overflow-x-clip', tabbar && 'has-tabbar')}>
       <TopNav />
       <SideNav />
@@ -97,5 +99,6 @@ export function AppShell() {
       <UpdatePrompt />
       <ScrollManager />
     </div>
+    </MovingGlassBackdrop>
   )
 }

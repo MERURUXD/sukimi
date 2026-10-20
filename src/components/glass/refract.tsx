@@ -43,7 +43,11 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
   const H = Math.max(1, Math.round(h))
   const key = `${W}x${H}r${radius.toFixed(1)}b${bezel.toFixed(1)}f${falloff}`
   const hit = cache.get(key)
-  if (hit) return hit
+  if (hit) {
+    cache.delete(key)
+    cache.set(key, hit)
+    return hit
+  }
 
   canvas ??= document.createElement('canvas')
   canvas.width = W
@@ -98,7 +102,7 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
   }
   ctx.putImageData(img, 0, 0)
   const url = canvas.toDataURL()
-  if (cache.size > 300) cache.delete(cache.keys().next().value!)
+  if (cache.size >= 48) cache.delete(cache.keys().next().value!)
   cache.set(key, url)
   return url
 }
@@ -113,6 +117,8 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
     const el = host.current
     if (!enabled || !el) return
     let raf = 0
+    let timer = 0
+    let lastSize = ''
     const draw = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
@@ -122,6 +128,9 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
         if (!w || !h) return
         const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
         const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
+        const size = `${w}:${h}:${radius}:${bezel}`
+        if (lastSize === size) return
+        lastSize = size
         feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
         // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
         const shift = bezel * o.strength
@@ -133,10 +142,15 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
       })
     }
     draw()
-    const ro = new ResizeObserver(draw)
+    // 尺寸动画期间先拉伸现有位移图，停止变化后再精确生成，避免每帧逐像素编码 PNG。
+    const ro = new ResizeObserver(() => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(draw, 80)
+    })
     ro.observe(el)
     return () => {
       cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
       ro.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
