@@ -3,6 +3,7 @@ import { BookOpen, ChevronLeft, ChevronRight, Maximize, Minimize, Pause, Play, S
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 import { useSoftCover } from './softCover'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { useAppearance } from '@/design/settings'
@@ -111,7 +112,7 @@ export function PlayView({
 
   useEffect(() => {
     // 圆形揭幕后画布才被完整盖住；关闭前先恢复，反向收回时仍能看见原来的画布。
-    const timer = hasItem && !mobile && revealed && !closing ? window.setTimeout(() => onCovered(true), reduced ? 0 : 1450) : 0
+    const timer = (mobile || hasItem) && revealed && !closing ? window.setTimeout(() => onCovered(true), mobile || reduced ? 0 : 1450) : 0
     return () => { window.clearTimeout(timer); onCovered(false) }
   }, [hasItem, mobile, revealed, closing, reduced, onCovered])
 
@@ -293,6 +294,7 @@ export function PlayView({
   const scene = closing ? 'circle(0% at 50% 50%)' : `circle(${revealed ? '150%' : '0%'} at 18% 52%)`
 
   return (
+    <MovingGlassBackdrop value="suspend">
     <div
       ref={root}
       role="dialog"
@@ -421,6 +423,7 @@ export function PlayView({
         </Glass>
       )}
     </div>
+    </MovingGlassBackdrop>
   )
 }
 
@@ -598,10 +601,11 @@ function PlayStage({
 /** 放大、模糊的封面背景；still 时不推镜（垫底的上一部） */
 function Backdrop({ src, still, onReady }: { src: string | null; still?: boolean; onReady?: () => void }) {
   const soft = useSoftCover(src)
+  useEffect(() => { if (soft.ready) onReady?.() }, [soft.ready, onReady])
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className={cn('absolute inset-0 overflow-hidden', soft.ready && !soft.url && 'bg-[radial-gradient(ellipse_at_30%_40%,#32313b,#0b0b0d_80%)]')} data-soft-fallback={soft.ready && !soft.url ? '' : undefined}>
       <div className={cn('absolute -inset-[8%]', !still && 'gallery-kb')}>
-        {src && <img src={soft ?? src} data-soft-cover={soft ? '' : undefined} alt="" draggable={false} onLoad={onReady} className={cn('size-full object-cover', !soft && 'blur-[18px] saturate-[1.25]')} />}
+        {soft.url && <img src={soft.url} data-soft-cover alt="" draggable={false} onLoad={onReady} className="size-full object-cover" />}
       </div>
     </div>
   )

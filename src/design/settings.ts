@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useApplyGlassTuning } from './glassTuning'
 import { preferenceKey } from '@/lib/demo'
+import { defaultGlass } from './defaultGlass'
 import { normalizeHomeOrder, normalizeHomePreferences, type HomeContentSection, type HomeSection } from '@/features/home/preferences'
 
 export type ThemePref = 'system' | 'dark' | 'light'
@@ -48,7 +49,7 @@ export const useAppearance = create<AppearanceState>()(
   persist(
     (set) => ({
       theme: 'dark',
-      glass: 'refract',
+      glass: defaultGlass(navigator.hardwareConcurrency),
       mangaDetailMotion: true,
       // 旧偏好里没有这个字段，合并默认值后开启
       readerMotion: true,

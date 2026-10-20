@@ -1,8 +1,10 @@
 import { ChevronDown, ChevronLeft, Share } from 'lucide-react'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useLocation, useNavigate, useNavigationType } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
+import { createIntro, type Intro } from './statsIntro'
 import { BACK_SLOT, GalleryBack } from './GalleryBack'
 import { NEUTRAL, coverColor, rgbCss } from '@/lib/coverColor'
 import { count } from '@/lib/format'
@@ -39,42 +41,47 @@ const memory = { shown: false, p: 0, cur: 0 }
  * leave 把进度快速倒放回 0 作为出场，放完再换页。
  */
 function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur = 2400) {
-  const [t, setT] = useState(reduced || skip ? 1 : 0)
-  const tRef = useRef(t)
-  tRef.current = t
+  const [intro] = useState(() => createIntro(reduced || skip ? 1 : 0))
   const raf = useRef(0)
+  const timer = useRef(0)
+  const exiting = useRef(false)
   const [out, setOut] = useState(false)
   useEffect(() => {
-    if (!ready || tRef.current >= 1) {
+    if (exiting.current) return
+    if (!ready || intro.t >= 1) {
       if (ready) memory.shown = true
       return
     }
     if (reduced) {
-      setT(1)
+      intro.paint(1)
+      memory.shown = true
       return
     }
     let start = 0
     let alive = true
     const step = (now: number) => {
+      if (exiting.current) return
       start ||= now
       const k = clamp01((now - start) / dur)
-      setT(k)
+      intro.paint(k)
       if (k < 1) raf.current = requestAnimationFrame(step)
       else memory.shown = true
     }
-    // 从首页飞数字进来时，等数字落地再开始：进场每帧都要重画整页，和飞行抢主线程，数字会一顿一顿的
+    // 从首页飞数字进来时，等数字落地再开始，保留进场的衔接。
     void afterViewTransition().then(() => {
-      if (alive) raf.current = requestAnimationFrame(step)
+      if (alive && !exiting.current) raf.current = requestAnimationFrame(step)
     })
     return () => {
       alive = false
       cancelAnimationFrame(raf.current)
     }
-  }, [ready, reduced, dur])
+  }, [ready, reduced, dur, intro])
+  useEffect(() => () => { cancelAnimationFrame(raf.current); window.clearTimeout(timer.current) }, [])
 
   const leave = useCallback(
     (done: () => void) => {
       cancelAnimationFrame(raf.current)
+      exiting.current = true
       setOut(true)
       let fired = false
       const finish = () => {
@@ -83,22 +90,22 @@ function useIntroProgress(ready: boolean, reduced: boolean, skip: boolean, dur =
         done()
       }
       if (reduced) return finish()
-      const from = tRef.current
+      const from = intro.t
       const start = performance.now()
       const D = 420
       const step = (now: number) => {
         const k = clamp01((now - start) / D)
-        setT(from * (1 - k * k))
+        intro.paint(from * (1 - k * k))
         if (k < 1) raf.current = requestAnimationFrame(step)
         else finish()
       }
       raf.current = requestAnimationFrame(step)
       // 标签页在后台时动画帧会停，到时间照样换页
-      window.setTimeout(finish, D + 300)
+      timer.current = window.setTimeout(finish, D + 300)
     },
-    [reduced],
+    [reduced, intro],
   )
-  return { t, leave, out }
+  return { intro, leave, out }
 }
 
 function useWindowSize() {
@@ -168,10 +175,11 @@ export function StatsPage() {
     const m = new Map(all.map((x) => [x.id, x.thumbnailUrl ?? null]))
     return (id: number) => m.get(id) ?? null
   }, [all])
-  const { t, leave, out } = useIntroProgress(!!stats, reduced, back)
+  const { intro, leave, out } = useIntroProgress(!!stats, reduced, back)
   // 一进来还没有汇总结果：先摆出空时钟（刻度、外圈），加载时扫光、外圈走进度，汇总出来后刻度就地长出来
   const [primed] = useState(() => !stats)
   const landed = useLanded()
+  const load = useMemo(() => primed && !out ? { fetched: reads.fetched, landed } : null, [primed, out, reads.fetched, landed])
 
   const [pager] = useState(() => createPager({ p: back ? memory.p : 0, cur: back ? memory.cur : 0, count: 0, reduced }))
   useLayoutEffect(() => {
@@ -260,12 +268,12 @@ export function StatsPage() {
         taste={taste}
         coverOf={coverOf}
         works={all.length}
-        t={t}
+        intro={intro}
         reduced={reduced}
         glow={glow}
         loadingText={stats ? null : libLoading ? '正在加载书库…' : loadingText}
         // 离开时交还给进场进度，外圈跟着倒放收起
-        load={primed && !out ? { fetched: reads.fetched, landed } : null}
+        load={load}
         error={error}
         retry={retry}
         now={now}
@@ -286,7 +294,7 @@ interface BodyProps {
   taste: Taste | null
   coverOf: (id: number) => string | null
   works: number
-  t: number
+  intro: Intro
   reduced: boolean
   glow: [Rgb, Rgb]
   loadingText: string | null
@@ -445,12 +453,18 @@ function kpiItems(s: ReadingStats, works: number, run: ReturnType<typeof bestRun
 
 type Kpi = ReturnType<typeof kpiItems>['progress'][number]
 
-function KpiBlock({ k, t, at, right, size, strip }: { k: Kpi; t: number; at: number; right?: boolean; size: number; strip: { w: number; h: number } }) {
+const KpiBlock = memo(function KpiBlock({ k, intro, at, right, size, strip }: { k: Kpi; intro: Intro; at: number; right?: boolean; size: number; strip: { w: number; h: number } }) {
+  const value = useRef<HTMLSpanElement>(null)
+  const t = intro.t
+  useLayoutEffect(() => intro.subscribe(() => {
+    const next = k.value(easeOut((intro.t - at) / 0.6))
+    if (value.current && value.current.textContent !== next) value.current.textContent = next
+  }), [intro, k, at])
   const e = easeOut((t - at) / 0.6)
   return (
-    <div className={cn('flex flex-col', right ? 'items-end text-right' : 'items-start')} style={upStyle(t, at)}>
+    <div data-intro-rise={at} className={cn('flex flex-col', right ? 'items-end text-right' : 'items-start')} style={upStyle(t, at)}>
       <span aria-hidden className="flex items-baseline gap-1 leading-[.95] whitespace-nowrap">
-        <span className="font-bold tracking-[-0.045em] num" style={{ fontSize: size }}>
+        <span ref={value} className="font-bold tracking-[-0.045em] num" style={{ fontSize: size }}>
           {k.value(e)}
         </span>
         <span className="font-cjk font-bold text-muted" style={{ fontSize: Math.round(size * 0.36) }}>
@@ -459,11 +473,11 @@ function KpiBlock({ k, t, at, right, size, strip }: { k: Kpi; t: number; at: num
       </span>
       <span className="mt-2 text-xs font-semibold whitespace-nowrap text-muted md:text-[13px]">{k.caption}</span>
       <span className={size > 40 ? 'mt-4' : 'mt-3'}>
-        <Strip bars={k.bars} width={strip.w} height={strip.h} right={right} t={t} at={at + 0.1} label={k.label} />
+        <Strip bars={k.bars} width={strip.w} height={strip.h} right={right} intro={intro} at={at + 0.1} label={k.label} />
       </span>
     </div>
   )
-}
+})
 
 /** 第一屏底部：往下看的提示；还在汇总时换成进度文字，失败时是重试 */
 function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; mobile: boolean }) {
@@ -487,6 +501,8 @@ function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; 
   return (
     // 透明度放在玻璃元素自己身上，不放祖先，免得背景采样跟着变
     <Glass
+      data-intro-hint
+      data-stats-progress="p"
       as="button"
       type="button"
       onClick={() => pager.go(1)}
@@ -504,21 +520,23 @@ const SCREENS = ['概览', '已读排行', '口味']
 /** 右侧三个小点：当前这屏拉长，点哪个切到哪屏 */
 function ScreenDots({ screen, pager, mobile, style }: { screen: number; pager: Pager; mobile: boolean; style: CSSProperties }) {
   return (
-    <nav aria-label="切换屏幕" className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
+    <nav data-intro-rise="0.7" aria-label="切换屏幕" className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
       {SCREENS.map((label, i) => (
         <button key={label} type="button" aria-label={label} aria-current={screen === i ? 'true' : undefined} onClick={() => pager.go(i)} className="group grid place-items-center p-2">
-          <span className={cn('block w-1.5 rounded-full transition-[height,background-color] duration-400 ease-out', screen === i ? 'h-[22px] bg-white' : 'h-1.5 bg-white/30 group-hover:bg-white/60')} />
+          <span className={cn('block h-[22px] w-1.5 rounded-full transition-[transform,background-color] duration-400 ease-out', screen === i ? 'scale-y-100 bg-white' : 'scale-y-[.273] bg-white/30 group-hover:bg-white/60')} />
         </button>
       ))}
     </nav>
   )
 }
 
-/** 一段进度写成 CSS（--p 每帧由页面写入） */
-const seg01 = (a: string, b: string) => `clamp(0, calc((var(--p) - ${a}) / (${b} - ${a})), 1)`
+/** 一段进度写成 CSS，变量只写在实际使用它的光晕或按钮上。 */
+const seg01 = (a: string, b: string) => `clamp(0, calc((var(--stats-p) - ${a}) / (${b} - ${a})), 1)`
 
 function Stats(p: BodyProps) {
-  const { mobile, stats, read, ranked, taste, works, t, reduced, pager } = p
+  const { mobile, stats, read, ranked, taste, works, intro, reduced, pager } = p
+  const t = intro.t
+  const animating = useSyncExternalStore(pager.subscribe, () => pager.animating)
   const win = useWindowSize()
   // 太矮的窗口（手机横屏、小屏手机）按最小高度排版再整体缩小：三屏都固定在一屏里，滚轮和上下滑留给切屏，不能改成滚动
   const k = Math.min(1, win.h / (mobile ? MIN_H_PHONE : MIN_H))
@@ -606,11 +624,11 @@ function Stats(p: BodyProps) {
   useDialTilt(tilt, reduced || mobile, pager)
   const moved = usePagerInput(root, pager)
 
-  /* ── 每帧：穿过表盘、写 --p 给 CSS、记下停在哪一屏和哪一组 ── */
+  /* ── 每帧只改实际运动的节点；切屏完成后才更新 React 与无障碍状态 ── */
   useLayoutEffect(() => {
     // 进度只传给使用它的区域，避免每帧让表盘的整棵 SVG 子树重算继承样式。
     const progress = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="p"]')
-    const drift = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="ek"]')
+    const drift = root.current?.querySelectorAll<HTMLElement>('[data-stats-drift]')
     const panels = root.current?.querySelectorAll<HTMLElement>('[data-stats-screen]')
     const paint = () => {
       const pp = pager.p
@@ -618,28 +636,51 @@ function Stats(p: BodyProps) {
       // 过渡重叠区仍同时显示两屏，完全退出以后才停止绘制，保留各屏状态和回程动画。
       panels?.forEach((el) => {
         const i = Number(el.dataset.statsScreen)
-        const visible = i === 0 ? pp < 0.62 : i === 1 ? pp > 0.25 && pp < 1.8 : pp > 1.2
-        el.style.visibility = visible ? '' : 'hidden'
+        if (i === 0) el.style.visibility = pp < 0.62 ? '' : 'hidden'
+        // 后两屏提前挂着并解码封面；不把首次绘制推迟到过渡半程。
+        else el.style.opacity = i === 1 ? (pp > 0.25 && pp < 1.8 ? '1' : '0') : pp > 1.2 ? '1' : '0'
+        const inactive = pager.animating || i !== Math.round(pp)
+        if (el.inert !== inactive) el.inert = inactive
+        const hidden = String(inactive)
+        if (el.getAttribute('aria-hidden') !== hidden) el.setAttribute('aria-hidden', hidden)
       })
-      progress?.forEach((el) => el.style.setProperty('--p', pp.toFixed(4)))
-      drift?.forEach((el) => el.style.setProperty('--ek', ease(seg(pp, 0, 0.3)).toFixed(4)))
+      progress?.forEach((el) => el.style.setProperty('--stats-p', pp.toFixed(4)))
+      const ek = ease(seg(pp, 0, 0.3))
+      drift?.forEach((el) => {
+        el.style.opacity = String(1 - ek)
+        el.style.translate = mobile ? `0 ${ek * 30}px` : `${ek * Number(el.dataset.statsDrift) * 60}px 0`
+      })
       if (zoom.current) {
         zoom.current.style.transform = ud ? `scale(${(1 + ud * 1.9).toFixed(4)})` : ''
         zoom.current.style.opacity = `${1 - seg(pp, 0.14, 0.56)}`
-        // 倾斜收平以后才模糊：模糊会把表盘压成一张平面
-        zoom.current.style.filter = pp > 0.15 && pp < 0.56 ? `blur(${(ud * 6).toFixed(2)}px)` : ''
       }
       if (num.current) {
         num.current.style.transform = ud ? `scale(${(1 + ud * 1.4).toFixed(4)})` : ''
         num.current.style.opacity = `${1 - seg(pp, 0.06, 0.44)}`
-        num.current.style.filter = pp > 0.04 && pp < 0.44 ? `blur(${(ud * 4).toFixed(2)}px)` : ''
       }
-      setScreen(Math.round(pp))
+      const ping = root.current?.querySelector<HTMLElement>('.gallery-ping')
+      if (ping) ping.style.animationPlayState = pp === 0 && !pager.animating ? '' : 'paused'
+      if (!pager.animating) setScreen(Math.round(pp))
       setGroup(pager.cur)
     }
     paint()
     return pager.subscribe(paint)
   }, [pager, mobile, stats, ranked.length])
+
+  useLayoutEffect(() => {
+    const rises = root.current?.querySelectorAll<HTMLElement>('[data-intro-rise]')
+    const fades = root.current?.querySelectorAll<HTMLElement>('[data-intro-fade]')
+    const hint = root.current?.querySelector<HTMLElement>('[data-intro-hint]')
+    return intro.subscribe(() => {
+      rises?.forEach((el) => Object.assign(el.style, upStyle(intro.t, Number(el.dataset.introRise))))
+      fades?.forEach((el) => { el.style.opacity = String(easeOut((intro.t - Number(el.dataset.introFade)) / 0.4)) })
+      if (hint) {
+        const e = easeOut((intro.t - 0.6) / 0.45)
+        hint.style.opacity = `calc(${e} * (1 - ${seg01('0', '0.15')}))`
+        hint.style.translate = `0 calc(${((1 - e) * 18).toFixed(1)}px + ${seg01('0', '0.15')} * 12px)`
+      }
+    })
+  })
 
   // 这一组第一名的封面主色：排行背后的光跟着换
   const [tone, setTone] = useState<Rgb>(NEUTRAL)
@@ -654,16 +695,14 @@ function Stats(p: BodyProps) {
     }
   }, [toneSrc])
 
-  const kpiDrift = (dir: -1 | 1): CSSProperties =>
-    mobile ? { opacity: 'calc(1 - var(--ek))', translate: '0 calc(var(--ek) * 30px)' } : { opacity: 'calc(1 - var(--ek))', translate: `calc(var(--ek) * ${dir * 60}px) 0` }
-  const stripSize = mobile ? { w: Math.floor((w - side * 2 - 24) / 2), h: 18 } : { w: kpiW, h: Math.round(22 * u) }
+  const stripSize = useMemo(() => mobile ? { w: Math.floor((w - side * 2 - 24) / 2), h: 18 } : { w: kpiW, h: Math.round(22 * u) }, [mobile, w, side, kpiW, u])
   const group = (title: string, items: Kpi[], right: boolean, at: number) => (
-    <section aria-label={title} data-stats-progress="ek" className={cn('flex flex-col gap-10', right && 'items-end')} style={kpiDrift(right ? 1 : -1)}>
-      <h2 className="m-0 text-xs font-bold tracking-[.32em] text-muted" style={upStyle(t, at - 0.04)}>
+    <section aria-label={title} data-stats-drift={right ? 1 : -1} className={cn('flex flex-col gap-10', right && 'items-end')}>
+      <h2 data-intro-rise={at - 0.04} className="m-0 text-xs font-bold tracking-[.32em] text-muted" style={upStyle(t, at - 0.04)}>
         {title}
       </h2>
       {items.map((k, i) => (
-        <KpiBlock key={k.key} k={k} t={t} at={at + i * 0.06} right={right} size={Math.round(52 * u)} strip={stripSize} />
+        <KpiBlock key={k.key} k={k} intro={intro} at={at + i * 0.06} right={right} size={Math.round(52 * u)} strip={stripSize} />
       ))}
     </section>
   )
@@ -672,8 +711,8 @@ function Stats(p: BodyProps) {
     <div className="relative flex-none" style={{ width: dial, height: dial }}>
       <div ref={zoom} className="absolute inset-0">
         <div className="absolute" style={{ left: (dial - clock) / 2, top: (dial - clock) / 2, width: clock, height: clock, perspective: 900 }}>
-          <div ref={tilt} className="absolute inset-0 [transform-style:preserve-3d]">
-            <Clock stats={stats} t={t} size={clock} tip={tip} onTip={setTip} load={p.load} read={read} failed={!!p.error} reduced={reduced} year={year} className="absolute inset-0" />
+          <div ref={tilt} className={cn('absolute inset-0', !mobile && '[transform-style:preserve-3d]')}>
+            <Clock stats={stats} intro={intro} flat={mobile} size={clock} tip={tip} onTip={setTip} load={p.load} read={read} failed={!!p.error} reduced={reduced} year={year} className="absolute inset-0" />
           </div>
         </div>
       </div>
@@ -686,7 +725,7 @@ function Stats(p: BodyProps) {
           </span>
           <span className="font-cjk text-lg font-bold text-white/75 md:text-xl">话</span>
         </span>
-        <span className="mt-1 font-cjk text-xs font-bold text-white/70 md:text-sm" style={{ opacity: peak >= 0 ? easeOut((t - 0.5) / 0.4) : 0 }}>
+        <span data-intro-fade={peak >= 0 ? 0.5 : undefined} className="mt-1 font-cjk text-xs font-bold text-white/70 md:text-sm" style={{ opacity: peak >= 0 ? easeOut((t - 0.5) / 0.4) : 0 }}>
           {peak >= 0 ? `${peak} 点读得最多${peak >= 22 || peak <= 3 ? ' · 是个夜猫子' : ''}` : ' '}
         </span>
       </div>
@@ -694,8 +733,9 @@ function Stats(p: BodyProps) {
   )
 
   // 后两屏背后的两团光：排行跟着这一组第一名的封面颜色，口味用背景的第二种颜色，切屏时交替淡入淡出
+  // 在矩形边缘前淡到透明，避免默认 farthest-corner 的椭圆被容器截出硬边。
   const glows = (cx: number, cy: number, color: Rgb, fade: string) => (
-    <div data-stats-glow aria-hidden className="pointer-events-none absolute" style={{ left: cx - 600, top: cy - 500, width: 1200, height: 1000, background: `radial-gradient(ellipse, ${rgbCss(color, .65)} 0%, ${rgbCss(color, .32)} 40%, ${rgbCss(color, .08)} 65%, transparent 80%)`, opacity: `calc(${fade})` }} />
+    <div data-stats-glow data-stats-progress="p" aria-hidden className="pointer-events-none absolute" style={{ left: cx - 600, top: cy - 500, width: 1200, height: 1000, background: `radial-gradient(ellipse closest-side, ${rgbCss(color, .65)} 0%, ${rgbCss(color, .32)} 40%, ${rgbCss(color, .08)} 65%, transparent 100%)`, opacity: `calc(${fade})` }} />
   )
   const midY = pageTop + (sh - pageTop - pageBottom) / 2
   // 后两屏的排版坐标系：矮窗口里整体缩小（见 k2）
@@ -706,6 +746,7 @@ function Stats(p: BodyProps) {
   )
 
   return (
+    <MovingGlassBackdrop value={animating ? 'suspend' : true}>
     <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none">
       <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
         <Backdrop glow={p.glow} className="absolute inset-0" fade={`calc(1 - ${seg01('0.3', '0.8')} * .6)`} />
@@ -716,9 +757,9 @@ function Stats(p: BodyProps) {
             <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
               {dialEl}
               {kpis && (
-                <div data-stats-progress="ek" className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side, ...kpiDrift(1) }}>
+                <div data-stats-drift="1" className="mt-4 grid w-full grid-cols-2 gap-x-6 gap-y-6" style={{ paddingInline: side }}>
                   {[...kpis.progress, ...kpis.rhythm].map((k, i) => (
-                    <KpiBlock key={k.key} k={k} t={t} at={0.38 + i * 0.05} size={36} strip={stripSize} />
+                    <KpiBlock key={k.key} k={k} intro={intro} at={0.38 + i * 0.05} size={36} strip={stripSize} />
                   ))}
                 </div>
               )}
@@ -731,7 +772,7 @@ function Stats(p: BodyProps) {
               <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
             </div>
           )}
-          <div data-stats-progress="p" className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
+          <div className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
             <Hint p={p} t={t} pager={pager} mobile={mobile} />
           </div>
         </div>
@@ -739,7 +780,7 @@ function Stats(p: BodyProps) {
         {/* ───── 第二屏：已读排行 · 第三屏：口味 ───── */}
         {current && taste && (
           <>
-            <div data-stats-screen="1" data-stats-progress="p" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
+            <div data-stats-screen="1" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
               {stageBox(
                 <>
                   {glows(stageL + stage * (mobile ? 0.4 : 0.25), midY, tone, `${seg01('0.4', '0.9')} * (1 - ${seg01('1.1', '1.6')})`)}
@@ -747,7 +788,7 @@ function Stats(p: BodyProps) {
                 </>,
               )}
             </div>
-            <div data-stats-screen="2" data-stats-progress="p" className="absolute inset-0" inert={screen !== 2} aria-hidden={screen !== 2}>
+            <div data-stats-screen="2" className="absolute inset-0" inert={screen !== 2} aria-hidden={screen !== 2}>
               {stageBox(
                 <>
                   {glows(stageL + stage * 0.3, midY, p.glow[1], `${seg01('1.3', '1.8')} * .7`)}
@@ -796,5 +837,6 @@ function Stats(p: BodyProps) {
         )}
       </div>
     </div>
+    </MovingGlassBackdrop>
   )
 }
