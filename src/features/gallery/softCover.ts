@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 const cache = new Map<string, Promise<string | null>>()
 
-/** 只对小位图做一次模糊，推镜时只合成 transform；跨域不允许读像素时沿用原图。 */
+/** 只对小位图做一次模糊，推镜时只合成 transform；失败时交给背景的静态渐变。 */
 function softCover(src: string, w: number, h: number) {
   const key = `${w}x${h}:${src}`
   const hit = cache.get(key)
@@ -50,5 +50,6 @@ export function useSoftCover(src: string | null) {
     void softCover(src, w, h).then((url) => { if (alive) setReady({ src, w, h, url }) })
     return () => { alive = false }
   }, [src, w, h])
-  return ready?.src === src && ready.w === w && ready.h === h ? ready.url : null
+  const current = ready?.src === src && ready.w === w && ready.h === h
+  return { url: current ? ready.url : null, ready: !src || current }
 }

@@ -40,7 +40,7 @@ export function Glass<T extends Tag = 'div'>({
   const moving = useContext(MovingGlassBackdrop)
   const host = useRef<HTMLElement>(null)
   const filterId = `lens${useId().replace(/[:«»]/g, '')}`
-  const on = mode === 'refract' && !suspendRefract && supportsRefract()
+  const on = mode === 'refract' && !suspendRefract && moving !== 'suspend' && supportsRefract()
   const o: LensOptions = {
     bezel: lens?.bezel ?? t.bezel,
     strength: lens?.strength ?? t.strength,
