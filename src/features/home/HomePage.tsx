@@ -16,6 +16,8 @@ import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
 import { useLibraryView } from '@/features/library/store'
 import { useLaterList } from '@/features/later/useLater'
+import { favoritesWithNew } from '@/features/favorite/favorite'
+import { useFavorites } from '@/features/favorite/useFavorites'
 import type { LibraryMangasQuery } from '@/api/gql/graphql'
 import { GalleryWindow } from '@/features/gallery/GalleryWindow'
 import { useLanded } from '@/features/gallery/readMorph'
@@ -119,6 +121,7 @@ export function HomePage() {
   const onPage = useMemo(() => new Set([...hero.items, ...(homeSections.recent ? recent.slice(0, 3) : [])].map((c) => c.manga.id)), [hero.items, recent, homeSections.recent])
 
   const content = {
+    favorite: homeSections.favorite && <FavoriteShelf library={library} />,
     updates: homeSections.updates && <UpdatesShelf chapters={updateChapters} />,
     stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}
       mangas={shelves?.stale} sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`} />,
@@ -513,6 +516,34 @@ function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: strin
     >
       {shown.map((m) => (
         <ShelfItem key={m.id} manga={m} sub={sub(m)} />
+      ))}
+    </Shelf>
+  )
+}
+
+/* ───────── 特别关心书架 ───────── */
+/** 只放有新章节没读的，最近抓到新章节的在前；都读完了整个模块不显示。「全部」去书库的「特别关心」标签 */
+function FavoriteShelf({ library }: { library: LibManga[] | undefined }) {
+  const favorites = useFavorites()
+  const items = useMemo(() => (library && favorites.map ? favoritesWithNew(library, favorites.map) : undefined), [library, favorites.map])
+  const navigate = useNavigate()
+  const setCategory = useLibraryView((s) => s.setCategory)
+  if (!items?.length) return null
+  const unread = items.reduce((n, m) => n + m.unreadCount, 0)
+  return (
+    <Shelf
+      id="favorite"
+      title="特别关心"
+      note={`${items.length} 部有 ${unread} 话没读`}
+      actions={
+        <Glass as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('favorite'); navigate('/library') }} aria-label="查看全部特别关心">
+          全部
+          <ChevronRight className="size-[18px]" strokeWidth={1.8} />
+        </Glass>
+      }
+    >
+      {items.slice(0, SHELF_COUNT).map((m) => (
+        <ShelfItem key={m.id} manga={m} sub={`${timeAgo(sec(m.latestFetchedChapter?.fetchedAt))}更新`} badge={m.unreadCount > 99 ? '99+' : String(m.unreadCount)} />
       ))}
     </Shelf>
   )

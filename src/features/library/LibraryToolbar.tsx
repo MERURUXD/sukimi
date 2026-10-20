@@ -18,6 +18,7 @@ const DENSITIES: SegItem<Density>[] = [
 ]
 
 const BADGES: { key: BadgeKey; label: string }[] = [
+  { key: 'favorite', label: '特别关心' },
   { key: 'unread', label: '未读数' },
   { key: 'downloaded', label: '已下载' },
   { key: 'score', label: '评分' },
@@ -173,6 +174,11 @@ export function LibraryToolbar({
               </button>
             )
           })}
+          <h3 className="pop-h mt-3">置顶</h3>
+          <button type="button" className="opt" aria-pressed={view.favoriteFirst} onClick={() => view.setFavoriteFirst(!view.favoriteFirst)}>
+            <span className="flex-1">特别关心排在最前</span>
+            {view.favoriteFirst && <Check className="size-4" strokeWidth={2.2} />}
+          </button>
         </div>
       )}
 

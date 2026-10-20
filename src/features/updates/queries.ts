@@ -9,9 +9,11 @@ export const LastUpdate = graphql(`
   }
 `)
 
-export type UpdatesFilter = 'all' | 'unread' | 'downloaded'
+export type UpdatesFilter = 'all' | 'unread' | 'downloaded' | 'favorite'
+/** 「特别关心」在这之上由页面再按标记的漫画 id 筛（mangaId in），交给服务端分页，不在本地过滤 */
 export const UPDATES_FILTERS: Record<UpdatesFilter, object> = {
   all: IN_LIBRARY,
+  favorite: IN_LIBRARY,
   unread: { ...IN_LIBRARY, isRead: { equalTo: false } },
   downloaded: { ...IN_LIBRARY, isDownloaded: { equalTo: true } },
 }
@@ -101,7 +103,22 @@ export const UpdatesFeedDownloaded = graphql(`
   }
 `)
 
-export const UPDATES_FEEDS = { all: UpdatesFeedAll, unread: UpdatesFeedUnread, downloaded: UpdatesFeedDownloaded } as const
+export const UpdatesFeedFavorite = graphql(`
+  query UpdatesFeedFavorite($first: Int!, $offset: Int!, $filter: ChapterFilterInput!) {
+    chapters(filter: $filter, order: [{ by: FETCHED_AT, byType: DESC }, { by: SOURCE_ORDER, byType: DESC }], first: $first, offset: $offset)
+      @connection(key: "UpdatesFeedFavorite") {
+      totalCount
+      pageInfo {
+        hasNextPage
+      }
+      nodes {
+        ...UpdatesFeedChapter
+      }
+    }
+  }
+`)
+
+export const UPDATES_FEEDS = { all: UpdatesFeedAll, unread: UpdatesFeedUnread, downloaded: UpdatesFeedDownloaded, favorite: UpdatesFeedFavorite } as const
 
 /**
  * 更新日历：书库里近半年发布或抓到的章节，只取推算要用的字段。

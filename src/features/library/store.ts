@@ -9,7 +9,7 @@ export type TriState = 0 | 1 | 2
 export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded' | 'score'
 export type Density = 'comfy' | 'compact' | 'list'
 /** 封面角标 */
-export type BadgeKey = 'unread' | 'downloaded' | 'score' | 'bookmarks' | 'completed' | 'lang'
+export type BadgeKey = 'unread' | 'downloaded' | 'score' | 'bookmarks' | 'completed' | 'lang' | 'favorite'
 /** 封面下标题之后的附加信息 */
 export type SublineKey = 'source' | 'time' | 'author' | 'genre'
 /** 标题显示的行数，0 = 不显示 */
@@ -19,8 +19,8 @@ export interface GridCols {
   mobile: number
   desktop: number
 }
-/** 'all'、分类 id，或固定的「稍后再看」标签 */
-export type LibraryTab = 'all' | 'later' | number
+/** 'all'、分类 id，或固定的「特别关心」「稍后再看」标签 */
+export type LibraryTab = 'all' | 'favorite' | 'later' | number
 
 interface LibraryView {
   category: LibraryTab
@@ -32,6 +32,8 @@ interface LibraryView {
   sources: string[]
   /** 「稍后再看」里的漫画加入后读完已有章节时自动移出 */
   laterAutoRemove: boolean
+  /** 不论按什么排序，特别关心都排在最前 */
+  favoriteFirst: boolean
   cols: GridCols
   badges: Record<BadgeKey, boolean>
   titleLines: TitleLines
@@ -44,6 +46,7 @@ interface LibraryView {
   toggleSource: (id: string) => void
   clearSources: () => void
   setLaterAutoRemove: (on: boolean) => void
+  setFavoriteFirst: (on: boolean) => void
   setCols: (device: keyof GridCols, n: number) => void
   toggleBadge: (k: BadgeKey) => void
   setTitleLines: (n: TitleLines) => void
@@ -52,11 +55,11 @@ interface LibraryView {
 
 const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0, nsfw: 0 }
 
-// 默认值与加入这些设置之前的显示一致：未读、下载角标，一行标题，来源和更新时间
-export const DEFAULT_BADGES: Record<BadgeKey, boolean> = { unread: true, downloaded: true, score: false, bookmarks: false, completed: false, lang: false }
+// 默认值与加入这些设置之前的显示一致：未读、下载角标，一行标题，来源和更新时间；特别关心的星标后加，默认显示
+export const DEFAULT_BADGES: Record<BadgeKey, boolean> = { unread: true, downloaded: true, score: false, bookmarks: false, completed: false, lang: false, favorite: true }
 export const DEFAULT_SUBLINE: Record<SublineKey, boolean> = { source: true, time: true, author: false, genre: false }
 
-type Persisted = 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove' | 'cols' | 'badges' | 'titleLines' | 'subline'
+type Persisted = 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove' | 'favoriteFirst' | 'cols' | 'badges' | 'titleLines' | 'subline'
 
 const INITIAL: Pick<LibraryView, Persisted> = {
   category: 'all',
@@ -67,6 +70,7 @@ const INITIAL: Pick<LibraryView, Persisted> = {
   sources: [],
   // 旧偏好里没有这个字段，合并默认值后开启
   laterAutoRemove: true,
+  favoriteFirst: true,
   cols: { mobile: 0, desktop: 0 },
   badges: DEFAULT_BADGES,
   titleLines: 1,
@@ -87,6 +91,7 @@ export const useLibraryView = create<LibraryView>()(
         set((s) => ({ sources: s.sources.includes(id) ? s.sources.filter((x) => x !== id) : [...s.sources, id] })),
       clearSources: () => set({ sources: [] }),
       setLaterAutoRemove: (laterAutoRemove) => set({ laterAutoRemove }),
+      setFavoriteFirst: (favoriteFirst) => set({ favoriteFirst }),
       setCols: (device, n) => set((s) => ({ cols: { ...s.cols, [device]: n } })),
       toggleBadge: (k) => set((s) => ({ badges: { ...s.badges, [k]: !s.badges[k] } })),
       setTitleLines: (titleLines) => set({ titleLines }),
@@ -108,8 +113,8 @@ export const useLibraryView = create<LibraryView>()(
       },
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
-      partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove, cols, badges, titleLines, subline }) =>
-        ({ category, filters, sort, desc, density, sources, laterAutoRemove, cols, badges, titleLines, subline }),
+      partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, cols, badges, titleLines, subline }) =>
+        ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, cols, badges, titleLines, subline }),
     },
   ),
 )

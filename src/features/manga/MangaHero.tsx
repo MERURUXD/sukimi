@@ -13,6 +13,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
+import { FavoriteButton } from '@/features/favorite/FavoriteButton'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { TrackDialog } from '@/features/tracking/TrackPanel'
@@ -147,6 +148,7 @@ export function MangaHero({
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
             <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn(animate && 'rise')} />
+            {manga.inLibrary && <FavoriteButton mangaId={manga.id} style={delay(mangaIntro.actions + 52)} className={cn(animate && 'rise')} />}
             <Can permission="DOWNLOAD_CHAPTERS">
               <Glass as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
             </Can>

@@ -1,11 +1,14 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig } from 'lucide-react'
+import { BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig, Star, StarOff } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
 import { GalleryPill } from '@/features/gallery/GalleryPill'
 import { useMobile } from '@/features/gallery/hooks'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
+import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
+import { useFavoriteActions, useFavorites } from '@/features/favorite/useFavorites'
+import { ContextMenu, useContextMenu } from '@/components/ui/ContextMenu'
 import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
 import { useLive } from '@/api/live'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
@@ -53,7 +56,15 @@ export function LibraryPage() {
   const later = useLaterList()
   const { remove: removeLater } = useLaterActions()
   const isLater = view.category === 'later'
-  const base: readonly LibraryManga[] = useMemo(() => (isLater ? later.items ?? [] : all), [isLater, later.items, all])
+  // 「特别关心」只认书库里的：服务端只检查书库漫画的更新，移出书库的标记保留但不显示
+  const favorites = useFavorites()
+  const { setFavorite } = useFavoriteActions()
+  const isFavorite = view.category === 'favorite'
+  const favoriteList = useMemo(() => all.filter((m) => favorites.ids.has(m.id)), [all, favorites.ids])
+  const base: readonly LibraryManga[] = useMemo(
+    () => (isLater ? later.items ?? [] : isFavorite ? favoriteList : all),
+    [isLater, later.items, isFavorite, favoriteList, all],
+  )
   // 每个用户的默认分类 id 不同，不能写死 0
   const defaultCategoryId = catData?.categories.nodes.find((c) => c.default)?.id ?? 0
   // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
@@ -71,15 +82,17 @@ export function LibraryPage() {
     () => ({ cols: view.cols[mobile ? 'mobile' : 'desktop'], badges: view.badges, titleLines: view.titleLines, subline: view.subline }),
     [view.cols, mobile, view.badges, view.titleLines, view.subline],
   )
+  const pinned = view.favoriteFirst && !isFavorite ? favorites.ids : undefined
   const items = useMemo(
-    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test }),
-    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test],
+    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, pinned }),
+    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, pinned],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
 
-  /* 分类：默认分类没有漫画时隐藏；「稍后再看」固定排在最后 */
+  /* 分类：默认分类没有漫画时隐藏；「特别关心」「稍后再看」固定排在最后 */
   const laterCount = later.items?.length
+  const favoriteCount = favorites.map && data ? favoriteList.length : undefined
   const categories = useMemo<SegItem<LibraryTab>[]>(() => {
     const cats = catData?.categories.nodes ?? []
     const tabs: SegItem<LibraryTab>[] = [{ value: 'all', label: '全部', count: all.length }]
@@ -88,9 +101,10 @@ export function LibraryPage() {
       if (c.default && n === 0) continue
       tabs.push({ value: c.id, label: c.default ? '默认' : c.name, count: n })
     }
+    tabs.push({ value: 'favorite', label: '特别关心', count: favoriteCount })
     tabs.push({ value: 'later', label: '稍后再看', count: laterCount })
     return tabs
-  }, [catData, all, defaultCategoryId, laterCount])
+  }, [catData, all, defaultCategoryId, favoriteCount, laterCount])
 
   // 记住的分类已被删除时回到「全部」
   useEffect(() => {
@@ -229,6 +243,23 @@ export function LibraryPage() {
       return allNsfw ? `已取消 ${picked.length} 部的 NSFW 标记` : `已将 ${picked.length} 部标为 NSFW，首页和画廊不再显示`
     })
 
+  // 「稍后再看」里可能有不在书库的，只对书库里的那些设特别关心
+  const libraryIds = useMemo(() => new Set(all.map((m) => m.id)), [all])
+  const favoritable = picked.filter((m) => libraryIds.has(m.id))
+  const allFavorite = favoritable.length > 0 && favoritable.every((m) => favorites.ids.has(m.id))
+  const toggleFavorite = () =>
+    run(allFavorite ? '取消特别关心' : '设为特别关心', async () => {
+      await setFavorite(favoritable.map((m) => m.id), !allFavorite)
+      const skipped = picked.length - favoritable.length
+      const note = skipped ? `，${skipped} 部不在书库，已跳过` : ''
+      return (allFavorite ? `已取消 ${favoritable.length} 部的特别关心` : `已将 ${favoritable.length} 部设为特别关心`) + note
+    })
+
+  /* 鼠标右键菜单；触屏长按仍是多选 */
+  const ctx = useContextMenu<LibraryManga>()
+  const openCtx = ctx.open
+  const onMenu = useCallback((m: LibraryManga, x: number, y: number) => openCtx(x, y, m), [openCtx])
+
   const realCategories = (catData?.categories.nodes ?? []).filter((c) => !c.default)
   const moveTo = (catId: number, add: boolean) =>
     run('修改分类', async () => {
@@ -270,7 +301,15 @@ export function LibraryPage() {
           onRefresh={refresh}
         />
 
-        {isLater ? <>
+        {isFavorite ? <>
+          {(!favorites.map || !data) && !favorites.error && !error && <LibrarySkeleton density={view.density} />}
+          {(favorites.error ?? error) && <LoadError message={(favorites.error ?? error)!.message} onRetry={() => void refetch().catch(() => {})} />}
+          {favorites.map && data && items.length === 0 && (
+            <p className="px-6 py-20 text-center text-muted">
+              {favoriteList.length === 0 ? '还没有特别关心的漫画。在漫画详情页点星标，或右键封面设置；手机上长按封面多选后设置。' : '没有符合筛选条件的漫画。'}
+            </p>
+          )}
+        </> : isLater ? <>
           {!later.items && !later.error && <LibrarySkeleton density={view.density} />}
           {later.error && <LoadError message={later.error.message} onRetry={() => void later.refetch().catch(() => {})} />}
           {later.items && items.length === 0 && (
@@ -297,6 +336,8 @@ export function LibraryPage() {
             density={view.density}
             selecting={selecting}
             selected={sel.selected}
+            favorites={favorites.ids}
+            onMenu={onMenu}
             onToggle={(id, index, e) => sel.toggle(id, index, e.shiftKey)}
             onLongPress={(id, index) => {
               setSelecting(true)
@@ -342,6 +383,10 @@ export function LibraryPage() {
             })
           )}
         </Popover>}
+        <button type="button" className="bb" disabled={busy || !favoritable.length || !favorites.map} onClick={toggleFavorite}>
+          {allFavorite ? <StarOff className="size-5" strokeWidth={1.8} /> : <Star className="size-5" strokeWidth={1.8} />}
+          {allFavorite ? '取消特别关心' : '特别关心'}
+        </button>
         <button type="button" className="bb" disabled={busy || !ids.length} onClick={markRead}>
           <BookCheck className="size-5" strokeWidth={1.8} />
           全部已读
@@ -371,6 +416,10 @@ export function LibraryPage() {
           {confirmRemove ? '再点确认' : '移出书库'}
         </button>}
       </BatchBar>
+
+      <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? `${ctx.menu.target.title} 的操作` : '操作'}>
+        {ctx.menu && <MangaMenuItems mangaId={ctx.menu.target.id} inLibrary={libraryIds.has(ctx.menu.target.id)} onDone={ctx.close} />}
+      </ContextMenu>
     </>
   )
 }

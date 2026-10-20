@@ -7,7 +7,7 @@ import { CoverImg } from '@/components/manga/CoverImg'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { usePrefetchManga } from '@/features/manga/prefetch'
-import { LaterMenuItems } from '@/features/later/LaterMenuItems'
+import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -23,9 +23,9 @@ import { ExtensionUpdateCount, FetchSourceManga, langLabel, Sources, type Source
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
 
-/** 封面触屏长按、鼠标右键打开「稍后再看」菜单；单来源网格和全局搜索结果共用 */
-function LaterMenu({ m, align = 'left', children }: {
-  m: Pick<SourceManga, 'id' | 'title'>
+/** 封面触屏长按、鼠标右键打开「稍后再看 / 特别关心」菜单；单来源网格和全局搜索结果共用 */
+function MangaMenu({ m, align = 'left', children }: {
+  m: Pick<SourceManga, 'id' | 'title' | 'inLibrary'>
   align?: 'left' | 'right'
   children: (open: ReturnType<typeof useLongPress> & { onContextMenu: (e: MouseEvent) => void; 'aria-haspopup': 'menu' }) => ReactNode
 }) {
@@ -42,7 +42,7 @@ function LaterMenu({ m, align = 'left', children }: {
   }
   return (
     <Popover open={menu} onClose={close} trigger={children(open)} align={align} label={`${m.title} 的操作`} rootClassName="min-w-0" className="w-[220px]">
-      <LaterMenuItems mangaId={m.id} onDone={close} />
+      <MangaMenuItems mangaId={m.id} inLibrary={m.inLibrary} onDone={close} />
     </Popover>
   )
 }
@@ -50,7 +50,7 @@ function LaterMenu({ m, align = 'left', children }: {
 /** 浏览结果的封面网格 */
 function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
-  return <LaterMenu m={m}>{(open) => (
+  return <MangaMenu m={m}>{(open) => (
     <Link
       to={`/manga/${m.id}`}
       viewTransition
@@ -74,7 +74,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
         {m.author && <span className="truncate text-xs text-muted">{m.author}</span>}
       </span>
     </Link>
-  )}</LaterMenu>
+  )}</MangaMenu>
 }
 
 export function BrowsePage() {
@@ -390,11 +390,11 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
                 {r?.items.slice(0, 4).map((m, i) => (
                   // 一行四个，右半边的菜单向左展开，不超出屏幕
-                  <LaterMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
+                  <MangaMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
                     <Link to={`/manga/${m.id}`} viewTransition {...open} data-sfw={sfwAttr(s.displayName)} className="cv block rounded-lg" aria-label={m.title} title={m.title}>
                       <CoverImg src={m.thumbnailUrl} loading="lazy" />
                     </Link>
-                  )}</LaterMenu>
+                  )}</MangaMenu>
                 ))}
               </div>
             </div>
