@@ -101,6 +101,21 @@ function createScene() {
       s.append(img); drift.append(s); slots.push(s)
     }
   }
+  const trimPool = () => {
+    const used = new Set(assigned.values())
+    let spare = 8
+    const keep = slots.map((_, i) => i).filter((i) => used.has(i) || spare-- > 0)
+    if (keep.length === slots.length) return
+    const next = new Map(keep.map((old, i) => [old, i]))
+    slots.forEach((s, i) => { if (!next.has(i)) s.remove() })
+    const kept = keep.map((i) => slots[i])
+    const images = keep.map((i) => shown[i])
+    const positions = keep.map((i) => placed[i])
+    slots.splice(0, slots.length, ...kept)
+    shown.splice(0, shown.length, ...images)
+    placed.splice(0, placed.length, ...positions)
+    assigned = new Map([...assigned].map(([key, i]) => [key, next.get(i)!]))
+  }
   const place = (i: number, c: Cell, grid: Grid) => {
     const s = slots[i]
     const m = current!.items[wallItem(c.c, c.r, current!.items.length)]
@@ -117,16 +132,17 @@ function createScene() {
       s.style.width = `${grid.cw}px`
       // 格子的坐标不随取景框和流动位置变化，橱窗揭开时无需重排已有封面。
       const y = c.r * grid.py + (Math.abs(c.c % 2) === 1 ? grid.py / 2 : 0)
-      s.style.transform = `translate3d(${c.c * grid.px}px, ${y}px, 0)`
+      s.style.transform = `translate(${c.c * grid.px}px, ${y}px)`
     }
   }
   const paint = (w: number, h: number, full = false) => {
     if (!current?.items.length || !w || !h) return
     const grid = current.mobile ? MOBILE_GRID : DESKTOP_GRID
     ensureWall(w, h, grid)
-    const cells = full || current.kind === 'gallery'
-      ? visibleCells(wallState.cx + w / 2 + HOME_WALL.slide, wallState.cy + h / 2, w, h, grid, wallRange(w, h, full ? WINDOW_K : 1))
-      : cellsInWindow(w, h, grid, WINDOW_K, grid.ch * wallScale(WINDOW_K)).map(p => p.cell)
+    const k = current.kind === 'gallery' ? 1 : WINDOW_K
+    const cells = full
+      ? visibleCells(wallState.cx + w / 2 + HOME_WALL.slide, wallState.cy + h / 2, w, h, grid, wallRange(w, h, WINDOW_K))
+      : cellsInWindow(w, h, grid, k, Math.max(grid.cw, grid.ch) * wallScale(k)).map(p => p.cell)
     const x = wallState.cx + w / 2 + HOME_WALL.slide
     const y = wallState.cy + h / 2
     // 同一批格子一起流动，只在边缘换格、尺寸或内容变化时更新封面。
@@ -202,6 +218,8 @@ function createScene() {
     near = a.kind === 'gallery' || (() => { const r = a.host.getBoundingClientRect(); return r.bottom > -400 && r.top < innerHeight + 400 })()
     io.observe(a.host); ro.observe(a.host)
     sync()
+    // 只在交接落定后回收隐藏的预备格子；可见封面保留原 DOM，避免收尾闪动。
+    trimPool()
   }
   // 入口预取时只补隐藏元素，已有可见格子的位置和分配保持不动。
   const prepare = () => {

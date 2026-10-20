@@ -4,6 +4,7 @@ import { BookOpen, Play, Search, Shuffle, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { MangaChapters, MangaDetail } from '@/features/manga/queries'
 import { STATUS } from '@/features/manga/status'
@@ -106,6 +107,7 @@ export function CanvasPage() {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [focus, setFocus] = useState(-1)
   const [ready, setReady] = useState(!fromGallery || reduced || !!restoring)
+  const [playCovered, setPlayCovered] = useState(false)
   // 返回时那一部可能已被移出书库（排序下标对不上了）：对不上就不恢复详情层
   const [sel, setSel] = useState<Selection | null>(restoring?.sel && items[restoring.sel.index]?.id === restoring.selId ? restoring.sel : null)
   const [hudStart] = useState(ready ? 1 : 0)
@@ -701,6 +703,7 @@ export function CanvasPage() {
   }, [client, selected])
 
   return (
+    <MovingGlassBackdrop value>
     <div
       ref={root}
       data-theme="dark"
@@ -720,7 +723,8 @@ export function CanvasPage() {
         <div
           ref={field}
           className={cn('absolute inset-0 origin-center', ready && 'transition-[filter,transform] duration-700 ease-[cubic-bezier(.2,.8,.2,1)]')}
-          style={{ perspective: PERSPECTIVE, filter: (sel && !closing) || (play && !play.closing) ? 'blur(16px) brightness(.45) saturate(1.2)' : undefined }}
+          data-canvas-field
+          style={{ perspective: PERSPECTIVE, visibility: playCovered ? 'hidden' : undefined, filter: !playCovered && ((sel && !closing) || (play && !play.closing)) ? 'blur(16px) brightness(.45) saturate(1.2)' : undefined }}
         >
           {Array.from({ length: n ? poolSize : 0 }, (_, i) => (
             <button
@@ -730,7 +734,7 @@ export function CanvasPage() {
               }}
               type="button"
               tabIndex={-1}
-              className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0 md:shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
+              className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0"
               style={{ width: grid.cw, visibility: 'hidden', backfaceVisibility: 'hidden' }}
               onClick={() => openSlot(i)}
             >
@@ -869,6 +873,7 @@ export function CanvasPage() {
           onCurrent={onPlayCurrent}
           onExit={exitPlay}
           onClosed={playClosed}
+          onCovered={setPlayCovered}
         />
       )}
 
@@ -890,6 +895,7 @@ export function CanvasPage() {
         />
       )}
     </div>
+    </MovingGlassBackdrop>
   )
 }
 

@@ -1,9 +1,10 @@
-import { createElement, useCallback, useId, useRef, type ComponentPropsWithoutRef, type CSSProperties, type Ref } from 'react'
+import { createElement, useCallback, useContext, useId, useRef, type ComponentPropsWithoutRef, type CSSProperties, type Ref } from 'react'
 import { motion } from 'motion/react'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { useGlassTuning } from '@/design/glassTuning'
 import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
+import { MovingGlassBackdrop } from './MovingGlassBackdrop'
 
 type Tag = 'div' | 'span' | 'nav' | 'header' | 'section' | 'aside' | 'form' | 'footer' | 'label' | 'button' | 'a'
 
@@ -36,6 +37,7 @@ export function Glass<T extends Tag = 'div'>({
 }: GlassProps<T>) {
   const mode = useAppearance((s) => s.glass)
   const t = useGlassTuning()
+  const moving = useContext(MovingGlassBackdrop)
   const host = useRef<HTMLElement>(null)
   const filterId = `lens${useId().replace(/[:«»]/g, '')}`
   const on = mode === 'refract' && !suspendRefract && supportsRefract()
@@ -43,7 +45,7 @@ export function Glass<T extends Tag = 'div'>({
     bezel: lens?.bezel ?? t.bezel,
     strength: lens?.strength ?? t.strength,
     falloff: lens?.falloff ?? t.falloff,
-    dispersion: lens?.dispersion ?? t.dispersion,
+    dispersion: lens?.dispersion ?? (moving ? 0 : t.dispersion),
   }
   const blur = lens?.blur ?? (dense ? t.denseBlur : t.blur)
   const feImage = useLensMap(host, on, o)

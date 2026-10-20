@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft } from 'lucide-react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useLocation, useNavigate, useNavigationType } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
@@ -296,28 +296,25 @@ interface BodyProps {
 }
 
 /* ───────── 背景与噪点 ───────── */
-function Backdrop({ glow, className, style }: { glow: [Rgb, Rgb]; className?: string; style?: CSSProperties }) {
+const Backdrop = memo(function Backdrop({ glow, className, fade }: { glow: [Rgb, Rgb]; className?: string; fade?: string }) {
   return (
-    <div aria-hidden data-stats-progress="p" className={cn('pointer-events-none overflow-hidden', className)} style={style}>
+    <div aria-hidden data-stats-progress="p" className={cn('pointer-events-none overflow-hidden', className)} style={{ opacity: fade }}>
       <div
-        className="gallery-blob-a absolute top-[-16%] left-[36%] aspect-square w-[min(920px,90vw)] rounded-full opacity-85 blur-[30px] max-md:top-[-12%] max-md:left-[-30%] max-md:w-[520px]"
+        className="gallery-blob-a absolute top-[-16%] left-[36%] aspect-square w-[min(920px,90vw)] rounded-full opacity-85 max-md:top-[-12%] max-md:left-[-30%] max-md:w-[520px]"
         style={{ background: `radial-gradient(closest-side, ${rgbCss(glow[0], 0.87)} 0%, ${rgbCss(glow[0], 0.33)} 45%, transparent 100%)` }}
       />
       <div
-        className="gallery-blob-b absolute top-[36%] left-[66%] aspect-square w-[min(760px,70vw)] rounded-full opacity-70 blur-[30px] max-md:top-[26%] max-md:left-[30%] max-md:w-[460px]"
+        className="gallery-blob-b absolute top-[36%] left-[66%] aspect-square w-[min(760px,70vw)] rounded-full opacity-70 max-md:top-[26%] max-md:left-[30%] max-md:w-[460px]"
         style={{ background: `radial-gradient(closest-side, ${rgbCss(glow[1], 0.8)} 0%, ${rgbCss(glow[1], 0.27)} 50%, transparent 100%)` }}
       />
       <div className="gallery-blob-b absolute top-[30%] left-[-12%] aspect-square w-[720px] rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,.09),transparent)]" />
-      <svg className="absolute inset-0 size-full opacity-20 mix-blend-overlay">
-        <filter id="gallery-grain">
-          <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#gallery-grain)" />
-      </svg>
+      <div className="gallery-grain absolute inset-0" />
     </div>
   )
-}
+})
+
+const MemoRankScreen = memo(RankScreen)
+const MemoTasteScreen = memo(TasteScreen)
 
 /** 进场时一段段淡入上移；出场倒放时按同样的顺序收起 */
 const upStyle = (t: number, at: number): CSSProperties => {
@@ -587,7 +584,7 @@ function Stats(p: BodyProps) {
   // 表盘（连年轮和外面的字）的边长；时钟本身按 360 / DIAL_UNITS 缩
   const dial = mobile ? Math.round(Math.max(260, Math.min(w - 16, h * 0.47))) : Math.round(Math.max(300, Math.min(h - top - 92, w - side * 2 - kpiW * 2 - kpiGap * 2, 960)))
   const clock = Math.round((dial * 360) / DIAL_UNITS)
-  const text = read == null ? '—' : count(read)
+  const text = useMemo(() => read == null ? '—' : count(read), [read])
   const numSize = Math.round(Math.max(36, Math.min(mobile ? 64 : 136, (clock * 0.6 - 36) / ([...text].length * 0.56))))
   // 后两屏在桌面矮窗口里按 STAGE_MIN_H 高排版再整体缩小：标题、领奖台、书架、翻组按钮叠起来比第一屏高，
   // 600 高时会顶到顶栏、底部按钮被裁掉。第一屏仍按原来的最小高度
@@ -653,21 +650,28 @@ function Stats(p: BodyProps) {
     // 进度只传给使用它的区域，避免每帧让表盘的整棵 SVG 子树重算继承样式。
     const progress = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="p"]')
     const drift = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="ek"]')
+    const panels = root.current?.querySelectorAll<HTMLElement>('[data-stats-screen]')
     const paint = () => {
       const pp = pager.p
       const ud = ease(seg(pp, 0.04, 0.56))
+      // 过渡重叠区仍同时显示两屏，完全退出以后才停止绘制，保留各屏状态和回程动画。
+      panels?.forEach((el) => {
+        const i = Number(el.dataset.statsScreen)
+        const visible = i === 0 ? pp < 0.62 : i === 1 ? pp > 0.25 && pp < 1.8 : pp > 1.2
+        el.style.visibility = visible ? '' : 'hidden'
+      })
       progress?.forEach((el) => el.style.setProperty('--p', pp.toFixed(4)))
       drift?.forEach((el) => el.style.setProperty('--ek', ease(seg(pp, 0, 0.3)).toFixed(4)))
       if (zoom.current) {
         zoom.current.style.transform = ud ? `scale(${(1 + ud * 1.9).toFixed(4)})` : ''
         zoom.current.style.opacity = `${1 - seg(pp, 0.14, 0.56)}`
         // 倾斜收平以后才模糊：模糊会把表盘压成一张平面
-        zoom.current.style.filter = pp > 0.15 ? `blur(${(ud * 6).toFixed(2)}px)` : ''
+        zoom.current.style.filter = pp > 0.15 && pp < 0.56 ? `blur(${(ud * 6).toFixed(2)}px)` : ''
       }
       if (num.current) {
         num.current.style.transform = ud ? `scale(${(1 + ud * 1.4).toFixed(4)})` : ''
         num.current.style.opacity = `${1 - seg(pp, 0.06, 0.44)}`
-        num.current.style.filter = pp > 0.04 ? `blur(${(ud * 4).toFixed(2)}px)` : ''
+        num.current.style.filter = pp > 0.04 && pp < 0.44 ? `blur(${(ud * 4).toFixed(2)}px)` : ''
       }
       setScreen(Math.round(pp))
       setGroup(pager.cur)
@@ -730,10 +734,7 @@ function Stats(p: BodyProps) {
 
   // 后两屏背后的两团光：排行跟着这一组第一名的封面颜色，口味用背景的第二种颜色，切屏时交替淡入淡出
   const glows = (cx: number, cy: number, color: Rgb, fade: string) => (
-    <>
-      <div aria-hidden className="pointer-events-none absolute rounded-full blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 380, top: cy - 300, width: 760, height: 600, backgroundColor: rgbCss(color), opacity: `calc(${fade} * .55)` }} />
-      <div aria-hidden className="pointer-events-none absolute rounded-full mix-blend-screen blur-[110px] transition-[background-color] duration-700" style={{ left: cx - 360, top: cy - 280, width: 720, height: 560, backgroundColor: rgbCss(color), opacity: `calc(${fade} * .25)` }} />
-    </>
+    <div data-stats-glow aria-hidden className="pointer-events-none absolute" style={{ left: cx - 600, top: cy - 500, width: 1200, height: 1000, background: `radial-gradient(ellipse, ${rgbCss(color, .65)} 0%, ${rgbCss(color, .32)} 40%, ${rgbCss(color, .08)} 65%, transparent 80%)`, opacity: `calc(${fade})` }} />
   )
   const midY = pageTop + (sh - pageTop - pageBottom) / 2
   // 后两屏的排版坐标系：矮窗口里整体缩小（见 k2）
@@ -746,10 +747,10 @@ function Stats(p: BodyProps) {
   return (
     <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none">
       <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
-        <Backdrop glow={p.glow} className="absolute inset-0" style={{ opacity: `calc(1 - ${seg01('0.3', '0.8')} * .6)` }} />
+        <Backdrop glow={p.glow} className="absolute inset-0" fade={`calc(1 - ${seg01('0.3', '0.8')} * .6)`} />
 
         {/* ───── 第一屏 ───── */}
-        <div className="absolute inset-0" inert={screen !== 0}>
+        <div data-stats-screen="0" className="absolute inset-0" inert={screen !== 0}>
           {mobile ? (
             <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
               {dialEl}
@@ -777,19 +778,19 @@ function Stats(p: BodyProps) {
         {/* ───── 第二屏：已读排行 · 第三屏：口味 ───── */}
         {current && taste && (
           <>
-            <div data-stats-progress="p" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
+            <div data-stats-screen="1" data-stats-progress="p" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
               {stageBox(
                 <>
                   {glows(stageL + stage * (mobile ? 0.4 : 0.25), midY, tone, `${seg01('0.4', '0.9')} * (1 - ${seg01('1.1', '1.6')})`)}
-                  <RankScreen ranked={ranked} group={rankGroup} pager={pager} L={rankL} moved={moved} />
+                  <MemoRankScreen ranked={ranked} group={rankGroup} pager={pager} L={rankL} moved={moved} />
                 </>,
               )}
             </div>
-            <div data-stats-progress="p" className="absolute inset-0" inert={screen !== 2} aria-hidden={screen !== 2}>
+            <div data-stats-screen="2" data-stats-progress="p" className="absolute inset-0" inert={screen !== 2} aria-hidden={screen !== 2}>
               {stageBox(
                 <>
                   {glows(stageL + stage * 0.3, midY, p.glow[1], `${seg01('1.3', '1.8')} * .7`)}
-                  <TasteScreen taste={taste} coverOf={p.coverOf} pager={pager} L={tasteL} />
+                  <MemoTasteScreen taste={taste} coverOf={p.coverOf} pager={pager} L={tasteL} />
                 </>,
               )}
             </div>

@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn'
 import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells } from './canvasMath'
 import { useReducedMotionPref } from './hooks'
 import { libraryCoversForReturn, type CoverRect } from './readMorph'
-import { ensureWall, wallItem, wallState, wallTransform } from './wall'
+import { cellsInWindow, ensureWall, wallItem, wallScale, wallState, wallTransform } from './wall'
 
 /** 从书库进来的过场：先停一下（书库的标题和工具栏在上面淡出），再飞上墙 */
 const ENTRY_HOLD = 260
@@ -150,8 +150,10 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       const e = fly ? (out ? 1 - k : k) : 1
       const ox = wallState.cx + w / 2 + HOME_WALL.slide
       const oy = wallState.cy + h / 2
-      const cells = visibleCells(ox, oy, w, h, grid, { scale: HOME_WALL.scale, ...homeWallExtra(w, h) })
       const flying = !!fly && e < 1
+      const cells = flying
+        ? visibleCells(ox, oy, w, h, grid, { scale: HOME_WALL.scale, ...homeWallExtra(w, h) })
+        : cellsInWindow(w, h, grid, 1, Math.max(grid.cw, grid.ch) * wallScale(1)).map(({ cell }) => cell)
       // 普通流动只移动公共层；飞向书库时仍逐格插值，保留原来的落点和封面交接。
       if (drift.current) drift.current.style.transform = flying ? '' : `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px)`
       if (plane.current) plane.current.style.transform = wallTransform(e)
@@ -196,7 +198,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
         } else {
           const x = flying ? cell.x : cell.c * grid.px
           const y = flying ? cell.y : cell.r * grid.py + (Math.abs(cell.c % 2) === 1 ? grid.py / 2 : 0)
-          s.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0px)`
+          s.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`
           // 其余格子进场时在墙倾斜的途中淡入，出场时先淡掉
           s.style.opacity = fly && e < 1 ? (out ? 1 - clamp01(k / 0.45) : clamp01((k - 0.25) / 0.55)).toFixed(3) : ''
           s.style.zIndex = ''
@@ -307,17 +309,17 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
   }, [items, size, grid, pool, reduced])
 
   return (
-    <div ref={root} aria-hidden className={cn('pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className)} style={{ width: size.w, height: size.h }}>
+    <div ref={root} data-hero-wall aria-hidden className={cn('pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className)} style={{ width: size.w, height: size.h }}>
       <div ref={plane} className="absolute inset-0 origin-center" style={{ perspective: 1100, transform: intro.current ? wallTransform(0) : wallTransform(1) }}>
-        <div ref={drift} className="absolute inset-0">
+        <div ref={drift} className="absolute inset-0 will-change-transform">
           {Array.from({ length: items.length ? pool : 0 }, (_, i) => (
             <span
               key={i}
               ref={(el) => {
                 slots.current[i] = el
               }}
-              className="cv absolute top-0 left-0 origin-top-left rounded-[14px] md:shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
-              style={{ width: grid.cw, visibility: 'hidden', backfaceVisibility: 'hidden' }}
+              className="cv absolute top-0 left-0 origin-top-left rounded-[14px]"
+              style={{ width: grid.cw, visibility: 'hidden' }}
             >
               <img alt="" draggable={false} decoding="async" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
               {/* 从书库飞进来时叠在上面的书库封面，飞到后段淡掉 */}
