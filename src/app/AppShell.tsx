@@ -19,6 +19,7 @@ import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
 import { TopNav } from './TopNav'
 import { UpdatePrompt } from './UpdatePrompt'
+import { AwayPrompt } from '@/features/favorite/AwayPrompt'
 import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 
 /** 需要登录的页面外壳：未登录跳登录页，连不上服务器给重试 */
@@ -97,6 +98,7 @@ export function AppShell() {
       </main>
       {tabbar && <MobileTabBar />}
       <UpdatePrompt />
+      <AwayPrompt />
       <ScrollManager />
     </div>
     </MovingGlassBackdrop>

@@ -1,12 +1,13 @@
 import { useQuery } from '@apollo/client/react'
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMemo, useState, type CSSProperties } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, Star } from 'lucide-react'
+import { createContext, useContext, useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import type { CalendarChaptersQuery } from '@/api/gql/graphql'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { LoadError } from '@/components/ui/LoadError'
 import { useNsfwBlur } from '@/features/nsfw/useNsfw'
+import { useFavorites } from '@/features/favorite/useFavorites'
 import { cn } from '@/lib/cn'
 import { sfwAttr } from '@/lib/devSafe'
 import { chapterLabel, ms, sec } from '@/lib/format'
@@ -25,6 +26,14 @@ const MAX_WEEK = 8
 const DAY_CAP_COLUMN = 4
 const DAY_CAP_AGENDA = 6
 const LATE_CAP = 6
+
+/** 特别关心的漫画 id；日历里的格子很多，整页取一次往下传，标题前标一颗实心星 */
+const Favorites = createContext<ReadonlyMap<number, number>>(new Map())
+
+function FavoriteMark({ id }: { id: number }) {
+  if (!useContext(Favorites).has(id)) return null
+  return <Star className="mr-1 inline size-3 -translate-y-px fill-current" strokeWidth={2.2} aria-label="特别关心" />
+}
 
 /** 超出上限的折叠起来，点开后整天展开 */
 function useCapped<T>() {
@@ -59,6 +68,7 @@ export function UpdateCalendar() {
   const intro = useIntro(introWanted, !!query.data)
   const [offset, setOffset] = useState(0)
   const [lateOpen, setLateOpen] = useState(false)
+  const favorites = useFavorites().ids
 
   const chapters = useMemo(
     () => (query.data?.chapters.nodes ?? []).map((c) => ({ ...c, uploadDate: ms(c.uploadDate), fetchedAt: sec(c.fetchedAt) })),
@@ -83,6 +93,7 @@ export function UpdateCalendar() {
   const range = `${new Date(start).getMonth() + 1}/${new Date(start).getDate()} – ${new Date(end).getMonth() + 1}/${new Date(end).getDate()}`
 
   return (
+    <Favorites.Provider value={favorites}>
     <section aria-label="更新日历" className="pb-6">
       <div className="mt-5 mb-4 flex items-center justify-between gap-3">
         <p className="m-0 min-w-0 text-[13px] text-muted md:text-sm">{summary || (offset < 0 ? '这周没有新章节' : '这周没有预计的更新')}</p>
@@ -123,6 +134,7 @@ export function UpdateCalendar() {
         <p className="mt-6 text-xs text-muted">近半年的章节太多，只按最近 {CALENDAR_LIMIT.toLocaleString('en-US')} 话推算。</p>
       )}
     </section>
+    </Favorites.Provider>
   )
 }
 
@@ -184,7 +196,7 @@ function EntryTile({ e, now }: { e: DayEntry<Manga>; now: number }) {
       <span className={cn('cv w-full max-w-[112px] rounded-lg transition-opacity', pred && 'opacity-45 outline-1 outline-offset-2 outline-dashed outline-text/50 group-hover:opacity-70')}>
         <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
       </span>
-      <span className={cn('line-clamp-2 min-h-[2.75em] text-[13px] leading-snug break-words', pred ? 'text-muted' : 'font-semibold')}>{e.manga.title}</span>
+      <span className={cn('line-clamp-2 min-h-[2.75em] text-[13px] leading-snug break-words', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
       <span className="truncate text-xs text-muted num">{entrySub(e, now)}</span>
     </Link>
   )
@@ -253,7 +265,7 @@ function AgendaRow({ e, now, rise }: { e: DayEntry<Manga>; now: number; rise?: C
         <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className={cn('truncate', pred ? 'text-muted' : 'font-semibold')}>{e.manga.title}</span>
+        <span className={cn('truncate', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
         <span className="truncate text-xs text-muted num">{pred ? `预计 · ${entrySub(e, now)}` : entrySub(e, now)}</span>
       </span>
     </Link>
@@ -288,7 +300,7 @@ function SeriesRow({ s, sub }: { s: Series<Manga>; sub: string }) {
         <CoverImg src={s.manga.thumbnailUrl} loading="lazy" />
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="truncate font-medium">{s.manga.title}</span>
+        <span className="truncate font-medium"><FavoriteMark id={s.mangaId} />{s.manga.title}</span>
         <span className="truncate text-xs text-muted num">{sub}</span>
       </span>
     </Link>

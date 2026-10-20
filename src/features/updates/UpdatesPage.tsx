@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, MoreHorizontal, RefreshCw, Square } from 'lucide-react'
+import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, MoreHorizontal, RefreshCw, Square, Star } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { captureUser } from '@/api/userContext'
@@ -15,9 +15,13 @@ import { confirm } from '@/components/ui/Confirm'
 import { LoadError } from '@/components/ui/LoadError'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
+import { ContextMenu, isMouseContext, useContextMenu } from '@/components/ui/ContextMenu'
+import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
+import { useFavorites } from '@/features/favorite/useFavorites'
+import { useLongPress } from '@/lib/useLongPress'
 import { toast, toastError } from '@/components/ui/toast'
 import { hasSnapshot, withSnapshot } from '@/api/persist'
-import { type UpdateChapter } from '@/features/home/queries'
+import { IN_LIBRARY, type UpdateChapter } from '@/features/home/queries'
 import { UpdateLibrary, UpdateStop } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { useNsfwBlur } from '@/features/nsfw/useNsfw'
@@ -42,11 +46,20 @@ export function UpdatesPage() {
   const client = useApolloClient()
   // 起始范围按筛选各算一次：切换筛选时重算，缓存变化不会改它（否则每加载一页就换一次查询）
   const feed = UPDATES_FEEDS[filter]
-  const variables = useMemo(() => updatesVariables(client.cache, feed, UPDATES_FILTERS[filter]), [client, feed, filter])
+  // 「特别关心」按标记的漫画 id 交给服务端筛，分页照常；还没取到标记或一部都没有时不查
+  const favorites = useFavorites()
+  const favoriteIds = useMemo(() => [...favorites.ids.keys()].sort((a, b) => a - b), [favorites.ids])
+  const favoriteKey = favoriteIds.join(',')
+  const noFavorites = filter === 'favorite' && (!favorites.map || favoriteIds.length === 0)
+  const variables = useMemo(
+    () => updatesVariables(client.cache, feed, filter === 'favorite' ? { ...IN_LIBRARY, mangaId: { in: favoriteKey ? favoriteKey.split(',').map(Number) : [] } } : UPDATES_FILTERS[filter]),
+    [client, feed, filter, favoriteKey],
+  )
   const updates = useQuery(feed, {
     variables,
     fetchPolicy: 'cache-and-network',
     notifyOnNetworkStatusChange: true,
+    skip: noFavorites,
   })
   const { loading, fetchMore, refetch } = updates
   const last = useQuery(LastUpdate, { fetchPolicy: 'cache-and-network' })
@@ -144,6 +157,9 @@ export function UpdatesPage() {
     wasRunning.current = updater.isRunning
   }, [updater.isRunning, refetch, last])
 
+  /* 右键 / 长按某一行：特别关心、稍后再看 */
+  const ctx = useContextMenu<UpdateChapter['manga']>()
+
   /* 批量 */
   const [update] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
@@ -224,6 +240,7 @@ export function UpdatesPage() {
                 { value: 'all', label: '全部' },
                 { value: 'unread', label: '未读' },
                 { value: 'downloaded', label: '已下载' },
+                { value: 'favorite', label: '特别关心' },
               ]}
               value={filter}
               onChange={setFilter}
@@ -251,7 +268,8 @@ export function UpdatesPage() {
         )}
 
         {view === 'calendar' ? <UpdateCalendar /> : <section aria-label="新章节" className="pb-6">
-          {data && list.length === 0 && <p className="py-20 text-center text-muted">没有符合条件的章节</p>}
+          {data && list.length === 0 && !noFavorites && <p className="py-20 text-center text-muted">没有符合条件的章节</p>}
+          {noFavorites && favorites.map && <p className="py-20 text-center text-muted">还没有特别关心的漫画。在漫画详情页点星标，或右键、长按这里的条目设置。</p>}
           {days.map((d, di) => (
             <div key={d.label}>
               <h2 className="mt-[26px] mb-2.5 flex items-baseline gap-2.5 text-lg font-bold lg:text-xl">
@@ -263,13 +281,13 @@ export function UpdatesPage() {
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
                 const row = (c: UpdateChapter, nested = false) => (
-                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
+                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
                 )
                 if (g.rows.length === 1) return row(g.rows[0])
                 const expanded = open.has(g.key)
                 return (
                   <div key={g.key}>
-                    <GroupRow rows={g.rows} rise={rise} expanded={expanded} onToggle={() => toggleGroup(g.key)} />
+                    <GroupRow rows={g.rows} rise={rise} expanded={expanded} onToggle={() => toggleGroup(g.key)} favorite={favorites.ids.has(g.rows[0].mangaId)} onMenu={(x, y) => ctx.open(x, y, g.rows[0].manga)} />
                     {/* 常驻渲染，用网格行高 0fr → 1fr 做展开收起，下面的记录才会顺滑让位；收起时 inert 让键盘与读屏跳过 */}
                     <div
                       className={cn('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]', expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
@@ -294,6 +312,10 @@ export function UpdatesPage() {
 
         <DownloadPill />
       </div>
+      <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? `${ctx.menu.target.title} 的操作` : '操作'}>
+        {/* 更新页只列书库里的漫画 */}
+        {ctx.menu && <MangaMenuItems mangaId={ctx.menu.target.id} inLibrary onDone={ctx.close} />}
+      </ContextMenu>
     </>
   )
 }
@@ -381,16 +403,41 @@ function RowsSkeleton() {
   )
 }
 
+/** 整行的右键（鼠标）和长按（触屏）都打开操作菜单；长按的位置取按下时的手指位置 */
+function useRowMenu(open: (x: number, y: number) => void) {
+  const at = useRef({ x: 0, y: 0 })
+  const press = useLongPress(() => open(at.current.x, at.current.y))
+  return {
+    ...press,
+    onPointerDown: (e: React.PointerEvent) => {
+      at.current = { x: e.clientX, y: e.clientY }
+      press.onPointerDown(e)
+    },
+    onContextMenu: (e: React.MouseEvent) => {
+      if (!isMouseContext(e)) return press.onContextMenu(e)
+      e.preventDefault()
+      open(e.clientX, e.clientY)
+    },
+  }
+}
+
+/** 标题前的实心星：特别关心 */
+const FavoriteMark = () => <Star className="size-3.5 flex-none self-center fill-current lg:size-4" strokeWidth={2.2} aria-label="特别关心" />
+
 function Row({
   c,
   rise,
   nested,
+  favorite,
+  onMenu,
   queued,
   onEnqueue,
   onToggleRead,
 }: {
   c: UpdateChapter
   rise?: CSSProperties
+  favorite: boolean
+  onMenu: (x: number, y: number) => void
   /** 折叠组展开后的子行：不重复封面与书名，只显示章节名 */
   nested?: boolean
   queued: { progress: number; state: string } | undefined
@@ -399,8 +446,10 @@ function Row({
 }) {
   const time = new Date(sec(c.fetchedAt)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   const downloadStatus = queued?.state === 'ERROR' ? '下载出错' : `下载中 ${Math.round((queued?.progress ?? 0) * 100)}%`
+  const menu = useRowMenu(onMenu)
   return (
     <div
+      {...menu}
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(c.manga)}
       data-reader-origin
@@ -417,6 +466,7 @@ function Row({
       <Link to={`/manga/${c.mangaId}/chapter/${c.id}`} viewTransition className="flex min-w-0 flex-1 flex-col text-text no-underline lg:gap-0.5">
         <span className="flex min-w-0 items-baseline gap-2">
           {!c.isRead && <span className="size-2 flex-none rounded-full bg-accent" />}
+          {favorite && !nested && <FavoriteMark />}
           <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', nested ? 'lg:text-[15px]' : 'lg:text-lg', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>
         </span>
         {!nested && <span className={cn('truncate text-xs text-muted lg:text-[15px]', !c.isRead && 'lg:text-text')}>{chapterLabel(c)}</span>}
@@ -465,13 +515,22 @@ function Row({
 }
 
 /** 同一天同一部漫画的多话折叠行：显示最新一话，点开看全部 */
-function GroupRow({ rows, rise, expanded, onToggle }: { rows: UpdateChapter[]; rise?: CSSProperties; expanded: boolean; onToggle: () => void }) {
+function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
+  rows: UpdateChapter[]
+  rise?: CSSProperties
+  expanded: boolean
+  onToggle: () => void
+  favorite: boolean
+  onMenu: (x: number, y: number) => void
+}) {
   const c = rows[0]
+  const menu = useRowMenu(onMenu)
   const unread = rows.filter((r) => !r.isRead).length
   const time = new Date(sec(c.fetchedAt)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   const summary = `${chapterLabel(c)} 等 ${rows.length} 话${unread ? ` · ${unread} 话未读` : ''}`
   return (
     <div
+      {...menu}
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(c.manga)}
       style={rise}
@@ -489,6 +548,7 @@ function GroupRow({ rows, rise, expanded, onToggle }: { rows: UpdateChapter[]; r
       <button type="button" className="flex min-w-0 flex-1 cursor-pointer flex-col border-0 bg-transparent p-0 text-left text-text lg:gap-0.5" aria-expanded={expanded} onClick={onToggle}>
         <span className="flex min-w-0 items-baseline gap-2">
           {unread > 0 && <span className="size-2 flex-none rounded-full bg-accent" />}
+          {favorite && <FavoriteMark />}
           <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate lg:text-lg', unread ? 'font-semibold' : 'font-medium text-muted')}>{c.manga.title}</span>
         </span>
         <span className={cn('truncate text-xs text-muted lg:text-[15px]', unread > 0 && 'lg:text-text')}>{summary}</span>

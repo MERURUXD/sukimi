@@ -6,6 +6,7 @@ import { CoverImg } from '@/components/manga/CoverImg'
 import { useRestoredOffset } from '@/app/ScrollManager'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { useLongPress } from '@/lib/useLongPress'
+import { isMouseContext } from '@/components/ui/ContextMenu'
 import { sfwAttr } from '@/lib/devSafe'
 import { useNsfw, useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { timeAgo } from '@/lib/format'
@@ -31,6 +32,10 @@ interface Props {
   scoreOf?: (m: LibraryManga) => number | null
   /** 书库「显示」里的封面设置；缺省时按加入这些设置之前的样子显示 */
   display?: TileDisplay
+  /** 特别关心：开着星标角标时在封面上标出 */
+  favorites?: ReadonlyMap<number, number>
+  /** 鼠标右键某一部：打开操作菜单（触屏长按仍是多选）；要保持引用稳定，格子才不会跟着重画 */
+  onMenu?: (m: LibraryManga, x: number, y: number) => void
 }
 
 export interface TileDisplay {
@@ -140,7 +145,7 @@ export function LibrarySkeleton({ density }: { density: Density }) {
 }
 
 /* ───────── 封面网格（按行虚拟化）───────── */
-function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf, display = DEFAULT_DISPLAY, width, top }: Props & { width: number; top: number }) {
+function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf, display = DEFAULT_DISPLAY, favorites, onMenu, width, top }: Props & { width: number; top: number }) {
   const initialOffset = useRestoredOffset()
   const minW = minTile ?? (density === 'compact' ? 120 : 160)
   const cols = display.cols || Math.max(2, Math.floor((width + GAP_X) / (minW + GAP_X)))
@@ -185,8 +190,10 @@ function GridView({ items, intro, density, selecting, selected, onToggle, onLong
                 display={display}
                 selecting={selecting}
                 selected={selected.has(m.id)}
+                favorite={display.badges.favorite && !!favorites?.has(m.id)}
                 onToggle={onToggle}
                 onLongPress={onLongPress}
+                onMenu={onMenu}
               />
             ))}
           </div>
@@ -205,8 +212,10 @@ const Tile = memo(function Tile({
   display,
   selecting,
   selected,
+  favorite,
   onToggle,
   onLongPress,
+  onMenu,
 }: {
   m: LibraryManga
   index: number
@@ -216,10 +225,20 @@ const Tile = memo(function Tile({
   display: TileDisplay
   selecting: boolean
   selected: boolean
+  favorite: boolean
   onToggle: Props['onToggle']
   onLongPress: Props['onLongPress']
+  onMenu: Props['onMenu']
 }) {
-  const press = useLongPress(() => !selecting && onLongPress(m.id, index))
+  const longPress = useLongPress(() => !selecting && onLongPress(m.id, index))
+  const press = {
+    ...longPress,
+    onContextMenu: (e: MouseEvent) => {
+      if (!onMenu || selecting || !isMouseContext(e)) return longPress.onContextMenu(e)
+      e.preventDefault()
+      onMenu(m, e.clientX, e.clientY)
+    },
+  }
   const prefetch = usePrefetchManga(m.id)
   const nsfw = useNsfwBlur(m)
   const { badges, subline } = display
@@ -245,8 +264,14 @@ const Tile = memo(function Tile({
             {m.unreadCount}
           </span>
         )}
-        {!selecting && (dl || lang) && (
+        {!selecting && (favorite || dl || lang) && (
           <span className="absolute top-2 right-2 z-[2] flex flex-col items-end gap-1">
+            {/* 实心星：和评分角标的空心星区分开 */}
+            {favorite && (
+              <span className={PILL} aria-label="特别关心" title="特别关心">
+                <Star className="size-3 fill-current" strokeWidth={2.4} />
+              </span>
+            )}
             {dl && (
               <span className={PILL}>
                 <Download className="size-3" strokeWidth={2.4} />
@@ -312,7 +337,7 @@ const Tile = memo(function Tile({
 /* ───────── 列表视图 ───────── */
 const LIST_ROW = 68
 
-function ListView({ items, intro, selecting, selected, onToggle, scoreOf, top }: Props & { top: number }) {
+function ListView({ items, intro, selecting, selected, onToggle, scoreOf, display = DEFAULT_DISPLAY, favorites, onMenu, top }: Props & { top: number }) {
   const initialOffset = useRestoredOffset()
   const { blurred } = useNsfw()
   const v = useWindowVirtualizer({
@@ -349,7 +374,10 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf, top }:
               )}
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate font-semibold">{m.title}</span>
+              <span className="flex min-w-0 items-center gap-1.5">
+                {display.badges.favorite && favorites?.has(m.id) && <Star className="size-3.5 flex-none fill-current" strokeWidth={2.2} aria-label="特别关心" />}
+                <span className="truncate font-semibold">{m.title}</span>
+              </span>
               <span className="truncate text-xs text-muted">
                 {[m.author, m.source?.displayName].filter(Boolean).join(' · ')}
               </span>
@@ -365,7 +393,12 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf, top }:
             {body}
           </button>
         ) : (
-          <Link key={m.id} to={`/manga/${m.id}`} viewTransition className={cls} style={style} data-sfw={sfwAttr(m.source?.displayName)} data-nsfw={blurred(m) ? '' : undefined}>
+          <Link key={m.id} to={`/manga/${m.id}`} viewTransition className={cls} style={style} data-sfw={sfwAttr(m.source?.displayName)} data-nsfw={blurred(m) ? '' : undefined}
+            onContextMenu={onMenu && ((e) => {
+              if (!isMouseContext(e)) return
+              e.preventDefault()
+              onMenu(m, e.clientX, e.clientY)
+            })}>
             {body}
           </Link>
         )

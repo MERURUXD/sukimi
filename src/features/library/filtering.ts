@@ -3,6 +3,7 @@ import { inCategory } from './category'
 import type { LibraryManga } from './queries'
 import { compareSortValues, libraryScore } from './sortValues'
 import type { NsfwSubject } from '@/features/nsfw/nsfw'
+import { favoritesFirst } from '@/features/favorite/favorite'
 import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 
 /** 筛选要用到的书库外数据：NSFW 标记存在服务端，由调用方按当前账号的标记和开关给出判定 */
@@ -72,6 +73,8 @@ export function applyView(
     query: string
     scales?: SortContext['scales']
     nsfw: FilterContext['nsfw']
+    /** 给了就把这些排到最前（「特别关心置顶」） */
+    pinned?: ReadonlyMap<number, number>
   },
 ) {
   const active = FILTERS.filter((f) => opts.filters[f.key] !== 0)
@@ -88,7 +91,8 @@ export function applyView(
   const sortCtx: SortContext = { scales: opts.scales ?? new Map() }
   const keyed = out.map((m) => [sort.value(m, sortCtx), m] as const)
   keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare, sort.nullsLow) || collator.compare(ma.title, mb.title))
-  return keyed.map(([, m]) => m)
+  const sorted = keyed.map(([, m]) => m)
+  return opts.pinned ? favoritesFirst(sorted, opts.pinned) : sorted
 }
 
 /** 书库里出现过的来源，按漫画数从多到少 */
