@@ -8,6 +8,7 @@ import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { clamp01 } from './canvasMath'
 import { ease, seg, type Pager } from './statsPager'
+import { useRankCover } from './rankCover'
 
 export interface Ranked {
   manga: LibraryManga
@@ -58,6 +59,7 @@ export function BigHead({ eyebrow, fs, phone, children, ref }: { eyebrow: string
 }
 
 function Cover({ it, className, style }: { it: Ranked; className?: string; style?: CSSProperties }) {
+  const src = useRankCover(it.masked ? null : it.manga.thumbnailUrl, Number(style?.width) || 160)
   return (
     <span className={cn('cv', className)} style={style}>
       {it.masked ? (
@@ -66,7 +68,7 @@ function Cover({ it, className, style }: { it: Ranked; className?: string; style
           NSFW
         </span>
       ) : (
-        <CoverImg src={it.manga.thumbnailUrl} loading="lazy" draggable={false} />
+        <CoverImg src={src} loading="eager" draggable={false} />
       )}
     </span>
   )
@@ -104,6 +106,7 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
       const b = clamp01(pager.p - 1)
       const style = (el: HTMLElement | null | undefined, o: number, t: string, f = '') => {
         if (!el) return
+        el.style.willChange = pager.animating ? 'transform, opacity' : ''
         el.style.opacity = o.toFixed(3)
         el.style.transform = t
         el.style.filter = f

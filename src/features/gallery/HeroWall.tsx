@@ -55,10 +55,13 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     }
   }, [])
   // 过场开始时墙是平的、没缩小，要多备一些格子
-  const pool = useMemo(
+  const widePool = useMemo(
     () => visibleCells(0, 0, size.w, size.h, grid, { scale: HOME_WALL.scale, ...homeWallExtra(size.w, size.h) }).length + 24,
     [size, grid],
   )
+  const [steadyPool, setSteadyPool] = useState<number | null>(null)
+  const pool = steadyPool == null ? widePool : Math.min(steadyPool, widePool)
+  const pendingExit = useRef<{ rects: ReadonlyMap<number, CoverRect>; done: () => void } | null>(null)
   // 书库来的才有叠在上面的书库封面（飞入、飞回用），其余的不渲染，少一半图片元素
   const overlay = !!entry || !!libraryCoversForReturn()
 
@@ -79,6 +82,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     if (!el || !items.length) return
     const { w, h } = size
     ensureWall(w, h, grid)
+    const compact = () => setSteadyPool(Math.min(widePool, cellsInWindow(w, h, grid, 1, Math.max(grid.cw, grid.ch) * wallScale(1)).length + 16))
 
     /**
      * 书库那一块封面对应墙上的哪一块格子：按原来的行列（x / y 聚类）落到墙上同样行列的一块，
@@ -161,7 +165,8 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       if (!flying && painted === signature && paintedOrder === wallState.order) return
       painted = flying ? '' : signature
       paintedOrder = wallState.order
-      const next = assignSlots(assigned.current, cells.map((c) => c.key), pool)
+      const retained = new Map([...assigned.current].filter(([, slot]) => slot < pool))
+      const next = assignSlots(retained, cells.map((c) => c.key), pool)
       assigned.current = next
       const used = new Set(next.values())
       slots.current.forEach((s, i) => {
@@ -244,6 +249,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
           intro.current = null
           // 落地时墙的位置（过场途中墙在流动）
           if (wallState.landing) wallState.landing.cx = wallState.cx
+          compact()
         }
         raf = requestAnimationFrame(step)
         return
@@ -264,6 +270,12 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     paint(origins && it ? (it.start ? (devFreeze ?? easeInOut(clamp01((performance.now() - it.start - ENTRY_HOLD) / ENTRY_DUR))) : 0) : 1, origins)
     exitToLibrary = (rects, done) => {
       if (leave) return
+      // 返回动画先恢复平铺所需的格子；新池挂好后再开始倒放，不能半途缺封面。
+      if (pool < widePool) {
+        pendingExit.current = { rects, done }
+        setSteadyPool(null)
+        return
+      }
       origins = null
       intro.current = null
       const box = el.getBoundingClientRect()
@@ -299,6 +311,11 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     })
     io.observe(el)
     document.addEventListener('visibilitychange', sync)
+    if (pendingExit.current) {
+      const pending = pendingExit.current
+      pendingExit.current = null
+      exitToLibrary(pending.rects, pending.done)
+    } else if (!origins) compact()
     sync()
     return () => {
       cancelAnimationFrame(raf)
@@ -306,7 +323,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       document.removeEventListener('visibilitychange', sync)
       exitToLibrary = null
     }
-  }, [items, size, grid, pool, reduced])
+  }, [items, size, grid, pool, widePool, reduced])
 
   return (
     <div ref={root} data-hero-wall aria-hidden className={cn('pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className)} style={{ width: size.w, height: size.h }}>
@@ -316,6 +333,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
             <span
               key={i}
               ref={(el) => {
+                if (slots.current[i] !== el) shown.current[i] = null
                 slots.current[i] = el
               }}
               className="cv absolute top-0 left-0 origin-top-left rounded-[14px]"

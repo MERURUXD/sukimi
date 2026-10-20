@@ -27,7 +27,7 @@
         var t = s.theme || 'dark'
         if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
         document.documentElement.dataset.theme = t
-        document.documentElement.dataset.glass = s.glass || 'refract'
+        document.documentElement.dataset.glass = s.glass || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 2 ? 'frosted' : 'refract')
       } catch (e) {}
     </script>
   </head>

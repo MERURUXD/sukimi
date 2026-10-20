@@ -19,6 +19,8 @@ export interface Pager {
   readonly cur: number
   /** 正在切屏（含切完后的一小段冷却，挡住触控板滚动的惯性） */
   readonly busy: boolean
+  /** 仅动画帧期间为 true，不含输入冷却；用于临时提升合成层与暂停折射。 */
+  readonly animating: boolean
   /** 还没汇总完或没有排行时不能离开第一屏 */
   readonly enabled: boolean
   /** 排行分几组 */
@@ -40,6 +42,7 @@ export function createPager(init: { p: number; cur: number; count: number; reduc
   let p = init.p
   let cur = init.cur
   let busy = false
+  let animating = false
   let pageRaf = 0
   let cool = 0
   let count = init.count
@@ -56,6 +59,7 @@ export function createPager(init: { p: number; cur: number; count: number; reduc
     get busy() {
       return busy
     },
+    get animating() { return animating },
     get enabled() {
       return enabled
     },
@@ -73,6 +77,8 @@ export function createPager(init: { p: number; cur: number; count: number; reduc
     },
     reset() {
       cancelAnimationFrame(pageRaf)
+      window.clearTimeout(cool)
+      busy = animating = false
       p = cur = 0
       emit()
     },
@@ -89,7 +95,10 @@ export function createPager(init: { p: number; cur: number; count: number; reduc
       // 动画按进度线性走，缓动在各段自己算（表盘、封面、口味各有各的起止）；隔一屏跳过去也不拖太久
       const D = (init.reduced ? Math.min(ms, 260) : ms) * Math.min(1.5, Math.abs(to - from))
       busy = true
+      animating = true
       const finish = () => {
+        animating = false
+        emit()
         cool = window.setTimeout(() => (busy = false), 320)
         done?.()
       }
@@ -99,6 +108,7 @@ export function createPager(init: { p: number; cur: number; count: number; reduc
         return finish()
       }
       const t0 = performance.now()
+      emit()
       const step = (now: number) => {
         const k = clamp01((now - t0) / D)
         p = from + (to - from) * k

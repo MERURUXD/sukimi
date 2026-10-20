@@ -87,7 +87,7 @@ export function AppShell() {
 
   return (
     // overflow-x: clip：滑入时 main 暂时比屏幕宽，不能撑出横向滚动条
-    <MovingGlassBackdrop value={pathname === '/' || pathname.startsWith('/library/gallery')}>
+    <MovingGlassBackdrop value={pathname.startsWith('/library/gallery') ? 'suspend' : pathname === '/'}>
     <div className={cn('app-shell relative isolate min-h-dvh overflow-x-clip', tabbar && 'has-tabbar')}>
       <TopNav />
       <SideNav />

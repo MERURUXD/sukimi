@@ -1,4 +1,4 @@
 import { createContext } from 'react'
 
-/** 动态封面背景上保留透镜边缘，只用一次位移，避免逐帧分三通道采样。 */
-export const MovingGlassBackdrop = createContext(false)
+/** 动态背景用一次位移；持续运动或切屏期间用 suspend 暂停折射。 */
+export const MovingGlassBackdrop = createContext<boolean | 'suspend'>(false)
