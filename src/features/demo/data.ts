@@ -392,6 +392,9 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     [laterOf(12), String(nowSec - 3 * 86400)],
     [laterOf(2001), String(nowSec - 9 * 86400)],
     [laterOf(9), String(nowSec - 40 * 86400)],
+    // 特别关心（features/favorite）：第 1、3、9 部最近刚抓到新话，第 6 部一周前；第 4 部来源是 NSFW（首页不出现），
+    // 第 12 部不在书库（标记保留但不显示）
+    ...[1, 3, 4, 6, 9, 12].map((id): [string, string] => [`sukimi.favorite.${PREVIEW_ADMIN.id}.${id}`, String(nowSec - 20 * 86400)]),
     // NSFW 标记（features/nsfw）：第 7 部手动标记，第 5 部来源是 NSFW 但手动放行
     [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.7`, '1'],
     [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.5`, '0'],

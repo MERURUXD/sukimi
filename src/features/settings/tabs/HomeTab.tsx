@@ -6,6 +6,7 @@ import { HOME_SECTION_LABELS, HOME_SECTION_ORDER, moveHomeSection, type HomeSect
 import { Row, Section, Switch } from '../parts'
 
 const HINTS: Record<HomeSection, string> = {
+  favorite: '设为特别关心、有新章节没读的漫画，最近更新的在前。',
   updates: '书库中最近更新的漫画与新章节。',
   stale: '读到一半，超过两周没打开的漫画。',
   fresh: '已收藏，还没开始阅读的漫画。',
