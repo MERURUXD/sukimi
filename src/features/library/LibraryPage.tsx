@@ -119,13 +119,14 @@ export function LibraryPage() {
     sel.clear()
   }, [sel])
 
-  // 「稍后再看」里读完自动移出的漫画也从选择里去掉，免得批量操作作用到看不见的那部
+  // 「稍后再看」里读完自动移出的、「特别关心」里刚取消的漫画也从选择里去掉，免得批量操作作用到看不见的那部
   const { selected, setSelected } = sel
+  const visible = isLater ? later.items : isFavorite && favorites.map ? favoriteList : undefined
   useEffect(() => {
-    if (!isLater || !later.items) return
-    const still = new Set(later.items.map((m) => m.id))
+    if (!visible) return
+    const still = new Set(visible.map((m) => m.id))
     if ([...selected].some((id) => !still.has(id))) setSelected(new Set([...selected].filter((id) => still.has(id))))
-  }, [isLater, later.items, selected, setSelected])
+  }, [visible, selected, setSelected])
 
   useEffect(() => {
     if (!selecting) return
@@ -303,7 +304,7 @@ export function LibraryPage() {
 
         {isFavorite ? <>
           {(!favorites.map || !data) && !favorites.error && !error && <LibrarySkeleton density={view.density} />}
-          {(favorites.error ?? error) && <LoadError message={(favorites.error ?? error)!.message} onRetry={() => void refetch().catch(() => {})} />}
+          {(favorites.error ?? error) && <LoadError message={(favorites.error ?? error)!.message} onRetry={() => void (favorites.error ? favorites.refetch() : refetch()).catch(() => {})} />}
           {favorites.map && data && items.length === 0 && (
             <p className="px-6 py-20 text-center text-muted">
               {favoriteList.length === 0 ? '还没有特别关心的漫画。在漫画详情页点星标，或右键封面设置；手机上长按封面多选后设置。' : '没有符合筛选条件的漫画。'}

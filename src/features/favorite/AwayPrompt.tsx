@@ -115,7 +115,8 @@ export function AwayPrompt() {
     let tries = 0
     const find = () => {
       const el = document.getElementById('h-favorite')
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      // 减少动态效果时直接跳过去，不平滑滚动
+      if (el) el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
       else if (++tries < 30) requestAnimationFrame(find)
     }
     requestAnimationFrame(find)

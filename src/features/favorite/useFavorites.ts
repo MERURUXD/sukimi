@@ -28,7 +28,7 @@ export function useFavorites({ skip = false } = {}) {
     skip: skip || userId === undefined,
   })
   const map = useMemo(() => (q.data && userId !== undefined ? parseFavorites(userId, q.data.metas.nodes) : undefined), [q.data, userId])
-  return { map, ids: map ?? EMPTY, loading: q.loading, error: q.error }
+  return { map, ids: map ?? EMPTY, loading: q.loading, error: q.error, refetch: q.refetch }
 }
 
 export function useFavoriteActions() {
