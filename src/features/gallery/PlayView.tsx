@@ -1,5 +1,5 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { BookOpen, ChevronLeft, ChevronRight, Maximize, Minimize, Pause, Play, Timer, X } from 'lucide-react'
+import { BookOpen, ChevronLeft, ChevronRight, Maximize, Minimize, Pause, Play, Share, Timer, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
@@ -9,11 +9,13 @@ import { useAppearance } from '@/design/settings'
 import { inCategory } from '@/features/library/category'
 import type { LibraryManga } from '@/features/library/queries'
 import { STATUS } from '@/features/manga/status'
+import { useNsfw } from '@/features/nsfw/useNsfw'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { poseTransform, tileTransform, type Pose, type TilePose } from './coverPose'
 import type { useGalleryLibrary } from './hooks'
+import { PosterShare } from './PosterShare'
 import { GalleryPeek } from './queries'
 import { hfit, mostlyLatin, vfit } from './titleFit'
 import './gallery.css'
@@ -101,6 +103,11 @@ export function PlayView({
   // 背景：从画布飞进来时从封面卡片的位置圆形展开，退出时收回屏幕中心那一格
   const [revealed, setRevealed] = useState(!flying)
   const hasItem = !!cur
+  // 分享这一部（见 openShare）
+  const { test } = useNsfw()
+  const [shareWork, setShareWork] = useState<LibraryManga | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const resume = useRef(false)
 
   useEffect(() => {
     // 圆形揭幕后画布才被完整盖住；关闭前先恢复，反向收回时仍能看见原来的画布。
@@ -266,6 +273,22 @@ export function PlayView({
     )
   }
 
+  /*
+   * 分享这一部：打开时记下当前那一部并暂停放映，面板里的海报不会被自动切换换掉；关上后恢复原来的播放状态。
+   * NSFW 作品（临时显示时也会出现在放映里）不给分享入口
+   */
+  const openShare = () => {
+    if (!cur) return
+    resume.current = playing
+    setShareWork(cur)
+    setSharing(true)
+    setPlaying(false)
+  }
+  const closeShare = () => {
+    setSharing(false)
+    setPlaying(resume.current)
+  }
+
   const cycle = () => setInterval_(INTERVALS[(INTERVALS.indexOf(interval) + 1) % INTERVALS.length] ?? 7)
   const scene = closing ? 'circle(0% at 50% 50%)' : `circle(${revealed ? '150%' : '0%'} at 18% 52%)`
 
@@ -280,6 +303,7 @@ export function PlayView({
       style={dur}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      <PosterShare open={sharing} initial="work" work={shareWork} onClose={closeShare} />
       {/* 背景（不含玻璃，整层裁切没问题）：上一部垫底，新的一部从封面卡片的位置圆形展开 */}
       <div
         aria-hidden
@@ -341,6 +365,11 @@ export function PlayView({
             <Timer className="size-[18px]" strokeWidth={1.8} />
             {interval} 秒
           </button>
+          {cur && !test(cur) && (
+            <button type="button" onClick={openShare} aria-label="分享这一部" title="分享海报" className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+              <Share className="size-[18px]" strokeWidth={1.8} />
+            </button>
+          )}
           <button type="button" onClick={toggleFullscreen} aria-label={fullscreen ? '退出全屏' : '全屏'} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
             {fullscreen ? <Minimize className="size-[18px]" strokeWidth={1.8} /> : <Maximize className="size-[18px]" strokeWidth={1.8} />}
           </button>

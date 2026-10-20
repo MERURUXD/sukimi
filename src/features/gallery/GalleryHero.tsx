@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, ChevronLeft } from 'lucide-react'
+import { ArrowDown, ArrowRight, ChevronLeft, Share } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { count } from '@/lib/format'
@@ -41,6 +41,7 @@ export function HeroCopy({
   onBrowse,
   onBack,
   backLabel,
+  onShare,
 }: {
   stats: HeroStats
   mobile: boolean
@@ -56,6 +57,8 @@ export function HeroCopy({
   onBack?: () => void
   /** 返回键的无障碍名称，按来路写「返回首页」或「返回书库」 */
   backLabel?: string
+  /** 打开分享海报 */
+  onShare?: () => void
 }) {
   const chapterText = stats.chapters == null ? '—' : count(stats.chapters)
   const base = decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]'
@@ -85,6 +88,13 @@ export function HeroCopy({
       返回
     </button>
   )
+  // 分享：跟在最上面那行小字后面。画布过渡摆出的那一份也要有，两边排版才一致；墙上一部都没有（全是 NSFW）时不能分享
+  const share = (stats.shown ?? stats.works) > 0 && (onShare || decorative) && (
+    <button type="button" tabIndex={tab} onClick={onShare} className="flex items-center gap-1 rounded-full px-2 py-1 font-medium text-muted hover:text-text">
+      <Share className="size-[15px]" strokeWidth={2} />
+      分享
+    </button>
+  )
   const door = <ReadDoor read={stats.read} mobile={mobile} decorative={decorative} className={fx} style={d(mobile ? 120 : 160)} />
   const canvas = (
     <Link
@@ -105,6 +115,7 @@ export function HeroCopy({
         <div data-hero-fade data-gallery-copy="meta" className={cn('flex items-center gap-3 text-xs', fx)}>
           {back}
           <p className="m-0 font-medium tracking-[.3em] text-muted">书库画廊</p>
+          {share}
         </div>
         <h1 className={cn('gallery-title m-0 font-cjk text-[34px] leading-[1.06] font-black tracking-[-0.02em]', titleFx)} style={d(40)}>
           每一部收藏，
@@ -137,6 +148,7 @@ export function HeroCopy({
         <div data-hero-fade data-gallery-copy="meta" className={cn('flex items-center gap-4 text-[13px]', fx)}>
           {back}
           <p className="m-0 font-medium tracking-[.32em] text-muted">{monthLabel()}</p>
+          {share}
         </div>
         <h1 className={cn('gallery-title m-0 font-cjk text-[clamp(44px,5.2vw,84px)] leading-[1.06] font-black tracking-[-0.02em]', titleFx)} style={d(40)}>
           每一部收藏，

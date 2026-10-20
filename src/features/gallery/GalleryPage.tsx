@@ -12,6 +12,7 @@ import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
+import { PosterShare } from './PosterShare'
 import { galleryOrder, isCompleted, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry, withoutHiddenCovers } from './readMorph'
 import './gallery.css'
@@ -32,6 +33,7 @@ export function GalleryPage() {
   const sharedWall = origin === 'home'
   const { all, full, stats, categories, loading, error, refetch } = useGalleryLibrary()
   const mobile = useMobile()
+  const [sharing, setSharing] = useState(false)
   const homeWindowVisible = useAppearance((s) => s.homeGallery)
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
   const [intro] = useState(() => !hasSnapshot('library') && all.length === 0)
@@ -183,8 +185,9 @@ export function GalleryPage() {
         {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
         {!sharedWall && <div aria-hidden data-hero-ui data-hero-fade className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />}
 
-        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} />
+        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} onShare={() => setSharing(true)} />
       </section>
+      <PosterShare open={sharing} initial="library" onClose={() => setSharing(false)} />
 
       {/* 第二页至少占满一屏：切过来时停在它的顶部，内容少也不会切不到位；顶栏的高度留在它自己的上边距里，墙不会从顶栏下面露出来 */}
       {gridReady && (
