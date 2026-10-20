@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Share } from 'lucide-react'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useLocation, useNavigate, useNavigationType } from 'react-router'
 import { useAuth } from '@/api/auth'
@@ -16,14 +16,15 @@ import { clamp01 } from './canvasMath'
 import { GALLERY } from './GalleryHero'
 import { useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { afterViewTransition, armReadMorph, useLanded } from './readMorph'
-import { bestRun, pageGrowth, summarize, weekActive, type ReadingStats } from './stats'
+import { bestRun, kpiData, summarize, type Kpi as KpiData, type ReadingStats } from './stats'
 import { Clock, DIAL_UNITS, Strip, useDialTilt, type Tip, type YearRing } from './StatsDial'
 import { GROUP, RankScreen, maskRanked, type RankLayout, type Ranked } from './StatsRank'
 import { TasteScreen, type TasteLayout } from './StatsTaste'
 import { useNsfw } from '@/features/nsfw/useNsfw'
 import { LAST_SCREEN, createPager, ease, easeOut, seg, type Pager } from './statsPager'
-import { tasteOf, type Taste } from './taste'
+import { readTaste, type Taste } from './taste'
 import { useReadChapters } from './useReadChapters'
+import { PosterShare } from './PosterShare'
 import './gallery.css'
 
 /** 排行最多显示这么多部 */
@@ -147,6 +148,7 @@ export function StatsPage() {
   const navType = useNavigationType()
   const userId = useAuth((s) => s.user?.id)
   const [now] = useState(() => Date.now())
+  const [sharing, setSharing] = useState(false)
   // 从作品详情返回（阅读记录在缓存里）：不重播进场，停在原来那一屏、那一部
   const [back] = useState(() => navType === 'POP' && memory.shown && reads.chapters != null)
 
@@ -164,8 +166,8 @@ export function StatsPage() {
         const masked = hidden(m)
         return { manga: masked ? maskRanked(m) : m, masked, rank: i + 1, read: r.read, total: r.total, pages: r.pages }
       }),
-      // 口味按全部读过的作品算，不只排行里的前几十部；NSFW 作品不计入，免得题材和作者认出是哪部
-      taste: tasteOf(read.filter((r) => !hidden(byId.get(r.id)!)).map((r) => ({ id: r.id, read: r.read, pages: r.pages, genre: byId.get(r.id)!.genre, author: byId.get(r.id)!.author }))),
+      // 口味按全部读过的作品算，不只排行里的前几十部
+      taste: readTaste(read, byId, hidden),
     }
   }, [stats, all, hidden])
   // 口味屏里作者那两张小封面
@@ -277,7 +279,9 @@ export function StatsPage() {
         now={now}
         pager={pager}
         onExit={exit}
+        onShare={() => setSharing(true)}
       />
+      <PosterShare open={sharing} initial="stats" onClose={() => setSharing(false)} />
     </div>
   )
 }
@@ -301,6 +305,7 @@ interface BodyProps {
   now: number
   pager: Pager
   onExit: () => void
+  onShare: () => void
 }
 
 /* ───────── 背景与噪点 ───────── */
@@ -439,55 +444,11 @@ function usePagerInput(root: RefObject<HTMLDivElement | null>, pager: Pager) {
   return useCallback(() => moved.current, [])
 }
 
-/** 3.1 万页；不到一万照常写 */
-const pagesText = (n: number) => (n >= 10000 ? { v: (n / 10000).toFixed(1).replace(/\.0$/, ''), u: '万页' } : { v: count(n), u: '页' })
-
-/** 两侧四项数字：每项是大数字、一行说明和一条细竖条小图 */
+/** 两侧四项数字：数字和说法见 stats.ts 的 kpiData（分享海报共用），这里加上进场时从 0 数上来 */
 function kpiItems(s: ReadingStats, works: number, run: ReturnType<typeof bestRun>) {
-  const ratio = (f: number) => Array.from({ length: 24 }, (_, i) => ({ v: 1, lit: (i + 0.5) / 24 <= f }))
-  const frac = s.total ? s.read / s.total : 0
-  const growth = pageGrowth(s.days, s.pages, 24)
-  const base = s.pages - s.days.reduce((a, d) => a + d.pages, 0)
-  const pg = pagesText(s.pages)
-  const runWeeks = run ? [Math.floor(run.from / 7), Math.floor(run.to / 7)] : null
-  return {
-    progress: [
-      {
-        key: 'read',
-        value: (e: number) => (s.total ? `${Math.round(frac * 100 * e)}` : '—'),
-        unit: '%',
-        caption: `已读 · ${count(s.read)} / ${s.total == null ? '—' : count(s.total)} 话`,
-        bars: ratio(frac),
-        label: `书库已读 ${Math.round(frac * 100)}%`,
-      },
-      {
-        key: 'caught',
-        value: (e: number) => `${Math.round(s.caughtUp * e)}`,
-        unit: ` / ${works}`,
-        caption: '部已追平',
-        bars: ratio(works ? s.caughtUp / works : 0),
-        label: `已追平 ${s.caughtUp} / ${works} 部`,
-      },
-    ],
-    rhythm: [
-      {
-        key: 'days',
-        value: (e: number) => `${Math.round(s.activeDays * e)}`,
-        unit: '天',
-        caption: '近半年有阅读 · 按周',
-        bars: weekActive(s.days).map((v, w) => ({ v, on: v > 0, lit: !!runWeeks && v > 0 && w >= runWeeks[0] && w <= runWeeks[1] })),
-        label: `近半年有 ${s.activeDays} 天有阅读`,
-      },
-      {
-        key: 'pages',
-        value: () => pg.v,
-        unit: pg.u,
-        caption: '约翻过 · 近半年累计',
-        bars: growth.map((v, i) => ({ v: v - base, on: true, lit: i === growth.length - 1 })),
-        label: `约翻过 ${count(s.pages)} 页`,
-      },
-    ],
-  }
+  const counted = (k: KpiData) => ({ ...k, value: (e: number) => (k.num == null ? k.text : `${Math.round(k.num * e)}`) })
+  const { progress, rhythm } = kpiData(s, works, run)
+  return { progress: progress.map(counted), rhythm: rhythm.map(counted) }
 }
 
 type Kpi = ReturnType<typeof kpiItems>['progress'][number]
@@ -849,7 +810,9 @@ function Stats(p: BodyProps) {
               <h1 className="m-0 font-cjk text-[17px] font-black">阅读档案</h1>
               <span className="text-[11px] text-muted">截至 {dateLabel(p.now)}</span>
             </div>
-            <span className="size-11" />
+            <Glass as="button" type="button" onClick={p.onShare} aria-label="分享阅读档案" className="gicon size-11 rounded-full text-text">
+              <Share className="size-5" strokeWidth={1.8} />
+            </Glass>
           </header>
         ) : (
           <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
@@ -859,6 +822,18 @@ function Stats(p: BodyProps) {
               <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)} · 时间按每话最后一次阅读算</span>
             </div>
           </header>
+        )}
+        {!mobile && (
+          // 右上角和左边的返回键对称
+          <Glass
+            as="button"
+            type="button"
+            onClick={p.onShare}
+            className="absolute top-[calc((var(--nav-h)-52px)/2)] right-[max(32px,calc((100%-1320px)/2+32px))] z-10 flex h-[52px] items-center gap-2 rounded-full pr-5 pl-4 text-[17px] font-bold text-text lg:right-[max(48px,calc((100%-1320px)/2+48px))]"
+          >
+            <Share className="size-5" strokeWidth={1.8} />
+            分享
+          </Glass>
         )}
       </div>
     </div>
