@@ -1,4 +1,3 @@
-import { useQuery } from '@apollo/client/react'
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent } from 'react'
 import { Link } from 'react-router'
@@ -9,8 +8,8 @@ import { useNsfw } from '@/features/nsfw/useNsfw'
 import { count } from '@/lib/format'
 import { CoverWall } from './CoverWall'
 import { GALLERY } from './GalleryHero'
-import { chapterTotals, galleryOrder, readChapters, useMobile } from './hooks'
-import { GalleryCounts } from './queries'
+import { galleryOrder, readChapters, useMobile } from './hooks'
+import { useChapterTotals } from './useChapterTotals'
 import { enterGalleryFromHome, plainClick, prefetchGallery } from './readMorph'
 import { prepareWindowWall, windowWallBusy } from './windowScene'
 import { DESKTOP_GRID, MOBILE_GRID } from './canvasMath'
@@ -49,9 +48,9 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
   }, [items, exclude, userId])
 
   // 只取总话数，不用整个 useGalleryLibrary（它还会去查分类）；算式和画廊首页、阅读档案共用
-  const counts = useQuery(GalleryCounts, { fetchPolicy: 'cache-first' })
+  const counts = useChapterTotals(library)
   // 数字按完整书库算（NSFW 只计数不露面），和画廊首页、阅读档案一致
-  const read = readChapters(library ?? [], chapterTotals(counts.data))
+  const read = readChapters(library ?? [], counts.totals)
 
   // 指到橱窗上就把画廊整屏会用到的封面先取回来，窗口揭开时不会一块块冒出来
   const preloaded = useRef(false)

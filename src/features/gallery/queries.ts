@@ -2,8 +2,8 @@ import { graphql } from '@/api/gql'
 import type { GalleryReadChaptersQuery } from '@/api/gql/graphql'
 
 /**
- * 每部的总话数。按 id 合并进书库已有的缓存条目，进画廊时才取，不进快照，
- * 所以不用改 LibraryMangas 的字段，也不用递增快照版本。
+ * 每部的总话数。用 no-cache 只存进按 id 索引的内存缓存，避免合并进书库后触发全库重算。
+ * 不进快照，所以不用改 LibraryMangas 的字段，也不用递增快照版本。
  */
 export const GalleryCounts = graphql(`
   query GalleryCounts {
