@@ -772,8 +772,9 @@ function Stats(p: BodyProps) {
   )
 
   // 后两屏背后的两团光：排行跟着这一组第一名的封面颜色，口味用背景的第二种颜色，切屏时交替淡入淡出
+  // 在矩形边缘前淡到透明，避免默认 farthest-corner 的椭圆被容器截出硬边。
   const glows = (cx: number, cy: number, color: Rgb, fade: string) => (
-    <div data-stats-glow data-stats-progress="p" aria-hidden className="pointer-events-none absolute" style={{ left: cx - 600, top: cy - 500, width: 1200, height: 1000, background: `radial-gradient(ellipse, ${rgbCss(color, .65)} 0%, ${rgbCss(color, .32)} 40%, ${rgbCss(color, .08)} 65%, transparent 80%)`, opacity: `calc(${fade})` }} />
+    <div data-stats-glow data-stats-progress="p" aria-hidden className="pointer-events-none absolute" style={{ left: cx - 600, top: cy - 500, width: 1200, height: 1000, background: `radial-gradient(ellipse closest-side, ${rgbCss(color, .65)} 0%, ${rgbCss(color, .32)} 40%, ${rgbCss(color, .08)} 65%, transparent 100%)`, opacity: `calc(${fade})` }} />
   )
   const midY = pageTop + (sh - pageTop - pageBottom) / 2
   // 后两屏的排版坐标系：矮窗口里整体缩小（见 k2）
