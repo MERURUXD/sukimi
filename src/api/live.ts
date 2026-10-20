@@ -9,6 +9,7 @@ import { useApolloClient } from '@apollo/client/react'
 import { useAuth } from './auth'
 import { contextGeneration } from './userContext'
 import { markCompletedDownloads } from './downloadCache'
+import { invalidateChapterTotals } from '@/features/gallery/chapterTotals'
 import { graphql } from './gql'
 import type { DownloadItemFragment } from './gql/graphql'
 import { wsClient } from './client'
@@ -155,7 +156,10 @@ export function LiveStatus() {
             const was = useLive.getState().updater.isRunning
             useLive.setState({ updater: { isRunning: j.isRunning, finished: j.finishedJobs, total: j.totalJobs } })
             // 一轮更新结束：刷新书库、更新列表等正在显示的查询
-            if (was && !j.isRunning) void client.refetchQueries({ include: 'active' })
+            if (was && !j.isRunning) {
+              invalidateChapterTotals(client)
+              void client.refetchQueries({ include: 'active' })
+            }
           },
           error: onError,
         }),

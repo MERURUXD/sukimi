@@ -2,11 +2,10 @@ import { useQuery } from '@apollo/client/react'
 import { useMemo, useSyncExternalStore } from 'react'
 import { withSnapshot } from '@/api/persist'
 import { isCompleted } from '@/features/library/filtering'
-import type { GalleryCountsQuery } from '@/api/gql/graphql'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { useNsfw } from '@/features/nsfw/useNsfw'
-import { GalleryCounts } from './queries'
 import { useLanded } from './readMorph'
+import { useChapterTotals } from './useChapterTotals'
 
 export function useMedia(query: string) {
   return useSyncExternalStore(
@@ -27,9 +26,6 @@ export { isCompleted }
 /** 书库有作品、但全被 NSFW 隐藏时的提示，不能沿用空书库的文案 */
 export const NSFW_ALL_HIDDEN = '书库里的作品都标成了 NSFW，已隐藏。可以在「设置 → 外观 → 隐私」里调整，或按 Shift + H 临时显示。'
 
-/** 每部的总话数（按 id）；还没取到时为 null */
-export const chapterTotals = (data: GalleryCountsQuery | undefined) => (data ? new Map(data.mangas.nodes.map((m) => [m.id, m.chapters.totalCount])) : null)
-
 /**
  * 已读话数：总话数减未读，不用把读过的章节全取下来；和阅读档案的「已读」口径相同（isRead 的章节数）。
  * 画廊首页、首页橱窗的数字点进去会飞成档案页的大数字，各处必须一致，落地时才不跳
@@ -46,14 +42,13 @@ export function useGalleryLibrary() {
   const cats = useQuery(Categories)
   const data = withSnapshot('library', lib.data)
   const catData = withSnapshot('categories', cats.data)
-  // 换页动画期间有缓存就只用缓存，落地后再去网络刷新（见 useLanded）；没有缓存时照常去取，免得数字一直是「—」
   const landed = useLanded()
-  const counts = useQuery(GalleryCounts, { fetchPolicy: landed ? 'cache-and-network' : 'cache-first' })
+  const counts = useChapterTotals(data?.mangas.nodes, landed)
   const full = useMemo<LibraryManga[]>(() => data?.mangas.nodes ?? [], [data])
   // 墙、网格、画布和放映都不出现 NSFW 作品；数字仍按完整书库算（只计数不露面）
   const { hidden } = useNsfw()
   const all = useMemo(() => full.filter((m) => !hidden(m)), [full, hidden])
-  const totals = useMemo(() => chapterTotals(counts.data), [counts.data])
+  const totals = counts.totals
   const stats = useMemo(() => {
     const done = full.filter(isCompleted).length
     return {
@@ -77,7 +72,7 @@ export function useGalleryLibrary() {
     error: data ? undefined : lib.error,
     refetch: lib.refetch,
     // 总话数取失败且没有缓存时，档案页要能显示错误并重试，不能一直停在「正在汇总」
-    countsError: counts.data ? undefined : counts.error,
+    countsError: counts.error,
     refetchCounts: counts.refetch,
   }
 }
