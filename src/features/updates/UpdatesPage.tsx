@@ -469,7 +469,7 @@ function Row({
           {favorite && !nested && <FavoriteMark />}
           <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', nested ? 'lg:text-[15px]' : 'lg:text-lg', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>
         </span>
-        {!nested && <span className={cn('truncate text-xs text-muted lg:text-[15px]', !c.isRead && 'lg:text-text')}>{chapterLabel(c)}</span>}
+        {!nested && <span className={cn('truncate text-[13px] text-muted lg:text-[15px]', !c.isRead && 'lg:text-text')}>{chapterLabel(c)}</span>}
         {/* 手机把时间与下载状态放回文字区，给标题和章节名留出宽度。 */}
         <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted num sm:hidden">
           <span>{time}</span>
@@ -478,8 +478,8 @@ function Row({
         {/* 宽屏同理：来源和时间收进文字区第三行，不再占两列，两栏时每栏才放得下大封面和大字 */}
         <span className="hidden truncate text-[13px] text-muted num lg:block" title={nested ? undefined : c.manga.source?.displayName}>{nested ? time : [c.manga.source?.displayName, time].filter(Boolean).join(' · ')}</span>
       </Link>
-      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
-      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden lg:hidden">{time}</span>
+      <span className="line-clamp-2 w-28 flex-none text-[13px] leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
+      <span className="w-[52px] flex-none text-right text-[13px] text-muted num max-sm:hidden lg:hidden">{time}</span>
       <span className="flex w-11 flex-none justify-end sm:w-24">
         {queued ? (
           <span className="flex w-11 flex-col items-center gap-1 sm:w-[84px] sm:items-stretch" title={downloadStatus}>
@@ -551,12 +551,12 @@ function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
           {favorite && <FavoriteMark />}
           <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate lg:text-lg', unread ? 'font-semibold' : 'font-medium text-muted')}>{c.manga.title}</span>
         </span>
-        <span className={cn('truncate text-xs text-muted lg:text-[15px]', unread > 0 && 'lg:text-text')}>{summary}</span>
-        <span className="mt-0.5 text-xs text-muted num sm:hidden">{time}</span>
+        <span className={cn('truncate text-[13px] text-muted lg:text-[15px]', unread > 0 && 'lg:text-text')}>{summary}</span>
+        <span className="mt-0.5 text-[13px] text-muted num sm:hidden">{time}</span>
         <span className="hidden truncate text-[13px] text-muted num lg:block" title={c.manga.source?.displayName}>{[c.manga.source?.displayName, time].filter(Boolean).join(' · ')}</span>
       </button>
-      <span className="line-clamp-2 w-28 flex-none text-xs leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
-      <span className="w-[52px] flex-none text-right text-xs text-muted num max-sm:hidden lg:hidden">{time}</span>
+      <span className="line-clamp-2 w-28 flex-none text-[13px] leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
+      <span className="w-[52px] flex-none text-right text-[13px] text-muted num max-sm:hidden lg:hidden">{time}</span>
       <span className="w-11 flex-none sm:w-24" aria-hidden />
       <button type="button" className="gicon text-muted hover:text-text" onClick={onToggle} tabIndex={-1} aria-hidden>
         <ChevronDown className={cn('size-5 transition-transform lg:size-[22px]', expanded && 'rotate-180')} strokeWidth={1.8} />

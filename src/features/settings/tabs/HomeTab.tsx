@@ -51,7 +51,7 @@ export function HomeTab() {
             <span aria-hidden className="num w-5 flex-none text-sm text-faint">{i + 1}</span>
             <div className="min-w-0">
               <span className="font-semibold">{HOME_SECTION_LABELS[id]}</span>
-              <p className="mt-0.5 mb-0 text-xs text-muted">{HINTS[id]}</p>
+              <p className="mt-0.5 mb-0 text-[13px] text-muted">{HINTS[id]}</p>
             </div>
           </div>
           <div className="flex flex-[1_1_210px] items-center justify-end gap-3">

@@ -162,7 +162,7 @@ function CandidateTile({ m, source, onPick }: { m: SourceManga; source: Source; 
         )}
       </span>
       <span className="line-clamp-2 text-sm font-semibold">{m.title}</span>
-      {m.author && <span className="-mt-1.5 truncate text-xs text-muted">{m.author}</span>}
+      {m.author && <span className="-mt-1.5 truncate text-[13px] text-muted">{m.author}</span>}
     </button>
   )
 }

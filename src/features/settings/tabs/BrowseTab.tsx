@@ -153,9 +153,9 @@ function ExtensionStoresSection() {
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-semibold">
                 {s.name}
-                {s.isLegacy && <span className="ml-2 text-xs font-medium text-muted">旧格式</span>}
+                {s.isLegacy && <span className="ml-2 text-[13px] font-medium text-muted">旧格式</span>}
               </span>
-              <span className="truncate text-xs text-muted">{s.indexUrl}</span>
+              <span className="truncate text-[13px] text-muted">{s.indexUrl}</span>
             </span>
             <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={`移除 ${s.name}`} onClick={() => void drop(s.indexUrl, s.name)}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />

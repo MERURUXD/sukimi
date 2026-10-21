@@ -13,7 +13,7 @@ export function GlassSliders({ className }: { className?: string }) {
         const d = GLASS_DEFAULTS[p.key] as number
         return (
           <label key={p.key} className="flex flex-col gap-1">
-            <span className="flex justify-between gap-3 text-[13px]">
+            <span className="flex justify-between gap-3 text-sm">
               <span>{p.label}</span>
               <span className="text-muted num">
                 {v}
@@ -29,7 +29,7 @@ export function GlassSliders({ className }: { className?: string }) {
               onChange={(e) => t.set({ [p.key]: Number(e.target.value) })}
               className="accent-[var(--accent)]"
             />
-            {p.hint && <span className="text-[11px] text-faint">{p.hint}</span>}
+            {p.hint && <span className="text-[13px] text-faint">{p.hint}</span>}
           </label>
         )
       })}

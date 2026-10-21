@@ -421,8 +421,8 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-[5px]">
                     <span className="truncate text-sm font-semibold md:text-base">{c.manga.title}</span>
-                    <span className="truncate text-xs text-muted">{r ? r.label : '已全部读完'}</span>
-                    <span className="truncate text-[11px] text-muted">{r ? r.page : '没有未读章节'}</span>
+                    <span className="truncate text-[13px] text-muted">{r ? r.label : '已全部读完'}</span>
+                    <span className="truncate text-[13px] text-muted">{r ? r.page : '没有未读章节'}</span>
                     {pct !== null && (
                       <span className="prog h-[3px]"><i style={{ width: `${pct}%` }} /></span>
                     )}
@@ -662,7 +662,7 @@ function RecentRow({ c }: { c: ReadChapter }) {
         {/* 时间放进标题行：文字列宽度固定，各行进度条右端才对齐 */}
         <span className="flex items-baseline gap-3">
           <span className="min-w-0 flex-1 truncate text-base font-semibold">{c.manga.title}</span>
-          <span className="flex-none text-xs text-muted">{timeAgo(sec(c.lastReadAt))}</span>
+          <span className="flex-none text-[13px] text-muted">{timeAgo(sec(c.lastReadAt))}</span>
         </span>
         <span className="truncate text-[13px] text-muted num">
           {chapterLabel(c)} · {c.isRead ? '已读完' : c.pageCount > 0 ? `${c.lastPageRead + 1} / ${c.pageCount} 页` : `第 ${c.lastPageRead + 1} 页`}

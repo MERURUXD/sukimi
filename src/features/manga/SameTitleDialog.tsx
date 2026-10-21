@@ -61,7 +61,7 @@ export function SameTitleDialog({ target, matches, onAdd, onClose, onMigrated }:
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-semibold">{m.title}</span>
-                <span className="truncate text-xs text-muted">{[m.source?.displayName, m.unreadCount ? `${m.unreadCount} 话未读` : '已读完'].filter(Boolean).join(' · ')}</span>
+                <span className="truncate text-[13px] text-muted">{[m.source?.displayName, m.unreadCount ? `${m.unreadCount} 话未读` : '已读完'].filter(Boolean).join(' · ')}</span>
               </span>
               <button type="button" className="solid min-h-10 flex-none" onClick={() => setFrom(m.id)}>
                 迁移

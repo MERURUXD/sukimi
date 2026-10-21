@@ -45,7 +45,7 @@ export function Row({
           {restart && <span className="rounded-full border border-line px-2 text-[11px] font-semibold text-muted">需重启</span>}
           <StatusIcon status={status} />
         </div>
-        {hint && <div className="mt-0.5 max-w-[62ch] text-xs leading-relaxed text-muted">{hint}</div>}
+        {hint && <div className="mt-0.5 max-w-[62ch] text-[13px] leading-relaxed text-muted">{hint}</div>}
       </div>
       {children}
     </div>

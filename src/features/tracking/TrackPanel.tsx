@@ -335,7 +335,7 @@ function Binder({ t, mangaId, title }: { t: Tracker; mangaId: number; title: str
               <span className="text-xs text-muted">
                 {[s.publishingType, s.publishingStatus, s.startDate, s.totalChapters > 0 ? `${chapterNo(s.totalChapters)} 话` : null].filter(Boolean).join(' · ')}
               </span>
-              {s.summary && <span className="line-clamp-2 text-xs text-faint">{s.summary}</span>}
+              {s.summary && <span className="line-clamp-2 text-[13px] text-faint">{s.summary}</span>}
             </span>
             {binding === s.remoteId && <Loader2 className="mt-1 size-4 flex-none animate-spin" />}
           </button>
