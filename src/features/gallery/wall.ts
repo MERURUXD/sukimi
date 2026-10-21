@@ -1,5 +1,5 @@
 import { HOME_WALL, cellIndex, centerOn, placeOrder, visibleCells, type Grid } from './canvasMath.ts'
-import type { CoverRect } from './readMorph.ts'
+import type { LibraryLanding } from './coverLayout.ts'
 
 /*
  * 画廊那面倾斜的封面墙的共用部分。画廊首页（HeroWall）、画布和首页底部的橱窗（CoverWall）
@@ -20,7 +20,7 @@ export const wallState: {
    * 从书库进来时书库封面落在墙上的哪一块（格子编号）、落地时墙在哪。回书库时墙先倒回这个位置，
    * 原来那一块封面回到屏幕中间，再由这些格子本身飞回书库，不会换成别的封面。from 是当时记下的书库封面位置
    */
-  landing: { cx: number; cy: number; keys: ReadonlyMap<string, CoverRect>; from: ReadonlyMap<number, CoverRect> } | null
+  landing: LibraryLanding | null
   /** 首页橱窗换格后写进 order 的那个数组：order 还是它，说明没被书库进画廊改写过，橱窗再挂上时不用重换，封面才一直不变 */
   sampled: number[] | null
 } = { cx: NaN, cy: NaN, grid: null, order: null, landing: null, sampled: null }

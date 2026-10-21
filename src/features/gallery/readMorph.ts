@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { afterWindowWall, closeWindowWall, openWindowWall, windowWallBusy } from './windowScene'
+export { withoutHiddenCovers } from './coverLayout'
 
 /*
  * 「已读话数」在画廊首页和阅读档案之间飞来飞去。两页各有一个带 data-gallery-read 的数字，
@@ -75,14 +76,6 @@ export function armLibraryFade() {
 /** 进画廊时记下的书库封面位置，回书库时封面照原位飞回去（从书库进来、后退回同一个书库页面时才对得上） */
 let returnCovers: Map<number, CoverRect> | null = null
 export const libraryCoversForReturn = () => returnCovers
-
-/**
- * 书库里记下的封面图是原图。画廊里被 NSFW 过滤掉的作品没有格子，过场叠层会直接把书库的原图显示出来，
- * 书库页的模糊规则又管不到叠层：把不在 visible 里的封面去掉图，位置照常保留。
- */
-export function withoutHiddenCovers(rects: ReadonlyMap<number, CoverRect>, visible: ReadonlySet<number>) {
-  return new Map([...rects].map(([id, r]) => [id, visible.has(id) || !r.src ? r : { ...r, src: null }]))
-}
 
 /** 画廊首页挂上时取刚才记下的封面位置；过了一会儿的不算（开发模式的严格模式会挂两次，所以不在这里清掉） */
 export const libraryCoversForEntry = () => (libraryCovers && performance.now() - libraryCovers.at < 2000 ? libraryCovers.rects : null)
