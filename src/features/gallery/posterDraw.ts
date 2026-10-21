@@ -97,7 +97,7 @@ function cover(ctx: Ctx, imgs: Images, c: PosterCover, x: number, y: number, w: 
   ctx.restore()
 }
 
-/** 左下角（或居中）的应用标志：圆角方块里的兔耳书签，和 favicon 一致 */
+/** 左下角（或居中）的应用标志：圆角方块里的兔耳书签，和应用图标一致 */
 function brand(ctx: Ctx, x: number, y: number, center = false) {
   setFont(ctx, 700, 28)
   const total = 52 + 16 + ctx.measureText('Sukimi').width
@@ -116,7 +116,7 @@ function brand(ctx: Ctx, x: number, y: number, center = false) {
   text(ctx, 'Sukimi', sx + 68, y + 27, INK, 'left', 'middle')
 }
 
-/** 在 size 见方的格子里画兔耳书签（与 public/favicon.svg 同样的位置和缩放） */
+/** 在 size 见方的格子里画兔耳书签（与 public/icon-512.png 同样的位置和缩放） */
 function brandGlyph(ctx: Ctx, x: number, y: number, size: number) {
   ctx.save()
   ctx.translate(x, y)
