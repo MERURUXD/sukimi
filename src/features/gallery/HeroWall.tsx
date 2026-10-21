@@ -4,6 +4,7 @@ import { cn } from '@/lib/cn'
 import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells } from './canvasMath'
 import { useReducedMotionPref } from './hooks'
 import { libraryCoversForReturn, type CoverRect } from './readMorph'
+import { libraryRewind } from './coverLayout'
 import { cellsInWindow, ensureWall, wallItem, wallScale, wallState, wallTransform } from './wall'
 
 /** 从书库进来的过场：先停一下（书库的标题和工具栏在上面淡出），再飞上墙 */
@@ -279,17 +280,17 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
       origins = null
       intro.current = null
       const box = el.getBoundingClientRect()
-      const land = wallState.landing
-      if (land && land.from === rects) {
+      const rewind = libraryRewind(wallState.landing, rects, wallState.cx, wallState.cy)
+      if (rewind) {
         // 倒回落地的位置，再由原来那一块格子飞回去；墙流动得越远，倒回去多给一点时间
-        const dist = Math.hypot(wallState.cx - land.cx, wallState.cy - land.cy)
+        const dist = Math.hypot(rewind.from[0] - rewind.to[0], rewind.from[1] - rewind.to[1])
         leave = {
-          fly: flyFrom(land.keys, box),
+          fly: flyFrom(rewind.keys, box),
           start: 0,
           dur: EXIT_DUR + Math.min(500, dist * 0.12),
           done,
           fired: false,
-          rewind: { from: [wallState.cx, wallState.cy], to: [land.cx, land.cy] },
+          rewind,
         }
       } else {
         // 不知道落在哪（换过书库页面等）：在墙此刻的中间取一块，先淡成书库的封面再飞
