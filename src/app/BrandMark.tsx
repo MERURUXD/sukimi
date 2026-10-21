@@ -41,7 +41,7 @@ export function BrandBunny({ className }: { className?: string }) {
 
 /**
  * 站点标志，顶栏和平板侧栏共用：兔耳书签的简化描线版，线宽和导航里的其他图标一致，颜色跟随文字。
- * 图形在 24 格里按外框居中；完整的彩色图标见 public/favicon.svg 和 design/icons。
+ * 图形在 24 格里按外框居中；完整的彩色图标见 public/ 和 design/icons。
  */
 export function BrandMark({ className }: { className?: string }) {
   return (
