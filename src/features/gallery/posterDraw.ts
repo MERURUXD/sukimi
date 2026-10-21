@@ -1,4 +1,5 @@
 import { refreshAccessToken, tokenExpiring, useAuth } from '@/api/auth'
+import { BRAND_BLUSH, BRAND_BLUSH_R, BRAND_BODY, BRAND_CENTER, BRAND_DARK, BRAND_EARS, BRAND_EYE, BRAND_EYES, BRAND_INNER, BRAND_LIGHT, BRAND_PINK } from '@/design/brand'
 import { NEUTRAL, coverColor, rgbCss } from '@/lib/coverColor'
 import { count } from '@/lib/format'
 import type { Rgb } from '@/lib/palette'
@@ -96,24 +97,56 @@ function cover(ctx: Ctx, imgs: Images, c: PosterCover, x: number, y: number, w: 
   ctx.restore()
 }
 
-/** 左下角（或居中）的应用标志：圆角方块里一个 S，和 favicon 一致 */
+/** 左下角（或居中）的应用标志：圆角方块里的兔耳书签，和 favicon 一致 */
 function brand(ctx: Ctx, x: number, y: number, center = false) {
   setFont(ctx, 700, 28)
   const total = 52 + 16 + ctx.measureText('Sukimi').width
   const sx = center ? x - total / 2 : x
   ctx.beginPath()
   ctx.roundRect(sx, y, 52, 52, 15)
-  ctx.fillStyle = '#141416'
+  ctx.fillStyle = BRAND_DARK
   ctx.fill()
   ctx.beginPath()
   ctx.roundRect(sx + 0.5, y + 0.5, 51, 51, 14.5)
   ctx.strokeStyle = ink(0.14)
   ctx.lineWidth = 1
   ctx.stroke()
-  setFont(ctx, 700, 30)
-  text(ctx, 'S', sx + 26, y + 27, INK, 'center', 'middle')
+  brandGlyph(ctx, sx, y, 52)
   setFont(ctx, 700, 28)
   text(ctx, 'Sukimi', sx + 68, y + 27, INK, 'left', 'middle')
+}
+
+/** 在 size 见方的格子里画兔耳书签（与 public/favicon.svg 同样的位置和缩放） */
+function brandGlyph(ctx: Ctx, x: number, y: number, size: number) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(size / 512, size / 512)
+  ctx.translate(256, 262)
+  ctx.scale(0.76, 0.76)
+  ctx.translate(-BRAND_CENTER.x, -BRAND_CENTER.y)
+  ctx.fillStyle = BRAND_LIGHT
+  ctx.fill(new Path2D(BRAND_EARS))
+  ctx.fillStyle = BRAND_PINK
+  ctx.fill(new Path2D(BRAND_INNER))
+  ctx.fillStyle = BRAND_LIGHT
+  ctx.fill(new Path2D(BRAND_BODY))
+  ctx.fillStyle = BRAND_DARK
+  for (const e of BRAND_EYES) {
+    ctx.save()
+    ctx.translate(e.cx, e.cy)
+    ctx.rotate(BRAND_EYE.tilt * RAD)
+    ctx.beginPath()
+    ctx.roundRect(-BRAND_EYE.w / 2, -BRAND_EYE.h / 2, BRAND_EYE.w, BRAND_EYE.h, BRAND_EYE.w / 2)
+    ctx.fill()
+    ctx.restore()
+  }
+  ctx.fillStyle = BRAND_PINK
+  for (const b of BRAND_BLUSH) {
+    ctx.beginPath()
+    ctx.ellipse(b.cx, b.cy, BRAND_BLUSH_R.x, BRAND_BLUSH_R.y, 0, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
 }
 
 /** 从圆心往外的一根圆头竖条：deg 从正上方顺时针，r0 是内端半径 */
