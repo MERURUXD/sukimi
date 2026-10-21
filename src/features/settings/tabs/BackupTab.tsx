@@ -78,7 +78,7 @@ function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => 
       <label className="flex items-start justify-between gap-4">
         <span>
           同时恢复服务端设置
-          <span className="block text-xs text-muted">会用备份里的值覆盖当前服务端设置，包括使用的网页界面；旧备份可能让下次重启后不再显示 Sukimi。</span>
+          <span className="block text-[13px] text-muted">会用备份里的值覆盖当前服务端设置，包括使用的网页界面；旧备份可能让下次重启后不再显示 Sukimi。</span>
         </span>
         <Switch
           label="同时恢复服务端设置"
@@ -92,7 +92,7 @@ function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => 
       <label className="flex items-start justify-between gap-4">
         <span>
           同时恢复我的个人设置
-          <span className="block text-xs text-muted">会覆盖当前账号的 OPDS、同步、自动下载等设置。</span>
+          <span className="block text-[13px] text-muted">会覆盖当前账号的 OPDS、同步、自动下载等设置。</span>
         </span>
         <Switch
           label="同时恢复我的个人设置"

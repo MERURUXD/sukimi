@@ -197,7 +197,7 @@ function EntryTile({ e, now }: { e: DayEntry<Manga>; now: number }) {
         <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
       </span>
       <span className={cn('line-clamp-2 min-h-[2.75em] text-[13px] leading-snug break-words', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
-      <span className="truncate text-xs text-muted num">{entrySub(e, now)}</span>
+      <span className="truncate text-[13px] text-muted num">{entrySub(e, now)}</span>
     </Link>
   )
 }
@@ -266,7 +266,7 @@ function AgendaRow({ e, now, rise }: { e: DayEntry<Manga>; now: number; rise?: C
       </span>
       <span className="flex min-w-0 flex-col">
         <span className={cn('truncate', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
-        <span className="truncate text-xs text-muted num">{pred ? `预计 · ${entrySub(e, now)}` : entrySub(e, now)}</span>
+        <span className="truncate text-[13px] text-muted num">{pred ? `预计 · ${entrySub(e, now)}` : entrySub(e, now)}</span>
       </span>
     </Link>
   )
@@ -301,7 +301,7 @@ function SeriesRow({ s, sub }: { s: Series<Manga>; sub: string }) {
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-medium"><FavoriteMark id={s.mangaId} />{s.manga.title}</span>
-        <span className="truncate text-xs text-muted num">{sub}</span>
+        <span className="truncate text-[13px] text-muted num">{sub}</span>
       </span>
     </Link>
   )

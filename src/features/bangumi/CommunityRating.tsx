@@ -162,10 +162,10 @@ function LineButton({ subject, state, guess, onOpen, onRetry }: { subject: BgmSu
       {subject ? (
         <>
           <b className="text-[17px] leading-none num"><Score value={subject.score} /></b>
-          <span className="min-w-0 flex-1 truncate text-xs text-muted num">{guess ? `可能是：${subject.nameCn || subject.name}` : facts(subject)}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] text-muted num">{guess ? `可能是：${subject.nameCn || subject.name}` : facts(subject)}</span>
         </>
       ) : (
-        <span className="min-w-0 flex-1 truncate text-xs text-muted">没有找到对应条目，点此手动搜索</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-muted">没有找到对应条目，点此手动搜索</span>
       )}
       <ChevronRight className="size-4 flex-none text-muted" />
     </button>
@@ -220,7 +220,7 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
         <span className="grid size-7 flex-none place-items-center rounded-[8px] bg-hover text-[13px] font-bold" aria-hidden>b</span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-semibold">Bangumi 站内评分</span>
-          <span className="truncate text-xs text-muted">
+          <span className="truncate text-[13px] text-muted">
             {shown ? `${g.match?.sure ? '' : '可能是：'}${shown.nameCn || shown.name}` : g.state === 'loading' ? '正在按标题搜索…' : rejected ? '已排除自动匹配的条目' : '没有找到对应条目'}
           </span>
         </span>
@@ -418,7 +418,7 @@ function Picker({ guess }: { guess: GuessProps }) {
               >
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-semibold">{s.nameCn || s.name}</span>
-                  <span className="truncate text-xs text-muted">{[s.platform, s.nameCn && s.name !== s.nameCn ? s.name : '', s.series ? '' : '单册'].filter(Boolean).join(' · ')}</span>
+                  <span className="truncate text-[13px] text-muted">{[s.platform, s.nameCn && s.name !== s.nameCn ? s.name : '', s.series ? '' : '单册'].filter(Boolean).join(' · ')}</span>
                 </span>
                 <span className="flex flex-none flex-col items-end text-xs text-muted num">
                   <b className="text-[15px] text-text">{s.score ? s.score.toFixed(1) : '—'}</b>

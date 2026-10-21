@@ -334,10 +334,10 @@ function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; ch
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-[15px] font-medium">{name}</span>
-        <span className="truncate text-xs">预计 · {intervalLabel(p.interval)}更新 · {regularLabel(p)}</span>
+        <span className="truncate text-[13px]">预计 · {intervalLabel(p.interval)}更新 · {regularLabel(p)}</span>
       </span>
       <span className="text-[13px] num max-sm:hidden">{when}</span>
-      <span className="text-xs num sm:hidden">{when}</span>
+      <span className="text-[13px] num sm:hidden">{when}</span>
     </div>
   )
 }
@@ -417,7 +417,7 @@ const ChapterRow = memo(function ChapterRow({
             {c.name}
           </Link>
         )}
-        {sub && <span className={cn('truncate text-xs', inProgress ? 'font-bold text-accent' : 'text-muted')}>{sub}</span>}
+        {sub && <span className={cn('truncate text-[13px]', inProgress ? 'font-bold text-accent' : 'text-muted')}>{sub}</span>}
         {inProgress && c.pageCount > 0 && (
           <span className="mt-[7px] block h-[3px] w-40 overflow-hidden rounded-full bg-track">
             <i className="block h-full bg-accent" style={{ width: `${((c.lastPageRead + 1) / c.pageCount) * 100}%` }} />
@@ -425,7 +425,7 @@ const ChapterRow = memo(function ChapterRow({
         )}
         {/* 页面书签：点页码直接打开到那一页；叠在整行链接上面才能点到 */}
         {marks.length > 0 && !selecting && (
-          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-xs text-muted" aria-label="页面书签">
+          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-[13px] text-muted" aria-label="页面书签">
             <Bookmark className="size-3 flex-none" strokeWidth={2} aria-hidden />
             {marks.slice(0, 4).map((p) => (
               <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} viewTransition className="text-muted no-underline num hover:text-text">

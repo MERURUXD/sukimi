@@ -71,7 +71,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-semibold">{m.title}</span>
-        {m.author && <span className="truncate text-xs text-muted">{m.author}</span>}
+        {m.author && <span className="truncate text-[13px] text-muted">{m.author}</span>}
       </span>
     </Link>
   )}</MangaMenu>
@@ -170,7 +170,7 @@ export function BrowsePage() {
                   <SourceIcon s={s} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 leading-snug font-semibold break-words" title={s.displayName}>{s.displayName}</span>
-                    <span className="truncate text-xs text-muted">
+                    <span className="truncate text-[13px] text-muted">
                       {[s.supportsLatest ? '支持最新' : null, s.contentWarning === 'NSFW' ? '含成人内容' : s.contentWarning === 'MIXED' ? '部分成人内容' : null]
                         .filter(Boolean)
                         .join(' · ') || ' '}

@@ -309,7 +309,7 @@ const Tile = memo(function Tile({
           {display.titleLines > 0 && (
             <span className={cn('font-semibold', display.titleLines === 1 ? 'truncate' : 'line-clamp-2 break-words', compact && 'text-[13px]')}>{m.title}</span>
           )}
-          {sub && <span className="truncate text-xs text-muted">{sub}</span>}
+          {sub && <span className="truncate text-[13px] text-muted">{sub}</span>}
           {genres.length > 0 && (
             <span className="mt-1 flex h-[18px] gap-1 overflow-hidden">
               {genres.map((g) => (
@@ -378,14 +378,14 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf, displa
                 {display.badges.favorite && favorites?.has(m.id) && <Star className="size-3.5 flex-none fill-current" strokeWidth={2.2} aria-label="特别关心" />}
                 <span className="truncate font-semibold">{m.title}</span>
               </span>
-              <span className="truncate text-xs text-muted">
+              <span className="truncate text-[13px] text-muted">
                 {[m.author, m.source?.displayName].filter(Boolean).join(' · ')}
               </span>
             </span>
-            {scoreOf && <span className="w-10 text-right text-xs text-muted num">{scoreOf(m)?.toFixed(1) ?? '—'}</span>}
-            <span className="w-[100px] text-xs text-muted max-md:hidden">{timeAgo(lastUpdated(m))}</span>
-            <span className="w-[72px] text-right text-xs text-muted num">未读 {m.unreadCount}</span>
-            <span className="w-[72px] text-right text-xs text-muted num max-sm:hidden">下载 {m.downloadCount}</span>
+            {scoreOf && <span className="w-10 text-right text-[13px] text-muted num">{scoreOf(m)?.toFixed(1) ?? '—'}</span>}
+            <span className="w-[100px] text-[13px] text-muted max-md:hidden">{timeAgo(lastUpdated(m))}</span>
+            <span className="w-[72px] text-right text-[13px] text-muted num">未读 {m.unreadCount}</span>
+            <span className="w-[72px] text-right text-[13px] text-muted num max-sm:hidden">下载 {m.downloadCount}</span>
           </>
         )
         return selecting ? (

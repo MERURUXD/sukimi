@@ -145,7 +145,7 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
                   <t.icon className="size-[22px] flex-none" strokeWidth={1.8} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="font-medium">{t.label}</span>
-                    <span className="truncate text-xs text-muted">{t.desc}</span>
+                    <span className="truncate text-[13px] text-muted">{t.desc}</span>
                   </span>
                   <ChevronRight className="size-[18px] flex-none text-faint" />
                 </Link>

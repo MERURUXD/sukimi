@@ -170,7 +170,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
           <span className="truncate text-[13px] text-muted num">
             {chapterLabel(c)} · {progress} · {clock(Number(c.lastReadAt) * 1000)}
           </span>
-          {entry.chapters.length > 1 && <span className="text-xs text-faint">这天还读了 {entry.chapters.length - 1} 话</span>}
+          {entry.chapters.length > 1 && <span className="text-[13px] text-faint">这天还读了 {entry.chapters.length - 1} 话</span>}
         </span>
       </Link>
       {!c.isRead && (

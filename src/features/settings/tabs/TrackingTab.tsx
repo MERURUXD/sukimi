@@ -69,7 +69,7 @@ function TrackerRow({ t }: { t: Tracker }) {
         <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={36} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-semibold">{t.name}</span>
-          <span className={t.isLoggedIn && t.isTokenExpired ? 'text-xs text-danger' : 'text-xs text-muted'}>
+          <span className={t.isLoggedIn && t.isTokenExpired ? 'text-[13px] text-danger' : 'text-[13px] text-muted'}>
             {state}
             {!t.isLoggedIn && oauth && ' · 会跳到网站授权，完成后自动回来'}
           </span>

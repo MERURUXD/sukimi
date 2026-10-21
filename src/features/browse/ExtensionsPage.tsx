@@ -373,7 +373,7 @@ function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extens
       <SourceIcon s={{ iconUrl: e.iconUrl, displayName: name }} size={40} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-semibold">{name}</span>
-        <span className={cn('truncate text-xs text-muted', e.isObsolete && 'text-danger')}>{meta.join(' · ')}</span>
+        <span className={cn('truncate text-[13px] text-muted', e.isObsolete && 'text-danger')}>{meta.join(' · ')}</span>
       </span>
       {busy ? (
         <span className="inline-flex min-h-10 items-center gap-1.5 px-2 text-sm text-muted" role="status">

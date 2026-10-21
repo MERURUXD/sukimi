@@ -139,7 +139,7 @@ export function CategoryManager() {
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{c.name}</span>
-                <span className="text-xs text-muted num">
+                <span className="text-[13px] text-muted num">
                   {c.mangas.totalCount} 部{c.includeInUpdate === 'EXCLUDE' && ' · 不参与检查更新'}
                 </span>
               </span>
