@@ -64,11 +64,12 @@ export function TopNav() {
             <ChevronLeft className={cn('size-6', leadIn)} strokeWidth={1.8} />
           </Glass>
         ) : (
-          // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏
+          // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏。
+          // 右侧留白放在文字上：文字隐藏的宽度下胶囊回到正圆，图标不偏左
           <NavLink to="/" aria-label="Sukimi 首页" className="topnav-brand rounded-full text-text no-underline justify-self-start">
-            <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-2.5 rounded-full p-[5px] text-[17px] font-bold sm:pr-4">
+            <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-1.5 rounded-full p-[5px] text-[17px] font-bold">
               <BrandMark className={leadIn} />
-              <span className={cn('max-sm:hidden md:max-xl:hidden', leadIn)}>Sukimi</span>
+              <span className={cn('pr-[11px] max-sm:hidden md:max-xl:hidden', leadIn)}>Sukimi</span>
             </Glass>
           </NavLink>
         )}
