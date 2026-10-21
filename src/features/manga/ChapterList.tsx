@@ -236,8 +236,8 @@ export function ChapterList({
 
       {visible.length === 0 && <p style={mangaIntroDelay(mangaIntro.chapterRow)} className={cn('py-16 text-center text-muted', intro && 'rise')}>{chapters.length ? '没有符合筛选的章节' : '还没有章节'}</p>}
 
-      {/* 只在「最新在上」且看全部或未读时出现，排在列表外面，不参与虚拟列表、多选和筛选计数 */}
-      {prediction && desc && (filter === 'all' || filter === 'unread') && !selecting && (
+      {/* 只在「最新在上」且看全部时出现，排在列表外面，不参与虚拟列表、多选和筛选计数；筛选后预测不属于筛选结果 */}
+      {prediction && desc && filter === 'all' && !selecting && (
         <div className={cn(cols > 1 && 'grid grid-cols-2 gap-x-6')}>
           <PredictedRow p={prediction} chapters={chapters} fill={cols > 1} introDelay={intro ? mangaIntro.chapterRow : undefined} />
         </div>
