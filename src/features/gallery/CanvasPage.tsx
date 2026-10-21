@@ -803,7 +803,7 @@ export function CanvasPage() {
         </div>
 
         {focused && (
-          <div aria-live="polite" className="absolute inset-x-5 transition-opacity duration-500 [opacity:var(--hud)] bottom-[max(20px,env(safe-area-inset-bottom))] text-white [text-shadow:0_2px_12px_#000,0_0_3px_#000] md:inset-x-[52px] md:bottom-[34px]">
+          <div aria-live="polite" className="absolute inset-x-5 transition-opacity duration-500 [opacity:var(--hud)] bottom-[max(20px,env(safe-area-inset-bottom))] text-white mix-blend-difference md:inset-x-[52px] md:bottom-[34px]">
             <p className="m-0 mb-2 ml-1 text-xs font-medium tracking-[.3em] num md:text-[15px]">
               {[`No.${pad(focus)} / ${count(n)}`, focused.author, `${chapterCount(focused)} 话`, status(focused)].filter(Boolean).join('　')}
             </p>
