@@ -24,6 +24,7 @@ import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
 import { StaleSessionError } from '@/api/userContext'
 import { findSameTitle } from './migrate'
 import { SameTitleDialog } from './SameTitleDialog'
+import { CoverZoomHost } from './CoverZoom'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
@@ -65,6 +66,8 @@ export function MangaHero({
   const [checking, setChecking] = useState(false)
   // 加入书库前发现书库里已有同名漫画：先问迁移还是照常加入
   const [same, setSame] = useState<LibraryManga[] | null>(null)
+  const [zoom, setZoom] = useState(false)
+  const zoomTrigger = useRef<HTMLButtonElement>(null)
 
   const toggleLibrary = async () => {
     if (!manga.inLibrary) {
@@ -104,7 +107,16 @@ export function MangaHero({
           style={{ viewTransitionName: COVER_VT }}
         >
           <CoverImg src={manga.thumbnailUrl} />
+          {manga.thumbnailUrl && !placeholder && (
+            <button ref={zoomTrigger} type="button" className="absolute inset-0 cursor-zoom-in" aria-label="放大封面" title="放大封面" onClick={() => setZoom(true)} />
+          )}
         </div>
+        <CoverZoomHost
+          src={manga.thumbnailUrl}
+          title={manga.title}
+          open={zoom}
+          onClose={() => { setZoom(false); zoomTrigger.current?.focus({ preventScroll: true }) }}
+        />
 
         <div className="manga-hero-info flex min-w-0 flex-col">
           <div className={cn('manga-hero-identity flex min-w-0 flex-col', placeholder && 'invisible')}>
