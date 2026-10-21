@@ -252,7 +252,8 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
         <div aria-hidden data-desktop-hero-art className="absolute inset-0 -z-10 hidden overflow-hidden bg-bg md:block">
           <AnimatePresence initial={false}>
             <motion.div key={m.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: reducedMotion ? 0 : 0.45 }} className="absolute inset-0">
-              <CoverImg src={m.thumbnailUrl} className="absolute inset-0 size-full object-cover object-[center_15%]" />
+              {/* 桌面端缩略图分辨率不够，铺满后会发糊发虚；索性加模糊当氛围背景，略放大避免边缘露出。 */}
+              <CoverImg src={m.thumbnailUrl} className="absolute inset-0 size-full scale-110 object-cover object-[center_15%] blur-[18px] saturate-[1.15]" />
             </motion.div>
           </AnimatePresence>
           {/* 横屏用主题底色保证文字对比，右侧保留封面细节，底部渐变衔接书架。 */}
