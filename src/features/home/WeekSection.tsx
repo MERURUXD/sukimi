@@ -153,6 +153,22 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
   // 数据刷新后展开的那格可能空了，或整行都没了：当作收起
   const shown = lanes.some((l) => l.days.some((d, i) => d.length && cellId(l.id, i) === open)) ? open : null
 
+  // 从详情页返回时托盘还开着（状态留在模块里），叠放的封面和托盘里的封面在同一帧挂载，共享的 layoutId 会把它们
+  // 重新「飞」一遍。挂载时已展开就让位移瞬间落定、托盘里的封面先隐藏，等两帧布局排完再恢复，之后的展开、收起照常飞。
+  // 不能靠临时去掉 layoutId：落定后再挂上的节点不会登记为共享元素，收起和再展开就都不飞了。
+  const [restoring, setRestoring] = useState(shown !== null)
+  useEffect(() => {
+    if (!restoring) return
+    let inner = 0
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setRestoring(false))
+    })
+    return () => {
+      cancelAnimationFrame(outer)
+      cancelAnimationFrame(inner)
+    }
+  }, [restoring])
+
   // Esc 收起，焦点回到那一格
   useEffect(() => {
     if (!shown) return
@@ -188,14 +204,14 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
                 // 今天的底色只衬在有内容的格子上：刚过零点还没有记录时整列留空
                 <div key={i} className={cn('min-h-[140px] rounded-[14px]', i === 0 && entries.length > 0 && 'bg-hover/60')}>
                   {entries.length > 0 && (
-                    <Stack id={cellId(lane.id, i)} entries={entries} open={i === day} label={`${days[i].name} · ${lane.name} · ${entries.length} 部`}
+                    <Stack id={cellId(lane.id, i)} entries={entries} open={i === day} instant={restoring} label={`${days[i].name} · ${lane.name} · ${entries.length} 部`}
                       sub={lane.id === 'recent' ? `读了 ${entries.length} 部` : `${lane.chapters[i]} 话新章节`} />
                   )}
                 </div>
               ))}
             </div>
             <AnimatePresence initial={false} mode="wait" onExitComplete={settle}>
-              {day >= 0 && <Tray key={day} lane={lane} day={day} dayName={days[day].name} />}
+              {day >= 0 && <Tray key={day} lane={lane} day={day} dayName={days[day].name} instant={restoring} />}
             </AnimatePresence>
           </motion.div>
         )
@@ -215,7 +231,10 @@ const stackCover: Variants = {
   spread: (back: number) => ({ x: back * 24, y: back * 3, rotate: back * 7 }),
 }
 
-function Stack({ id, entries, open, label, sub }: { id: string; entries: Entry[]; open: boolean; label: string; sub: string }) {
+/** 恢复挂载时共享封面的位移时长为 0，直接落在终点 */
+const INSTANT = { duration: 0 }
+
+function Stack({ id, entries, open, instant, label, sub }: { id: string; entries: Entry[]; open: boolean; instant: boolean; label: string; sub: string }) {
   const top = entries.slice(0, STACK)
   const first = entries[0].manga.title
   return (
@@ -239,7 +258,7 @@ function Stack({ id, entries, open, label, sub }: { id: string; entries: Entry[]
           // 偏移和倾角放在外层：里层带 layoutId 的封面量到的是含偏移的位置，飞出、飞回都对得上
           return (
             <motion.span key={e.manga.id} custom={back} variants={stackCover} transition={spring.fast} data-sfw={sfwAttr(e.manga.source?.displayName)} className="absolute top-0 left-0 block w-12" style={{ zIndex: STACK - back }}>
-              <motion.span layoutId={coverId(id, e.manga.id)} layoutCrossfade={false} transition={spring.default} className="cv rounded-[7px] shadow-[0_6px_14px_rgba(0,0,0,.18)]">
+              <motion.span layoutId={coverId(id, e.manga.id)} layoutCrossfade={false} transition={instant ? INSTANT : spring.default} className="cv rounded-[7px] shadow-[0_6px_14px_rgba(0,0,0,.18)]">
                 <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
               </motion.span>
             </motion.span>
@@ -265,7 +284,7 @@ const headerFade = {
   exit: { opacity: 0, transition: fade.fast },
 }
 
-function Tray({ lane, day, dayName }: { lane: Lane; day: number; dayName: string }) {
+function Tray({ lane, day, dayName, instant }: { lane: Lane; day: number; dayName: string; instant: boolean }) {
   const id = cellId(lane.id, day)
   const entries = lane.days[day]
   const reduced = useReducedMotion()
@@ -306,7 +325,7 @@ function Tray({ lane, day, dayName }: { lane: Lane; day: number; dayName: string
       </div>
       <div className="relative grid grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-x-3.5 gap-y-5">
         {entries.map((e, i) => (
-          <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} index={i} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
+          <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
         ))}
       </div>
     </motion.div>
@@ -314,7 +333,7 @@ function Tray({ lane, day, dayName }: { lane: Lane; day: number; dayName: string
 }
 
 /** 叠放里的几张从原位飞出（共享元素，位置实测）；其余的随后淡入，收起时先淡出 */
-function TrayItem({ entry, layoutId, index, back }: { entry: Entry; layoutId?: string; index: number; back: number }) {
+function TrayItem({ entry, layoutId, instant, index, back }: { entry: Entry; layoutId?: string; instant: boolean; index: number; back: number }) {
   const { manga } = entry
   const prefetch = usePrefetchManga(manga.id)
   const late = { delay: Math.min(index, 12) * 0.025 }
@@ -323,11 +342,11 @@ function TrayItem({ entry, layoutId, index, back }: { entry: Entry; layoutId?: s
       <motion.span
         layoutId={layoutId}
         layoutCrossfade={false}
-        className="cv rounded-[10px] shadow-[0_10px_22px_rgba(0,0,0,.16)]"
+        className={cn('cv rounded-[10px] shadow-[0_10px_22px_rgba(0,0,0,.16)]', instant && 'invisible')}
         initial={layoutId ? { rotate: back * 3 } : { opacity: 0, scale: 0.92 }}
         animate={{ rotate: 0, opacity: 1, scale: 1, transition: layoutId ? spring.default : { ...spring.fast, ...late } }}
         exit={layoutId ? undefined : { opacity: 0, scale: 0.92, transition: fade.fast }}
-        transition={spring.default}
+        transition={instant ? INSTANT : spring.default}
       >
         <CoverImg src={manga.thumbnailUrl} loading="lazy" />
         {entry.badge && <Badge>{entry.badge}</Badge>}
