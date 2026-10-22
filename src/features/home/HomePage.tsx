@@ -414,7 +414,8 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
                   aria-selected={on}
                   onClick={() => setIdx(i)}
                   data-sfw={sfwAttr(c.manga.source?.displayName)}
-                  className={cn('flex min-w-0 snap-start items-center gap-2.5 rounded-[18px] p-2.5 text-left text-text md:gap-3 md:pr-3.5', on && 'bg-g-hi')}
+                  // 去掉玻璃亮边和投影，只靠底色区分，避免成排的框住的卡片；选中项用更亮的底色，其余悬停时提亮示意可点
+                  className={cn('flex min-w-0 snap-start items-center gap-2.5 rounded-[18px] border-transparent p-2.5 text-left text-text shadow-none transition-colors md:gap-3 md:pr-3.5', on ? 'bg-g-hi' : 'hover:bg-(--g-bg)')}
                 >
                   <span className="cv w-8 flex-none rounded-[7px] md:w-11">
                     <CoverImg src={c.manga.thumbnailUrl} />
