@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
-import { Fragment, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { withSnapshot } from '@/api/persist'
@@ -442,6 +442,18 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
 function Shelf({ id, title, note, actions, children }: { id: string; title: string; note: string; actions?: ReactNode; children: ReactNode }) {
   const shelf = useRef<HTMLDivElement>(null)
   const scroll = (d: number) => shelf.current?.scrollBy({ left: d * shelf.current.clientWidth * 0.8, behavior: 'smooth' })
+  // 作品不满一行时箭头翻不动，干脆不显示。作品数变化时容器宽度不变，ResizeObserver 不会触发，所以按数量重新量
+  const [overflow, setOverflow] = useState(true)
+  const count = Children.count(children)
+  useLayoutEffect(() => {
+    const el = shelf.current
+    if (!el) return
+    const measure = () => setOverflow(el.scrollWidth > el.clientWidth + 1)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [count])
   return (
     <section aria-labelledby={`h-${id}`} className="pt-11">
       <div className="mb-[18px] flex items-end justify-between gap-4">
@@ -453,12 +465,16 @@ function Shelf({ id, title, note, actions, children }: { id: string; title: stri
         </div>
         <div className="flex flex-none items-center gap-2">
           {actions}
-          <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
-            <ChevronLeft className="size-5" strokeWidth={1.8} />
-          </Glass>
-          <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
-            <ChevronRight className="size-5" strokeWidth={1.8} />
-          </Glass>
+          {overflow && (
+            <>
+              <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
+                <ChevronLeft className="size-5" strokeWidth={1.8} />
+              </Glass>
+              <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
+                <ChevronRight className="size-5" strokeWidth={1.8} />
+              </Glass>
+            </>
+          )}
         </div>
       </div>
       <div ref={shelf} className="-mx-1 grid snap-x auto-cols-[140px] grid-flow-col gap-[22px] overflow-x-auto px-1 pt-1 pb-3 [scrollbar-width:none] sm:auto-cols-[176px]">
