@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft, Share } from 'lucide-react'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useLocation, useNavigate, useNavigationType } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
@@ -536,7 +536,6 @@ const seg01 = (a: string, b: string) => `clamp(0, calc((var(--stats-p) - ${a}) /
 function Stats(p: BodyProps) {
   const { mobile, stats, read, ranked, taste, works, intro, reduced, pager } = p
   const t = intro.t
-  const animating = useSyncExternalStore(pager.subscribe, () => pager.animating)
   const win = useWindowSize()
   // 太矮的窗口（手机横屏、小屏手机）按最小高度排版再整体缩小：三屏都固定在一屏里，滚轮和上下滑留给切屏，不能改成滚动
   const k = Math.min(1, win.h / (mobile ? MIN_H_PHONE : MIN_H))
@@ -745,8 +744,9 @@ function Stats(p: BodyProps) {
     </div>
   )
 
+  // 切屏期间也保留折射：中途换成毛玻璃、结束再换回，跳变比省下的开销更显眼
   return (
-    <MovingGlassBackdrop value={animating ? 'suspend' : true}>
+    <MovingGlassBackdrop value>
     <div ref={root} className="fixed inset-0 touch-none overflow-hidden select-none">
       <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
         <Backdrop glow={p.glow} className="absolute inset-0" fade={`calc(1 - ${seg01('0.3', '0.8')} * .6)`} />
