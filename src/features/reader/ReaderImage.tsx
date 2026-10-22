@@ -1,6 +1,7 @@
 import { ImageOff, LoaderCircle, RotateCw } from 'lucide-react'
 import { useState, type CSSProperties } from 'react'
 import { Glass } from '@/components/glass/Glass'
+import { cn } from '@/lib/cn'
 import { reloadPage } from './pageImage'
 
 /** 重新加载时给原图地址加的参数：绕开浏览器可能留着的失败记录；同源地址多一个参数服务端不在意 */
@@ -20,6 +21,7 @@ export function ReaderImage({
   fallback,
   marks,
   loading,
+  holdSpace,
   onLoad,
 }: {
   /** 第几页（从 0 数） */
@@ -33,11 +35,14 @@ export function ReaderImage({
   /** 给外层定位用的 data-* 标记，图片和失败提示都要带 */
   marks?: Record<string, string | number | undefined>
   loading?: 'eager' | 'lazy'
+  /** 没加载完时按 fallback 的尺寸占住位置并显示加载提示：双页并排时，另一页不会因为宽度为 0 被挤到中间 */
+  holdSpace?: boolean
   onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void
 }) {
   const [failed, setFailed] = useState(false)
   const [retrying, setRetrying] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [loaded, setLoaded] = useState(false)
 
   const retry = () => {
     if (retrying) return
@@ -47,6 +52,7 @@ export function ReaderImage({
     const probe = new Image()
     probe.onload = () => {
       setAttempt(next)
+      setLoaded(false)
       setFailed(false)
       setRetrying(false)
     }
@@ -75,19 +81,40 @@ export function ReaderImage({
       </div>
     )
   }
+  const waiting = holdSpace && !loaded
   return (
-    <img
-      {...marks}
-      key={attempt}
-      src={bust(src, src === url ? attempt : 0)}
-      alt={`第 ${page + 1} 页`}
-      loading={loading}
-      decoding="async"
-      draggable={false}
-      onLoad={onLoad}
-      onError={() => setFailed(true)}
-      className={className}
-      style={style}
-    />
+    <>
+      {waiting && (
+        <div
+          role="status"
+          aria-label={`第 ${page + 1} 页加载中`}
+          className="flex max-w-full flex-none items-center justify-center text-white/60 select-none"
+          style={fallback}
+        >
+          <LoaderCircle className="size-7 animate-spin" strokeWidth={1.6} />
+        </div>
+      )}
+      <img
+        {...marks}
+        key={attempt}
+        // 缓存里已有的图挂载时就绪，不闪占位
+        ref={(el) => {
+          if (el?.complete && el.naturalWidth) setLoaded(true)
+        }}
+        src={bust(src, src === url ? attempt : 0)}
+        alt={`第 ${page + 1} 页`}
+        loading={loading}
+        decoding="async"
+        draggable={false}
+        onLoad={(e) => {
+          setLoaded(true)
+          onLoad?.(e)
+        }}
+        onError={() => setFailed(true)}
+        // 加载中的图留在文档里继续请求，但不占位、不可见，由上面的占位顶着
+        className={cn(className, waiting && 'pointer-events-none invisible absolute')}
+        style={style}
+      />
+    </>
   )
 }
