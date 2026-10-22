@@ -3,6 +3,7 @@ import { useApolloClient } from '@apollo/client/react'
 import { useCallback, useEffect, useState } from 'react'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { afterViewTransition } from './readMorph'
+import { reuseReadChapters } from './readChapters'
 import { GalleryReadChapters, type ReadChapter } from './queries'
 
 /** 每页取多少话；阅读档案的加载进度也按它估算 */
@@ -52,8 +53,10 @@ export function useReadChapters(enabled = true) {
           if (!data.chapters.pageInfo.hasNextPage || !data.chapters.nodes.length) break
         }
         if (!alive) return
-        last = { client, chapters: all }
-        setState({ chapters: all, fetched: all.length, error: null })
+        const chapters = reuseReadChapters(last?.client === client ? last.chapters : null, all)
+        last = { client, chapters }
+        setState((s) => s.chapters === chapters && s.fetched === chapters.length && s.error == null
+          ? s : { chapters, fetched: chapters.length, error: null })
       } catch (error) {
         if (alive && !(error instanceof StaleSessionError)) setState((s) => (s.chapters ? s : { chapters: null, fetched: all.length, error }))
       }

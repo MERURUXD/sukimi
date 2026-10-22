@@ -60,18 +60,7 @@ export interface PosterReading {
 function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind; work: LibraryManga | null; reading?: PosterReading; onClose: () => void }) {
   const mobile = useMobile()
   const { full, totals, stats: lib, countsError, refetchCounts } = useGalleryLibrary()
-  const fetchedReads = useReadChapters(!reading)
-  const reads = reading?.reads ?? fetchedReads
   const { test } = useNsfw()
-  const userId = useAuth((s) => s.user?.id)
-  const [openedAt] = useState(() => Date.now())
-  const now = reading?.now ?? openedAt
-
-  // 档案页复用现成汇总；其他入口只在打开面板后取章节，画廊首页平时不取
-  const stats = useMemo(
-    () => reading ? reading.stats : (reads.chapters && totals ? summarize(reads.chapters, full.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
-    [reading, reads.chapters, totals, full, now, userId],
-  )
   const shown = useMemo(() => galleryOrder(full.filter((m) => !test(m))), [full, test])
 
   const kinds = useMemo(() => {
@@ -84,6 +73,20 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
   const [picked, setPicked] = useState<PosterKind>(initial)
   const kind = kinds.includes(picked) ? picked : kinds[0]
 
+  // 用户选过全库海报后继续这一轮加载，切换样式时不重启分页。
+  const [readsRequested, setReadsRequested] = useState(initial !== 'work')
+  const needsStats = readsRequested || kind !== 'work'
+  const fetchedReads = useReadChapters(!reading && needsStats)
+  const reads = reading?.reads ?? fetchedReads
+  const userId = useAuth((s) => s.user?.id)
+  const [openedAt] = useState(() => Date.now())
+  const now = reading?.now ?? openedAt
+
+  // 档案页复用现成汇总；其他入口只在打开面板后取章节，画廊首页平时不取
+  const stats = useMemo(
+    () => reading ? reading.stats : (needsStats && reads.chapters && totals ? summarize(reads.chapters, full.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
+    [reading, needsStats, reads.chapters, totals, full, now, userId],
+  )
   const models = useMemo<Partial<Record<PosterKind, PosterModel>>>(() => {
     const byId = new Map(full.map((m) => [m.id, m]))
     const read = stats?.ranking.filter((r) => r.read > 0) ?? []
@@ -213,7 +216,7 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
     </div>
   )
   const picker = kinds.length > 1 && (
-    <Seg items={kinds.map((k) => ({ value: k, label: POSTER_LABEL[k] }))} value={kind} onChange={(k) => { setPicked(k); setSaved(null) }} label="海报样式" glass={false} />
+    <Seg items={kinds.map((k) => ({ value: k, label: POSTER_LABEL[k] }))} value={kind} onChange={(k) => { setPicked(k); if (k !== 'work') setReadsRequested(true); setSaved(null) }} label="海报样式" glass={false} />
   )
   const actions = (
     <div className="flex gap-3">
