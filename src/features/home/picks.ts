@@ -31,12 +31,13 @@ export function pick<T>(items: readonly T[], n: number, seed: string, id: (t: T)
 /**
  * 第 batch 批（从 0 起）：随机挑 n 个，顺序也随机；从第 1 批起，第一个不与上一批的第一个相同，
  * 换一批时大图区一定换一部。上一批也按同样规则得出，所以从第 0 批逐批推过来。
+ * first 是第 0 批的候选（默认同 items），用来让第一组先放更想展示的那些，换一批再从全部里挑。
  */
-export function pickBatch<T>(items: readonly T[], n: number, seed: string, batch: number, id: (t: T) => number) {
+export function pickBatch<T>(items: readonly T[], n: number, seed: string, batch: number, id: (t: T) => number, first: readonly T[] = items) {
   let prev: T | undefined
   let cur: T[] = []
   for (let b = 0; b <= batch; b++) {
-    cur = pick(items, n, `${seed}#${b}`, id)
+    cur = pick(b ? items : first, n, `${seed}#${b}`, id)
     const i = cur.length > 1 && cur[0] === prev ? 1 : 0
     // 和上一批第一个相同就与第二个对调
     if (i) [cur[0], cur[1]] = [cur[1], cur[0]]

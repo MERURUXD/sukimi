@@ -6,6 +6,7 @@ import { HOME_SECTION_LABELS, HOME_SECTION_ORDER, moveHomeSection, type HomeSect
 import { Row, Section, Switch } from '../parts'
 
 const HINTS: Record<HomeSection, string> = {
+  week: '最近七天里特别关心的更新、其他更新和读过的漫画，按天排开，点开某一天查看全部。',
   favorite: '设为特别关心、有新章节没读的漫画，最近更新的在前。',
   updates: '书库中最近更新的漫画与新章节。',
   stale: '读到一半，超过两周没打开的漫画。',
@@ -33,9 +34,9 @@ export function HomeTab() {
           items={[{ value: 'poster', label: '居中海报' }, { value: 'cover', label: '全幅封面' }]}
           value={homeMobileLayout} onChange={setHomeMobileLayout} />
       </Row>
-      <Row label="桌面首页布局" hint="封面与文字并排展示，或将封面铺满背景。全幅模式会裁切画面。">
+      <Row label="桌面首页布局" hint="舞台把在读的几部排成扇形封面组，左右切换；全幅封面把封面铺满背景，会裁切画面。">
         <Seg glass={false} label="桌面首页布局" className="max-md:[&_button]:min-h-11"
-          items={[{ value: 'poster', label: '封面与文字' }, { value: 'cover', label: '全幅封面' }]}
+          items={[{ value: 'poster', label: '舞台' }, { value: 'cover', label: '全幅封面' }]}
           value={homeDesktopLayout} onChange={setHomeDesktopLayout} />
       </Row>
     </Section>

@@ -22,6 +22,8 @@ interface AppearanceState {
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
   homeMotionBg: boolean
+  /** 冷启动打开首页时桌面「舞台」播一次开屏动画 */
+  homeIntro: boolean
   homeSections: Record<HomeContentSection, boolean>
   homeSectionOrder: HomeSection[]
   homeGallery: boolean
@@ -36,6 +38,7 @@ interface AppearanceState {
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
   setHomeMotionBg: (on: boolean) => void
+  setHomeIntro: (on: boolean) => void
   setHomeSection: (id: HomeContentSection, on: boolean) => void
   setHomeSectionOrder: (order: readonly HomeSection[]) => void
   setHomeGallery: (on: boolean) => void
@@ -61,6 +64,8 @@ export const useAppearance = create<AppearanceState>()(
       homeDesktopLayout: 'poster',
       // 旧偏好里没有这个字段，合并默认值后开启
       homeMotionBg: true,
+      // 旧偏好里没有这个字段，合并默认值后开启
+      homeIntro: true,
       ...normalizeHomePreferences(null),
       // 旧偏好里没有这个字段，合并默认值后为 7 秒
       galleryInterval: 7,
@@ -73,6 +78,7 @@ export const useAppearance = create<AppearanceState>()(
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
       setHomeMotionBg: (homeMotionBg) => set({ homeMotionBg }),
+      setHomeIntro: (homeIntro) => set({ homeIntro }),
       setHomeSection: (id, on) => set((s) => ({ homeSections: { ...s.homeSections, [id]: on } })),
       setHomeSectionOrder: (order) => set({ homeSectionOrder: normalizeHomeOrder(order) }),
       setHomeGallery: (homeGallery) => set({ homeGallery }),
@@ -80,9 +86,9 @@ export const useAppearance = create<AppearanceState>()(
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+      partialize: ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
         homeSections, homeSectionOrder, homeGallery }) =>
-        ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+        ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
           homeSections, homeSectionOrder, homeGallery }),
       merge: (saved, current) => ({ ...current, ...saved as Partial<AppearanceState>, ...normalizeHomePreferences(saved) }),
     },
