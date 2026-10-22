@@ -178,16 +178,18 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
 
   return (
     <section aria-label="继续阅读" className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]" data-desktop-layout="stage" data-sfw={sfwAttr(m.source?.displayName)}>
-      {/* 背景：流动模糊封面原样保留；开屏时整体淡入并从略大缩回 */}
-      <motion.div
-        aria-hidden
-        className="absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden"
-        initial={intro ? { opacity: 0, scale: 1.12 } : false}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 1.4, ease: EASE }}
-      >
-        {background}
-      </motion.div>
+      {/* 背景：流动模糊封面原样保留；开屏时整体淡入并从略大缩回。
+          裁切放在外层、缩放放在里层：缩放的元素自己带 overflow 时，放大的那圈会溢出到下一段，露出一条灰带 */}
+      <div aria-hidden className="absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden">
+        <motion.div
+          className="absolute inset-0"
+          initial={intro ? { opacity: 0, scale: 1.12 } : false}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.4, ease: EASE }}
+        >
+          {background}
+        </motion.div>
+      </div>
       {/* 文字居中在封面下方，压暗中下部保证对比，底部融入底色 */}
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_45%_at_50%_80%,var(--scrim-b),transparent_75%),linear-gradient(var(--scrim-a),var(--scrim-a))]" />
       <div aria-hidden className="fade-to-bg absolute inset-0 -z-10 [--from:45%]" />
