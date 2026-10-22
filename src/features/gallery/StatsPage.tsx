@@ -281,7 +281,7 @@ export function StatsPage() {
         onExit={exit}
         onShare={() => setSharing(true)}
       />
-      <PosterShare open={sharing} initial="stats" onClose={() => setSharing(false)} />
+      <PosterShare open={sharing} initial="stats" reading={{ stats, now, reads }} onClose={() => setSharing(false)} />
     </div>
   )
 }
