@@ -285,6 +285,7 @@ export function PagedView({
           }}
           className={cn('reader-page block flex-none', imgCls)}
           style={style}
+          holdSpace={sp.length > 1}
           fallback={{ width: `${100 / sp.length}vw`, height: '100dvh' }}
         />
       )
