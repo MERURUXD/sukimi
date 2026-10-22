@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { byDay, dayIndex, updatesPartial, weekDays } from '../src/features/home/week.ts'
+import { byDay, dayIndex, updatesPartial, weekDays, weekStartSec } from '../src/features/home/week.ts'
 
 // 2026-10-22（周四）本地 15:00
 const now = new Date(2026, 9, 22, 15, 0).getTime()
@@ -43,4 +43,10 @@ test('这一周：更新列表没取完、最旧一话还在本周时标为不�
   assert.equal(updatesPartial([at(0, 9), at(8, 9)], true, now), false)
   assert.equal(updatesPartial([at(0, 9), at(3, 9)], false, now), false)
   assert.equal(updatesPartial([], true, now), false)
+})
+
+test('这一周：更新按抓取时间筛选的起点是 6 天前本地零点', () => {
+  assert.equal(weekStartSec(now), Math.floor(new Date(2026, 9, 16, 0, 0).getTime() / 1000))
+  assert.equal(dayIndex(weekStartSec(now) * 1000, now), 6)
+  assert.equal(dayIndex((weekStartSec(now) - 1) * 1000, now), -1)
 })

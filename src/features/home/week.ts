@@ -21,6 +21,13 @@ export function dayIndex(atMs: number, nowMs: number) {
   return d < 0 ? 0 : d < WEEK_DAYS ? d : -1
 }
 
+/** 这一周起点（最早那天本地零点）的秒数，用来按抓取时间筛选更新；按日历算，跨夏令时也对 */
+export function weekStartSec(nowMs: number) {
+  const d = new Date(midnight(nowMs))
+  d.setDate(d.getDate() - (WEEK_DAYS - 1))
+  return Math.floor(d.getTime() / 1000)
+}
+
 /** 这一周每一天的名字和日期，今天在前 */
 export function weekDays(nowMs: number) {
   const today = midnight(nowMs)

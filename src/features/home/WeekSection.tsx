@@ -185,7 +185,8 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
                 <span className="text-xs text-muted">{lane.total}</span>
               </div>
               {lane.days.map((entries, i) => (
-                <div key={i} className={cn('min-h-[140px] rounded-[14px]', i === 0 && 'bg-hover/60')}>
+                // 今天的底色只衬在有内容的格子上：刚过零点还没有记录时整列留空
+                <div key={i} className={cn('min-h-[140px] rounded-[14px]', i === 0 && entries.length > 0 && 'bg-hover/60')}>
                   {entries.length > 0 && (
                     <Stack id={cellId(lane.id, i)} entries={entries} open={i === day} label={`${days[i].name} · ${lane.name} · ${entries.length} 部`}
                       sub={lane.id === 'recent' ? `读了 ${entries.length} 部` : `${lane.chapters[i]} 话新章节`} />
