@@ -3,6 +3,7 @@ import { useApolloClient } from '@apollo/client/react'
 import { useCallback, useEffect, useState } from 'react'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { afterViewTransition } from './readMorph'
+import { reuseReadChapters } from './readChapters'
 import { GalleryReadChapters, type ReadChapter } from './queries'
 
 /** 每页取多少话；阅读档案的加载进度也按它估算 */
@@ -20,8 +21,9 @@ resetOnUserContext(() => {
 /**
  * 分页取完书库里读过的章节（已读或有阅读时间）。几千到上万话，
  * 用 no-cache 只放在内存里，不进 Apollo 缓存和快照。
+ * 分享面板已有档案页数据时关闭取数，进度、错误与重试也沿用原页。
  */
-export function useReadChapters() {
+export function useReadChapters(enabled = true) {
   const client = useApolloClient()
   const [state, setState] = useState<{ chapters: ReadChapter[] | null; fetched: number; error: unknown }>(() => {
     const cached = last?.client === client ? last.chapters : null
@@ -30,6 +32,7 @@ export function useReadChapters() {
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    if (!enabled) return
     let alive = true
     const still = captureUser()
     // 有上一次的结果时先留着显示，取完再换；没有时显示进度
@@ -50,8 +53,10 @@ export function useReadChapters() {
           if (!data.chapters.pageInfo.hasNextPage || !data.chapters.nodes.length) break
         }
         if (!alive) return
-        last = { client, chapters: all }
-        setState({ chapters: all, fetched: all.length, error: null })
+        const chapters = reuseReadChapters(last?.client === client ? last.chapters : null, all)
+        last = { client, chapters }
+        setState((s) => s.chapters === chapters && s.fetched === chapters.length && s.error == null
+          ? s : { chapters, fetched: chapters.length, error: null })
       } catch (error) {
         if (alive && !(error instanceof StaleSessionError)) setState((s) => (s.chapters ? s : { chapters: null, fetched: all.length, error }))
       }
@@ -59,7 +64,7 @@ export function useReadChapters() {
     return () => {
       alive = false
     }
-  }, [client, attempt])
+  }, [client, attempt, enabled])
 
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
   return { ...state, retry }
