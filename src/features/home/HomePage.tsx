@@ -14,6 +14,7 @@ import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
+import { isFreshUpdate } from '@/features/updates/visible'
 import { useLibraryView } from '@/features/library/store'
 import { useLaterList } from '@/features/later/useLater'
 import { favoritesWithNew } from '@/features/favorite/favorite'
@@ -109,9 +110,20 @@ export function HomePage() {
   const recent = useMemo(() => byManga(readChapters ?? []), [readChapters])
   const library = useMemo(() => libData?.mangas.nodes.filter((m) => !hidden(m)), [libData, hidden])
   const updateChapters = useMemo(() => updatesData?.chapters.nodes.filter((c) => !hidden(c.manga)), [updatesData, hidden])
+  // 「这一周」只算加入书库之后才抓到的章节，和更新页同一规则：刚入库或刚迁移的整本存量章节不算新章节。
+  // 加入时间取自书库查询；书库里还查不到的先保留
+  const weekUpdates = useMemo(() => {
+    if (!updateChapters) return undefined
+    const added = new Map(libData?.mangas.nodes.map((m) => [m.id, m.inLibraryAt]))
+    return updateChapters.filter((c) => {
+      const inLibraryAt = added.get(c.mangaId)
+      return inLibraryAt == null || isFreshUpdate({ fetchedAt: c.fetchedAt, manga: { inLibraryAt } })
+    })
+  }, [updateChapters, libData])
   const [heroSeed, heroBatch, nextHero] = useBatch('hero')
   // 大图区只从书库里的漫画中挑：两周内读过、还有得读的随机挑；不够一组时按最近读的顺序补上还有得读的，再补读完的。
-  // 顺序也随机，换一批时第一部一定会变。舞台的扇形是左右对称的，凑不满 5 部会缺一角
+  // 补位的只决定第一组，其余仍留在候选池里，换一批可以轮到。顺序也随机，换一批时第一部一定会变。
+  // 舞台的扇形是左右对称的，凑不满 5 部会缺一角
   const hero = useMemo(() => {
     const now = Date.now() / 1000
     const inLib = recent.filter((c) => c.manga.inLibrary)
@@ -119,8 +131,9 @@ export function HomePage() {
     const fresh = open.filter((c) => isRecent(c.lastReadAt, now))
     const count = stage ? STAGE_COUNT : HERO_COUNT
     const fill = [...new Set([...open, ...inLib])].filter((c) => !fresh.includes(c))
-    const pool = (fresh.length >= count ? fresh : [...fresh, ...fill.slice(0, count - fresh.length)]).slice(0, HERO_POOL)
-    return { items: pickBatch(pool, count, heroSeed, heroBatch, (c) => c.manga.id), more: pool.length > count }
+    const short = fresh.length < count
+    const pool = (short ? [...fresh, ...fill] : fresh).slice(0, HERO_POOL)
+    return { items: pickBatch(pool, count, heroSeed, heroBatch, (c) => c.manga.id, short ? pool.slice(0, count) : pool), more: pool.length > count }
   }, [recent, heroSeed, heroBatch, stage])
   const shelves = useMemo(() => {
     if (!library) return null
@@ -145,7 +158,7 @@ export function HomePage() {
   }, [updatesData, readsData])
 
   const content = {
-    week: homeSections.week && <WeekSection updates={updateChapters} partial={weekPartial} reads={readChapters} />,
+    week: homeSections.week && <WeekSection updates={weekUpdates} partial={weekPartial} reads={readChapters} />,
     favorite: homeSections.favorite && <FavoriteShelf library={library} />,
     updates: homeSections.updates && <UpdatesShelf chapters={updateChapters} />,
     stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}

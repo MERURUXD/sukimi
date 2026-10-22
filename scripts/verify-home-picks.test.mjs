@@ -89,5 +89,10 @@ test('换一批时第一个一定和上一批不同，同一批结果固定', ()
     }
     assert.deepEqual(ids(pickBatch(list, 4, 'hero:a', 7, (m) => m.id)), ids(pickBatch(list, 4, 'hero:a', 7, (m) => m.id)))
     assert.deepEqual(ids(pickBatch(list, 4, 'hero:a', 0, (m) => m.id)), ids(pick(list, 4, 'hero:a#0', (m) => m.id)))
+    // 第一组只从 first 里挑，换一批才轮到其余候选
+    const head = list.slice(0, 4)
+    assert.deepEqual(new Set(ids(pickBatch(list, 4, 'hero:a', 0, (m) => m.id, head))), new Set(ids(head)))
+    const later = new Set(Array.from({ length: 6 }, (_, b) => ids(pickBatch(list, 4, 'hero:a', b + 1, (m) => m.id, head))).flat())
+    assert.ok([...later].some((id) => !ids(head).includes(id)))
   }
 })
