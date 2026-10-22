@@ -20,8 +20,9 @@ resetOnUserContext(() => {
 /**
  * 分页取完书库里读过的章节（已读或有阅读时间）。几千到上万话，
  * 用 no-cache 只放在内存里，不进 Apollo 缓存和快照。
+ * 分享面板已有档案页数据时关闭取数，进度、错误与重试也沿用原页。
  */
-export function useReadChapters() {
+export function useReadChapters(enabled = true) {
   const client = useApolloClient()
   const [state, setState] = useState<{ chapters: ReadChapter[] | null; fetched: number; error: unknown }>(() => {
     const cached = last?.client === client ? last.chapters : null
@@ -30,6 +31,7 @@ export function useReadChapters() {
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    if (!enabled) return
     let alive = true
     const still = captureUser()
     // 有上一次的结果时先留着显示，取完再换；没有时显示进度
@@ -59,7 +61,7 @@ export function useReadChapters() {
     return () => {
       alive = false
     }
-  }, [client, attempt])
+  }, [client, attempt, enabled])
 
   const retry = useCallback(() => setAttempt((n) => n + 1), [])
   return { ...state, retry }

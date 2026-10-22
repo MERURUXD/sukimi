@@ -15,7 +15,7 @@ import { count } from '@/lib/format'
 import { galleryOrder, useGalleryLibrary, useMobile } from './hooks'
 import { POSTER_LABEL, posterFileName, posterTop, wallRows, workProgress, type PosterCover, type PosterKind, type PosterModel } from './poster'
 import { renderPoster } from './posterDraw'
-import { summarize } from './stats'
+import { summarize, type ReadingStats } from './stats'
 import { readTaste, tasteHeadline } from './taste'
 import { useReadChapters } from './useReadChapters'
 
@@ -32,16 +32,17 @@ const toCover = (m: LibraryManga): PosterCover => ({ url: m.thumbnailUrl ?? null
  *
  * 渲染到 body 下：档案页在自己的根节点上监听滚轮和拖动翻屏，面板里的操作不能传过去。
  */
-export function PosterShare({ open, initial, work, onClose }: {
+export function PosterShare({ open, initial, work, reading, onClose }: {
   open: boolean
   initial: PosterKind
   /** 放映里当前那一部；打开时由放映固定下来，放映继续切换也不影响 */
   work?: LibraryManga | null
+  reading?: PosterReading
   onClose: () => void
 }) {
   return createPortal(
     <div data-theme="dark" className="text-text">
-      <AnimatePresence>{open && <PosterSheet initial={initial} work={work ?? null} onClose={onClose} />}</AnimatePresence>
+      <AnimatePresence>{open && <PosterSheet initial={initial} work={work ?? null} reading={reading} onClose={onClose} />}</AnimatePresence>
     </div>,
     document.body,
   )
@@ -49,18 +50,27 @@ export function PosterShare({ open, initial, work, onClose }: {
 
 type Out = { url: string; file: File }
 
-function PosterSheet({ initial, work, onClose }: { initial: PosterKind; work: LibraryManga | null; onClose: () => void }) {
+/** 档案页已算好的数据与时间共用一份，打开分享时不再拉取整批章节。 */
+export interface PosterReading {
+  stats: ReadingStats | null
+  now: number
+  reads: ReturnType<typeof useReadChapters>
+}
+
+function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind; work: LibraryManga | null; reading?: PosterReading; onClose: () => void }) {
   const mobile = useMobile()
   const { full, totals, stats: lib, countsError, refetchCounts } = useGalleryLibrary()
-  const reads = useReadChapters()
+  const fetchedReads = useReadChapters(!reading)
+  const reads = reading?.reads ?? fetchedReads
   const { test } = useNsfw()
   const userId = useAuth((s) => s.user?.id)
-  const [now] = useState(() => Date.now())
+  const [openedAt] = useState(() => Date.now())
+  const now = reading?.now ?? openedAt
 
-  // 页数和档案都要读过的章节；只在打开面板后才取，画廊首页平时不取
+  // 档案页复用现成汇总；其他入口只在打开面板后取章节，画廊首页平时不取
   const stats = useMemo(
-    () => (reads.chapters && totals ? summarize(reads.chapters, full.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
-    [reads.chapters, totals, full, now, userId],
+    () => reading ? reading.stats : (reads.chapters && totals ? summarize(reads.chapters, full.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
+    [reading, reads.chapters, totals, full, now, userId],
   )
   const shown = useMemo(() => galleryOrder(full.filter((m) => !test(m))), [full, test])
 
