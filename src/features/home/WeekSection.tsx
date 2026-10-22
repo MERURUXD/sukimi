@@ -84,15 +84,34 @@ function readLane(days: DayGroup<ReadChapter>[][]): Lane {
 }
 
 /**
+ * 分组用的「现在」，只在本地日期变了时更新：标签页开着跨过午夜，或者从后台、休眠回来已是第二天，
+ * 「今天」和 7 天的分组就跟着挪。同一天里不变，之后到的新数据比它晚也只会落在「今天」（见 dayIndex）。
+ */
+function useLocalNow() {
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => {
+    const check = () => setNow((prev) => (new Date(prev).toDateString() === new Date().toDateString() ? prev : Date.now()))
+    const d = new Date(now)
+    const t = setTimeout(check, new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - Date.now() + 1000)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [now])
+  return now
+}
+
+/**
  * 「这一周」：特别关心的更新、其他更新、读过的漫画 × 最近 7 天。
  * 宽屏是 7 列的格子，点叠起的封面在这一行下面展开托盘；窄屏按日期切换，每类一条横向书架。
  */
 export function WeekSection({ updates, partial, reads }: { updates: UpdateChapter[] | undefined; partial: boolean; reads: ReadChapter[] | undefined }) {
   const favorites = useFavorites().map
   const wide = useMedia('(min-width: 1024px)')
+  const now = useLocalNow()
   const week = useMemo(() => {
     if (!updates && !reads) return null
-    const now = Date.now()
     const ups = updates ?? []
     const fav = (c: UpdateChapter) => !!favorites?.has(c.mangaId)
     const lanes = [
@@ -101,7 +120,8 @@ export function WeekSection({ updates, partial, reads }: { updates: UpdateChapte
       readLane(byDay(reads ?? [], (c) => sec(c.lastReadAt), (c) => c.manga.id, now)),
     ].filter((l) => l.days.some((d) => d.length))
     return { days: weekDays(now), lanes }
-  }, [updates, reads, favorites])
+    // day 只用来在日期变了时重新分组
+  }, [updates, reads, favorites, now])
 
   if (!week?.lanes.length) return null
   const chapters = week.lanes.reduce((n, l) => n + l.chapters.reduce((a, b) => a + b, 0), 0)
