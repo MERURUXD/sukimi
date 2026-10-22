@@ -12,14 +12,15 @@ import { CoverSkeleton } from './CoverSkeleton'
  * 封面较大时加载要几秒：加载期间显示流光占位，载入后渐显，避免整块纯黑像坏图。
  * 已经在浏览器缓存里的封面第一帧就是完整的，直接显示，不播渐显。
  *
- * 重开页面时书库等页面在登录验证完成前就先显示，这时封面 Cookie 可能已过期而加载失败：
- * 先保持占位，验证完成后重新加载一次，不当成坏图。
+ * 重开页面时书库等页面在登录验证完成前就先显示，这时封面 Cookie 可能已过期：
+ * 验证完成前只显示占位，不发图片请求。不能等 onError 才检查登录状态，
+ * 因为未授权请求的错误可能晚于验证完成才送达，误把封面当成坏图。
  * 同样，令牌过期后（比如服务端停机很久又恢复）Cookie 也失效，先续期再重试一次。
- * 演示和验收页没有登录验证，状态一直是 checking，不能照此推迟，否则失效的封面永远等不到占位图。
+ * 演示和验收页没有登录验证，状态一直是 checking，不能照此推迟。
  */
 export function CoverImg({ src, ...rest }: { src: string | null | undefined } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
   const [failed, setFailed] = useState<string | null>(null)
-  // 登录验证完成前加载失败的地址，验证完成后重试
+  // 令牌续期后重试的地址
   const [deferred, setDeferred] = useState<string | null>(null)
   const checking = useAuth((s) => s.status === 'checking') && !isDemo && !isDevLab
   const [renewing, setRenewing] = useState(false)
@@ -41,9 +42,9 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
       </span>
     )
   }
+  if (checking || renewing) return <CoverSkeleton />
   const ready = loaded?.src === src
   const retry = deferred === src
-  if (retry && (checking || renewing)) return <CoverSkeleton />
   return (
     <>
       {!ready && <CoverSkeleton />}
@@ -68,7 +69,6 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
         onError={() => {
           const { status } = useAuth.getState()
           if (retry) return setFailed(src)
-          if (status === 'checking' && !isDemo && !isDevLab) return setDeferred(src)
           if (status === 'signedIn' && tokenExpiring()) {
             setDeferred(src)
             setRenewing(true)
