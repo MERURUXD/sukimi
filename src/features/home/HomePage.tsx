@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
-import { Children, Fragment, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { withSnapshot } from '@/api/persist'
@@ -20,10 +20,13 @@ import { favoritesWithNew } from '@/features/favorite/favorite'
 import { useFavorites } from '@/features/favorite/useFavorites'
 import type { LibraryMangasQuery } from '@/api/gql/graphql'
 import { GalleryWindow } from '@/features/gallery/GalleryWindow'
+import { useMobile } from '@/features/gallery/hooks'
+import { windowWallBusy } from '@/features/gallery/windowScene'
 import { useLanded } from '@/features/gallery/readMorph'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
+import { spring } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
 import { isDemo } from '@/lib/demo'
 import { useNsfw } from '@/features/nsfw/useNsfw'
@@ -31,7 +34,11 @@ import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { IN_LIBRARY, RecentReads, RecentUpdates, type ReadChapter, type UpdateChapter } from './queries'
 import { isRecent, isStale, notStarted, pickBatch } from './picks'
 import { readingTarget } from './reading'
+import type { HomeSection } from './preferences'
+import { markIntroPlayed, Stage } from './Stage'
 import { useHeroSwipe } from './useHeroSwipe'
+import { updatesPartial } from './week'
+import { useWeekTray, WeekSection } from './WeekSection'
 
 /** 按漫画去重：每部漫画只保留最近读的那一话 */
 function byManga(chapters: readonly ReadChapter[]) {
@@ -50,9 +57,12 @@ const progressOf = (c: ReadChapter) =>
 
 type LibManga = LibraryMangasQuery['mangas']['nodes'][number]
 
-/** 大图区从最近在读的这么多部里随机挑 HERO_COUNT 部 */
+/** 大图区从最近在读的这么多部里随机挑几部：桌面「舞台」扇形放 5 部，其余布局 4 部 */
 const HERO_POOL = 20
 const HERO_COUNT = 4
+const STAGE_COUNT = 5
+/** RecentReads 一次取的话数（见 queries.ts） */
+const READS_LIMIT = 150
 const SHELF_COUNT = 12
 
 /** 每次打开或刷新网页换一个随机种子；页面里的切换仍按同一种子挑，网络数据替换快照时不会整批跳动 */
@@ -75,6 +85,8 @@ export function HomePage() {
   const homeSections = useAppearance((s) => s.homeSections)
   const homeSectionOrder = useAppearance((s) => s.homeSectionOrder)
   const showGallery = useAppearance((s) => s.homeGallery)
+  const mobile = useMobile()
+  const stage = useAppearance((s) => s.homeDesktopLayout === 'poster') && !mobile
   // 换页动画期间有缓存就只用缓存，落地后再去网络刷新：结果一到整页要重新渲染，和动画抢主线程会一顿一顿的（见 useLanded）
   const landed = useLanded()
   const reads = useQuery(RecentReads, { fetchPolicy: landed ? 'cache-and-network' : 'cache-first' })
@@ -83,7 +95,8 @@ export function HomePage() {
   const updates = useQuery(RecentUpdates, {
     variables: { first: 200, offset: 0, filter: IN_LIBRARY },
     fetchPolicy: landed ? 'cache-and-network' : 'cache-first',
-    skip: !homeSections.updates,
+    // 「这一周」也用这份：和「更新」页、最近更新书架是同一份查询与快照
+    skip: !homeSections.updates && !homeSections.week,
   })
   // 刷新页面后先用上次保存的数据，网络数据到了再替换
   const readsData = withSnapshot('recentReads', reads.data)
@@ -92,20 +105,23 @@ export function HomePage() {
   // NSFW 作品在首页一律不出现（见 features/nsfw）：从源头去掉，大图区、书架和橱窗都不用各自判断
   const { hidden } = useNsfw()
   const userId = useAuth((s) => s.user?.id)
-  const recent = useMemo(() => byManga((readsData?.chapters.nodes ?? []).filter((c) => isVisible(c, userId) && !hidden(c.manga))), [readsData, hidden, userId])
+  const readChapters = useMemo(() => readsData?.chapters.nodes.filter((c) => isVisible(c, userId) && !hidden(c.manga)), [readsData, hidden, userId])
+  const recent = useMemo(() => byManga(readChapters ?? []), [readChapters])
   const library = useMemo(() => libData?.mangas.nodes.filter((m) => !hidden(m)), [libData, hidden])
   const updateChapters = useMemo(() => updatesData?.chapters.nodes.filter((c) => !hidden(c.manga)), [updatesData, hidden])
   const [heroSeed, heroBatch, nextHero] = useBatch('hero')
-  // 大图区只从书库里的漫画中挑：两周内读过、还有得读的随机挑；没有就退回还有得读的，再退回最近读过的。
-  // 顺序也随机，换一批时第一部一定会变
+  // 大图区只从书库里的漫画中挑：两周内读过、还有得读的随机挑；不够一组时按最近读的顺序补上还有得读的，再补读完的。
+  // 顺序也随机，换一批时第一部一定会变。舞台的扇形是左右对称的，凑不满 5 部会缺一角
   const hero = useMemo(() => {
     const now = Date.now() / 1000
     const inLib = recent.filter((c) => c.manga.inLibrary)
     const open = inLib.filter((c) => resume(c))
     const fresh = open.filter((c) => isRecent(c.lastReadAt, now))
-    const pool = (fresh.length ? fresh : open.length ? open : inLib).slice(0, HERO_POOL)
-    return { items: pickBatch(pool, HERO_COUNT, heroSeed, heroBatch, (c) => c.manga.id), more: pool.length > HERO_COUNT }
-  }, [recent, heroSeed, heroBatch])
+    const count = stage ? STAGE_COUNT : HERO_COUNT
+    const fill = [...new Set([...open, ...inLib])].filter((c) => !fresh.includes(c))
+    const pool = (fresh.length >= count ? fresh : [...fresh, ...fill.slice(0, count - fresh.length)]).slice(0, HERO_POOL)
+    return { items: pickBatch(pool, count, heroSeed, heroBatch, (c) => c.manga.id), more: pool.length > count }
+  }, [recent, heroSeed, heroBatch, stage])
   const shelves = useMemo(() => {
     if (!library) return null
     const now = Date.now() / 1000
@@ -120,7 +136,16 @@ export function HomePage() {
   // 首页别处已经出现的作品：橱窗里尽量不重复它们（大图区正在展示的、最近阅读那三条）
   const onPage = useMemo(() => new Set([...hero.items, ...(homeSections.recent ? recent.slice(0, 3) : [])].map((c) => c.manga.id)), [hero.items, recent, homeSections.recent])
 
+  // 两份查询都只取最新的若干条：取满了、最旧一条还在这一周里，更早几天就不完整
+  const weekPartial = useMemo(() => {
+    const ups = updatesData?.chapters
+    const read = readsData?.chapters.nodes
+    return (!!ups && updatesPartial(ups.nodes.map((c) => sec(c.fetchedAt)), ups.pageInfo.hasNextPage, Date.now()))
+      || (!!read && updatesPartial(read.map((c) => sec(c.lastReadAt)), read.length >= READS_LIMIT, Date.now()))
+  }, [updatesData, readsData])
+
   const content = {
+    week: homeSections.week && <WeekSection updates={updateChapters} partial={weekPartial} reads={readChapters} />,
     favorite: homeSections.favorite && <FavoriteShelf library={library} />,
     updates: homeSections.updates && <UpdatesShelf chapters={updateChapters} />,
     stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}
@@ -133,14 +158,26 @@ export function HomePage() {
     gallery: showGallery && <GalleryWindow library={libData?.mangas.nodes} exclude={readsData ? onPage : undefined} />,
   }
 
+  // 系统开启「减弱动态效果」时 Motion 的位移、缩放和布局动画都直接到位，只保留淡入淡出（全局 CSS 管不到 JS 动画）
   return (
-    <>
-      <Hero items={hero.items} loading={!readsData} onShuffle={hero.more ? nextHero : undefined} />
+    <MotionConfig reducedMotion="user">
+      <Hero items={hero.items} loading={!readsData} stage={stage} onShuffle={hero.more ? nextHero : undefined} />
       <div className="wrap pb-20">
-        {homeSectionOrder.map((id) => <Fragment key={id}>{content[id]}</Fragment>)}
+        {homeSectionOrder.map((id) => content[id] && <Slot key={id} id={id}>{content[id]}</Slot>)}
       </div>
-    </>
+    </MotionConfig>
   )
+}
+
+/**
+ * 一个首页模块的位置。「这一周」的托盘展开、收起时只排一次版，下面的模块用位移动画滑到新位置；
+ * children 是首页渲染时给的同一个元素，这里随托盘重渲染时模块内容本身不重渲染。
+ * 橱窗飞往画廊途中（fixed 定位的副本）祖先不能带 transform，这时不给它动画。
+ */
+function Slot({ id, children }: { id: HomeSection; children: ReactNode }) {
+  const rev = useWeekTray((s) => s.rev)
+  const layout = id === 'gallery' && windowWallBusy() ? false : 'position'
+  return <motion.div layout={layout} layoutDependency={rev} transition={spring.fast}>{children}</motion.div>
 }
 
 /* ───────── 继续阅读大图区 ───────── */
@@ -151,7 +188,7 @@ resetOnUserContext(() => {
   batches.clear()
 })
 
-function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: boolean; onShuffle?: () => void }) {
+function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; loading: boolean; stage: boolean; onShuffle?: () => void }) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
@@ -179,6 +216,10 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
   const navigate = useNavigate()
   const detailHref = useHref(`/manga/${cur?.manga.id ?? ''}`)
   const [enqueue] = useMutation(EnqueueDownloads)
+  // 舞台在同一次渲染里已经决定要不要播开屏动画，这里在它之后记下
+  useEffect(() => {
+    if (cur) markIntroPlayed()
+  }, [cur])
 
   const downloadRest = async () => {
     if (!cur) return
@@ -231,6 +272,22 @@ function Hero({ items, loading, onShuffle }: { items: ReadChapter[]; loading: bo
     </AnimatePresence>
   )
   const meta = [m.author, m.genre.slice(0, 2).join(' · '), m.source?.displayName].filter(Boolean).join(' · ')
+
+  // 桌面默认布局：扇形封面组（「舞台」），取代原来的封面与文字并排 + 四张切换卡
+  if (stage) {
+    return (
+      <Stage
+        items={items}
+        active={activeIdx}
+        onSelect={setIdx}
+        onShuffle={onShuffle && shuffle}
+        onDownload={downloadRest}
+        background={homeMotionBg ? <CoverFlow src={m.thumbnailUrl} className="absolute inset-0" fallback={staticBg} /> : staticBg}
+        target={target}
+        meta={[m.author, m.genre.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
+      />
+    )
+  }
 
   return (
     <section aria-label="继续阅读" className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)] md:min-h-[min(760px,92vh)]" data-mobile-layout={homeMobileLayout} data-desktop-layout={homeDesktopLayout} data-sfw={sfwAttr(m.source?.displayName)}>
