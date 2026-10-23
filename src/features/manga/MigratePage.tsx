@@ -54,7 +54,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
   // 同语言一个来源都没有时直接搜全部
   const effectiveScope = sameLang.length === 0 ? 'all' : scope
   const sources = effectiveScope === 'lang' ? sameLang : everySource
-  const results = useMultiSourceSearch(q, sources, searched)
+  const { results, retry } = useMultiSourceSearch(q, sources, searched)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -136,7 +136,16 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
         <p className="text-sm leading-relaxed text-muted" role="status">
           {pending.length > 0 && <span className="mr-3 inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />还在搜索 {pending.length} 个来源</span>}
           {empty.length > 0 && <span className="mr-3">没有结果：{empty.map((s) => s.displayName).join('、')}</span>}
-          {failed.length > 0 && <span>搜索失败：{failed.map((s) => s.displayName).join('、')}</span>}
+          {failed.length > 0 && (
+            <span>
+              搜索失败：{failed.map((s) => s.displayName).join('、')}
+              {pending.length === 0 && (
+                <button type="button" className="ml-2 font-semibold text-text hover:underline" onClick={() => retry()}>
+                  重试失败来源
+                </button>
+              )}
+            </span>
+          )}
         </p>
       )}
 

@@ -1,8 +1,10 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig, Star, StarOff } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
+import { Glass } from '@/components/glass/Glass'
 import { GalleryPill } from '@/features/gallery/GalleryPill'
 import { useMobile } from '@/features/gallery/hooks'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
@@ -271,6 +273,11 @@ export function LibraryPage() {
   const unreadTotal = useMemo(() => all.reduce((n, m) => n + m.unreadCount, 0), [all])
   const dlTotal = useMemo(() => all.reduce((n, m) => n + m.downloadCount, 0), [all])
   const sortLabel = SORTS.find((s) => s.key === view.sort)?.label
+  const hasFilter = Object.values(view.filters).some((v) => v !== 0) || view.sources.length > 0 || deferredQuery.length > 0
+  const clearAllFilters = () => {
+    view.resetFilters()
+    setQuery('')
+  }
 
   return (
     <>
@@ -306,25 +313,68 @@ export function LibraryPage() {
           {(!favorites.map || !data) && !favorites.error && !error && <LibrarySkeleton density={view.density} />}
           {(favorites.error ?? error) && <LoadError message={(favorites.error ?? error)!.message} onRetry={() => void (favorites.error ? favorites.refetch() : refetch()).catch(() => {})} />}
           {favorites.map && data && items.length === 0 && (
-            <p className="px-6 py-20 text-center text-muted">
-              {favoriteList.length === 0 ? '还没有特别关心的漫画。在漫画详情页点星标，或右键封面设置；手机上长按封面多选后设置。' : '没有符合筛选条件的漫画。'}
-            </p>
+            <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted">
+              <p className="m-0">
+                {favoriteList.length === 0 ? '还没有特别关心的漫画。在漫画详情页点星标，或右键封面设置；手机上长按封面多选后设置。' : '没有符合筛选条件的漫画。'}
+              </p>
+              {favoriteList.length === 0 ? (
+                all.length > 0 ? (
+                  <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
+                    查看全部书库
+                  </Glass>
+                ) : (
+                  <Link to="/browse" className="rounded-full text-text no-underline">
+                    <Glass as="span" className="gbtn rounded-full">前往发现</Glass>
+                  </Link>
+                )
+              ) : hasFilter && (
+                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
+                  清除筛选条件
+                </Glass>
+              )}
+            </div>
           )}
         </> : isLater ? <>
           {!later.items && !later.error && <LibrarySkeleton density={view.density} />}
           {later.error && <LoadError message={later.error.message} onRetry={() => void later.refetch().catch(() => {})} />}
           {later.items && items.length === 0 && (
-            <p className="px-6 py-20 text-center text-muted">
-              {later.items.length === 0 ? '还没有稍后再看的漫画。在漫画详情页点时钟按钮，或在「发现」页长按、右键封面加入。' : '没有符合筛选条件的漫画。'}
-            </p>
+            <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted">
+              <p className="m-0">
+                {later.items.length === 0 ? '还没有稍后再看的漫画。在漫画详情页点时钟按钮，或在「发现」页长按、右键封面加入。' : '没有符合筛选条件的漫画。'}
+              </p>
+              {later.items.length === 0 ? (
+                <Link to="/browse" className="rounded-full text-text no-underline">
+                  <Glass as="span" className="gbtn rounded-full">前往发现</Glass>
+                </Link>
+              ) : hasFilter && (
+                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
+                  清除筛选条件
+                </Glass>
+              )}
+            </div>
           )}
         </> : <>
           {loading && !data && <LibrarySkeleton density={view.density} />}
           {error && <LoadError message={error.message} onRetry={() => void refetch().catch(() => {})} />}
           {data && items.length === 0 && (
-            <p className="px-6 py-20 text-center text-muted">
-              {all.length === 0 ? '书库是空的，去「发现」页添加漫画吧。' : '没有符合筛选条件的漫画。'}
-            </p>
+            <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted">
+              <p className="m-0">
+                {all.length === 0 ? '书库是空的，去「发现」页添加漫画吧。' : !hasFilter && typeof view.category === 'number' ? '这个分类下还没有漫画。' : '没有符合筛选条件的漫画。'}
+              </p>
+              {all.length === 0 ? (
+                <Link to="/browse" className="rounded-full text-text no-underline">
+                  <Glass as="span" className="gbtn rounded-full">前往发现</Glass>
+                </Link>
+              ) : hasFilter ? (
+                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
+                  清除筛选条件
+                </Glass>
+              ) : typeof view.category === 'number' && (
+                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
+                  查看全部书库
+                </Glass>
+              )}
+            </div>
           )}
         </>}
 

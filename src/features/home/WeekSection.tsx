@@ -16,7 +16,7 @@ import { cn } from '@/lib/cn'
 import { sfwAttr } from '@/lib/devSafe'
 import { chapterLabel, clock, sec, timeAgo } from '@/lib/format'
 import type { ReadChapter, UpdateChapter } from './queries'
-import { byDay, weekDays, type DayGroup } from './week'
+import { byDay, weekDays, weekTabSub, type DayGroup } from './week'
 import { useLocalNow } from './useLocalNow'
 
 /**
@@ -471,7 +471,11 @@ function Badge({ children }: { children: ReactNode }) {
 
 function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lanes: Lane[] }) {
   const [sel, setSel] = useState(0)
-  const counts = days.map((_, i) => lanes.filter((l) => l.id !== 'recent').reduce((n, l) => n + l.days[i].length, 0))
+  const subs = days.map((_, i) => {
+    const updates = lanes.filter((l) => l.id !== 'recent').reduce((n, l) => n + l.days[i].length, 0)
+    const reads = lanes.find((l) => l.id === 'recent')?.days[i].length ?? 0
+    return weekTabSub(updates, reads)
+  })
   const shown = lanes.filter((l) => l.days[sel].length)
   return (
     <div>
@@ -483,10 +487,10 @@ function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lan
             role="tab"
             aria-selected={i === sel}
             onClick={() => setSel(i)}
-            className={cn('flex h-16 w-[62px] flex-none flex-col items-center justify-center gap-1 rounded-[18px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text', i === sel ? 'bg-text text-bg' : 'bg-hover text-text')}
+            className={cn('flex h-16 min-w-[62px] flex-none flex-col items-center justify-center gap-1 rounded-[18px] px-2.5 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text', i === sel ? 'bg-text text-bg' : 'bg-hover text-text')}
           >
             <span className="text-[13px] font-bold">{d.name}</span>
-            <span className="text-[11px] opacity-75 num">{counts[i] ? `${counts[i]} 部更新` : '—'}</span>
+            <span className="text-[11px] opacity-75 num">{subs[i]}</span>
           </button>
         ))}
       </div>

@@ -18,7 +18,7 @@ import { resetOnUserContext } from '@/api/userContext'
 import { sourceBrowseKey } from './filters'
 import { SourceFilterPanel } from './SourceFilterPanel'
 import { SourceIcon } from './SourceIcon'
-import { useMultiSourceSearch, type SearchResults } from './multiSearch'
+import { onlineSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
 import { ExtensionUpdateCount, FetchSourceManga, langLabel, Sources, type Source, type SourceManga } from './queries'
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
@@ -115,7 +115,7 @@ export function BrowsePage() {
     for (const s of sources) m.set(s.lang, [...(m.get(s.lang) ?? []), s])
     return [...m.entries()]
   }, [sources])
-  const searchSources = useMemo(() => sources.filter((s) => s.id !== '0'), [sources])
+  const searchSources = useMemo(() => onlineSources(sources), [sources])
   // 有可更新的扩展时在入口上显示数量
   const updates = useQuery(ExtensionUpdateCount, { fetchPolicy: 'cache-and-network' }).data?.extensions.totalCount ?? 0
 
@@ -131,10 +131,10 @@ export function BrowsePage() {
               type="search"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="在所有漫画源中搜索，回车开始"
+              placeholder="在所有在线源中搜索，回车开始"
               className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
             />
-            <span className="text-[13px] whitespace-nowrap">{sources.length} 个源</span>
+            <span className="text-[13px] whitespace-nowrap num">{searchSources.length} 个在线源</span>
           </Glass>
         </form>
       </div>
@@ -361,32 +361,50 @@ resetOnUserContext(() => {
 })
 
 function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; onOpen: (id: string) => void }) {
-  const results = useMultiSourceSearch(q, sources, searched)
-
-  const done = Object.values(results).filter((r) => r.status !== 'loading').length
+  const { results, retry } = useMultiSourceSearch(q, sources, searched)
+  const summary = summarizeMultiSearch(sources, results)
 
   return (
     <section aria-labelledby="h-gs" className="mb-9">
-      <div className="mb-3.5 flex items-baseline gap-3">
+      <div className="mb-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 id="h-gs" className="m-0 text-[22px] font-bold">
           全局搜索「{q}」
         </h2>
-        <span className="text-[13px] text-muted">
-          已完成 {done} / {sources.length} 个源
+        <span className="text-[13px] text-muted num">
+          已完成 {summary.done} / {summary.total} 个在线源{summary.failed > 0 ? ` · 失败 ${summary.failed}` : ''}
         </span>
+        {summary.failed > 0 && summary.loading === 0 && (
+          <button type="button" className="text-[13px] font-semibold text-text hover:underline" onClick={() => retry()}>
+            重试失败来源
+          </button>
+        )}
       </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5">
         {sources.map((s) => {
           const r = results[s.id]
           return (
             <div key={s.id} className="flex flex-col gap-3 bg-[linear-gradient(var(--line),var(--line))] bg-[length:100%_1px] bg-no-repeat pt-4">
-              <button type="button" onClick={() => onOpen(s.id)} className="flex items-center gap-2.5 text-left">
-                <SourceIcon s={s} size={28} />
-                <span className="flex-1 truncate font-semibold">{s.displayName}</span>
-                <span className="text-xs text-muted">
-                  {!r || r.status === 'loading' ? '搜索中…' : r.status === 'error' ? '失败' : r.items.length ? `${r.items.length} 个结果 · 查看全部` : '无结果'}
-                </span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button type="button" onClick={() => onOpen(s.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                  <SourceIcon s={s} size={28} />
+                  <span className="flex-1 truncate font-semibold">{s.displayName}</span>
+                  {r?.status !== 'error' && (
+                    <span className="text-xs text-muted">
+                      {!r || r.status === 'loading' ? '搜索中…' : r.items.length ? `${r.items.length} 个结果 · 查看全部` : '无结果'}
+                    </span>
+                  )}
+                </button>
+                {r?.status === 'error' && (
+                  <button
+                    type="button"
+                    onClick={() => retry([s.id])}
+                    className="flex-none rounded-full px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-hover"
+                    aria-label={`重试 ${s.displayName}`}
+                  >
+                    搜索失败 · 重试
+                  </button>
+                )}
+              </div>
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
                 {r?.items.slice(0, 4).map((m, i) => (
                   // 一行四个，右半边的菜单向左展开，不超出屏幕
