@@ -13,7 +13,7 @@ import { Categories, LibraryMangas } from '@/features/library/queries'
 import { UPDATES_PAGE } from '@/features/updates/pagination'
 import { LastUpdate, UPDATES_FILTERS, UpdatesFeedAll } from '@/features/updates/queries'
 import { snapshotUsable } from '@/features/auth/userScope'
-import { isDevLab } from '@/lib/demo'
+import { isDemo, isDevLab } from '@/lib/demo'
 import { useAuth } from './auth'
 
 interface Entry {
@@ -91,14 +91,14 @@ export async function loadSnapshots(client: ApolloClient) {
   // 还不知道是谁（没登录过）就不读，登录后走网络
   const userId = useAuth.getState().user?.id
   // 虚构验收页的用户不是真实账号，不去读真实快照
-  if (isDevLab) return
+  if (isDemo || isDevLab) return
   await Promise.all(
-    ENTRIES.map(async (e) => {
+    [...ENTRIES.map((e) => e.key), 'weekUpdates'].map(async (key) => {
       try {
         if (userId === undefined) return
-        const snap = await tx<Snapshot | undefined>('readonly', (s) => s.get(e.key))
+        const snap = await tx<Snapshot | undefined>('readonly', (s) => s.get(key))
         // 读的过程中换了人也不能收
-        if (snapshotUsable(snap, VERSION, userId) && useAuth.getState().user?.id === userId) snapshots.set(e.key, snap!.data)
+        if (snapshotUsable(snap, VERSION, userId) && useAuth.getState().user?.id === userId) snapshots.set(key, snap!.data)
       } catch {
         /* 没有缓存 */
       }
@@ -110,6 +110,19 @@ export async function loadSnapshots(client: ApolloClient) {
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
 
+/** 整体加载的结果也沿用同一快照库；演示数据不得落进真实账号的快照。 */
+export function saveSnapshot(key: string, data: unknown, delay = 3000) {
+  const { status, user } = useAuth.getState()
+  if (isDemo || isDevLab || status !== 'signedIn' || !user) return
+  const userId = user.id
+  snapshots.set(key, data)
+  clearTimeout(timers.get(key))
+  timers.set(key, setTimeout(() => {
+    if (useAuth.getState().user?.id !== userId) return
+    void tx('readwrite', (s) => s.put({ v: VERSION, userId, savedAt: Date.now(), data } satisfies Snapshot, key)).catch(() => {})
+  }, delay))
+}
+
 function watch(client: ApolloClient, e: Entry) {
   client.cache.watch({
     query: e.query,
@@ -118,18 +131,8 @@ function watch(client: ApolloClient, e: Entry) {
     callback: (diff) => {
       const { status, user } = useAuth.getState()
       if (!diff.complete || status !== 'signedIn' || !user) return
-      const data = diff.result
-      const userId = user.id
-      clearTimeout(timers.get(e.key))
       // 下载进度等会频繁改动书库数据，攒一会儿再写
-      timers.set(
-        e.key,
-        setTimeout(() => {
-          // 等待期间换了人，这份数据就不是他的了
-          if (useAuth.getState().user?.id !== userId) return
-          void tx('readwrite', (s) => s.put({ v: VERSION, userId, savedAt: Date.now(), data } satisfies Snapshot, e.key)).catch(() => {})
-        }, 3000),
-      )
+      saveSnapshot(e.key, diff.result)
     },
   })
 }
