@@ -63,7 +63,7 @@ export function ReaderDefaults() {
 
   return (
     <>
-      <Section title="阅读方式" desc="新打开的漫画使用这些默认值；阅读器里的设置面板可以针对单部漫画修改。只保存在这台设备上。">
+      <Section title="阅读方式" desc="新打开漫画的默认值，仅保存在当前浏览器；可在阅读器内针对单部漫画单独修改。">
         <Row label="阅读模式">
           <Seg glass={false} label="阅读模式" items={MODES} value={d.mode} onChange={(mode) => set({ mode })} />
         </Row>
@@ -90,7 +90,7 @@ export function ReaderDefaults() {
         </Row>
       </Section>
 
-      <Section title="页面显示" desc="图片怎么摆、怎么裁、提前加载几页。">
+      <Section title="页面显示">
         <Row label="背景">
           <div className="flex gap-2.5">
             {BGS.map((b) => (
@@ -121,24 +121,27 @@ export function ReaderDefaults() {
         <Row label="双页时首页单独显示">
           <Switch on={d.offsetFirst} onChange={(offsetFirst) => set({ offsetFirst })} label="双页时首页单独显示" />
         </Row>
-        <Row label="阅读时屏幕常亮" hint={wakeLockSupported() ? undefined : '当前浏览器不支持，或页面不是通过 HTTPS / localhost 打开的'}>
+        <Row label="阅读时屏幕常亮" warn={wakeLockSupported() ? undefined : '当前浏览器不支持，或未通过 HTTPS / localhost 访问'}>
           <Switch on={d.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label="阅读时屏幕常亮" />
         </Row>
-        <Row label="自动裁掉白边" hint="裁掉页面四周的白边或黑边；Webtoon 模式不裁">
+        <Row label="自动裁掉白边" hint="裁掉页面四周的白边或黑边（Webtoon 模式除外）">
           <Switch on={d.crop} onChange={(crop) => set({ crop })} label="自动裁掉白边" />
         </Row>
-        <Row label="宽页拆成两半" hint="单页与纵向模式下，跨页大图按阅读方向分两次显示">
+        <Row label="宽页拆成两半" hint="单页与纵向模式下，跨页大图按阅读方向拆成两页">
           <Switch on={d.split} onChange={(split) => set({ split })} label="宽页拆成两半" />
         </Row>
       </Section>
 
-      <Section title="按漫画记住" desc="模式、方向和缩放可以每部漫画各存一份。">
-        <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存到服务端，换设备也一致${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
+      <Section title="按漫画记住" desc="单部漫画的模式、方向和缩放保存在服务端，跨设备同步。">
+        <Row
+          label="按漫画记住阅读模式"
+          hint={perMangaCount ? `已记住 ${perMangaCount} 部漫画的单独设置` : '在阅读器内改过的模式、方向与缩放自动按漫画保存'}
+        >
           <div className="flex items-center gap-3">
             {perMangaCount > 0 && (
               <button
                 type="button"
-                className="gbtn plain min-h-9 rounded-full text-[13px]"
+                className="gbtn plain min-h-9 rounded-full px-3.5 text-[13px]"
                 disabled={clearing}
                 onClick={clear}
               >
@@ -149,7 +152,11 @@ export function ReaderDefaults() {
           </div>
         </Row>
         {remember && (
-          <Row label={`${device}上单独记住`} hint={`这台${device}上改的模式、方向和缩放只对${device}生效，其他设备不受影响；没改过的漫画沿用通用设置。开关只对这台设备生效`}>
+          <Row
+            label={`${device}上单独记住`}
+            hint={`这台${device}上的修改只对${device}生效，其他设备不受影响`}
+            help="未单独改过的漫画仍沿用通用设置；此开关本身仅保存在当前浏览器。"
+          >
             <Switch on={perDevice} onChange={setPerDevice} label={`${device}上单独记住`} />
           </Row>
         )}
