@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { groupByManga } from '../src/features/updates/group.ts'
+import { groupByManga, groupRank, sortGroups } from '../src/features/updates/group.ts'
 
 // 虚构章节，只带分组用到的字段
 const ch = (id, mangaId) => ({ id, mangaId })
@@ -27,4 +27,21 @@ test('组的 key 带日期，不同日期的同一部漫画互不相干', () => 
   const [a] = groupByManga([ch(1, 7)], '今天')
   const [b] = groupByManga([ch(2, 7)], '昨天')
   assert.notEqual(a.key, b.key)
+})
+
+test('一天里：没读完的特别关心在前，其次没读完的，读完的放最后，同档保持原顺序', () => {
+  const row = (id, mangaId, isRead) => ({ id, mangaId, isRead })
+  const groups = groupByManga([row(1, 1, true), row(2, 2, false), row(3, 3, false), row(4, 4, true), row(5, 5, false), row(6, 3, true)], '今天')
+  const fav = new Set([5, 4])
+  const sorted = sortGroups(groups, (g) => groupRank(g, fav.has(g.mangaId)))
+  assert.deepEqual(sorted.map((g) => g.mangaId), [5, 2, 3, 1, 4], '读完的特别关心不提前')
+  assert.deepEqual(groups.map((g) => g.mangaId), [1, 2, 3, 4, 5], '不修改输入')
+})
+
+test('多话的组里有一话没读就算没读完', () => {
+  const [g] = groupByManga([{ id: 1, mangaId: 1, isRead: true }, { id: 2, mangaId: 1, isRead: false }], '今天')
+  assert.equal(groupRank(g, false), 1)
+  assert.equal(groupRank(g, true), 0)
+  const [done] = groupByManga([{ id: 3, mangaId: 2, isRead: true }], '今天')
+  assert.equal(groupRank(done, true), 2)
 })

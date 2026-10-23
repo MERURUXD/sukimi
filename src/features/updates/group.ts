@@ -14,3 +14,14 @@ export function groupByManga<T extends { mangaId: number }>(rows: T[], day: stri
   }
   return [...groups.values()]
 }
+
+/** 一天里排在哪一档：没读完的特别关心 0、其他没读完的 1、读完的 2；组里有一话没读就算没读完 */
+export function groupRank<T extends { isRead: boolean }>(g: UpdateGroup<T>, favorite: boolean) {
+  return g.rows.some((r) => !r.isRead) ? (favorite ? 0 : 1) : 2
+}
+
+/** 按档位重排一天里的组，同一档保持原顺序（抓取时间新的在前）；不改输入 */
+export function sortGroups<G>(groups: readonly G[], rank: (g: G) => number) {
+  const ranks = new Map(groups.map((g) => [g, rank(g)]))
+  return [...groups].sort((a, b) => ranks.get(a)! - ranks.get(b)!)
+}

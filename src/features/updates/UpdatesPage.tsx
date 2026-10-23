@@ -27,7 +27,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
-import { groupByManga } from './group'
+import { groupByManga, groupRank, sortGroups, type UpdateGroup } from './group'
 import { UPDATES_PAGE, updatesVariables } from './pagination'
 import { LastUpdate, UPDATES_FEEDS, UPDATES_FILTERS, UpdateInterval, type UpdatesFilter } from './queries'
 import { isFreshUpdate } from './visible'
@@ -42,7 +42,7 @@ export function UpdatesPage() {
   // 没有 MANAGE_SETTINGS 时服务端给的是默认值的遮蔽视图，不能当真实检查频率，干脆不查、不显示下次检查
   const canReadInterval = useCan('MANAGE_SETTINGS')
   const interval = useQuery(UpdateInterval, { skip: view !== 'calendar' || !canReadInterval, fetchPolicy: 'cache-first' })
-  const [filter, setFilter] = useState<UpdatesFilter>('all')
+  const [filter, setFilterState] = useState<UpdatesFilter>('all')
   const client = useApolloClient()
   // 起始范围按筛选各算一次：切换筛选时重算，缓存变化不会改它（否则每加载一页就换一次查询）
   const feed = UPDATES_FEEDS[filter]
@@ -75,7 +75,17 @@ export function UpdatesPage() {
   const list = useMemo(() => (data?.chapters.nodes ?? []).filter(isFreshUpdate), [data])
   const hasMore = data?.chapters.pageInfo.hasNextPage ?? false
 
-  // 按抓取日期分组，同一天里同一部漫画的多话再折叠成一行
+  // 在这一行上点了「标为已读 / 未读」的组，先按点之前的档位留在原处，不然它当场挪走、下一行滑到指针下面，
+  // 连点就会点错。换筛选、检查完更新或重新进入页面时才按新状态重排
+  const [held, setHeld] = useState<ReadonlyMap<string, number>>(new Map())
+  const hold = (g: UpdateGroup<UpdateChapter>) =>
+    setHeld((prev) => (prev.has(g.key) ? prev : new Map(prev).set(g.key, groupRank(g, favorites.ids.has(g.mangaId)))))
+  const setFilter = (f: UpdatesFilter) => {
+    setFilterState(f)
+    setHeld(new Map())
+  }
+
+  // 按抓取日期分组，同一天里同一部漫画的多话再折叠成一行；每天里没读完的在前，其中特别关心最先
   const days = useMemo(() => {
     const out: { label: string; rows: UpdateChapter[] }[] = []
     for (const c of list) {
@@ -83,8 +93,11 @@ export function UpdatesPage() {
       if (out.at(-1)?.label === label) out.at(-1)!.rows.push(c)
       else out.push({ label, rows: [c] })
     }
-    return out.map((d) => ({ ...d, groups: groupByManga(d.rows, d.label) }))
-  }, [list])
+    return out.map((d) => ({
+      ...d,
+      groups: sortGroups(groupByManga(d.rows, d.label), (g) => held.get(g.key) ?? groupRank(g, favorites.ids.has(g.mangaId))),
+    }))
+  }, [list, held, favorites.ids])
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set())
   const toggleGroup = (key: string) =>
     setOpen((prev) => {
@@ -151,6 +164,7 @@ export function UpdatesPage() {
   const wasRunning = useRef(false)
   useEffect(() => {
     if (wasRunning.current && !updater.isRunning) {
+      setHeld(new Map())
       void refetch({ offset: 0 })
       void last.refetch()
     }
@@ -173,6 +187,8 @@ export function UpdatesPage() {
     const still = captureUser()
     try {
       await update({ variables: { ids, patch: { isRead: true } } })
+      // 全部读完后按时间排，不再留着之前单独点过的组
+      setHeld(new Map())
       toast(`已将 ${ids.length} 话标为已读`)
       void syncTrackProgressMany(client, unread.map((c) => c.mangaId), still)
       if (filter === 'unread') void refetch({ offset: 0 })
@@ -281,7 +297,7 @@ export function UpdatesPage() {
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
                 const row = (c: UpdateChapter, nested = false) => (
-                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError(c.isRead ? '标为未读失败' : '标为已读失败', e)) }} />
+                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { hold(g); const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError(c.isRead ? '标为未读失败' : '标为已读失败', e)) }} />
                 )
                 if (g.rows.length === 1) return row(g.rows[0])
                 const expanded = open.has(g.key)
