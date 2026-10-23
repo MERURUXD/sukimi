@@ -305,7 +305,7 @@ export function useReaderSettings(mangaId: number) {
         () => writes.finish(mangaId, keys, id),
         (e) => {
           writes.finish(mangaId, keys, id)
-          toastError('阅读设置没能保存到服务器', e)
+          toastError('阅读设置没能保存到服务端', e)
           // 失败时重新取服务端的值，界面退回去；后面还有更新的修改就交给它
           if (currentUser() === userId && metas.some((m) => latest({ mangaId, ...m }))) refreshReaderMeta(client, mangaId).catch(() => {})
         },

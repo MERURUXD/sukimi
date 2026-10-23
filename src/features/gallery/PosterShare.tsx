@@ -232,7 +232,7 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
       </button>
     </div>
   )
-  const note = '在这台设备上生成，不经过服务端；标成 NSFW 的作品不会出现在海报上。'
+  const note = '在这台设备上生成，不经过服务端；标为 NSFW 的作品不会出现在海报上。'
   const status = saved && (
     <p role="status" className="m-0 text-sm text-muted">
       已保存 {saved}

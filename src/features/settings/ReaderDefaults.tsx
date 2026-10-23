@@ -34,7 +34,7 @@ export function ReaderDefaults() {
   const clear = async () => {
     const ok = await confirm({
       title: '清除所有按漫画记住的设置？',
-      body: `${perMangaCount} 部漫画的阅读模式、方向和缩放会从服务器删除，所有设备都改用这里的默认值。`,
+      body: `${perMangaCount} 部漫画的阅读模式、方向和缩放会从服务端删除，所有设备都改用这里的默认值。`,
       ok: '全部清除',
     })
     if (!ok) return
@@ -126,7 +126,7 @@ export function ReaderDefaults() {
       <Row label="宽页拆成两半" hint="单页与纵向模式下，跨页大图按阅读方向分两次显示">
         <Switch on={d.split} onChange={(split) => set({ split })} label="宽页拆成两半" />
       </Row>
-      <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存到服务器，换设备也一致${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
+      <Row label="按漫画记住阅读模式" hint={`模式、方向、缩放按漫画单独保存到服务端，换设备也一致${perMangaCount ? `（已记住 ${perMangaCount} 部）` : ''}`}>
         <div className="flex items-center gap-3">
           {perMangaCount > 0 && (
             <button

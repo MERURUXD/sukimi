@@ -117,7 +117,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
       }
       if (read && plan.read.length) {
         still()
-        go('标记已读')
+        go('标为已读')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
         // 新漫画若已绑定追踪，把复制过来的已读进度推过去
         void syncTrackProgress(client, target.id, still)
@@ -153,7 +153,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   }
 
   const summary = plan && [
-    read && plan.read.length ? `标记 ${plan.read.length} 话已读` : null,
+    read && plan.read.length ? `${plan.read.length} 话标为已读` : null,
     bookmarks && plan.bookmarked.length ? `${plan.bookmarked.length} 个书签` : null,
     categories && cats.length ? `${cats.length} 个分类` : null,
     tracks && trackCount ? `${trackCount} 个追踪` : null,

@@ -44,7 +44,7 @@ export function AuthGate() {
     return (
       <div className="grid min-h-dvh place-items-center px-4 text-center">
         <div>
-          <p className="text-lg font-semibold">连不上 Suwayomi 服务器</p>
+          <p className="text-lg font-semibold">连不上 Suwayomi 服务端</p>
           <p className="mt-1 text-muted">确认服务端已启动后重试。</p>
           <button className="solid mt-6" onClick={() => void restoreSession()}>
             重试

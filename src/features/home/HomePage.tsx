@@ -266,7 +266,7 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
       if (ids.length) await enqueue({ variables: { ids } })
       toast(ids.length ? `已将 ${ids.length} 话加入下载队列` : '后续章节都已下载')
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('加入下载失败', e)
+      if (!(e instanceof StaleSessionError)) toastError('加入下载队列失败', e)
     }
   }
 
@@ -728,7 +728,7 @@ function RecentList({ items }: { items: ReadChapter[] }) {
           <h2 id="h-rec" className="m-0 text-[26px] font-bold">
             最近阅读
           </h2>
-          <span className="text-sm text-muted">{isDemo ? '演示进度仅在本次会话中保留' : '阅读进度已同步到服务器'}</span>
+          <span className="text-sm text-muted">{isDemo ? '演示进度仅在本次会话中保留' : '阅读进度已同步到服务端'}</span>
         </div>
         <Link to="/history" className="rounded-full text-text no-underline">
           <Glass as="span" className="gbtn rounded-full">

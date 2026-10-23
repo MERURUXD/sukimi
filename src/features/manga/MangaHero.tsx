@@ -90,7 +90,7 @@ export function MangaHero({
       await setInLibrary({ variables: { id: manga.id, inLibrary: !manga.inLibrary }, refetchQueries: ['LibraryMangas'] })
       toast(manga.inLibrary ? '已移出书库' : '已加入书库')
     } catch (e) {
-      toastError('操作失败', e)
+      toastError(manga.inLibrary ? '移出书库失败' : '加入书库失败', e)
     }
   }
 
@@ -304,7 +304,7 @@ function NsfwItem({ manga }: { manga: Manga }) {
     setBusy(true)
     try {
       await setManga([manga], !on)
-      toast(on ? '已取消 NSFW 标记' : '已标记为 NSFW，首页和画廊不再显示')
+      toast(on ? '已取消 NSFW 标记' : '已标为 NSFW，首页和画廊不再显示')
     } catch (e) {
       if (!(e instanceof StaleSessionError)) toastError('修改 NSFW 标记失败', e)
     } finally {
@@ -314,7 +314,7 @@ function NsfwItem({ manga }: { manga: Manga }) {
   return (
     <button type="button" role="menuitemcheckbox" aria-checked={on} className="opt" disabled={busy} onClick={() => void toggle()}>
       <EyeOff className="size-5" />
-      <span className="flex-1">标记为 NSFW</span>
+      <span className="flex-1">标为 NSFW</span>
       {why === 'source' && <span className="text-xs text-muted">来自来源</span>}
       {why === 'category' && <span className="text-xs text-muted">来自分类</span>}
       {on && <span aria-hidden>✓</span>}

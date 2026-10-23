@@ -108,7 +108,7 @@ export function LibraryToolbar({
       {tab === 'filter' && (
         <>
           <div>
-            <h3 className="pop-h">点一下包含，再点排除</h3>
+            <h3 className="pop-h">点击包含，再次点击排除</h3>
             <div className="flex flex-wrap gap-1.5">
               {FILTERS.map((f) => {
                 const st = view.filters[f.key]
@@ -163,7 +163,7 @@ export function LibraryToolbar({
 
       {tab === 'sort' && (
         <div>
-          <h3 className="pop-h">再点一次切换方向</h3>
+          <h3 className="pop-h">再次点击切换排序方向</h3>
           {SORTS.map((s) => {
             const on = s.key === view.sort
             const Arrow = view.desc ? ArrowDown : ArrowUp

@@ -63,7 +63,7 @@ type GroupId = 'personal' | 'content' | 'system'
 const GROUPS: { id: GroupId; label: string }[] = [
   { id: 'personal', label: '浏览与阅读' },
   { id: 'content', label: '内容与数据' },
-  { id: 'system', label: '服务器与账户' },
+  { id: 'system', label: '服务端与账号' },
 ]
 
 const TABS: Tab[] = [
@@ -76,7 +76,7 @@ const TABS: Tab[] = [
   { id: 'backup', label: '备份', icon: DatabaseBackup, desc: '备份与恢复、自动备份', Component: BackupTab, group: 'content' },
   { id: 'sync', label: '同步', icon: RefreshCcw, desc: 'SyncYomi、KOReader', Component: SyncTab, group: 'content' },
   { id: 'tracking', label: '追踪', icon: ListChecks, desc: 'AniList、MyAnimeList 等，同步阅读进度', Component: TrackingTab, group: 'content' },
-  { id: 'server', label: '服务器', icon: Server, desc: '网络、登录、代理、日志、OPDS', Component: ServerTab, group: 'system' },
+  { id: 'server', label: '服务端', icon: Server, desc: '网络、登录、代理、日志、OPDS', Component: ServerTab, group: 'system' },
   { id: 'users', label: '用户', icon: Users, desc: '邀请新用户、权限、找回码', Component: UsersTab, group: 'system', adminOnly: true },
   { id: 'about', label: '关于', icon: Info, desc: '版本、检查更新、退出登录', Component: AboutTab, group: 'system' },
 ]

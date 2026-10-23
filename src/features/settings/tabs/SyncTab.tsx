@@ -75,8 +75,8 @@ const SYNC_STATE: Record<SyncState, string> = {
 
 const STRATEGIES: { value: KoreaderSyncConflictStrategy; label: string }[] = [
   { value: 'PROMPT', label: '询问' },
-  { value: 'KEEP_LOCAL', label: '保留这里的' },
-  { value: 'KEEP_REMOTE', label: '使用 KOReader 的' },
+  { value: 'KEEP_LOCAL', label: '保留本地进度' },
+  { value: 'KEEP_REMOTE', label: '使用 KOReader 进度' },
   { value: 'DISABLED', label: '不处理' },
 ]
 
@@ -160,7 +160,7 @@ function KoReaderSection() {
     <Section title="KOReader 同步" desc="和 KOReader 阅读器（电子书设备常用）同步阅读进度，使用 KOReader 的进度同步服务。">
       {st?.isLoggedIn ? (
         <Row label={`已连接：${st.username ?? ''}`} hint={st.serverAddress ?? undefined}>
-          <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError('退出失败', e))}>
+          <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError('断开失败', e))}>
             断开
           </button>
         </Row>
