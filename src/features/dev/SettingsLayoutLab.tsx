@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { createCache } from '@/api/cache'
 import { useApplyAppearance } from '@/design/settings'
-import { SettingsNavigation } from '@/features/settings/SettingsPage'
+import { SETTINGS_TABS, SettingsNavigation } from '@/features/settings/SettingsPage'
 import { ServerSettingsQuery } from '@/features/settings/server'
 import { DownloadsTab } from '@/features/settings/tabs/DownloadsTab'
 import { SettingsPanel } from '@/features/reader/SettingsPanel'
@@ -51,6 +51,8 @@ export function SettingsLayoutLab() {
     })
   })
 
+  const Shown = SETTINGS_TABS.find((t) => t.id === tab)?.Component ?? DownloadsTab
+
   return (
     <ApolloProvider client={client}>
       <div data-sfw="">
@@ -61,10 +63,10 @@ export function SettingsLayoutLab() {
           </header>
           <div className="wrap max-w-[1120px]! pb-24">
             <h1 className="pt-7 pb-6 text-[40px] font-black">设置</h1>
-            <p className="mb-6 text-sm text-muted">布局验收：仅虚构下载设置；切换左栏检查滚动后的动画，不保存任何服务端设置。</p>
+            <p className="mb-6 text-sm text-muted">布局验收：各分栏用虚构设置渲染；切换左栏检查滚动后的动画，不保存任何服务端设置，需要别的查询的分栏会显示读取失败。</p>
             <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
               <SettingsNavigation selected={tab} basePath="/dev/settings-layout" />
-              <div className="min-w-0 max-md:mt-8"><DownloadsTab /></div>
+              <div className="min-w-0 max-md:mt-8"><Shown /></div>
             </div>
             <div className="h-[50dvh]" aria-hidden />
           </div>

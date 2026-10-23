@@ -14,7 +14,7 @@ export function DownloadsTab() {
       <RequireSettings>
         <Section
           title="下载"
-        desc="下载目录与格式由所有用户共用。"
+          desc="下载目录与格式由所有用户共用。"
           action={
             <Link to="/downloads" className="gbtn min-h-10 rounded-full bg-g-hi text-text no-underline">
               查看下载队列
@@ -33,7 +33,7 @@ export function DownloadsTab() {
         <SSwitch k="autoDownloadIgnoreReUploads" label="忽略重新上传的章节" hint="来源把旧章节重新上传时不重复下载" />
       </Section>
 
-      <Section title="图片格式转换" desc="下载时把图片转成另一种格式，适合需要兼容老设备、或想压缩体积的情况。不常用，没有需求可以留空。">
+      <Section fold title="图片格式转换" desc="下载时把图片转成另一种格式，适合需要兼容老设备、或想压缩体积的情况。不常用，没有需求可以留空。">
         <RequireSettings>
           <Conversions k="downloadConversions" label="下载时转换" hint="所有用户共用" />
         </RequireSettings>

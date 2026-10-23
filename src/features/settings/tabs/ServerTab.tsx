@@ -60,7 +60,7 @@ export function ServerTab() {
           <SDuration k="jwtRefreshExpiry" label="保持登录" unit="d" hint="超过这么久没打开，需要重新登录" />
         </Section>
 
-        <Section title="代理" desc="服务端访问漫画来源时经过 SOCKS 代理。">
+        <Section fold title="代理" desc="服务端访问漫画来源时经过 SOCKS 代理。">
           <SSwitch k="socksProxyEnabled" label="使用 SOCKS 代理" />
           <SChoice<number> k="socksProxyVersion" label="协议版本" options={[{ value: 4, label: 'SOCKS4' }, { value: 5, label: 'SOCKS5' }]} />
           <SText k="socksProxyHost" label="代理地址" width="w-[200px]" placeholder="127.0.0.1" />
@@ -103,7 +103,7 @@ export function ServerTab() {
           <SSwitch k="systemTrayEnabled" label="显示系统托盘图标" />
         </Section>
 
-        <Section title="日志">
+        <Section fold title="日志" desc="详细日志、保留天数与大小上限。">
           <SSwitch k="debugLogsEnabled" label="详细日志" hint="排查问题时打开，日志会变多" />
           <SNumber k="maxLogFiles" label="日志保留" unit="天" min={0} />
           <SText k="maxLogFileSize" label="单个日志文件上限" width="w-[120px]" hint="如 10mb、1gb" />
@@ -112,7 +112,7 @@ export function ServerTab() {
 
       </RequireSettings>
 
-      <Section title="OPDS" desc="供 KOReader、Moon+ Reader 等阅读器通过 OPDS 浏览和下载，地址是 /api/opds/v1.2。这些选项只影响你自己的账号。">
+      <Section fold title="OPDS" desc="供 KOReader、Moon+ Reader 等阅读器通过 OPDS 浏览和下载，地址是 /api/opds/v1.2。这些选项只影响你自己的账号。">
         <SNumber k="opdsItemsPerPage" label="每页条目数" min={10} max={5000} />
         <SChoice<SortOrder>
           k="opdsChapterSortOrder"
@@ -141,7 +141,7 @@ export function ServerTab() {
       </Section>
 
       <RequireSettings>
-        <Section title="数据库" desc="一般不需要改。切换数据库不会迁移现有数据。">
+        <Section fold title="数据库" desc="一般不需要改。切换数据库不会迁移现有数据。">
           <SChoice
             k="databaseType"
             label="数据库"
