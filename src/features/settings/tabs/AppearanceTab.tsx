@@ -56,8 +56,8 @@ export function AppearanceTab() {
         <Row label="顶栏渐进模糊" hint="顶栏背后的内容越靠近屏幕顶端越模糊，滚动时标题和封面不会和按钮挤在一起。比较耗性能，手机上可能影响滚动流畅度。">
           <Switch on={navBlur} onChange={setNavBlur} label="顶栏渐进模糊" />
         </Row>
-        <Row label="首页开屏动画" hint="打开网页时首页是第一页，桌面「舞台」布局的封面从中间展开、文字依次出现，只播一次。关闭后直接显示。">
-          <Switch on={homeIntro} onChange={setHomeIntro} label="首页开屏动画" />
+        <Row label="首页进场动画" hint="打开网页时首页是第一页，桌面「舞台」布局的封面从中间展开、文字依次出现，只播一次；之后从别的页面回到首页，以及其他布局打开首页时，文字和按钮轻轻浮起。关闭后直接显示。">
+          <Switch on={homeIntro} onChange={setHomeIntro} label="首页进场动画" />
         </Row>
         <Row label="动态背景" hint="首页（「舞台」「居中海报」布局）和漫画详情页的背景取封面主色缓慢流动，详情页更慢。关闭后首页显示静态模糊封面、详情页色块静止；系统开启「减弱动态效果」时同样静止。">
           <Switch on={homeMotionBg} onChange={setHomeMotionBg} label="动态背景" />

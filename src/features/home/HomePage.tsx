@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'motion/react'
 import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
-import { Children, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { withSnapshot } from '@/api/persist'
@@ -36,7 +36,7 @@ import { IN_LIBRARY, RecentReads, RecentUpdates, type ReadChapter, type UpdateCh
 import { isRecent, isStale, notStarted, pickBatch } from './picks'
 import { readingTarget } from './reading'
 import type { HomeSection } from './preferences'
-import { markIntroPlayed, Stage } from './Stage'
+import { markIntroPlayed, Stage, useEntrance } from './Stage'
 import { useHeroSwipe } from './useHeroSwipe'
 import { updatesPartial, weekStartSec } from './week'
 import { useWeekTray, WeekSection } from './WeekSection'
@@ -236,6 +236,10 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
   }
   const cur = items[activeIdx]
   const reducedMotion = useReducedMotion()
+  // 舞台自己决定进场方式；其余布局回到首页时文字和按钮轻轻浮起，封面不动（它是从详情页飞回的落点）
+  const { entering } = useEntrance(false, !!cur)
+  const rise = entering && 'rise-light'
+  const delay = (d: number) => (entering ? { '--d': `${d}s` } as CSSProperties : undefined)
   const swipe = useHeroSwipe((direction) => setIdx(Math.max(0, Math.min(items.length - 1, activeIdx + direction))))
   const client = useApolloClient()
   const navigate = useNavigate()
@@ -390,7 +394,7 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
                   // 文字衬底随标题高度移动，长标题和明亮封面也能保持对比度。
                   <div aria-hidden className="pointer-events-none absolute -inset-x-4 -top-16 -bottom-2 -z-10 bg-[linear-gradient(180deg,transparent_0,rgba(11,11,13,.95)_56px,rgba(11,11,13,.97)_calc(100%_-_76px),var(--bg)_100%)] sm:-inset-x-8 md:hidden" />
                 )}
-                <div className="flex w-full min-w-0 flex-col gap-2 md:gap-3.5">
+                <div style={delay(0.06)} className={cn('flex w-full min-w-0 flex-col gap-2 md:gap-3.5', rise)}>
                   <span className={cn('text-xs font-bold tracking-[.14em] text-muted', immersive && 'max-md:text-white/70')}>继续阅读 · {timeAgo(sec(cur.lastReadAt))}</span>
                   <h1 className={cn('m-0 line-clamp-2 font-cjk text-[30px] leading-[1.15] font-black break-words text-balance max-md:[@media(max-height:700px)]:text-[26px] md:text-[46px] md:leading-[1.08] xl:text-[60px]', desktopImmersive && m.title.length > 22 && 'md:line-clamp-none md:text-[32px] lg:text-[40px] xl:text-[44px]')}>{m.title}</h1>
                   {m.author && <span className={cn('truncate text-[13px] text-muted md:hidden', immersive && 'max-md:text-white/70')}>{m.author}</span>}
@@ -398,7 +402,7 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
                   {m.description && <p className="m-0 mt-1 hidden line-clamp-3 text-[15px] leading-[1.7] text-muted md:[display:-webkit-box]">{m.description}</p>}
                 </div>
                 {target && (
-                  <div className="flex w-full max-w-[420px] flex-col gap-2 md:mt-1.5">
+                  <div style={delay(0.12)} className={cn('flex w-full max-w-[420px] flex-col gap-2 md:mt-1.5', rise)}>
                     <div className={cn('flex gap-2 text-[13px] md:justify-between md:gap-3', immersive ? 'justify-start' : 'justify-center')}>
                       <span className="min-w-0 truncate font-semibold">{target.isNext && '接着读 · '}{target.label}</span>
                       <span aria-hidden className={cn('text-muted md:hidden', immersive && 'max-md:text-white/70')}>·</span>
@@ -409,7 +413,7 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
                     )}
                   </div>
                 )}
-                <div data-home-actions className={cn('grid w-full items-center gap-2 md:mt-2.5 md:flex md:flex-wrap md:gap-2.5', m.inLibrary ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto]')}>
+                <div data-home-actions style={delay(0.16)} className={cn(rise && 'rise-light-each', 'grid w-full items-center gap-2 md:mt-2.5 md:flex md:flex-wrap md:gap-2.5', m.inLibrary ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto]')}>
                   {target ? (
                     <Link to={`/manga/${m.id}/chapter/${target.id}`} viewTransition className={cn('solid min-w-0 px-3 text-sm no-underline md:px-6 md:text-base', immersive && 'max-md:ring-1 max-md:ring-white/20')}>
                       <Play className="size-4 fill-current md:size-5" strokeWidth={1.6} />
@@ -453,7 +457,7 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
         </div>
 
         {items.length > 1 && (
-          <div className="flex items-center justify-center pb-1 md:hidden">
+          <div style={delay(0.2)} className={cn('flex items-center justify-center pb-1 md:hidden', rise)}>
             <div role="group" aria-label="切换继续阅读漫画" className="flex">
               {items.map((c, i) => (
                 <button

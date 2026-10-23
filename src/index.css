@@ -588,6 +588,21 @@
 .rise-each > * {
   animation-delay: calc(var(--d, 0ms) + (sibling-index() - 1) * 30ms);
 }
+/* 回到首页的轻进场（home/Stage 的 useEntrance）：位移更小、不缩放、更快 */
+@keyframes rise-light {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+.rise-light,
+.rise-light-each > * {
+  animation: rise-light 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+.rise-light-each > * {
+  animation-delay: calc(var(--d, 0ms) + (sibling-index() - 1) * 30ms);
+}
 
 /* 顶栏左上角标志 ↔ 返回键：只动里面的图形，玻璃自身不加透明度和缩放，背景采样不受影响 */
 @keyframes lead-in {

@@ -11,13 +11,38 @@ import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { sfwAttr } from '@/lib/devSafe'
 import { sec, timeAgo } from '@/lib/format'
+import { READER_VT_ATTR } from '@/lib/readerTransition'
 import type { ReadChapter } from './queries'
 
-/** 打开网页时的路径。开屏动画只在首页就是第一页时播一次，从别的页回来不播 */
+/** 打开网页时的路径。开屏动画只在首页就是第一页时播一次，从别的页回来只播轻的进场 */
 const bootPath = location.pathname
 let introPlayed = false
 /** 首页大图区已经显示过内容（任一布局）：之后再换到舞台（例如窗口从手机宽度拉宽）也不播 */
 export const markIntroPlayed = () => { introPlayed = true }
+
+/** 大图区的进场：intro 是舞台的开屏动画；light 是之后每次回到首页的轻进场（文字浮起、两侧封面展开） */
+export type Entrance = 'intro' | 'light'
+
+/**
+ * 挂载时决定一次进场方式，ready（有内容可显示）之后放完就收起，之后切换作品不再重播。
+ * 从阅读器缩回首页时不播：阅读器要缩进「继续阅读」按钮，按钮这时还没浮现会缩进一片空白。
+ */
+export function useEntrance(stage: boolean, ready: boolean) {
+  const reduced = useReducedMotion()
+  const on = useAppearance((s) => s.homeIntro)
+  const [mode] = useState<Entrance | null>(() => {
+    if (!on || reduced) return null
+    if (stage && !introPlayed && location.pathname === bootPath) return 'intro'
+    return document.documentElement.hasAttribute(READER_VT_ATTR) ? null : 'light'
+  })
+  const [entering, setEntering] = useState(mode !== null)
+  useEffect(() => {
+    if (!entering || !ready) return
+    const t = setTimeout(() => setEntering(false), mode === 'intro' ? 2400 : 1200)
+    return () => clearTimeout(t)
+  }, [entering, ready, mode])
+  return { mode, entering: entering ? mode : null }
+}
 
 /** 扇形里离中间 0、1、2 张的姿态；只给右侧，左侧镜像。尺寸靠缩放，所有封面同一个盒子，量位置简单 */
 const POSES = [
@@ -102,15 +127,10 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
   meta: string
 }) {
   const reduced = useReducedMotion()
-  const introOn = useAppearance((s) => s.homeIntro)
-  const [intro] = useState(() => introOn && !reduced && !introPlayed && location.pathname === bootPath)
-  // 开屏动画播完前用它的时间线，之后切换都用弹簧
-  const [entering, setEntering] = useState(intro)
-  useEffect(() => {
-    if (!entering) return
-    const t = setTimeout(() => setEntering(false), 2400)
-    return () => clearTimeout(t)
-  }, [entering])
+  // 进场动画播完前用它的时间线，之后切换都用弹簧
+  const { mode, entering } = useEntrance(true, true)
+  const intro = mode === 'intro'
+  const light = mode === 'light'
 
   const cur = items[active]
   const m = cur.manga
@@ -125,10 +145,12 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
    */
   const pos = useMotionValue(active)
   const goal = useRef(active)
-  const fan = useMotionValue(intro ? 0 : 1)
+  // 轻进场时两侧封面从中间那张背后略微展开；中间那张不受 fan 影响，从详情页飞回的封面落点不变
+  const fan = useMotionValue(intro ? 0 : light ? 0.8 : 1)
   useEffect(() => {
     if (intro) animate(fan, 1, { duration: 0.9, delay: 0.6, ease: EASE })
-  }, [intro, fan])
+    else if (light) animate(fan, 1, { duration: 0.7, ease: EASE })
+  }, [intro, light, fan])
   const settle = (to: number) => {
     const k = Math.round(to)
     goal.current = k
@@ -173,19 +195,21 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
     clearTimeout(wheelTimer.current)
     wheelTimer.current = window.setTimeout(() => settle(pos.get()), 140)
   }
-  // 开屏时各元素依次上浮（.rise，见 index.css），d 为延迟秒数
-  const delay = (d: number) => (entering ? { '--d': `${d}s` } as CSSProperties : undefined)
+  // 进场时各元素依次上浮（.rise / .rise-light，见 index.css）；d 是开屏的延迟秒数，l 是轻进场的
+  const delay = (d: number, l: number) => (entering ? { '--d': `${entering === 'intro' ? d : l}s` } as CSSProperties : undefined)
+  const rise = entering === 'intro' ? 'rise' : entering && 'rise-light'
+  const riseEach = rise && `${rise}-each`
 
   return (
     <section aria-label="继续阅读" className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]" data-desktop-layout="stage" data-sfw={sfwAttr(m.source?.displayName)}>
-      {/* 背景：流动模糊封面原样保留；开屏时整体淡入并从略大缩回。
+      {/* 背景：流动模糊封面原样保留；开屏时整体淡入并从略大缩回，轻进场只轻微缩回。
           裁切放在外层、缩放放在里层：缩放的元素自己带 overflow 时，放大的那圈会溢出到下一段，露出一条灰带 */}
       <div aria-hidden className="absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden">
         <motion.div
           className="absolute inset-0"
-          initial={intro ? { opacity: 0, scale: 1.12 } : false}
+          initial={intro ? { opacity: 0, scale: 1.12 } : light ? { scale: 1.04 } : false}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1.4, ease: EASE }}
+          transition={{ duration: intro ? 1.4 : 1, ease: EASE }}
         >
           {background}
         </motion.div>
@@ -211,13 +235,13 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
         >
           <div className="absolute inset-x-0 top-0" style={{ height: DECK_H, transform: fit < 1 ? `scale(${fit})` : undefined, transformOrigin: '50% 0' }}>
             {items.map((c, j) => (
-              <FanCard key={c.manga.id} c={c} j={j} n={n} center={j === active} pos={pos} fan={fan} spread={spread} intro={intro} onSelect={() => onSelect(j)} />
+              <FanCard key={c.manga.id} c={c} j={j} n={n} center={j === active} pos={pos} fan={fan} spread={spread} entrance={mode} onSelect={() => onSelect(j)} />
             ))}
           </div>
         </div>
 
         {n > 1 && (
-          <div aria-hidden style={delay(0.95)} className={cn('flex items-center gap-1.5', entering && 'rise')}>
+          <div aria-hidden style={delay(0.95, 0.2)} className={cn('flex items-center gap-1.5', rise)}>
             {items.map((c, j) => <Dot key={c.manga.id} j={j} n={n} pos={pos} />)}
           </div>
         )}
@@ -232,23 +256,23 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
             className="flex w-full flex-col items-center"
           >
             <div className="flex w-full max-w-[760px] flex-col items-center gap-3 text-center">
-              <span style={delay(0.85)} className={cn('text-[13px] font-bold tracking-[.12em] text-muted', entering && 'rise')}>继续阅读 · {timeAgo(sec(cur.lastReadAt))}</span>
-              <h1 title={m.title} style={delay(0.92)} className={cn('m-0 line-clamp-2 font-cjk text-[46px] font-black tracking-[-.02em] text-balance break-words xl:text-[60px]', m.title.length > 22 && 'text-[36px] xl:text-[40px]', m.title.length > 40 && 'text-[28px] xl:text-[32px]',
+              <span style={delay(0.85, 0.06)} className={cn('text-[13px] font-bold tracking-[.12em] text-muted', rise)}>继续阅读 · {timeAgo(sec(cur.lastReadAt))}</span>
+              <h1 title={m.title} style={delay(0.92, 0.1)} className={cn('m-0 line-clamp-2 font-cjk text-[46px] font-black tracking-[-.02em] text-balance break-words xl:text-[60px]', m.title.length > 22 && 'text-[36px] xl:text-[40px]', m.title.length > 40 && 'text-[28px] xl:text-[32px]',
                 // 行高放在字号之后：tailwind-merge 换字号时会把前面的行高一起去掉
-                'leading-[1.12]', entering && 'rise')}>{m.title}</h1>
-              <span style={delay(1)} className={cn('max-w-full truncate text-[15px] text-muted num', entering && 'rise')}>
+                'leading-[1.12]', rise)}>{m.title}</h1>
+              <span style={delay(1, 0.14)} className={cn('max-w-full truncate text-[15px] text-muted num', rise)}>
                 {[meta, target && `${target.isNext ? '接着读 · ' : ''}${target.label} · ${target.page}`].filter(Boolean).join(' · ')}
               </span>
               {target?.pct != null && (
-                <span style={delay(1.08)} className={cn('prog mt-1 w-[300px] max-w-[80%]', entering && 'rise')}>
-                  <motion.i initial={entering ? { width: 0 } : false} animate={{ width: `${target.pct}%` }} transition={{ duration: 1.1, delay: entering ? 1.35 : 0, ease: EASE }} />
+                <span style={delay(1.08, 0.18)} className={cn('prog mt-1 w-[300px] max-w-[80%]', rise)}>
+                  <motion.i initial={entering ? { width: 0 } : false} animate={{ width: `${target.pct}%` }} transition={{ duration: entering === 'intro' ? 1.1 : 0.8, delay: entering === 'intro' ? 1.35 : entering ? 0.3 : 0, ease: EASE }} />
                 </span>
               )}
             </div>
           </motion.div>
         </AnimatePresence>
         {/* 按钮不随作品淡出淡入：都是玻璃，父元素带透明度会让它们采不到背景 */}
-        <div data-home-actions style={delay(1.15)} className={cn('flex flex-wrap items-center justify-center gap-3', entering && 'rise-each')}>
+        <div data-home-actions style={delay(1.15, 0.2)} className={cn('flex flex-wrap items-center justify-center gap-3', riseEach)}>
           {target ? (
             <Link to={`/manga/${m.id}/chapter/${target.id}`} viewTransition className="solid h-[54px] px-[30px] text-base no-underline">
               <Play className="size-4 fill-current" strokeWidth={1.6} />
@@ -289,7 +313,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
  * 扇形里的一张封面。中间那张是进详情的链接（封面飞入详情页靠它的 .cv），两侧是切换按钮。
  * 外层铺满封面区、带透视，开屏时整体淡入；里层的位置全由 pos 推算，拖动时不经过 React 渲染。
  */
-function FanCard({ c, j, n, center, pos, fan, spread, intro, onSelect }: {
+function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect }: {
   c: ReadChapter
   j: number
   n: number
@@ -297,7 +321,7 @@ function FanCard({ c, j, n, center, pos, fan, spread, intro, onSelect }: {
   pos: MotionValue<number>
   fan: MotionValue<number>
   spread: MotionValue<number>
-  intro: boolean
+  entrance: Entrance | null
   onSelect: () => void
 }) {
   const m = c.manga
@@ -307,17 +331,19 @@ function FanCard({ c, j, n, center, pos, fan, spread, intro, onSelect }: {
   const scale = useTransform([off, fan], ([o, f]: number[]) => 1 - (1 - poseAt(o, n).scale) * f)
   const opacity = useTransform(off, (o) => poseAt(o, n).opacity)
   const zIndex = useTransform(off, (o) => 10 - Math.round(Math.abs(o) * 2))
-  // 开屏时按离中间远近错开出场
+  // 开屏时按离中间远近错开出场。轻进场只淡入两侧，中间那张原样不动：
+  // 从详情页返回时它是封面飞回的落点，带初始位移或透明度会飞到错的位置再跳一下
   const [rank] = useState(() => Math.round(Math.abs(wrap(j - pos.get(), n))))
+  const initial = entrance === 'intro' ? { opacity: 0, y: rank ? 0 : 70, scale: rank ? 0.8 : 0.86 } : entrance === 'light' && rank ? { opacity: 0 } : false
   // 不让浏览器原生拖拽图片和链接，鼠标拖动才能用来切换
   const cover = <CoverImg src={m.thumbnailUrl} draggable={false} />
   return (
     <motion.div
       className="pointer-events-none absolute inset-0 [perspective:1400px]"
       style={{ zIndex }}
-      initial={intro ? { opacity: 0, y: rank ? 0 : 70, scale: rank ? 0.8 : 0.86 } : false}
+      initial={initial}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: rank ? 0.9 : 1, delay: rank === 0 ? 0.25 : rank === 1 ? 0.6 : 0.75, ease: EASE }}
+      transition={entrance === 'light' ? { duration: 0.5, delay: rank === 1 ? 0 : 0.06, ease: EASE } : { duration: rank ? 0.9 : 1, delay: rank === 0 ? 0.25 : rank === 1 ? 0.6 : 0.75, ease: EASE }}
       data-sfw={sfwAttr(m.source?.displayName)}
     >
       <motion.div className="pointer-events-auto absolute top-0 left-1/2 -ml-[138px] h-[414px] w-[276px]" style={{ x, rotateY, scale, opacity }}>
