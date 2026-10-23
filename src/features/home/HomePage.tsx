@@ -40,6 +40,8 @@ import { markIntroPlayed, Stage, useEntrance } from './Stage'
 import { useHeroSwipe } from './useHeroSwipe'
 import { updatesPartial, weekStartSec } from './week'
 import { useWeekTray, WeekSection } from './WeekSection'
+import { useLocalNow } from './useLocalNow'
+import { useWeekUpdates } from './useWeekUpdates'
 
 /** 按漫画去重：每部漫画只保留最近读的那一话 */
 function byManga(chapters: readonly ReadChapter[]) {
@@ -64,8 +66,6 @@ const HERO_COUNT = 4
 const STAGE_COUNT = 5
 /** RecentReads 一次取的话数（见 queries.ts） */
 const READS_LIMIT = 150
-/** 「这一周」更新一次最多取的话数；一周里抓到的更多（比如刚迁移）时，更早几天会标为不完整 */
-const WEEK_UPDATES_LIMIT = 1000
 const SHELF_COUNT = 12
 
 /** 每次打开或刷新网页换一个随机种子；页面里的切换仍按同一种子挑，网络数据替换快照时不会整批跳动 */
@@ -100,18 +100,12 @@ export function HomePage() {
   const updates = useQuery(RecentUpdates, {
     variables: { first: 200, offset: 0, filter: IN_LIBRARY },
     fetchPolicy: landed ? 'cache-and-network' : 'cache-first',
-    // 「这一周」的专用查询到之前也先用这份（带快照，刷新后立刻有内容）
-    skip: !homeSections.updates && !homeSections.week,
+    skip: !homeSections.updates,
   })
-  // 「这一周」单独取一份：按抓取时间只要这 7 天的，不然前 200 话常被最近几天占满，更早几天（和特别关心）就没有了
-  const weekStart = weekStartSec(Date.now())
-  const weekFilter = useMemo(() => ({ ...IN_LIBRARY, fetchedAt: { greaterThan: String(weekStart - 1) } }), [weekStart])
-  const weekUpdatesQuery = useQuery(RecentUpdates, {
-    variables: { first: WEEK_UPDATES_LIMIT, offset: 0, filter: weekFilter },
-    fetchPolicy: landed ? 'cache-and-network' : 'cache-first',
-    // 开屏期间先显示已有的最近更新，完整一周的结果等落定后再替换，避免重新分组、挂载共享封面抢动画帧。
-    skip: !homeSections.week || entrance.entering === 'intro',
-  })
+  // 「这一周」按抓取时间取齐这 7 天的更新，独立于最近更新书架的 200 话。
+  const now = useLocalNow()
+  // 开屏期间直接显示完整快照，网络刷新仍等动画结束，避免重新挂载共享封面抢动画帧。
+  const week = useWeekUpdates(weekStartSec(now), !homeSections.week || entrance.entering === 'intro', landed)
   // 刷新页面后先用上次保存的数据，网络数据到了再替换
   const updatesData = withSnapshot('recentUpdates', updates.data)
   const libData = withSnapshot('library', lib.data)
@@ -122,8 +116,7 @@ export function HomePage() {
   const recent = useMemo(() => byManga(readChapters ?? []), [readChapters])
   const library = useMemo(() => libData?.mangas.nodes.filter((m) => !hidden(m)), [libData, hidden])
   const updateChapters = useMemo(() => updatesData?.chapters.nodes.filter((c) => !hidden(c.manga)), [updatesData, hidden])
-  // 这一周的专用查询还没到时，先用上面那份（最新 200 话）顶着，到了再换成完整的
-  const weekList = weekUpdatesQuery.data?.chapters ?? updatesData?.chapters
+  const weekList = week.chapters
   // 「这一周」只算加入书库之后才抓到的章节，和更新页同一规则：刚入库或刚迁移的整本存量章节不算新章节。
   // 加入时间取自书库查询；书库里还查不到的先保留
   const weekUpdates = useMemo(() => {
@@ -164,15 +157,14 @@ export function HomePage() {
   // 首页别处已经出现的作品：橱窗里尽量不重复它们（大图区正在展示的、最近阅读那三条）
   const onPage = useMemo(() => new Set([...hero.items, ...(homeSections.recent ? recent.slice(0, 3) : [])].map((c) => c.manga.id)), [hero.items, recent, homeSections.recent])
 
-  // 两份查询都只取最新的若干条：取满了、最旧一条还在这一周里，更早几天就不完整
+  // 更新已分页取齐；最近阅读仍只取最新 150 话，更早几天可能不完整。
   const weekPartial = useMemo(() => {
     const read = readsData?.chapters.nodes
-    return (!!weekList && updatesPartial(weekList.nodes.map((c) => sec(c.fetchedAt)), weekList.pageInfo.hasNextPage, Date.now()))
-      || (!!read && updatesPartial(read.map((c) => sec(c.lastReadAt)), read.length >= READS_LIMIT, Date.now()))
-  }, [weekList, readsData])
+    return !!read && updatesPartial(read.map((c) => sec(c.lastReadAt)), read.length >= READS_LIMIT, Date.now())
+  }, [readsData])
 
   const content = {
-    week: homeSections.week && <WeekSection updates={weekUpdates} partial={weekPartial} reads={readChapters} />,
+    week: homeSections.week && <WeekSection updates={weekUpdates} partial={weekPartial} reads={readChapters} error={week.error} onRetry={week.retry} />,
     favorite: homeSections.favorite && <FavoriteShelf library={library} />,
     updates: homeSections.updates && <UpdatesShelf chapters={updateChapters} />,
     stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}

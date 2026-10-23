@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import { resetOnUserContext } from '@/api/userContext'
 import { MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { LoadError } from '@/components/ui/LoadError'
 import { fade, spring } from '@/design/motion'
 import { useLibraryView } from '@/features/library/store'
 import { useFavorites } from '@/features/favorite/useFavorites'
@@ -16,6 +17,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { chapterLabel, clock, sec, timeAgo } from '@/lib/format'
 import type { ReadChapter, UpdateChapter } from './queries'
 import { byDay, weekDays, type DayGroup } from './week'
+import { useLocalNow } from './useLocalNow'
 
 /**
  * 展开的格子与布局版本。rev 在托盘出现、换格子和收起时各加一次，
@@ -89,29 +91,16 @@ function readLane(days: DayGroup<ReadChapter>[][]): Lane {
 }
 
 /**
- * 分组用的「现在」，只在本地日期变了时更新：标签页开着跨过午夜，或者从后台、休眠回来已是第二天，
- * 「今天」和 7 天的分组就跟着挪。同一天里不变，之后到的新数据比它晚也只会落在「今天」（见 dayIndex）。
- */
-function useLocalNow() {
-  const [now, setNow] = useState(Date.now)
-  useEffect(() => {
-    const check = () => setNow((prev) => (new Date(prev).toDateString() === new Date().toDateString() ? prev : Date.now()))
-    const d = new Date(now)
-    const t = setTimeout(check, new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() - Date.now() + 1000)
-    document.addEventListener('visibilitychange', check)
-    return () => {
-      clearTimeout(t)
-      document.removeEventListener('visibilitychange', check)
-    }
-  }, [now])
-  return now
-}
-
-/**
  * 「这一周」：特别关心的更新、其他更新、读过的漫画 × 最近 7 天。
  * 宽屏是 7 列的格子，点叠起的封面在这一行下面展开托盘；窄屏按日期切换，每类一条横向书架。
  */
-export function WeekSection({ updates, partial, reads }: { updates: UpdateChapter[] | undefined; partial: boolean; reads: ReadChapter[] | undefined }) {
+export function WeekSection({ updates, partial, reads, error, onRetry }: {
+  updates: UpdateChapter[] | undefined
+  partial: boolean
+  reads: ReadChapter[] | undefined
+  error?: unknown
+  onRetry: () => void
+}) {
   const favorites = useFavorites().map
   const wide = useMedia('(min-width: 1024px)')
   const now = useLocalNow()
@@ -128,6 +117,13 @@ export function WeekSection({ updates, partial, reads }: { updates: UpdateChapte
     // day 只用来在日期变了时重新分组
   }, [updates, reads, favorites, now])
 
+  if (!updates) return (
+    <section aria-labelledby="h-week" className="pt-11">
+      <h2 id="h-week" className="m-0 text-[26px] font-bold">这一周</h2>
+      {error ? <LoadError message="未能取完整周更新" onRetry={onRetry} />
+        : <p role="status" className="m-0 py-8 text-sm text-muted">正在加载这一周…</p>}
+    </section>
+  )
   if (!week?.lanes.length) return null
   const chapters = week.lanes.reduce((n, l) => n + l.chapters.reduce((a, b) => a + b, 0), 0)
   const read = week.lanes.find((l) => l.id === 'recent')
@@ -139,6 +135,7 @@ export function WeekSection({ updates, partial, reads }: { updates: UpdateChapte
         <h2 id="h-week" className="m-0 text-[26px] font-bold">这一周</h2>
         <span className="text-sm text-muted">{summary}</span>
       </div>
+      {!!error && <LoadError message="暂时未能刷新，正在显示上次的完整记录" onRetry={onRetry} />}
       {wide ? <VisibleWeekGrid days={week.days} lanes={week.lanes} /> : <WeekTabs days={week.days} lanes={week.lanes} />}
     </section>
   )
