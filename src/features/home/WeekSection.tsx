@@ -1,6 +1,6 @@
-import { AnimatePresence, motion, useReducedMotion, type Variants } from 'motion/react'
+import { AnimatePresence, motion, type Variants } from 'motion/react'
 import { ChevronRight, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode, type Ref } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { create } from 'zustand'
 import { resetOnUserContext } from '@/api/userContext'
@@ -18,13 +18,13 @@ import type { ReadChapter, UpdateChapter } from './queries'
 import { byDay, weekDays, type DayGroup } from './week'
 
 /**
- * 展开的格子与布局版本。rev 在托盘出现、换格子和收起落定时各加一次，
+ * 展开的格子与布局版本。rev 在托盘出现、换格子和收起时各加一次，
  * 首页各模块和这一周里的各行拿它当 layoutDependency：只在托盘改变高度的那一帧排一次版，
  * 再用位移动画补过渡，不逐帧改高度（橱窗的封面墙很重）。放在模块里，从详情页返回时托盘还开着。
+ * 收起的托盘当场脱离文档流（popLayout）再淡出，下方内容和它同时上移，不等淡出结束。
  */
 export const useWeekTray = create<{ open: string | null; rev: number }>()(() => ({ open: null, rev: 0 }))
-const setOpen = (open: string | null) => useWeekTray.setState((s) => ({ open, rev: open ? s.rev + 1 : s.rev }))
-const settle = () => useWeekTray.setState((s) => ({ rev: s.rev + 1 }))
+const setOpen = (open: string | null) => useWeekTray.setState((s) => ({ open, rev: s.rev + 1 }))
 resetOnUserContext(() => useWeekTray.setState({ open: null }))
 
 type LaneId = 'favorite' | 'updates' | 'recent'
@@ -194,7 +194,8 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
       {lanes.map((lane) => {
         const day = lane.days.findIndex((_, i) => cellId(lane.id, i) === shown)
         return (
-          <motion.div key={lane.id} layout="position" layoutDependency={rev} transition={spring.fast} className="mb-1.5">
+          // relative：收起时脱离文档流的托盘按这一行定位
+          <motion.div key={lane.id} layout="position" layoutDependency={rev} transition={spring.fast} className="relative mb-1.5">
             <div className={GRID}>
               <div className="flex flex-col justify-center gap-1 pr-2">
                 <span className="text-[15px] font-extrabold">{lane.name}</span>
@@ -210,7 +211,7 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
                 </div>
               ))}
             </div>
-            <AnimatePresence initial={false} mode="wait" onExitComplete={settle}>
+            <AnimatePresence initial={false} mode="popLayout">
               {day >= 0 && <Tray key={day} lane={lane} day={day} dayName={days[day].name} instant={restoring} />}
             </AnimatePresence>
           </motion.div>
@@ -287,10 +288,10 @@ const headerFade = {
   exit: { opacity: 0, transition: fade.fast },
 }
 
-function Tray({ lane, day, dayName, instant }: { lane: Lane; day: number; dayName: string; instant: boolean }) {
+/** ref 由 AnimatePresence 的 popLayout 传入，用来在收起时量出位置、改成绝对定位 */
+function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>; lane: Lane; day: number; dayName: string; instant: boolean }) {
   const id = cellId(lane.id, day)
   const entries = lane.days[day]
-  const reduced = useReducedMotion()
   const navigate = useNavigate()
   const setCategory = useLibraryView((s) => s.setCategory)
   const go = () => {
@@ -301,7 +302,8 @@ function Tray({ lane, day, dayName, instant }: { lane: Lane; day: number; dayNam
   }
   const n = entries.length
   return (
-    <motion.div id={`tray-${id}`} role="region" aria-label={`${dayName} · ${lane.name}`} className="relative mt-2.5 mb-5 ml-[118px] px-[22px] pt-5 pb-6">
+    // 脱离文档流时按量到的边框位置定位，外边距要去掉，否则会再偏一次
+    <motion.div ref={ref} id={`tray-${id}`} role="region" aria-label={`${dayName} · ${lane.name}`} className="relative mt-2.5 mb-5 ml-[118px] px-[22px] pt-5 pb-6 data-motion-pop-id:m-0">
       {/* 只动玻璃自身的透明度，不缩放：玻璃的父元素带透明度或缩放会让背景采样失效，也更省 */}
       <MotionGlass
         aria-hidden
@@ -310,7 +312,8 @@ function Tray({ lane, day, dayName, instant }: { lane: Lane; day: number; dayNam
         className="absolute inset-0 rounded-3xl"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1, transition: fade.default }}
-        exit={{ opacity: 0, transition: { ...fade.default, delay: reduced ? 0 : 0.12 } }}
+        // 收起时下方内容立刻上移、盖过托盘，玻璃不再停留，跟着一起淡出
+        exit={{ opacity: 0, transition: fade.default }}
       />
       {/* 标题行不整体淡入：两个按钮是玻璃，透明度只能加在它们自己身上（托盘不在表单里，按钮不必写 type） */}
       <div className="relative mb-[18px] flex items-center gap-2.5">
