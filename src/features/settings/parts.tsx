@@ -2,8 +2,12 @@ import { Check, ChevronDown, LoaderCircle } from 'lucide-react'
 import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 
-/** 分栏里的一组设置：标题 + 说明，组与组之间只靠留白分开 */
-export function Section({ title, desc, children, action }: { title: string; desc?: ReactNode; children: ReactNode; action?: ReactNode }) {
+/**
+ * 分栏里的一组设置：标题 + 说明，组与组之间只靠留白分开。
+ * fold：不常改的高级项默认收起，点「展开」才渲染内容；说明留在外面，一眼知道里面是什么。
+ */
+export function Section({ title, desc, children, action, fold }: { title: string; desc?: ReactNode; children: ReactNode; action?: ReactNode; fold?: boolean }) {
+  const [open, setOpen] = useState(!fold)
   return (
     <section className="flex flex-col gap-5 pb-12">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -11,9 +15,17 @@ export function Section({ title, desc, children, action }: { title: string; desc
           <h2 className="m-0 text-xl font-bold">{title}</h2>
           {desc && <p className="mt-1 mb-0 max-w-[62ch] text-sm text-muted">{desc}</p>}
         </div>
-        {action}
+        <div className="flex flex-wrap items-center gap-2">
+          {action}
+          {fold && (
+            <button type="button" className="gbtn plain w-fit rounded-full" aria-expanded={open} aria-label={`${open ? '收起' : '展开'}${title}`} onClick={() => setOpen((v) => !v)}>
+              {open ? '收起' : '展开'}
+              <ChevronDown className={cn('size-[18px] transition-transform', open && 'rotate-180')} strokeWidth={1.8} />
+            </button>
+          )}
+        </div>
       </div>
-      {children}
+      {open && children}
     </section>
   )
 }
