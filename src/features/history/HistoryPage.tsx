@@ -51,16 +51,16 @@ export function HistoryPage() {
       }),
     })
 
-  // 滚到底自动加载；搜索时也继续往下加载，在更早的记录里找
+  // 滚到底自动加载；搜索时交由下方按钮按需加载更早记录，避免无命中时连续翻完整个历史
   const sentinel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = sentinel.current
-    if (!el || !hasMore) return
+    if (!el || !hasMore || q) return
     const io = new IntersectionObserver(([e]) => e.isIntersecting && !loading && void more(), { rootMargin: '600px' })
     io.observe(el)
     return () => io.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, loading, list.length])
+  }, [hasMore, loading, list.length, q])
 
   const [hide] = useMutation(HideHistory)
   const hiddenKeyOfUser = userId === undefined ? undefined : hiddenKey(userId)
@@ -105,9 +105,9 @@ export function HistoryPage() {
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4 pt-9 pb-8">
         <div className="min-w-0 flex-auto">
           <h1 className="m-0 font-cjk text-[40px] font-black">阅读历史</h1>
-          <span className="text-sm text-muted">
+          <span className="text-sm text-muted num">
             {data ? `共 ${count(data.chapters.totalCount)} 话阅读记录` : loading ? '正在加载…' : ''}
-            {q && data && ` · 在已加载的 ${count(list.length)} 话里搜索`}
+            {data && (q ? ` · 在已加载的 ${count(list.length)} 话里搜索` : hasMore ? ` · 已加载 ${count(list.length)} 话` : '')}
           </span>
         </div>
         <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
@@ -117,7 +117,7 @@ export function HistoryPage() {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索漫画或章节名"
+            placeholder="在已加载的历史中搜索漫画或章节"
             className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
           />
         </Glass>
@@ -126,6 +126,14 @@ export function HistoryPage() {
       {error && !data && <LoadError className="py-16" prefix="无法读取阅读历史" message={error.message} onRetry={() => void history.refetch().catch(() => {})} />}
       {!data && !error && <HistorySkeleton />}
       {data && shown === 0 && !hasMore && <p className="py-16 text-center text-muted">{q ? '没有匹配的记录' : '还没有阅读记录'}</p>}
+      {data && shown === 0 && hasMore && q && (
+        <div className="flex flex-col items-center gap-3 py-16 text-center text-muted">
+          <p className="m-0">在已加载的 {count(list.length)} 话中没有找到「{query.trim()}」</p>
+          <Glass as="button" type="button" className="gbtn rounded-full text-text" disabled={loading} onClick={() => void more()}>
+            {loading ? '正在加载更早的记录…' : '继续加载更早的记录'}
+          </Glass>
+        </div>
+      )}
 
       {days.map((d) => (
         <section key={d.label} aria-label={d.label} className="mb-6">
@@ -138,10 +146,12 @@ export function HistoryPage() {
         </section>
       ))}
 
-      {hasMore && (
-        <div ref={sentinel} className="py-6 text-center text-sm text-muted">
+      {hasMore && (shown > 0 || !q) && (
+        <div ref={q ? undefined : sentinel} className="py-6 text-center text-sm text-muted">
           {loading ? '正在加载更早的记录…' : (
-            <button type="button" className="font-semibold text-text" onClick={() => void more()}>加载更早的记录</button>
+            <button type="button" className="font-semibold text-text hover:underline" onClick={() => void more()}>
+              {q ? `继续加载更早的记录（已加载 ${count(list.length)} / ${count(data?.chapters.totalCount ?? 0)} 话）` : '加载更早的记录'}
+            </button>
           )}
         </div>
       )}

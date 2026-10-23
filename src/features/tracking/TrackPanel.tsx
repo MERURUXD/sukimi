@@ -85,15 +85,20 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
         </div>
 
         {records && records.length > 0 && (
-          <div className="-mt-2 flex flex-wrap gap-2">
-            <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('pull')} title="按网站上的进度，把本地对应章节标为已读">
-              <ArrowDownToLine className={cn('size-4', syncing === 'pull' && 'animate-pulse')} />
-              同步到本地
-            </button>
-            <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('push')} title="按本地已读章节更新各网站上的进度">
-              <ArrowUpFromLine className={cn('size-4', syncing === 'push' && 'animate-pulse')} />
-              同步到网站
-            </button>
+          <div className="-mt-2 flex flex-col gap-1.5">
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('pull')}>
+                <ArrowDownToLine className={cn('size-4', syncing === 'pull' && 'animate-pulse')} />
+                同步到本地
+              </button>
+              <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('push')}>
+                <ArrowUpFromLine className={cn('size-4', syncing === 'push' && 'animate-pulse')} />
+                同步到网站
+              </button>
+            </div>
+            <p className="m-0 text-xs leading-relaxed text-muted">
+              同步到本地会将网站进度以内的章节标为已读；同步到网站会按本地已读更新网站进度。
+            </p>
           </div>
         )}
 

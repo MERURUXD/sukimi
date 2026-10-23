@@ -70,3 +70,11 @@ export function updatesPartial(fetchedAtMs: readonly number[], hasNextPage: bool
   if (!hasNextPage || !fetchedAtMs.length) return false
   return dayIndex(Math.min(...fetchedAtMs), nowMs) >= 0
 }
+
+/** 窄屏「这一周」日期标签的副标题：区分更新部数与阅读部数，不混加为同一个数字 */
+export function weekTabSub(updates: number, reads: number) {
+  if (updates > 0 && reads > 0) return `${updates} 部更新 · 读 ${reads} 部`
+  if (updates > 0) return `${updates} 部更新`
+  if (reads > 0) return `读了 ${reads} 部`
+  return '—'
+}

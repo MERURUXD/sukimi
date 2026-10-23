@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { byDay, dayIndex, updatesPartial, weekDays, weekStartSec } from '../src/features/home/week.ts'
+import { byDay, dayIndex, updatesPartial, weekDays, weekStartSec, weekTabSub } from '../src/features/home/week.ts'
 
 // 2026-10-22（周四）本地 15:00
 const now = new Date(2026, 9, 22, 15, 0).getTime()
@@ -49,4 +49,11 @@ test('这一周：更新按抓取时间筛选的起点是 6 天前本地零点',
   assert.equal(weekStartSec(now), Math.floor(new Date(2026, 9, 16, 0, 0).getTime() / 1000))
   assert.equal(dayIndex(weekStartSec(now) * 1000, now), 6)
   assert.equal(dayIndex((weekStartSec(now) - 1) * 1000, now), -1)
+})
+
+test('这一周：窄屏日期标签副标题区分更新与阅读四种组合', () => {
+  assert.equal(weekTabSub(3, 2), '3 部更新 · 读 2 部')
+  assert.equal(weekTabSub(4, 0), '4 部更新')
+  assert.equal(weekTabSub(0, 2), '读了 2 部')
+  assert.equal(weekTabSub(0, 0), '—')
 })
