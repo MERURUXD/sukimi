@@ -36,7 +36,7 @@ export function LaterButton({ manga, hasChapters, style, className }: {
       else await add(manga.id)
       toast(on ? '已移出稍后再看' : '已加入稍后再看')
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('操作失败', e)
+      if (!(e instanceof StaleSessionError)) toastError(on ? '移出稍后再看失败' : '加入稍后再看失败', e)
     } finally {
       setBusy(false)
     }

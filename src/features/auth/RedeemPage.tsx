@@ -62,7 +62,7 @@ function RedeemForm({ mode }: { mode: 'register' | 'recover' }) {
         />
         <AuthInput
           type="password"
-          placeholder="再输入一次密码"
+          placeholder="确认密码"
           autoComplete="new-password"
           value={again}
           onChange={(e) => setAgain(e.target.value)}

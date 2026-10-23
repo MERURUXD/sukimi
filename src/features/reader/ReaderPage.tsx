@@ -491,7 +491,7 @@ function ReaderSession({
   const syncLabel =
     isDemo
       ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel} · 第 ${synced + 1} 页`
-      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel} · 第 ${synced + 1} 页`
+      : synced == null ? '翻页后自动同步阅读进度到服务端' : `进度已同步到服务端 · ${curLabel} · 第 ${synced + 1} 页`
 
   const endCard = (
     <EndCard

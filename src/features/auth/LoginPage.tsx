@@ -78,7 +78,7 @@ export function LoginPage() {
       <Glass as="a" href="/demo/" className="gbtn mt-4 w-full justify-center rounded-full no-underline">
         无需登录，体验演示
       </Glass>
-      <p className="mt-3 text-center text-xs text-muted">虚构作品，可体验书库与阅读器，无需连接服务器。</p>
+      <p className="mt-3 text-center text-xs text-muted">虚构作品，可体验书库与阅读器，无需连接服务端。</p>
     </AuthLayout>
   )
 }
