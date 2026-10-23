@@ -98,7 +98,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
           <ChangePassword />
         ))}
       {!hideSignOut && (
-        <Row label="退出登录" hint="清除这台设备上保存的登录状态和书库缓存">
+        <Row label="退出登录" hint="清除当前浏览器的登录状态与本地书库缓存">
           <button
             type="button"
             className="gbtn plain rounded-full"

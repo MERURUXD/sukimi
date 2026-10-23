@@ -13,7 +13,7 @@ export function TrackingTab() {
   return (
     <Section
       title="追踪服务"
-      desc="登录后可以在漫画详情页把漫画绑定到这些网站上的条目，读完章节后服务端会把进度同步过去。登录信息保存在服务端。"
+      desc="登录后可在漫画详情页绑定条目，读完章节时自动同步进度。登录状态保存在服务端，仅对当前账号生效。"
     >
       {error && !trackers && <span className="text-sm text-danger">无法读取追踪服务：{error.message.split('\n')[0]}</span>}
       {!trackers && !error && <span className="text-muted">…</span>}
@@ -69,9 +69,9 @@ function TrackerRow({ t }: { t: Tracker }) {
         <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={36} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-semibold">{t.name}</span>
-          <span className={t.isLoggedIn && t.isTokenExpired ? 'text-[13px] text-danger' : 'text-[13px] text-muted'}>
+          <span className={t.isLoggedIn && t.isTokenExpired ? 'text-[13px] font-medium text-danger' : 'text-[13px] text-muted'}>
             {state}
-            {!t.isLoggedIn && oauth && ' · 会跳到网站授权，完成后自动回来'}
+            {!t.isLoggedIn && oauth && ' · 网页授权'}
           </span>
         </span>
         {t.isLoggedIn && !t.isTokenExpired ? (

@@ -14,30 +14,30 @@ export function DownloadsTab() {
       <RequireSettings>
         <Section
           title="下载"
-          desc="下载目录与格式由所有用户共用。"
+          desc="下载目录与保存格式由所有用户共用。"
           action={
-            <Link to="/downloads" className="gbtn min-h-10 rounded-full bg-g-hi text-text no-underline">
+            <Link to="/downloads" className="gbtn min-h-9 rounded-full bg-g-hi px-3.5 text-[13px] text-text no-underline">
               查看下载队列
             </Link>
           }
         >
-          <SText k="downloadsPath" label="下载目录" hint="服务端所在电脑上的路径；留空使用数据目录下的 downloads" placeholder="默认" stack />
-          <SSwitch k="downloadAsCbz" label="存成 CBZ 压缩包" hint="每一话打包成一个 .cbz 文件，便于拷到其他阅读器；不影响在这里阅读" />
+          <SText k="downloadsPath" label="下载目录" hint="服务端本地路径；留空使用数据目录下的 downloads" placeholder="默认" stack />
+          <SSwitch k="downloadAsCbz" label="存成 CBZ 压缩包" hint="每话打包为单个 .cbz 文件，便于导出到其他阅读器" />
         </Section>
       </RequireSettings>
 
-      <Section title="自动下载新章节" desc="检查书库更新发现新章节时自动加入下载队列。只影响你自己的账号。">
+      <Section title="自动下载新章节" desc="检查更新发现新章节时自动加入下载队列，仅对当前账号生效。">
         <SSwitch k="autoDownloadNewChapters" label="自动下载新章节" />
-        <SSwitch k="excludeEntryWithUnreadChapters" label="跳过有未读章节的漫画" hint="已经积压了没读的，就不自动下载新的" />
-        <SNumber k="autoDownloadNewChaptersLimit" label="每部最多自动下载" unit="话" min={0} hint="一次发现很多新章节时最多下载几话；0 表示不限制" />
-        <SSwitch k="autoDownloadIgnoreReUploads" label="忽略重新上传的章节" hint="来源把旧章节重新上传时不重复下载" />
+        <SSwitch k="excludeEntryWithUnreadChapters" label="跳过有未读章节的漫画" />
+        <SNumber k="autoDownloadNewChaptersLimit" label="每部最多自动下载" unit="话" min={0} hint="单次发现多话更新时的下载上限，0 为不限制" />
+        <SSwitch k="autoDownloadIgnoreReUploads" label="忽略重新上传的章节" />
       </Section>
 
-      <Section fold title="图片格式转换" desc="下载时把图片转成另一种格式，适合需要兼容老设备、或想压缩体积的情况。不常用，没有需求可以留空。">
+      <Section fold title="图片格式转换" desc="下载或阅读时将图片转为指定格式以节省空间或兼容旧设备，无需转换可留空。">
         <RequireSettings>
-          <Conversions k="downloadConversions" label="下载时转换" hint="所有用户共用" />
+          <Conversions k="downloadConversions" label="下载时转换" hint="写入磁盘时转换，所有用户共用" />
         </RequireSettings>
-        <Conversions k="serveConversions" label="阅读时转换" hint="浏览器打开页面时实时转换，不改动已下载的文件；只影响你自己的账号" />
+        <Conversions k="serveConversions" label="阅读时转换" hint="浏览器阅读时实时转换，不改动已下载文件，仅对当前账号生效" />
       </Section>
     </>
   )

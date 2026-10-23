@@ -116,24 +116,31 @@ export function BackupTab() {
       <ManualBackup />
 
       <RequireSettings>
-        <Section title="自动备份" desc="服务端每隔一段时间自动备份一次，旧备份过期后自动删除。">
-          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 表示不自动备份" />
-          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="在这个时间点进行（服务端所在电脑的时间）" />
-          <SNumber k="backupTTL" label="保留" unit="天" min={0} hint="超过这个天数的自动备份会被删除；0 表示一直保留" />
-          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端所在电脑上的路径；留空使用数据目录下的 backups" stack />
+        <Section title="自动备份" desc="服务端定时生成备份并清理过期文件，所有用户共用。">
+          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 为关闭自动备份" />
+          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="按服务端所在时区的时间执行" />
+          <SNumber k="backupTTL" label="保留时间" unit="天" min={0} hint="自动删除超过该天数的备份，0 为永久保留" />
+          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端本地路径；留空使用数据目录下的 backups" stack />
         </Section>
       </RequireSettings>
 
       <RequireSettings>
-        <Section title="自动备份包含">
+        <Section fold title="自动备份包含" desc="选择自动备份写入的内容，默认全部开启。">
           <SSwitch k="autoBackupIncludeManga" label="漫画" />
           <SSwitch k="autoBackupIncludeCategories" label="分类" />
           <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
           <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
           <SSwitch k="autoBackupIncludeTracking" label="追踪" />
-          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
+          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各前端保存在服务端的偏好" />
           <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
-          {multi && <SSwitch k="autoBackupIncludeUserSettings" label="各账号的个人设置" hint="OPDS、同步、自动下载等归各账号自己的设置；不勾选时恢复备份后这些设置回到默认值" />}
+          {multi && (
+            <SSwitch
+              k="autoBackupIncludeUserSettings"
+              label="各账号的个人设置"
+              hint="OPDS、同步、自动下载等各账号独立配置"
+              help="不勾选时，恢复备份后各账号的个人设置会回到默认值。"
+            />
+          )}
         </Section>
       </RequireSettings>
     </>

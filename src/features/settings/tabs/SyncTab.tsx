@@ -108,16 +108,16 @@ function SyncYomiSection() {
   return (
     <Section
       title="SyncYomi"
-      desc="通过自建的 SyncYomi 服务，和 Mihon 等其他设备同步书库与阅读进度。"
+      desc="通过自建 SyncYomi 服务与 Mihon 等设备同步书库和阅读进度，仅对当前账号生效。"
       action={
-        <button type="button" className="gbtn plain rounded-full" onClick={() => void syncNow()} disabled={loading}>
-          <RefreshCw className="size-[18px]" strokeWidth={1.8} />
+        <button type="button" className="gbtn plain min-h-9 rounded-full px-3.5 text-[13px]" onClick={() => void syncNow()} disabled={loading}>
+          <RefreshCw className="size-4" strokeWidth={1.8} />
           立即同步
         </button>
       }
     >
       {s && (
-        <p className="m-0 text-sm text-muted">
+        <p className="m-0 text-[13px] text-muted">
           上次同步：{SYNC_STATE[s.state]} · {timeAgo(Number(s.endDate ?? s.startDate))}
           {s.errorMessage && ` · ${s.errorMessage}`}
         </p>
@@ -125,7 +125,7 @@ function SyncYomiSection() {
       <SSwitch k="syncYomiEnabled" label="启用 SyncYomi" />
       <SText k="syncYomiHost" label="服务地址" placeholder="https://" width="w-[280px]" />
       <SSecret k="syncYomiApiKey" label="API Key" />
-      <SDuration k="syncInterval" label="自动同步间隔" unit="min" hint="0 表示只手动同步" />
+      <SDuration k="syncInterval" label="自动同步间隔" unit="min" hint="0 为仅手动同步" />
       <SSwitch k="syncDataManga" label="同步漫画" />
       <SSwitch k="syncDataChapters" label="同步章节与进度" />
       <SSwitch k="syncDataHistory" label="同步阅读历史" />
@@ -157,7 +157,7 @@ function KoReaderSection() {
   }
 
   return (
-    <Section title="KOReader 同步" desc="和 KOReader 阅读器（电子书设备常用）同步阅读进度，使用 KOReader 的进度同步服务。">
+    <Section title="KOReader 同步" desc="与电子书阅读器 KOReader 同步阅读进度，仅对当前账号生效。">
       {st?.isLoggedIn ? (
         <Row label={`已连接：${st.username ?? ''}`} hint={st.serverAddress ?? undefined}>
           <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError('断开失败', e))}>
@@ -196,13 +196,18 @@ function KoReaderSection() {
           </div>
         </form>
       )}
-      <SChoice k="koreaderSyncChecksumMethod" label="文档识别方式" hint="KOReader 用什么判断是同一话" options={[
-        { value: 'BINARY', label: '文件内容' },
-        { value: 'FILENAME', label: '文件名' },
-      ]} />
+      <SChoice
+        k="koreaderSyncChecksumMethod"
+        label="文档识别方式"
+        hint="KOReader 判断同一话的依据"
+        options={[
+          { value: 'BINARY', label: '文件内容' },
+          { value: 'FILENAME', label: '文件名' },
+        ]}
+      />
       <SChoice<KoreaderSyncConflictStrategy> k="koreaderSyncStrategyForward" label="KOReader 进度更新时" options={STRATEGIES} />
       <SChoice<KoreaderSyncConflictStrategy> k="koreaderSyncStrategyBackward" label="KOReader 进度更旧时" options={STRATEGIES} />
-      <SNumber k="koreaderSyncPercentageTolerance" label="进度差异容忍度" integer={false} min={0} max={1} hint="两边进度相差小于这个比例（0–1）时视为相同" />
+      <SNumber k="koreaderSyncPercentageTolerance" label="进度差异容忍度" integer={false} min={0} max={1} hint="两端进度差小于该比例（0–1）时视为一致" />
     </Section>
   )
 }

@@ -72,30 +72,32 @@ export function BrowseTab() {
       </Can>
 
       <RequireSettings>
-        <Section title="来源">
+        <Section title="来源" desc="所有用户共用。">
           <SNumber
             k="maxSourcesInParallel"
             label="同时请求的来源数"
             min={1}
             max={20}
-            hint="检查更新和下载时，最多同时向几个不同的来源发请求（同一来源的漫画总是排队进行）。调高更快，但更容易被来源限流。"
+            hint="调高可加快检查更新与下载，但更容易被来源限流"
+            help="控制检查更新和下载时最多同时向多少个不同来源发起请求；同一来源内的漫画始终排队进行。"
           />
           <SText k="localSourcePath" label="本地漫画目录" hint="「本地」来源读取的文件夹；留空使用数据目录下的 local" placeholder="默认" stack />
-          <SSwitch k="kcefEnabled" label="内置浏览器内核（WebView）" hint="部分来源登录、过验证需要；关掉能省内存" />
+          <SSwitch k="kcefEnabled" label="内置浏览器内核（WebView）" hint="供部分来源登录或过验证使用，关闭可节省内存" />
         </Section>
       </RequireSettings>
 
       <RequireSettings>
         <Section
+          fold
           title="Cloudflare 验证（FlareSolverr）"
-          desc="有些来源开启了 Cloudflare 防护，需要另外运行 FlareSolverr 服务来通过验证。没有遇到「Cloudflare」报错就不用开。"
+          desc="配合外部 FlareSolverr 服务通过 Cloudflare 防护；未遇到验证报错时无需开启。"
         >
           <SSwitch k="flareSolverrEnabled" label="使用 FlareSolverr" />
           <SText k="flareSolverrUrl" label="FlareSolverr 地址" placeholder="http://localhost:8191" width="w-[260px]" />
           <SNumber k="flareSolverrTimeout" label="超时" unit="秒" min={0} />
           <SText k="flareSolverrSessionName" label="会话名称" />
           <SNumber k="flareSolverrSessionTtl" label="会话保留" unit="分钟" min={0} />
-          <SSwitch k="flareSolverrAsResponseFallback" label="直接使用 FlareSolverr 的返回内容" hint="验证后仍然失败时，退而使用 FlareSolverr 拿到的页面" />
+          <SSwitch k="flareSolverrAsResponseFallback" label="直接使用 FlareSolverr 的返回内容" hint="验证后请求仍失败时，回退使用 FlareSolverr 获取的页面" />
         </Section>
       </RequireSettings>
 
@@ -217,13 +219,13 @@ function CacheSection() {
   }
 
   return (
-    <Section title="缓存">
-      <Row label="图片缓存" hint="在线阅读的漫画页和封面缓存">
+    <Section title="缓存" desc="清理服务端缓存的数据，所有用户共用。">
+      <Row label="图片缓存" hint="在线阅读缓存的漫画页与封面，不影响已下载章节">
         <button type="button" className="gbtn plain rounded-full" onClick={() => void images()} disabled={c2}>
           清除
         </button>
       </Row>
-      <Row label="Cookie 与网页缓存" hint="来源登录状态、Cloudflare 验证结果等">
+      <Row label="Cookie 与网页缓存" warn="清除后需登录的来源要重新登录，已通过的 Cloudflare 验证需重新验证">
         <button type="button" className="gbtn plain rounded-full text-danger" onClick={() => void cookies()} disabled={c1}>
           清除
         </button>

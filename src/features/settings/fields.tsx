@@ -21,6 +21,8 @@ interface Common<V> {
   k: SettingKey
   label: ReactNode
   hint?: ReactNode
+  help?: ReactNode
+  warn?: ReactNode
   confirmChange?: Confirmer<V>
   disabled?: boolean
 }
@@ -51,10 +53,10 @@ function useSetting<V>(k: string, confirmChange?: Confirmer<V>) {
   return { value, set, status, loaded: !!data }
 }
 
-export function SSwitch({ k, label, hint, confirmChange, disabled }: Common<boolean>) {
+export function SSwitch({ k, label, hint, help, warn, confirmChange, disabled }: Common<boolean>) {
   const s = useSetting<boolean>(k, confirmChange)
   return (
-    <Row label={label} hint={hint} restart={RESTART_KEYS.has(k)} status={s.status}>
+    <Row label={label} hint={hint} help={help} warn={warn} restart={RESTART_KEYS.has(k)} status={s.status}>
       <Switch on={!!s.value} onChange={(v) => void s.set(v)} label={typeof label === 'string' ? label : k} disabled={!s.loaded || disabled} />
     </Row>
   )
@@ -64,6 +66,8 @@ export function SChoice<V extends string | number>({
   k,
   label,
   hint,
+  help,
+  warn,
   options,
   confirmChange,
 }: Common<V> & { options: { value: V; label: string; disabled?: boolean }[] }) {
@@ -72,13 +76,13 @@ export function SChoice<V extends string | number>({
   // 服务端里是列表外的值（手改过配置文件）也要能显示出来
   const opts = s.value === undefined || options.some((o) => o.value === s.value) ? options : [...options, { value: s.value, label: String(s.value) }]
   return (
-    <Row label={label} hint={hint} restart={RESTART_KEYS.has(k)} status={s.status}>
+    <Row label={label} hint={hint} help={help} warn={warn} restart={RESTART_KEYS.has(k)} status={s.status}>
       {s.value === undefined ? (
         <span className="text-muted">…</span>
       ) : opts.length <= 4 && !opts.some((o) => o.disabled) ? (
         <Seg glass={false} label={name} items={opts} value={s.value} onChange={(v) => void s.set(v)} />
       ) : (
-        <Select label={name} value={s.value} options={opts} onChange={(v) => void s.set(v)} className="min-w-[200px]" />
+        <Select label={name} value={s.value} options={opts} onChange={(v) => void s.set(v)} className="min-w-[200px] max-w-full" />
       )}
     </Row>
   )
@@ -92,6 +96,8 @@ function Editable<V>({
   k,
   label,
   hint,
+  help,
+  warn,
   confirmChange,
   disabled,
   format,
@@ -128,14 +134,14 @@ function Editable<V>({
   }
 
   return (
-    <Row label={label} hint={hint} restart={RESTART_KEYS.has(k)} status={s.status} stack={stack}>
+    <Row label={label} hint={hint} help={help} warn={warn} restart={RESTART_KEYS.has(k)} status={s.status} stack={stack}>
       <TextInput
         type={type}
         value={shown}
         placeholder={placeholder}
         disabled={!s.loaded || disabled}
         suffix={suffix}
-        className={stack ? 'w-full' : width}
+        className={stack ? 'w-full' : `${width} max-w-full`}
         aria-label={typeof label === 'string' ? label : k}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
@@ -202,11 +208,15 @@ export function SSecret({
   k,
   label,
   hint,
+  help,
+  warn,
   confirmChange,
 }: {
   k: 'authPassword' | 'socksProxyPassword' | 'databasePassword' | 'syncYomiApiKey'
   label: ReactNode
   hint?: ReactNode
+  help?: ReactNode
+  warn?: ReactNode
   confirmChange?: () => { title: string; body?: ReactNode; ok?: string } | null
 }) {
   const save = useSaveSettings()
@@ -227,9 +237,9 @@ export function SSecret({
     }
   }
   return (
-    <Row label={label} hint={hint} restart={RESTART_KEYS.has(k)} status={status}>
+    <Row label={label} hint={hint} help={help} warn={warn} restart={RESTART_KEYS.has(k)} status={status}>
       <form
-        className="flex items-center gap-2"
+        className="flex max-w-full flex-wrap items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault()
           void submit()
@@ -241,7 +251,7 @@ export function SSecret({
           value={draft}
           placeholder="不显示现值，留空不修改"
           onChange={(e) => setDraft(e.target.value)}
-          className="w-[220px]"
+          className="w-[220px] max-w-full"
           aria-label={typeof label === 'string' ? label : k}
         />
         <button type="submit" className="gbtn min-h-11 rounded-full bg-accent-soft disabled:opacity-50" disabled={!draft}>
