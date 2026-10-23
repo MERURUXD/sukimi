@@ -25,7 +25,7 @@ export function DownloadPill() {
       if (running) await stop()
       else await start()
     } catch (e) {
-      toastError(running ? '暂停失败' : '继续失败', e)
+      toastError(running ? '暂停下载失败' : '继续下载失败', e)
     }
   }
 

@@ -363,7 +363,7 @@ function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extens
   const meta = [
     `v${e.versionName}`,
     WARNING[e.contentWarning],
-    e.isObsolete ? '仓库里已没有' : null,
+    e.isObsolete ? '仓库已下架' : null,
     showStore ? e.extensionStore?.name : null,
   ].filter(Boolean)
 

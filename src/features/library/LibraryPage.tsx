@@ -154,7 +154,7 @@ export function LibraryPage() {
       await startUpdate({ variables: { categories: cat } })
       toast('开始检查书库更新')
     } catch (e) {
-      toastError('无法开始更新', e)
+      toastError('无法开始检查', e)
     }
   }
 
@@ -207,7 +207,7 @@ export function LibraryPage() {
     })
 
   const downloadUnread = () =>
-    run('加入下载', async () => {
+    run('加入下载队列', async () => {
       const cids = await chapterIds({ isRead: { equalTo: false }, isDownloaded: { equalTo: false } })
       if (cids.length) await enqueue({ variables: { ids: cids } })
       return cids.length ? `已将 ${count(cids.length)} 话加入下载队列` : '没有需要下载的未读章节'
@@ -371,7 +371,7 @@ export function LibraryPage() {
           }
         >
           {realCategories.length === 0 ? (
-            <p className="m-0 px-2 py-1 text-[13px] text-muted">还没有分类。分类管理会放在设置页。</p>
+            <p className="m-0 px-2 py-1 text-[13px] text-muted">还没有分类。可在「设置 → 书库」中管理分类。</p>
           ) : (
             realCategories.map((c) => {
               const inAll = ids.length > 0 && ids.every((id) => all.find((m) => m.id === id)?.categories.nodes.some((x) => x.id === c.id))

@@ -200,7 +200,7 @@ export function GalleryPage() {
                 <h2 id="gallery-all" className="m-0 font-cjk text-[40px] leading-[1.1] font-black tracking-[-0.01em]">
                   全部作品 <span className="font-sans font-medium text-muted num">{count(items.length)}</span>
                 </h2>
-                <p className="m-0 text-[15px] text-muted">按收藏时间排列，新收藏的在前。</p>
+                <p className="m-0 text-[15px] text-muted">按加入时间排列，新加入的在前。</p>
               </div>
             )}
             {tabs.length > 1 && <Seg label="筛选" items={tabs} value={active} onChange={pick} className="max-md:w-full" />}

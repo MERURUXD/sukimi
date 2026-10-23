@@ -504,6 +504,6 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
   }
   return new Proxy(root, { get(target, key) {
     if (key in target) return Reflect.get(target, key)
-    return () => { throw new Error('这项功能需要连接服务器；演示模式只在本地运行') }
+    return () => { throw new Error('这项功能需要连接服务端；演示模式只在本地运行') }
   } })
 }

@@ -133,7 +133,7 @@ export function UpdatesPage() {
       shared &&
       !(await confirm({
         title: '停止检查更新？',
-        body: '检查更新由服务器上的所有账号共用，其他人发起的检查也会一起停止。已经找到的新章节会保留。',
+        body: '检查更新由服务端上的所有账号共用，其他人发起的检查也会一起停止。已经找到的新章节会保留。',
         ok: '停止',
         // 会停掉别人的检查：不默认聚焦确认按钮，避免误按回车
         danger: true,
@@ -177,7 +177,7 @@ export function UpdatesPage() {
       void syncTrackProgressMany(client, unread.map((c) => c.mangaId), still)
       if (filter === 'unread') void refetch({ offset: 0 })
     } catch (e) {
-      toastError('标记失败', e)
+      toastError('标为已读失败', e)
     }
   }
   const downloadAll = async () => {
@@ -187,7 +187,7 @@ export function UpdatesPage() {
       await enqueue({ variables: { ids } })
       toast(`已将 ${ids.length} 话加入下载队列`)
     } catch (e) {
-      toastError('加入下载失败', e)
+      toastError('加入下载队列失败', e)
     }
   }
 
@@ -281,7 +281,7 @@ export function UpdatesPage() {
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
                 const row = (c: UpdateChapter, nested = false) => (
-                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError('标记失败', e)) }} />
+                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError(c.isRead ? '标为未读失败' : '标为已读失败', e)) }} />
                 )
                 if (g.rows.length === 1) return row(g.rows[0])
                 const expanded = open.has(g.key)

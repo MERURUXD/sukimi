@@ -19,7 +19,7 @@ export function FavoriteButton({ mangaId, style, className }: { mangaId: number;
       await setFavorite([mangaId], !on)
       toast(on ? '已取消特别关心' : '已设为特别关心')
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('操作失败', e)
+      if (!(e instanceof StaleSessionError)) toastError(on ? '取消特别关心失败' : '设为特别关心失败', e)
     } finally {
       setBusy(false)
     }

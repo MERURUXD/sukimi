@@ -99,7 +99,7 @@ export function CategoryManager() {
       await update({ variables: { id: editing.id, patch: { name: editing.name.trim() } } })
       setEditing(null)
     } catch (err) {
-      toastError('改名失败', err)
+      toastError('重命名失败', err)
     }
   }
 
@@ -158,7 +158,7 @@ export function CategoryManager() {
               >
                 <RefreshCwOff className="size-[18px]" />
               </button>
-              <button type="button" className="gicon size-10" aria-label="改名" onClick={() => setEditing({ id: c.id, name: c.name })}>
+              <button type="button" className="gicon size-10" aria-label="重命名" onClick={() => setEditing({ id: c.id, name: c.name })}>
                 <Pencil className="size-[18px]" />
               </button>
               <button

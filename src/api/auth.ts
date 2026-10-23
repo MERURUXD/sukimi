@@ -137,9 +137,9 @@ async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V
       body: JSON.stringify({ query: print(doc), variables }),
     })
   } catch (e) {
-    throw new TypeError(`无法连接服务器：${(e as Error).message}`)
+    throw new TypeError(`无法连接服务端：${(e as Error).message}`)
   }
-  if (!res.ok && res.status >= 500) throw new TypeError(`服务器错误 ${res.status}`)
+  if (!res.ok && res.status >= 500) throw new TypeError(`服务端错误 ${res.status}`)
   const json = (await res.json()) as { data?: R; errors?: { message: string }[] }
   if (json.errors?.length || !json.data) {
     throw new AuthError(json.errors?.[0]?.message.split('\n')[0] ?? '请求失败')

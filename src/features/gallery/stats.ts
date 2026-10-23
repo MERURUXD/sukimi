@@ -292,7 +292,7 @@ export function kpiData(s: ReadingStats, works: number, run: ReturnType<typeof b
         unit: '天',
         caption: '近半年有阅读 · 按周',
         bars: weekActive(s.days).map((v, w) => ({ v, on: v > 0, lit: !!runWeeks && v > 0 && w >= runWeeks[0] && w <= runWeeks[1] })),
-        label: `近半年有 ${s.activeDays} 天有阅读`,
+        label: `近半年有 ${s.activeDays} 天阅读记录`,
       },
       {
         key: 'pages',
