@@ -126,8 +126,8 @@ export function AboutTab() {
           label="版本"
           hint={
             isPreview
-              ? 'Preview 构建，与日用版共用同一个服务端；更新 Preview 不影响日用版'
-              : '在项目目录运行 pnpm deploy:server 部署新版本；已打开的页面会提示刷新'
+              ? 'Preview 构建，与日用版共用同一服务端'
+              : '运行 pnpm deploy:server 部署更新，已打开页面会提示刷新'
           }
         >
           <div className="flex items-center gap-3">
@@ -139,7 +139,7 @@ export function AboutTab() {
           </div>
         </Row>
         {(import.meta.env.DEV || __APP_CHANNEL__ === 'preview') && (
-          <Row label="开发者工具箱" hint="环境诊断、批量导入测试漫画、清理本地缓存；日用版不包含">
+          <Row label="开发者工具箱" hint="环境诊断、批量导入测试漫画与本地缓存清理（仅开发与 Preview 提供）">
             <Link to="/devtools" className="gbtn plain rounded-full no-underline">
               <Wrench className="size-[18px]" strokeWidth={1.8} />
               打开
