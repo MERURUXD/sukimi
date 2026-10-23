@@ -22,7 +22,7 @@ interface AppearanceState {
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
   homeMotionBg: boolean
-  /** 冷启动打开首页时桌面「舞台」播一次开屏动画 */
+  /** 冷启动打开首页时桌面「舞台」播一次开屏动画，之后回到首页播轻进场 */
   homeIntro: boolean
   homeSections: Record<HomeContentSection, boolean>
   homeSectionOrder: HomeSection[]
