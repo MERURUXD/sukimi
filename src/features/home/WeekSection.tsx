@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, type Variants } from 'motion/react'
 import { ChevronRight, X } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode, type Ref } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { create } from 'zustand'
 import { resetOnUserContext } from '@/api/userContext'
@@ -134,7 +134,7 @@ export function WeekSection({ updates, partial, reads }: { updates: UpdateChapte
         <h2 id="h-week" className="m-0 text-[26px] font-bold">这一周</h2>
         <span className="text-sm text-muted">{summary}</span>
       </div>
-      {wide ? <WeekGrid days={week.days} lanes={week.lanes} /> : <WeekTabs days={week.days} lanes={week.lanes} />}
+      {wide ? <VisibleWeekGrid days={week.days} lanes={week.lanes} /> : <WeekTabs days={week.days} lanes={week.lanes} />}
     </section>
   )
 }
@@ -146,6 +146,45 @@ const GRID = 'grid grid-cols-[112px_repeat(7,minmax(0,1fr))] gap-x-1.5'
 const STACK = 3
 const cellId = (lane: LaneId, day: number) => `${lane}-${day}`
 const coverId = (cell: string, manga: number) => `week:${cell}:${manga}`
+
+function VisibleWeekGrid(props: { days: { name: string; date: string }[]; lanes: Lane[] }) {
+  const host = useRef<HTMLDivElement>(null)
+  const backwards = useRef<boolean | null>(null)
+  // 保留占位高度，屏外共享封面不参与开屏排版；托盘已展开的返回路径直接恢复完整布局。
+  const [visible, setVisible] = useState(() => useWeekTray.getState().open !== null)
+  useEffect(() => {
+    const el = host.current
+    if (!el || visible) return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      setVisible(true)
+      observer.disconnect()
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [visible])
+  useLayoutEffect(() => {
+    // 键盘进入屏外占位时按来路交给首格或末格，保留 Tab / Shift+Tab 的顺序。
+    const el = host.current
+    if (visible && el && backwards.current !== null) {
+      const cells = el.querySelectorAll<HTMLButtonElement>('[data-week-cell]')
+      const target = cells[backwards.current ? cells.length - 1 : 0]
+      backwards.current = null
+      target?.focus()
+    }
+  }, [visible])
+  return (
+    <div ref={host} role="group" aria-labelledby="h-week" tabIndex={visible ? undefined : 0}
+      onFocus={(e) => {
+        if (e.target !== e.currentTarget) return
+        backwards.current = e.relatedTarget instanceof Node && !!(e.currentTarget.compareDocumentPosition(e.relatedTarget) & Node.DOCUMENT_POSITION_FOLLOWING)
+        setVisible(true)
+      }}
+      style={visible ? undefined : { height: 36 + props.lanes.length * 146 }}>
+      {visible && <WeekGrid {...props} />}
+    </div>
+  )
+}
 
 function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lanes: Lane[] }) {
   const open = useWeekTray((s) => s.open)

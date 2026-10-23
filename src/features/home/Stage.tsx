@@ -92,13 +92,17 @@ function useDeckSize() {
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
+    let width = 0
     const measure = () => {
       const f = fitOf()
       setFit(f)
-      spread.set(Math.max(0.5, Math.min(1, (el.clientWidth / f / 2 - 16 - 105) / POSES[2].x)))
+      if (width) spread.set(Math.max(0.5, Math.min(1, (width / f / 2 - 16 - 105) / POSES[2].x)))
     }
-    measure()
-    const ro = new ResizeObserver(measure)
+    // 初次尺寸也由排版后的观察结果提供，挂载时读 clientWidth 会强制整个首页提前排版。
+    const ro = new ResizeObserver(([entry]) => {
+      width = entry.contentRect.width
+      measure()
+    })
     ro.observe(el)
     window.addEventListener('resize', measure)
     return () => {
@@ -116,7 +120,7 @@ interface Target { id: number; label: string; page: string; pct: number | null; 
  * 桌面首页「舞台」：在读的几部排成扇形，当前这部在中间，左右切换；背景沿用流动模糊封面。
  * 冷启动时封面从中间展开、文字依次出现（开屏动画，可在外观设置关闭）。
  */
-export function Stage({ items, active, onSelect, onShuffle, onDownload, background, target, meta }: {
+export function Stage({ items, active, onSelect, onShuffle, onDownload, background, target, meta, entrance }: {
   items: ReadChapter[]
   active: number
   onSelect: (i: number) => void
@@ -125,10 +129,11 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
   background: ReactNode
   target: Target | null
   meta: string
+  entrance: ReturnType<typeof useEntrance>
 }) {
   const reduced = useReducedMotion()
   // 进场动画播完前用它的时间线，之后切换都用弹簧
-  const { mode, entering } = useEntrance(true, true)
+  const { mode, entering } = entrance
   const intro = mode === 'intro'
   const light = mode === 'light'
 
@@ -265,7 +270,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
               </span>
               {target?.pct != null && (
                 <span style={delay(1.08, 0.18)} className={cn('prog mt-1 w-[300px] max-w-[80%]', rise)}>
-                  <motion.i initial={entering ? { width: 0 } : false} animate={{ width: `${target.pct}%` }} transition={{ duration: entering === 'intro' ? 1.1 : 0.8, delay: entering === 'intro' ? 1.35 : entering ? 0.3 : 0, ease: EASE }} />
+                  <motion.i style={{ width: '100%', transformOrigin: 'left' }} initial={entering ? { scaleX: 0 } : false} animate={{ scaleX: target.pct / 100 }} transition={{ duration: entering === 'intro' ? 1.1 : 0.8, delay: entering === 'intro' ? 1.35 : entering ? 0.3 : 0, ease: EASE }} />
                 </span>
               )}
             </div>

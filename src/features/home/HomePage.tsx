@@ -93,6 +93,8 @@ export function HomePage() {
   // 换页动画期间有缓存就只用缓存，落地后再去网络刷新：结果一到整页要重新渲染，和动画抢主线程会一顿一顿的（见 useLanded）
   const landed = useLanded()
   const reads = useQuery(RecentReads, { fetchPolicy: landed ? 'cache-and-network' : 'cache-first' })
+  const readsData = withSnapshot('recentReads', reads.data)
+  const entrance = useEntrance(stage, !!readsData || !reads.loading)
   // 和书库页共用同一份查询与快照，之后打开书库也不用再等
   const lib = useQuery(LibraryMangas)
   const updates = useQuery(RecentUpdates, {
@@ -107,10 +109,10 @@ export function HomePage() {
   const weekUpdatesQuery = useQuery(RecentUpdates, {
     variables: { first: WEEK_UPDATES_LIMIT, offset: 0, filter: weekFilter },
     fetchPolicy: landed ? 'cache-and-network' : 'cache-first',
-    skip: !homeSections.week,
+    // 开屏期间先显示已有的最近更新，完整一周的结果等落定后再替换，避免重新分组、挂载共享封面抢动画帧。
+    skip: !homeSections.week || entrance.entering === 'intro',
   })
   // 刷新页面后先用上次保存的数据，网络数据到了再替换
-  const readsData = withSnapshot('recentReads', reads.data)
   const updatesData = withSnapshot('recentUpdates', updates.data)
   const libData = withSnapshot('library', lib.data)
   // NSFW 作品在首页一律不出现（见 features/nsfw）：从源头去掉，大图区、书架和橱窗都不用各自判断
@@ -186,7 +188,7 @@ export function HomePage() {
   // 系统开启「减弱动态效果」时 Motion 的位移、缩放和布局动画都直接到位，只保留淡入淡出（全局 CSS 管不到 JS 动画）
   return (
     <MotionConfig reducedMotion="user">
-      <Hero items={hero.items} loading={!readsData} stage={stage} onShuffle={hero.more ? nextHero : undefined} />
+      <Hero items={hero.items} loading={!readsData} stage={stage} entrance={entrance} onShuffle={hero.more ? nextHero : undefined} />
       <div className="wrap pb-20">
         {homeSectionOrder.map((id) => content[id] && <Slot key={id} id={id}>{content[id]}</Slot>)}
       </div>
@@ -213,7 +215,7 @@ resetOnUserContext(() => {
   batches.clear()
 })
 
-function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; loading: boolean; stage: boolean; onShuffle?: () => void }) {
+function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapter[]; loading: boolean; stage: boolean; entrance: ReturnType<typeof useEntrance>; onShuffle?: () => void }) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
@@ -236,8 +238,8 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
   }
   const cur = items[activeIdx]
   const reducedMotion = useReducedMotion()
-  // 舞台自己决定进场方式；其余布局回到首页时文字和按钮轻轻浮起，封面不动（它是从详情页飞回的落点）
-  const { entering } = useEntrance(false, !!cur)
+  // 首页共用同一条进场时间线；其余布局只浮起文字和按钮，封面保持详情页飞回的落点。
+  const { entering } = entrance
   const rise = entering && 'rise-light'
   const delay = (d: number) => (entering ? { '--d': `${d}s` } as CSSProperties : undefined)
   const swipe = useHeroSwipe((direction) => setIdx(Math.max(0, Math.min(items.length - 1, activeIdx + direction))))
@@ -307,6 +309,7 @@ function Hero({ items, loading, stage, onShuffle }: { items: ReadChapter[]; load
     return (
       <Stage
         items={items}
+        entrance={entrance}
         active={activeIdx}
         onSelect={setIdx}
         onShuffle={onShuffle && shuffle}
@@ -529,13 +532,12 @@ function Shelf({ id, title, note, actions, children }: { id: string; title: stri
   const shelf = useRef<HTMLDivElement>(null)
   const scroll = (d: number) => shelf.current?.scrollBy({ left: d * shelf.current.clientWidth * 0.8, behavior: 'smooth' })
   // 作品不满一行时箭头翻不动，干脆不显示。作品数变化时容器宽度不变，ResizeObserver 不会触发，所以按数量重新量
-  const [overflow, setOverflow] = useState(true)
+  const [overflow, setOverflow] = useState(false)
   const count = Children.count(children)
   useLayoutEffect(() => {
     const el = shelf.current
     if (!el) return
     const measure = () => setOverflow(el.scrollWidth > el.clientWidth + 1)
-    measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
