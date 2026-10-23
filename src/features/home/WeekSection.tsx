@@ -345,9 +345,17 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
   const n = entries.length
   // 最近阅读一栏没有已读、未读之分；更新的栏目里没读完的已排在前面（见 updateLane）
   const unread = lane.id === 'recent' ? n : entries.filter((e) => e.unread).length
-  const split = unread > 0 && unread < n
+  // 先铺出前几部，其余点「显示更多」再分批加；from 是这一批的起点，新加的几张从头错开淡入
+  const [page, setPage] = useState({ shown: TRAY_LIMIT, from: 0 })
+  const shown = Math.min(n, page.shown)
+  const shownUnread = Math.min(unread, shown)
+  const more = () => {
+    setPage({ shown: shown + TRAY_MORE, from: shown })
+    // 托盘变高：和展开时一样让首页各模块跟着排一次版
+    useWeekTray.setState((s) => ({ rev: s.rev + 1 }))
+  }
   const item = (e: Entry, i: number) => (
-    <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
+    <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i - (i >= page.from ? page.from : 0)} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
   )
   return (
     // 脱离文档流时按量到的边框位置定位，外边距要去掉，否则会再偏一次
@@ -377,19 +385,37 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
           <X className="size-4" strokeWidth={2} />
         </MotionGlass>
       </div>
-      {split ? (
+      {unread > 0 && unread < n ? (
         <>
           <TrayHeading>未读 · {unread} 部</TrayHeading>
-          <div className={TRAY_GRID}>{entries.slice(0, unread).map((e, i) => item(e, i))}</div>
-          <TrayHeading className="mt-7">已读 · {n - unread} 部</TrayHeading>
-          <div className={TRAY_GRID}>{entries.slice(unread).map((e, i) => item(e, unread + i))}</div>
+          <div className={TRAY_GRID}>{entries.slice(0, shownUnread).map((e, i) => item(e, i))}</div>
+          {shown > unread && (
+            <>
+              <TrayHeading className="mt-7">已读 · {n - unread} 部</TrayHeading>
+              <div className={TRAY_GRID}>{entries.slice(unread, shown).map((e, i) => item(e, unread + i))}</div>
+            </>
+          )}
         </>
       ) : (
-        <div className={TRAY_GRID}>{entries.map(item)}</div>
+        <div className={TRAY_GRID}>{entries.slice(0, shown).map(item)}</div>
+      )}
+      {shown < n && (
+        <div className="relative mt-6 flex justify-center">
+          <MotionGlass as="button" className="gbtn rounded-full" onClick={more} {...headerFade}>
+            显示更多 · 还有 {n - shown} 部
+          </MotionGlass>
+        </div>
       )}
     </motion.div>
   )
 }
+
+/**
+ * 托盘先铺出几部、每次再加几部。更新按抓取时间分天，很久没检查更新时一天会抓到几百部，
+ * 全铺开既让展开卡一下，也把下面的模块推出好几屏。
+ */
+const TRAY_LIMIT = 24
+const TRAY_MORE = 48
 
 const TRAY_GRID = 'relative grid grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-x-3.5 gap-y-5'
 
@@ -473,12 +499,32 @@ function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lan
               <span className="text-[13px] text-muted">{lane.id === 'recent' ? `读了 ${lane.days[sel].length} 部` : `${lane.chapters[sel]} 话新章节`}</span>
             </div>
             <div className="-mx-1 grid snap-x auto-cols-[96px] grid-flow-col gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] sm:auto-cols-[120px]">
-              {lane.days[sel].map((e) => <RailItem key={e.manga.id} entry={e} />)}
+              <Rail key={sel} entries={lane.days[sel]} />
             </div>
           </div>
         ))}
       </div>
     </div>
+  )
+}
+
+/** 书架同样分批，原因见 TRAY_LIMIT；末尾一格点了再往后加，换日期时从头算（key 带日期） */
+const RAIL_LIMIT = 20
+
+function Rail({ entries }: { entries: Entry[] }) {
+  const [shown, setShown] = useState(RAIL_LIMIT)
+  const rest = entries.length - shown
+  return (
+    <>
+      {entries.slice(0, shown).map((e) => <RailItem key={e.manga.id} entry={e} />)}
+      {rest > 0 && (
+        <button type="button" onClick={() => setShown((v) => v + RAIL_LIMIT * 2)} className="flex min-w-0 snap-start flex-col gap-1.5 text-left text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text">
+          <span className="grid aspect-[2/3] place-items-center rounded-[10px] bg-hover text-[15px] font-extrabold num">+{rest}</span>
+          <span className="truncate text-[13px] font-semibold">显示更多</span>
+          <span className="-mt-1 truncate text-[11px] text-muted">还有 {rest} 部</span>
+        </button>
+      )}
+    </>
   )
 }
 
