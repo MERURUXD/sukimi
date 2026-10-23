@@ -1,7 +1,7 @@
 import { useDrag } from '@use-gesture/react'
 import { animate, AnimatePresence, motion, useMotionValue, useReducedMotion, useTransform, type MotionValue } from 'motion/react'
 import { Download, Play, Shuffle } from 'lucide-react'
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type WheelEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type WheelEvent } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { Can } from '@/features/auth/Can'
 import { Glass } from '@/components/glass/Glass'
@@ -113,6 +113,108 @@ function useDeckSize() {
   return [ref, spread, fit] as const
 }
 const EASE = [0.2, 0, 0, 1] as const
+const nativeEntrance = () => typeof Element.prototype.animate === 'function'
+
+const fanTransform = (p: ReturnType<typeof poseAt>, spread: number, f: number) =>
+  `translateX(${p.x * spread * f}px) scale(${1 - (1 - p.scale) * f}) rotateY(${p.rotateY * f}deg)`
+
+/** 展开用浏览器原生 transform 时间线；只有用户中途操作时才交回跟手的 MotionValue。 */
+function useFanEntrance(deck: RefObject<HTMLDivElement | null>, pos: MotionValue<number>, spread: MotionValue<number>, order: string, n: number, mode: Entrance | null, reduced: boolean) {
+  const fan = useMotionValue(1)
+  const stop = useRef<() => void>(() => {})
+  const startedAt = useRef<number | null>(null)
+  useLayoutEffect(() => {
+    if (reduced) { fan.set(1); return }
+    if (!mode || !deck.current) return
+    const from = mode === 'intro' ? 0 : 0.8
+    const duration = mode === 'intro' ? 900 : 700
+    const delay = mode === 'intro' ? 600 : 0
+    const now = document.timeline.currentTime
+    if (typeof now !== 'number' || !nativeEntrance()) {
+      fan.set(from)
+      const animation = animate(fan, 1, { duration: duration / 1000, delay: delay / 1000, ease: EASE })
+      return () => animation.stop()
+    }
+    startedAt.current ??= now
+    const start = startedAt.current
+    if (now - start >= delay + duration) { fan.set(1); return }
+    fan.set(1)
+    const all = [...deck.current.querySelectorAll<HTMLElement>('[data-fan-card]')].map((el) => {
+      const j = Number(el.dataset.fanCard)
+      return { el, j, pose: poseAt(wrap(j - pos.get(), n), n) }
+    })
+    const cards = all.filter((c) => c.pose.x !== 0)
+    const frames = (c: typeof cards[number]) => [
+      { transform: fanTransform(c.pose, spread.get(), from) },
+      { transform: fanTransform(c.pose, spread.get(), 1) },
+    ]
+    const animations = cards.map((c) => {
+      const animation = c.el.animate(frames(c), { duration, delay, easing: 'cubic-bezier(.2,0,0,1)', fill: 'backwards' })
+      animation.startTime = start
+      return animation
+    })
+    // 外层的淡入和缩放也交给同一浏览器时钟，否则内层继续展开、外层仍会在忙完后跳一下。
+    const reveals = all.flatMap((c) => {
+      const rank = Math.round(Math.abs(wrap(c.j - pos.get(), n)))
+      if (mode === 'light' && rank === 0) return []
+      const transform = mode === 'intro' ? `translateY(${rank ? 0 : 70}px) scale(${rank ? 0.8 : 0.86})` : 'none'
+      const animation = c.el.parentElement!.animate([
+        { opacity: 0, transform }, { opacity: 1, transform: 'translateY(0px) scale(1)' },
+      ], {
+        duration: mode === 'light' ? 500 : rank ? 900 : 1000,
+        delay: mode === 'light' ? (rank === 1 ? 0 : 60) : rank === 0 ? 250 : rank === 1 ? 600 : 750,
+        easing: 'cubic-bezier(.2,0,0,1)', fill: 'backwards',
+      })
+      animation.startTime = start
+      return [animation]
+    })
+    let playing = true
+    let takeover: ReturnType<typeof animate> | undefined
+    const interrupt = () => {
+      if (!playing || !cards.length) return
+      playing = false
+      // 只在交接那一刻读取浏览器实际姿态，避免主线程忙过一阵后从过时的位置接着拖。
+      const first = cards[0]
+      const x = new DOMMatrixReadOnly(getComputedStyle(first.el).transform).m41
+      const f = Math.max(from, Math.min(1, x / (first.pose.x * spread.get())))
+      fan.set(f)
+      cards.forEach((c) => { c.el.style.transform = fanTransform(poseAt(wrap(c.j - pos.get(), n), n), spread.get(), f) })
+      animations.forEach((animation) => animation.cancel())
+      const elapsed = Number(document.timeline.currentTime) - start
+      takeover = animate(fan, 1, { duration: Math.max(0.12, Math.min(duration, delay + duration - elapsed) / 1000), ease: EASE })
+    }
+    stop.current = interrupt
+    const offPos = pos.on('change', interrupt)
+    const offSpread = spread.on('change', () => {
+      if (!playing) return
+      // 尺寸变化只更新关键帧，沿用同一时钟，不能重新播放展开。
+      animations.forEach((animation, i) => (animation.effect as KeyframeEffect).setKeyframes(frames(cards[i])))
+    })
+    const preference = matchMedia('(prefers-reduced-motion: reduce)')
+    const finish = () => {
+      if (!preference.matches) return
+      playing = false
+      takeover?.stop()
+      fan.set(1)
+      animations.forEach((animation) => animation.cancel())
+      reveals.forEach((animation) => animation.cancel())
+    }
+    preference.addEventListener('change', finish)
+    void Promise.all(animations.map((animation) => animation.finished)).then(() => { playing = false }).catch(() => {})
+    reveals.forEach((animation) => { void animation.finished.catch(() => {}) })
+    return () => {
+      playing = false
+      if (stop.current === interrupt) stop.current = () => {}
+      offPos()
+      offSpread()
+      preference.removeEventListener('change', finish)
+      animations.forEach((animation) => animation.cancel())
+      reveals.forEach((animation) => animation.cancel())
+      takeover?.stop()
+    }
+  }, [deck, pos, spread, order, n, mode, fan, reduced])
+  return { fan, interrupt: () => stop.current() }
+}
 
 interface Target { id: number; label: string; page: string; pct: number | null; isNext: boolean }
 
@@ -151,11 +253,8 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
   const pos = useMotionValue(active)
   const goal = useRef(active)
   // 轻进场时两侧封面从中间那张背后略微展开；中间那张不受 fan 影响，从详情页飞回的封面落点不变
-  const fan = useMotionValue(intro ? 0 : light ? 0.8 : 1)
-  useEffect(() => {
-    if (intro) animate(fan, 1, { duration: 0.9, delay: 0.6, ease: EASE })
-    else if (light) animate(fan, 1, { duration: 0.7, ease: EASE })
-  }, [intro, light, fan])
+  // 查询补齐时可能只重排作品、不改变数量；原生关键帧也要跟着新顺序更新，但不重启时钟。
+  const { fan, interrupt } = useFanEntrance(deck, pos, spread, items.map((c) => c.manga.id).join(','), n, mode, !!reduced)
   const settle = (to: number) => {
     const k = Math.round(to)
     goal.current = k
@@ -179,6 +278,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
     if (tap) return
     const start: number = first || memo === undefined ? pos.get() : memo
     if (first) {
+      interrupt()
       pos.stop()
       dragged.current = false
     }
@@ -195,6 +295,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
   const wheelTimer = useRef(0)
   const onWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (n < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+    interrupt()
     pos.stop()
     pos.set(pos.get() + e.deltaX / step())
     clearTimeout(wheelTimer.current)
@@ -240,7 +341,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
         >
           <div className="absolute inset-x-0 top-0" style={{ height: DECK_H, transform: fit < 1 ? `scale(${fit})` : undefined, transformOrigin: '50% 0' }}>
             {items.map((c, j) => (
-              <FanCard key={c.manga.id} c={c} j={j} n={n} center={j === active} pos={pos} fan={fan} spread={spread} entrance={mode} onSelect={() => onSelect(j)} />
+              <FanCard key={c.manga.id} c={c} j={j} n={n} center={j === active} pos={pos} fan={fan} spread={spread} entrance={entering} onSelect={() => { interrupt(); onSelect(j) }} />
             ))}
           </div>
         </div>
@@ -304,7 +405,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
             </Glass>
           </Can>
           {onShuffle && (
-            <Glass as="button" type="button" className="gicon size-[54px] rounded-full" onClick={onShuffle} aria-label="换一批继续阅读" title="换一批">
+            <Glass as="button" type="button" className="gicon size-[54px] rounded-full" onClick={() => { interrupt(); onShuffle() }} aria-label="换一批继续阅读" title="换一批">
               <Shuffle className="size-5" strokeWidth={1.8} />
             </Glass>
           )}
@@ -346,12 +447,12 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect }: {
     <motion.div
       className="pointer-events-none absolute inset-0 [perspective:1400px]"
       style={{ zIndex }}
-      initial={initial}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
+      initial={nativeEntrance() ? false : initial}
+      animate={nativeEntrance() ? undefined : { opacity: 1, y: 0, scale: 1 }}
       transition={entrance === 'light' ? { duration: 0.5, delay: rank === 1 ? 0 : 0.06, ease: EASE } : { duration: rank ? 0.9 : 1, delay: rank === 0 ? 0.25 : rank === 1 ? 0.6 : 0.75, ease: EASE }}
       data-sfw={sfwAttr(m.source?.displayName)}
     >
-      <motion.div className="pointer-events-auto absolute top-0 left-1/2 -ml-[138px] h-[414px] w-[276px]" style={{ x, rotateY, scale, opacity }}>
+      <motion.div data-fan-card={j} className="pointer-events-auto absolute top-0 left-1/2 -ml-[138px] h-[414px] w-[276px]" style={{ x, rotateY, scale, opacity }}>
         {center ? (
           <Link to={`/manga/${m.id}`} viewTransition draggable={false} data-hero-art-link aria-label={`查看《${m.title}》详情`} className="cv size-full rounded-[18px] shadow-[0_36px_70px_rgba(0,0,0,.38),0_0_0_1px_rgba(255,255,255,.08)]">
             {cover}
