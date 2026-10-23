@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, MoreHorizontal, RefreshCw, Square, Star } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, RefreshCw, Square, Star } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { captureUser } from '@/api/userContext'
 import { syncTrackProgressMany } from '@/features/tracking/sync'
@@ -14,7 +14,6 @@ import { DownloadPill } from '@/components/manga/DownloadPill'
 import { confirm } from '@/components/ui/Confirm'
 import { LoadError } from '@/components/ui/LoadError'
 import { Seg } from '@/components/ui/Seg'
-import { Popover } from '@/components/ui/Popover'
 import { ContextMenu, isMouseContext, useContextMenu } from '@/components/ui/ContextMenu'
 import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useFavorites } from '@/features/favorite/useFavorites'
@@ -174,34 +173,41 @@ export function UpdatesPage() {
   /* 右键 / 长按某一行：特别关心、稍后再看 */
   const ctx = useContextMenu<UpdateChapter['manga']>()
 
-  /* 批量 */
+  /* 按天批量操作 */
   const [update] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
   const queue = useLive((s) => s.queue)
   const queued = useMemo(() => new Map(queue.map((d) => [d.chapter.id, d])), [queue])
 
-  const markAllRead = async () => {
-    const unread = list.filter((c) => !c.isRead)
+  const markDayRead = async (label: string, rows: UpdateChapter[]) => {
+    const unread = rows.filter((c) => !c.isRead)
     const ids = unread.map((c) => c.id)
-    if (!ids.length) return toast('列表里没有未读章节')
+    if (!ids.length) return toast(`${label}没有未读章节`)
     const still = captureUser()
     try {
       await update({ variables: { ids, patch: { isRead: true } } })
-      // 全部读完后按时间排，不再留着之前单独点过的组
-      setHeld(new Map())
-      toast(`已将 ${ids.length} 话标为已读`)
+      // 这一天全部读完后重排当天分组，不再留着之前单独点过的原档位
+      setHeld((prev) => {
+        if (prev.size === 0) return prev
+        const next = new Map(prev)
+        for (const k of next.keys()) {
+          if (k.startsWith(`${label}#`)) next.delete(k)
+        }
+        return next
+      })
+      toast(`已将${label}的 ${ids.length} 话标为已读`)
       void syncTrackProgressMany(client, unread.map((c) => c.mangaId), still)
       if (filter === 'unread') void refetch({ offset: 0 })
     } catch (e) {
       toastError('标为已读失败', e)
     }
   }
-  const downloadAll = async () => {
-    const ids = list.filter((c) => !c.isRead && !c.isDownloaded && !queued.has(c.id)).map((c) => c.id)
-    if (!ids.length) return toast('列表里的未读章节都已下载')
+  const downloadDay = async (label: string, rows: UpdateChapter[]) => {
+    const ids = rows.filter((c) => !c.isRead && !c.isDownloaded && !queued.has(c.id)).map((c) => c.id)
+    if (!ids.length) return toast(`${label}的未读章节都已下载`)
     try {
       await enqueue({ variables: { ids } })
-      toast(`已将 ${ids.length} 话加入下载队列`)
+      toast(`已将${label}的 ${ids.length} 话加入下载队列`)
     } catch (e) {
       toastError('加入下载队列失败', e)
     }
@@ -261,17 +267,6 @@ export function UpdatesPage() {
               value={filter}
               onChange={setFilter}
             />
-            <div className="hidden items-center gap-3 md:flex">
-              <Glass as="button" type="button" className="gbtn rounded-full" onClick={markAllRead}>
-                全部标为已读
-              </Glass>
-              <Can permission="DOWNLOAD_CHAPTERS">
-                <Glass as="button" type="button" className="gbtn rounded-full" onClick={downloadAll}>
-                  下载全部未读
-                </Glass>
-              </Can>
-            </div>
-            <UpdatesMore onMarkRead={markAllRead} onDownload={downloadAll} />
           </div>}
         </header>
         {updater.isRunning && (
@@ -284,14 +279,58 @@ export function UpdatesPage() {
         )}
 
         {view === 'calendar' ? <UpdateCalendar /> : <section aria-label="新章节" className="pb-6">
-          {data && list.length === 0 && !noFavorites && <p className="py-20 text-center text-muted">没有符合条件的章节</p>}
-          {noFavorites && favorites.map && <p className="py-20 text-center text-muted">还没有特别关心的漫画。在漫画详情页点星标，或右键、长按这里的条目设置。</p>}
-          {days.map((d, di) => (
+          {data && list.length === 0 && !noFavorites && (
+            <div className="flex flex-col items-center gap-3 py-20 text-center text-muted">
+              <p className="m-0">没有符合条件的章节</p>
+              {filter !== 'all' && (
+                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
+                  查看全部更新
+                </Glass>
+              )}
+            </div>
+          )}
+          {noFavorites && favorites.map && (
+            <div className="flex flex-col items-center gap-3 py-20 text-center text-muted">
+              <p className="m-0">还没有特别关心的漫画。在漫画详情页点星标，或右键、长按这里的条目设置。</p>
+              <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
+                查看全部更新
+              </Glass>
+            </div>
+          )}
+          {days.map((d, di) => {
+            const unreadCount = d.rows.filter((c) => !c.isRead).length
+            return (
             <div key={d.label}>
-              <h2 className="mt-[26px] mb-2.5 flex items-baseline gap-2.5 text-lg font-bold lg:text-xl">
-                {d.label}
-                <span className="text-[13px] font-medium text-muted">{d.rows.length} 话</span>
-              </h2>
+              <div className="mt-[26px] mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="m-0 flex items-baseline gap-2.5 text-lg font-bold lg:text-xl">
+                  {d.label}
+                  <span className="text-[13px] font-medium text-muted num">{d.rows.length} 话</span>
+                </h2>
+                {unreadCount > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="gbtn min-h-9 rounded-full px-3 text-[13px] text-muted hover:bg-hover hover:text-text"
+                      aria-label={`将${d.label}的 ${unreadCount} 话未读标为已读`}
+                      onClick={() => void markDayRead(d.label, d.rows)}
+                    >
+                      <BookCheck className="size-4" strokeWidth={1.8} />
+                      当日已读
+                    </button>
+                    <Can permission="DOWNLOAD_CHAPTERS">
+                      <button
+                        type="button"
+                        className="gbtn min-h-9 rounded-full px-3 text-[13px] text-muted hover:bg-hover hover:text-text"
+                        aria-label={`下载${d.label}的未读章节`}
+                        onClick={() => void downloadDay(d.label, d.rows)}
+                      >
+                        <Download className="size-4" strokeWidth={1.8} />
+                        下载未读
+                      </button>
+                    </Can>
+                  </div>
+                )}
+              </div>
               {/* 宽屏分两栏，条目才能放大又不在右边空出一大片；items-start 让展开的组只撑高自己 */}
               <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
               {d.groups.map((g, gi) => {
@@ -319,7 +358,7 @@ export function UpdatesPage() {
               })}
               </div>
             </div>
-          ))}
+          )})}
           <div ref={sentinel} />
           {loading && !data && <RowsSkeleton />}
           {updates.error && !data && <LoadError message={updates.error.message} onRetry={() => void refetch().catch(() => {})} />}
@@ -345,55 +384,6 @@ function nextCheck(last: number, hours: number | null | undefined) {
   // dayLabel 只会往回数，往后的日子在这里单独说
   const days = Math.round((new Date(new Date(at).toDateString()).getTime() - new Date(new Date().toDateString()).getTime()) / 86_400_000)
   return `下次检查 ${days === 0 ? '今天' : days === 1 ? '明天' : formatDate(at)} ${clock(at)}`
-}
-
-function UpdatesMore({ onMarkRead, onDownload }: { onMarkRead: () => Promise<void>; onDownload: () => Promise<void> }) {
-  const [open, setOpen] = useState(false)
-  const id = useId()
-  const trigger = useRef<HTMLButtonElement>(null)
-  const firstAction = useRef<HTMLButtonElement>(null)
-  const close = () => {
-    setOpen(false)
-    trigger.current?.focus()
-  }
-  useEffect(() => {
-    if (!open) return
-    firstAction.current?.focus()
-    // 宽屏直接展示批量按钮，切换到宽屏时关闭手机弹层。
-    const desktop = window.matchMedia('(min-width: 768px)')
-    const changed = () => { if (desktop.matches) setOpen(false) }
-    desktop.addEventListener('change', changed)
-    return () => desktop.removeEventListener('change', changed)
-  }, [open])
-
-  return (
-    <div className="shrink-0 md:hidden">
-      <Popover
-        open={open}
-        onClose={close}
-        id={id}
-        label="更新批量操作"
-        className="w-[224px] max-w-[calc(100vw-32px)]"
-        trigger={
-          <Glass as="button" ref={trigger} type="button" className="gicon rounded-full" aria-label="更多更新操作" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen((v) => !v)}>
-            <MoreHorizontal className="size-5" strokeWidth={1.8} />
-          </Glass>
-        }
-      >
-        <p className="pop-h">批量操作</p>
-        <button ref={firstAction} type="button" className="opt min-h-11" onClick={() => { close(); void onMarkRead() }}>
-          <BookCheck className="size-[18px] shrink-0" strokeWidth={1.8} />
-          全部标为已读
-        </button>
-        <Can permission="DOWNLOAD_CHAPTERS">
-          <button type="button" className="opt min-h-11" onClick={() => { close(); void onDownload() }}>
-            <Download className="size-[18px] shrink-0" strokeWidth={1.8} />
-            下载全部未读
-          </button>
-        </Can>
-      </Popover>
-    </div>
-  )
 }
 
 /** 第几条（跨日期分组，日期标题也算一格），给进场动画排延迟 */

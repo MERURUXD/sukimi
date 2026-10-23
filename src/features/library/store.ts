@@ -41,6 +41,7 @@ interface LibraryView {
   setCategory: (c: LibraryTab) => void
   cycleFilter: (k: FilterKey) => void
   clearFilter: (k: FilterKey) => void
+  resetFilters: () => void
   pickSort: (k: SortKey) => void
   setDensity: (d: Density) => void
   toggleSource: (id: string) => void
@@ -84,6 +85,7 @@ export const useLibraryView = create<LibraryView>()(
       setCategory: (category) => set({ category }),
       cycleFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: ((s.filters[k] + 1) % 3) as TriState } })),
       clearFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: 0 } })),
+      resetFilters: () => set({ filters: NO_FILTERS, sources: [] }),
       // 再点一次当前排序 = 切换方向；标题默认正序，其他默认倒序
       pickSort: (k) => set((s) => (s.sort === k ? { desc: !s.desc } : { sort: k, desc: k !== 'title' })),
       setDensity: (density) => set({ density }),
