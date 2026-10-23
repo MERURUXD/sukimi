@@ -225,10 +225,14 @@ function close(id: string) {
   document.querySelector<HTMLElement>(`[data-week-cell="${id}"]`)?.focus({ preventScroll: true })
 }
 
-/** 叠起的封面：悬停时稍微散开，提示可以点开 */
+/**
+ * 叠起的封面：悬停时稍微散开，提示可以点开。
+ * 偏移用 left / top、倾角用 rotate，全都放在带 layoutId 的封面自己身上：外层若带 transform（位移或旋转），
+ * Motion 的布局投影不会补偿它，收起时封面会先被带偏再飞回，下方内容移动时叠放的几张也会各飘各的。
+ */
 const stackCover: Variants = {
-  rest: (back: number) => ({ x: back * 14, y: back * 3, rotate: back * 3 }),
-  spread: (back: number) => ({ x: back * 24, y: back * 3, rotate: back * 7 }),
+  rest: (back: number) => ({ left: back * 14, top: back * 3, rotate: back * 3, transition: spring.fast }),
+  spread: (back: number) => ({ left: back * 24, top: back * 3, rotate: back * 7, transition: spring.fast }),
 }
 
 /** 恢复挂载时共享封面的位移时长为 0，直接落在终点 */
@@ -255,10 +259,9 @@ function Stack({ id, entries, open, instant, label, sub }: { id: string; entries
       <span aria-hidden className="relative block h-[78px] w-full">
         {top.map((e, i) => {
           const back = top.length - 1 - i
-          // 偏移和倾角放在外层：里层带 layoutId 的封面量到的是含偏移的位置，飞出、飞回都对得上
           return (
-            <motion.span key={e.manga.id} custom={back} variants={stackCover} transition={spring.fast} data-sfw={sfwAttr(e.manga.source?.displayName)} className="absolute top-0 left-0 block w-12" style={{ zIndex: STACK - back }}>
-              <motion.span layoutId={coverId(id, e.manga.id)} layoutCrossfade={false} transition={instant ? INSTANT : spring.default} className="cv rounded-[7px] shadow-[0_6px_14px_rgba(0,0,0,.18)]">
+            <motion.span key={e.manga.id} data-sfw={sfwAttr(e.manga.source?.displayName)} className="absolute top-0 left-0 block w-12" style={{ zIndex: STACK - back }}>
+              <motion.span custom={back} variants={stackCover} layoutId={coverId(id, e.manga.id)} layoutCrossfade={false} transition={instant ? INSTANT : spring.default} className="cv rounded-[7px] shadow-[0_6px_14px_rgba(0,0,0,.18)]">
                 <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
               </motion.span>
             </motion.span>
