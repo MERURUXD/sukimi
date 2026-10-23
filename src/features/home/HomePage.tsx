@@ -559,7 +559,8 @@ function Shelf({ id, title, note, actions, children }: { id: string; title: stri
           )}
         </div>
       </div>
-      <div ref={shelf} className="-mx-1 grid snap-x auto-cols-[140px] grid-flow-col gap-[22px] overflow-x-auto px-1 pt-1 pb-3 [scrollbar-width:none] sm:auto-cols-[176px]">
+      {/* 横向滚动容器会裁掉封面阴影（模糊半径 28px），所以四周留出内边距再用负边距抵回；AppShell 已 clip 横向溢出 */}
+      <div ref={shelf} className="-mx-7 -mt-4 grid scroll-pl-7 snap-x auto-cols-[140px] grid-flow-col gap-[22px] overflow-x-auto px-7 pt-5 pb-3 [scrollbar-width:none] sm:auto-cols-[176px]">
         {children}
       </div>
     </section>
