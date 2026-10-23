@@ -37,6 +37,8 @@ interface Entry {
   badge?: string
   /** 读到的进度（%），只有最近阅读有 */
   pct?: number
+  /** 当天这部里还有几话没读；只有两条更新的行有，读完为 0 */
+  unread?: number
 }
 
 interface Lane {
@@ -63,11 +65,14 @@ function updateLane(id: LaneId, name: string, days: DayGroup<UpdateChapter>[][])
   return {
     id, name, chapters, mangas: new Set(days.flat().map((g) => g.mangaId)).size,
     total: `本周 ${chapters.reduce((a, b) => a + b, 0)} 话`,
-    days: days.map((groups, day) => groups.map(({ items }) => {
+    // 一天里没读完的排在前面，同一类里仍按时间。叠放取前几张、托盘按下标认领共享封面，所以只在这里排一次
+    days: days.map((groups, day) => groups.map(({ items }): Entry => {
       const c = items[0]
       const t = when(sec(c.fetchedAt), day)
-      return { manga: c.manga, sub: items.length > 1 ? `${items.length} 话 · ${t}` : `${chapterLabel(c)} · ${t}`, badge: items.length > 1 ? `+${items.length}` : undefined }
-    })),
+      const unread = items.filter((i) => !i.isRead).length
+      const left = items.length > 1 && unread > 0 && unread < items.length ? ` · ${unread} 话未读` : ''
+      return { manga: c.manga, sub: items.length > 1 ? `${items.length} 话${left} · ${t}` : `${chapterLabel(c)} · ${t}`, badge: items.length > 1 ? `+${items.length}` : undefined, unread }
+    }).sort((a, b) => Number(!a.unread) - Number(!b.unread))),
   }
 }
 
@@ -303,6 +308,7 @@ function Stack({ id, entries, open, instant, label, sub }: { id: string; entries
             <motion.span key={e.manga.id} data-sfw={sfwAttr(e.manga.source?.displayName)} className="absolute top-0 left-0 block w-12" style={{ zIndex: STACK - back }}>
               <motion.span custom={back} variants={stackCover} layoutId={coverId(id, e.manga.id)} layoutCrossfade={false} transition={instant ? INSTANT : spring.default} className="cv rounded-[7px] shadow-[0_6px_14px_rgba(0,0,0,.18)]">
                 <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
+                {e.unread === 0 && <ReadVeil />}
               </motion.span>
             </motion.span>
           )
@@ -340,6 +346,12 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
     } else navigate(lane.id === 'updates' ? '/updates' : '/history')
   }
   const n = entries.length
+  // 最近阅读一栏没有已读、未读之分；更新的栏目里没读完的已排在前面（见 updateLane）
+  const unread = lane.id === 'recent' ? n : entries.filter((e) => e.unread).length
+  const split = unread > 0 && unread < n
+  const item = (e: Entry, i: number) => (
+    <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
+  )
   return (
     // 脱离文档流时按量到的边框位置定位，外边距要去掉，否则会再偏一次
     <motion.div ref={ref} id={`tray-${id}`} role="region" aria-label={`${dayName} · ${lane.name}`} className="relative mt-2.5 mb-5 ml-[118px] px-[22px] pt-5 pb-6 data-motion-pop-id:m-0">
@@ -358,7 +370,7 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
       <div className="relative mb-[18px] flex items-center gap-2.5">
         <motion.div className="min-w-0 flex-1" {...headerFade}>
           <div className="text-[17px] font-extrabold">{dayName} · {lane.name}</div>
-          <div className="mt-1 text-[13px] text-muted">{lane.id === 'recent' ? `读了 ${n} 部` : `${n} 部 · ${lane.chapters[day]} 话新章节`}</div>
+          <div className="mt-1 text-[13px] text-muted">{lane.id === 'recent' ? `读了 ${n} 部` : `${n} 部 · ${lane.chapters[day]} 话新章节 · ${unread ? `${unread} 部未读` : '都读过了'}`}</div>
         </motion.div>
         <MotionGlass as="button" className="gbtn flex-none rounded-full" onClick={go} {...headerFade}>
           {LANE_LINK[lane.id]}
@@ -368,13 +380,25 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
           <X className="size-4" strokeWidth={2} />
         </MotionGlass>
       </div>
-      <div className="relative grid grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-x-3.5 gap-y-5">
-        {entries.map((e, i) => (
-          <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
-        ))}
-      </div>
+      {split ? (
+        <>
+          <TrayHeading>未读 · {unread} 部</TrayHeading>
+          <div className={TRAY_GRID}>{entries.slice(0, unread).map((e, i) => item(e, i))}</div>
+          <TrayHeading className="mt-7">已读 · {n - unread} 部</TrayHeading>
+          <div className={TRAY_GRID}>{entries.slice(unread).map((e, i) => item(e, unread + i))}</div>
+        </>
+      ) : (
+        <div className={TRAY_GRID}>{entries.map(item)}</div>
+      )}
     </motion.div>
   )
+}
+
+const TRAY_GRID = 'relative grid grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-x-3.5 gap-y-5'
+
+/** 托盘里「未读 / 已读」的小标题，和标题行一样晚一点淡入、收起时先淡出 */
+function TrayHeading({ className, children }: { className?: string; children: ReactNode }) {
+  return <motion.div className={cn('relative mb-3 text-[13px] font-bold text-muted', className)} {...headerFade}>{children}</motion.div>
 }
 
 /** 叠放里的几张从原位飞出（共享元素，位置实测）；其余的随后淡入，收起时先淡出 */
@@ -394,17 +418,26 @@ function TrayItem({ entry, layoutId, instant, index, back }: { entry: Entry; lay
         transition={instant ? INSTANT : spring.default}
       >
         <CoverImg src={manga.thumbnailUrl} loading="lazy" />
+        {entry.unread === 0 && <ReadVeil />}
         {entry.badge && <Badge>{entry.badge}</Badge>}
         {entry.pct !== undefined && (
           <span className="absolute inset-x-0 bottom-0 z-[2] h-1 bg-black/30"><i className="block h-full bg-white" style={{ width: `${entry.pct}%` }} /></span>
         )}
       </motion.span>
       <motion.span className="flex min-w-0 flex-col" initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { ...fade.default, delay: 0.15 } }} exit={{ opacity: 0, transition: fade.fast }}>
-        <span className="truncate text-sm font-semibold">{manga.title}</span>
+        <span className={cn('truncate text-sm', entry.unread === 0 ? 'font-medium text-muted' : 'font-semibold')}>{manga.title}</span>
         <span className="mt-0.5 truncate text-xs text-muted">{entry.sub}</span>
       </motion.span>
     </Link>
   )
+}
+
+/**
+ * 读完的更新：封面蒙一层底色（深色主题压暗、浅色主题泛白），和更新页已读行的灰字一个意思。
+ * 不改带 layoutId 的封面自身透明度：它的 animate 写的是行内 opacity，会盖掉类名，飞行途中也会闪。
+ */
+function ReadVeil() {
+  return <span aria-hidden className="absolute inset-0 z-[1] bg-bg/50" />
 }
 
 function Badge({ children }: { children: ReactNode }) {
@@ -459,12 +492,13 @@ function RailItem({ entry }: { entry: Entry }) {
     <Link to={`/manga/${manga.id}`} viewTransition {...prefetch} data-sfw={sfwAttr(manga.source?.displayName)} className="flex min-w-0 snap-start flex-col gap-1.5 text-text no-underline">
       <span className="cv rounded-[10px]">
         <CoverImg src={manga.thumbnailUrl} loading="lazy" />
+        {entry.unread === 0 && <ReadVeil />}
         {entry.badge && <Badge>{entry.badge}</Badge>}
         {entry.pct !== undefined && (
           <span className="absolute inset-x-0 bottom-0 z-[2] h-[3px] bg-black/25"><i className="block h-full bg-white" style={{ width: `${entry.pct}%` }} /></span>
         )}
       </span>
-      <span className="truncate text-[13px] font-semibold">{manga.title}</span>
+      <span className={cn('truncate text-[13px]', entry.unread === 0 ? 'font-medium text-muted' : 'font-semibold')}>{manga.title}</span>
       <span className="-mt-1 truncate text-[11px] text-muted">{entry.sub}</span>
     </Link>
   )
