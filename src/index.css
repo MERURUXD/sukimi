@@ -493,7 +493,7 @@
     color: var(--muted);
   }
 
-  /* 三态筛选芯片：包含（实心）/ 排除（虚线 + 删除线）*/
+  /* 三态筛选芯片：包含（与分段控件同款的选中块）/ 排除（虚线 + 删除线）*/
   .fopt {
     display: inline-flex;
     align-items: center;
@@ -509,7 +509,15 @@
   .fopt:hover {
     color: var(--text);
   }
+  /* 芯片常和分段控件放在同一面板里，选中样子跟分段的选中块一致，不用实心 */
   .fopt.inc {
+    background: var(--seg-on);
+    border-color: transparent;
+    box-shadow: var(--seg-on-edge);
+    color: var(--text);
+  }
+  /* 芯片排里的主操作（如确认绑定）仍用实心 */
+  .fopt.cta {
     background: var(--solid-bg);
     border-color: var(--solid-bg);
     color: var(--solid-fg);
