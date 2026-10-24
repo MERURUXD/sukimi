@@ -19,6 +19,7 @@ import { syncTrackProgressMany } from '@/features/tracking/sync'
 import { Popover } from '@/components/ui/Popover'
 import { BatchBar } from '@/components/ui/BatchBar'
 import { LoadError } from '@/components/ui/LoadError'
+import { PageHeader } from '@/components/ui/PageHeader'
 import type { SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { count } from '@/lib/format'
@@ -283,20 +284,16 @@ export function LibraryPage() {
     <>
       <div className="wrap">
         {/* 画廊入口是「去另一个页面」，放在标题这一行的右侧（44px 高，和 h1 的一行对齐），不混进下面对列表做操作的工具栏 */}
-        <div className="flex items-start justify-between gap-4 pt-7 pb-[22px]">
-          <div className="min-w-0">
-            <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">书库</h1>
-            {data && (
-              <p className="mt-1.5 mb-0 text-muted num">
-                {count(all.length)} 部 · 未读 {count(unreadTotal)} 话 · 已下载 {count(dlTotal)} 话
-                {items.length !== all.length && ` · 当前显示 ${count(items.length)} 部`}，按{sortLabel}
-                {view.desc ? ' ↓' : ' ↑'}
-                {syncing && ' · 正在同步…'}
-              </p>
-            )}
-          </div>
-          <GalleryPill />
-        </div>
+        <PageHeader
+          title="书库"
+          sub={data && <>
+            {count(all.length)} 部 · 未读 {count(unreadTotal)} 话 · 已下载 {count(dlTotal)} 话
+            {items.length !== all.length && ` · 当前显示 ${count(items.length)} 部`}，按{sortLabel}
+            {view.desc ? ' ↓' : ' ↑'}
+            {syncing && ' · 正在同步…'}
+          </>}
+          actions={<div className="flex-none self-start"><GalleryPill /></div>}
+        />
 
         <LibraryToolbar
           categories={categories}

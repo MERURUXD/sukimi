@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { createCache } from '@/api/cache'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { useApplyAppearance } from '@/design/settings'
 import { PREVIEW_ADMIN, PREVIEW_MEMBER } from '@/features/auth/previewUsers'
 import { SETTINGS_TABS, SettingsNavigation } from '@/features/settings/SettingsPage'
@@ -253,10 +254,11 @@ export function SettingsLayoutLab() {
               <button type="button" className="fopt" onClick={() => setReader(true)}>检查阅读设置</button>
             </div>
           </header>
-          <div className="wrap max-w-[1120px]! pb-24">
-            <h1 className="pt-7 pb-6 text-[40px] font-black">设置</h1>
-            <p className="mb-6 max-w-[62ch] text-sm text-muted">布局验收：全部 12 个分栏均使用虚构数据在本地渲染；不保存任何服务端设置，也不连接真实后端。</p>
-            <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
+          {/* 宽度、标题和两栏尺寸跟正式设置页（SettingsShell）一致 */}
+          <div className="wrap pb-24">
+            <PageHeader title="设置" className="pb-3" />
+            <p className="mt-0 mb-6 max-w-[62ch] text-sm text-muted">布局验收：全部 12 个分栏均使用虚构数据在本地渲染；不保存任何服务端设置，也不连接真实后端。</p>
+            <div className="md:grid md:grid-cols-[220px_minmax(0,760px)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,760px)]">
               <SettingsNavigation selected={tab} basePath="/dev/settings-layout" />
               <div className="min-w-0 max-md:mt-8"><Shown /></div>
             </div>
