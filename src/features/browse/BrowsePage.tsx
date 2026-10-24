@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { usePrefetchManga } from '@/features/manga/prefetch'
@@ -121,28 +122,31 @@ export function BrowsePage() {
 
   return (
     <div className="wrap">
-      <div className="flex flex-col items-center gap-[18px] pt-9 pb-8 text-center">
-        <h1 className="m-0 font-cjk text-[40px] font-black">发现</h1>
-        <form onSubmit={submit} className="w-[min(680px,100%)]">
-          <Glass as="label" className="flex h-12 items-center gap-2.5 rounded-full px-[18px] text-muted">
-            <Search className="size-5 flex-none" strokeWidth={1.8} />
-            <span className="sr">全局搜索</span>
-            <input
-              type="search"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="在所有在线源中搜索，回车开始"
-              className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
-            />
-            <span className="text-[13px] whitespace-nowrap num">{searchSources.length} 个在线源</span>
-          </Glass>
-        </form>
-      </div>
+      <PageHeader
+        title="发现"
+        actions={
+          // 发现页的主要入口，比历史页的搜索框宽一些
+          <form onSubmit={submit} className="min-w-0 flex-[0_1_560px] max-sm:basis-full">
+            <Glass as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
+              <Search className="size-[18px] flex-none" strokeWidth={1.8} />
+              <span className="sr">全局搜索</span>
+              <input
+                type="search"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="在所有在线源中搜索，回车开始"
+                className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
+              />
+              <span className="text-[13px] whitespace-nowrap num">{searchSources.length} 个在线源</span>
+            </Glass>
+          </form>
+        }
+      />
 
       {q && <GlobalSearch q={q} sources={searchSources} onOpen={(id) => set({ source: id, mode: 'SEARCH' })} />}
 
       <div className="flex flex-wrap items-start gap-7 pb-20">
-        <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] border-r border-line pr-4 pb-2.5 max-md:max-w-none max-md:border-r-0 max-md:pr-0">
+        <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] pr-4 pb-2.5 max-md:max-w-none max-md:pr-0">
           <div className="mb-1 flex items-center gap-2 pl-3">
             <h2 className="m-0 flex-1 text-[22px] font-bold">漫画源</h2>
             <Link to="/browse/extensions" className="rounded-full text-text no-underline">

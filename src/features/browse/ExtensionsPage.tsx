@@ -13,6 +13,7 @@ import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStora
 import { contextGeneration, resetOnUserContext } from '@/api/userContext'
 import { Glass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Popover } from '@/components/ui/Popover'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
@@ -219,29 +220,32 @@ export function ExtensionsPage() {
 
   return (
     <div className="wrap pb-20">
-      <div className="relative flex flex-col items-center gap-[18px] pt-9 pb-8 text-center">
-        <Link to="/browse" aria-label="返回发现" className="absolute top-10 left-0 rounded-full text-text no-underline">
-          <Glass as="span" className="gbtn rounded-full pl-2.5 max-sm:size-11 max-sm:justify-center max-sm:p-0">
-            <ChevronLeft className="size-5" strokeWidth={1.8} />
-            <span className="max-sm:hidden">发现</span>
+      <PageHeader
+        title="扩展"
+        lead={
+          <Link to="/browse" aria-label="返回发现" className="flex-none rounded-full text-text no-underline">
+            <Glass as="span" className="gicon size-11 rounded-full">
+              <ChevronLeft className="size-6" strokeWidth={1.8} />
+            </Glass>
+          </Link>
+        }
+        actions={
+          <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_560px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
+            <Search className="size-[18px] flex-none" strokeWidth={1.8} />
+            <span className="sr">搜索扩展</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="按名称或包名搜索扩展"
+              className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
+            />
+            <span className="text-[13px] whitespace-nowrap">
+              {checking ? '正在检查仓库…' : list ? `${list.length} 个扩展` : ''}
+            </span>
           </Glass>
-        </Link>
-        <h1 className="m-0 font-cjk text-[40px] font-black">扩展</h1>
-        <Glass as="label" className="flex h-12 w-[min(680px,100%)] items-center gap-2.5 rounded-full px-[18px] text-muted">
-          <Search className="size-5 flex-none" strokeWidth={1.8} />
-          <span className="sr">搜索扩展</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="按名称或包名搜索扩展"
-            className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
-          />
-          <span className="text-[13px] whitespace-nowrap">
-            {checking ? '正在检查仓库…' : list ? `${list.length} 个扩展` : ''}
-          </span>
-        </Glass>
-      </div>
+        }
+      />
 
       <div className="mb-6 flex flex-wrap items-center gap-2.5 max-sm:gap-2">
         <Seg label="扩展分栏" items={tabs} value={tab} onChange={setTab} className="max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:justify-center" />

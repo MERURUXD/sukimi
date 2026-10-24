@@ -8,6 +8,7 @@ import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
 import { LoadError } from '@/components/ui/LoadError'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { toast, toastError } from '@/components/ui/toast'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { FROM_DETAIL } from '@/features/reader/nav'
@@ -102,26 +103,26 @@ export function HistoryPage() {
 
   return (
     <div className="wrap pb-20">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4 pt-9 pb-8">
-        <div className="min-w-0 flex-auto">
-          <h1 className="m-0 font-cjk text-[40px] font-black">阅读历史</h1>
-          <span className="text-sm text-muted num">
-            {data ? `共 ${count(data.chapters.totalCount)} 话阅读记录` : loading ? '正在加载…' : ''}
-            {data && (q ? ` · 在已加载的 ${count(list.length)} 话里搜索` : hasMore ? ` · 已加载 ${count(list.length)} 话` : '')}
-          </span>
-        </div>
-        <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
-          <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-          <span className="sr">搜索历史</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="在已加载的历史中搜索漫画或章节"
-            className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
-          />
-        </Glass>
-      </div>
+      <PageHeader
+        title="阅读历史"
+        sub={<>
+          {data ? `共 ${count(data.chapters.totalCount)} 话阅读记录` : loading ? '正在加载…' : ''}
+          {data && (q ? ` · 在已加载的 ${count(list.length)} 话里搜索` : hasMore ? ` · 已加载 ${count(list.length)} 话` : '')}
+        </>}
+        actions={
+          <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
+            <Search className="size-[18px] flex-none" strokeWidth={1.8} />
+            <span className="sr">搜索历史</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="在已加载的历史中搜索漫画或章节"
+              className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
+            />
+          </Glass>
+        }
+      />
 
       {error && !data && <LoadError className="py-16" prefix="无法读取阅读历史" message={error.message} onRetry={() => void history.refetch().catch(() => {})} />}
       {!data && !error && <HistorySkeleton />}
