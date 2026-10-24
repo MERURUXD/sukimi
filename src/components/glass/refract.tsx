@@ -88,8 +88,10 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
       const i = (y * W + x) * 4
       let ox = 0
       let oy = 0
-      if (dist > 0 && dist < bezel) {
-        const m = (1 - dist / bezel) ** falloff
+      if (dist < bezel) {
+        // 圆角外侧只露出半个像素的边缘也按最外缘位移：不弯的话它们取到原样的背景，
+        // 紧挨着弯折最强的一圈，沿圆角的像素台阶会露出锯齿
+        const m = (1 - Math.max(0, dist) / bezel) ** falloff
         // 从内侧取样：位移方向与外法线相反
         ox = -sx * nx * m
         oy = -sy * ny * m
