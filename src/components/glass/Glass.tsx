@@ -59,7 +59,15 @@ export function Glass<T extends Tag = 'div'>({
   )
 
   const refractStyle: CSSProperties | undefined = on
-    ? { backdropFilter: `url(#${filterId}) blur(${blur}px) saturate(${t.saturate})` }
+    ? {
+        // veil 档：提亮 / 压暗按主题和 dense 取自 CSS 变量 --g-veil（见 index.css）；
+        // 透镜放到最后，弯折和色散的彩边不再被模糊揉开。外缘一个像素要挤进好几个像素的画面，
+        // 黑白文字会挤成断续的虚线，透镜后再补 0.5px 抹平这些台阶
+        backdropFilter:
+          t.tone === 'veil'
+            ? `blur(${blur}px) saturate(${t.saturate}) var(--g-veil) url(#${filterId}) blur(0.5px)`
+            : `url(#${filterId}) blur(${blur}px) saturate(${t.saturate})`,
+      }
     : undefined
 
   return createElement(

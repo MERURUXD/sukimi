@@ -244,6 +244,59 @@
     background: color-mix(in srgb, var(--bg) 78%, transparent);
   }
 
+  /*
+   * 试验底色「通透」（data-glass-tone=veil，只作用于折射档）：
+   * - 浅色：contrast(c) 再 brightness(2 / (1 + c))，相当于和白色做滤色，白的仍是白，暗处被抬亮，玻璃变亮而不发灰；
+   * - 深色：只降亮度，相当于和黑色做正片叠底，黑的仍是黑，亮处被压下，玻璃变暗而不发脏。
+   * 底色换成中性白 / 近黑，不再用偏暖的 --bg。浮动条的提亮 / 压暗略多一点，托住上面的文字。
+   * 深浅取最近的 [data-theme]，不只看 <html>：阅读器按自己的背景另设主题（黑底时是深色、白字），
+   * 玻璃要跟着它，否则浅色网页里会出现白玻璃配白字。
+   */
+  html[data-glass-tone='veil'],
+  html[data-glass-tone='veil'] [data-theme='light'] {
+    --g-neutral: #ffffff;
+    --g-veil-plate: contrast(0.86) brightness(1.075);
+    --g-veil-float: contrast(0.82) brightness(1.1);
+    --g-tint-scale: 1;
+    /* 文字密集的筛选面板：模糊很轻，背后的封面仍清楚，靠底色托住文字 */
+    --g-legible: 45%;
+    --g-veil-line: rgba(255, 255, 255, 0.6);
+    --g-veil-outline: rgba(0, 0, 0, 0.07);
+    --g-veil-shadow: rgba(0, 0, 0, 0.08);
+  }
+  html[data-glass-tone='veil'][data-theme='dark'],
+  html[data-glass-tone='veil'] [data-theme='dark'] {
+    --g-neutral: #1e1e22;
+    --g-veil-plate: brightness(0.78);
+    --g-veil-float: brightness(0.76);
+    /* 深色玻璃要一层看得出的灰才像一块厚玻璃；同一个滑块值在深色下按 1.6 倍算（20% → 32%） */
+    --g-tint-scale: 1.6;
+    --g-legible: 70%;
+    --g-veil-line: rgba(255, 255, 255, 0.14);
+    --g-veil-outline: rgba(0, 0, 0, 0.28);
+    --g-veil-shadow: rgba(0, 0, 0, 0.22);
+  }
+  html[data-glass-tone='veil'] .glass {
+    --g-veil: var(--g-veil-plate);
+  }
+  html[data-glass-tone='veil'] .glass.dense {
+    --g-veil: var(--g-veil-float);
+  }
+  /* 边缘：一圈均匀的细亮线加外侧极细暗线，去掉向内的柔光（会让玻璃像鼓起的软垫），投影更短更淡 */
+  html[data-glass-tone='veil'] .glass[data-refract] {
+    background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint, 20%) * var(--g-tint-scale))), transparent);
+    border-color: var(--g-veil-line);
+    box-shadow:
+      0 0 0 0.5px var(--g-veil-outline),
+      var(--g-drop, 0 4px 14px var(--g-veil-shadow));
+  }
+  html[data-glass-tone='veil'] .glass.dense[data-refract] {
+    background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint-dense, 20%) * var(--g-tint-scale))), transparent);
+  }
+  html[data-glass-tone='veil'] .glass.glass-legible[data-refract] {
+    background: color-mix(in srgb, var(--g-neutral) var(--g-legible), transparent);
+  }
+
   [data-glass='solid'] .glass {
     background: var(--surface);
     -webkit-backdrop-filter: none;

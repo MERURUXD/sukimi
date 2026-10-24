@@ -2,7 +2,7 @@ import { RotateCcw } from 'lucide-react'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
-import { useGlassTuning } from '@/design/glassTuning'
+import { GLASS_PRESETS, useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Row, Section, Switch } from '../parts'
@@ -13,6 +13,8 @@ export function AppearanceTab() {
     setTheme, setGlass, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
+  const tone = useGlassTuning((s) => s.tone)
+  const setTuning = useGlassTuning((s) => s.set)
   const canRefract = supportsRefract()
 
   return (
@@ -111,6 +113,22 @@ export function AppearanceTab() {
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
           <GlassPreview className="lg:sticky lg:top-[calc(var(--nav-h)+12px)]" />
           <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm">预设</span>
+              <Seg
+                glass={false}
+                label="玻璃质感预设"
+                items={[
+                  { value: 'tint', label: '默认' },
+                  { value: 'veil', label: '通透（试验）' },
+                ]}
+                value={tone}
+                onChange={(v) => setTuning(GLASS_PRESETS[v])}
+              />
+              <span className="text-[13px] text-faint">
+                通透：在模糊里直接提亮或压暗背景，底色换成中性白 / 近黑，饱和度更低、底色更薄。切换会覆盖下方滑块。
+              </span>
+            </div>
             <GlassSliders />
           </div>
         </div>
