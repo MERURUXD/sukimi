@@ -217,15 +217,20 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
   const [selId, setSelId] = useState(() => lastHeroManga)
   const found = items.findIndex((c) => c.manga.id === selId)
   const activeIdx = found >= 0 ? found : 0
+  // 舞台上鼠标悬停两侧封面时，背景先换成那部的颜色；换了选中项就收起。
+  // 和选中项一样按 id 记：查询补齐时作品可能重排，按下标会对到别的作品
+  const [previewId, setPreview] = useState<number | null>(null)
   const setIdx = (i: number) => {
     const id = items[i]?.manga.id ?? null
     lastHeroManga = id
     setSelId(id)
+    setPreview(null)
   }
   // 换一批后回到新一批的第一部；不清掉的话，上一批选中的那部若又被挑中会一直停在它上面
   const shuffle = () => {
     lastHeroManga = null
     setSelId(null)
+    setPreview(null)
     onShuffle?.()
   }
   const cur = items[activeIdx]
@@ -280,11 +285,12 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
 
   const m = cur.manga
   const target = resume(cur)
+  const bg = (stage && previewId !== null && items.find((c) => c.manga.id === previewId)?.manga) || m
   const staticBg = (
     <AnimatePresence initial={false}>
       <motion.img
-        key={m.id}
-        src={m.thumbnailUrl ?? undefined}
+        key={bg.id}
+        src={bg.thumbnailUrl ?? undefined}
         alt=""
         initial={{ opacity: 0, scale: 1.08 }}
         animate={{ opacity: 0.95, scale: 1 }}
@@ -306,7 +312,8 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
         onSelect={setIdx}
         onShuffle={onShuffle && shuffle}
         onDownload={downloadRest}
-        background={homeMotionBg ? <CoverFlow src={m.thumbnailUrl} className="absolute inset-0" fallback={staticBg} /> : staticBg}
+        onPreview={(i) => setPreview(i === null ? null : items[i]?.manga.id ?? null)}
+        background={homeMotionBg ? <CoverFlow src={bg.thumbnailUrl} className="absolute inset-0" fallback={staticBg} pull /> : staticBg}
         target={target}
         meta={[m.author, m.genre.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
       />

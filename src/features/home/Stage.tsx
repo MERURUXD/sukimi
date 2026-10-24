@@ -221,11 +221,14 @@ interface Target { id: number; label: string; page: string; pct: number | null; 
 /**
  * 桌面首页「舞台」：在读的几部排成扇形，当前这部在中间，左右切换；背景沿用流动模糊封面。
  * 冷启动时封面从中间展开、文字依次出现（开屏动画，可在外观设置关闭）。
+ * 鼠标悬停两侧封面时，背景先换成那部的颜色。
  */
-export function Stage({ items, active, onSelect, onShuffle, onDownload, background, target, meta, entrance }: {
+export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownload, background, target, meta, entrance }: {
   items: ReadChapter[]
   active: number
   onSelect: (i: number) => void
+  /** 鼠标悬停两侧封面时预览它的背景颜色；null 是移开 */
+  onPreview: (i: number | null) => void
   onShuffle?: () => void
   onDownload: () => void
   background: ReactNode
@@ -301,6 +304,19 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
     clearTimeout(wheelTimer.current)
     wheelTimer.current = window.setTimeout(() => settle(pos.get()), 140)
   }
+  // 悬停稍停一下再换色，鼠标只是扫过两侧封面时不闪
+  const hoverTimer = useRef(0)
+  const hover = (j: number | null) => {
+    clearTimeout(hoverTimer.current)
+    hoverTimer.current = window.setTimeout(() => onPreview(j), j === null ? 200 : 120)
+  }
+  const select = (j: number) => {
+    clearTimeout(hoverTimer.current)
+    interrupt()
+    onSelect(j)
+  }
+  useEffect(() => () => clearTimeout(hoverTimer.current), [])
+
   // 进场时各元素依次上浮（.rise / .rise-light，见 index.css）；d 是开屏的延迟秒数，l 是轻进场的
   const delay = (d: number, l: number) => (entering ? { '--d': `${entering === 'intro' ? d : l}s` } as CSSProperties : undefined)
   const rise = entering === 'intro' ? 'rise' : entering && 'rise-light'
@@ -341,7 +357,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
         >
           <div className="absolute inset-x-0 top-0" style={{ height: DECK_H, transform: fit < 1 ? `scale(${fit})` : undefined, transformOrigin: '50% 0' }}>
             {items.map((c, j) => (
-              <FanCard key={c.manga.id} c={c} j={j} n={n} center={j === active} pos={pos} fan={fan} spread={spread} entrance={entering} onSelect={() => { interrupt(); onSelect(j) }} />
+              <FanCard key={c.manga.id} c={c} j={j} n={n} center={j === active} pos={pos} fan={fan} spread={spread} entrance={entering} onSelect={() => select(j)} onHover={(on) => hover(on ? j : null)} />
             ))}
           </div>
         </div>
@@ -419,7 +435,7 @@ export function Stage({ items, active, onSelect, onShuffle, onDownload, backgrou
  * 扇形里的一张封面。中间那张是进详情的链接（封面飞入详情页靠它的 .cv），两侧是切换按钮。
  * 外层铺满封面区、带透视，开屏时整体淡入；里层的位置全由 pos 推算，拖动时不经过 React 渲染。
  */
-function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect }: {
+function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect, onHover }: {
   c: ReadChapter
   j: number
   n: number
@@ -429,6 +445,7 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect }: {
   spread: MotionValue<number>
   entrance: Entrance | null
   onSelect: () => void
+  onHover: (on: boolean) => void
 }) {
   const m = c.manga
   const off = useTransform(pos, (p) => wrap(j - p, n))
@@ -443,6 +460,9 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect }: {
   const initial = entrance === 'intro' ? { opacity: 0, y: rank ? 0 : 70, scale: rank ? 0.8 : 0.86 } : entrance === 'light' && rank ? { opacity: 0 } : false
   // 不让浏览器原生拖拽图片和链接，鼠标拖动才能用来切换
   const cover = <CoverImg src={m.thumbnailUrl} draggable={false} />
+  // 悬停只认真的鼠标移动：点选后封面滑动、下一张滑到静止的光标下时，浏览器补发的进入事件没有位移，不算
+  const hovering = useRef(false)
+  useEffect(() => { hovering.current = false }, [center])
   return (
     <motion.div
       className="pointer-events-none absolute inset-0 [perspective:1400px]"
@@ -458,7 +478,21 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect }: {
             {cover}
           </Link>
         ) : (
-          <button type="button" onClick={onSelect} aria-label={`切换到《${m.title}》`} className="cv size-full cursor-[inherit] rounded-[14px] shadow-[0_20px_40px_rgba(0,0,0,.2)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-text">
+          <button
+            type="button"
+            onClick={onSelect}
+            // 按住拖动时封面会从光标下滑过，也不算悬停
+            onPointerMove={(e) => {
+              if (hovering.current || e.pointerType !== 'mouse' || e.buttons || !(e.movementX || e.movementY)) return
+              hovering.current = true
+              onHover(true)
+            }}
+            onPointerLeave={() => {
+              if (!hovering.current) return
+              hovering.current = false
+              onHover(false)
+            }}
+            aria-label={`切换到《${m.title}》`} className="cv size-full cursor-[inherit] rounded-[14px] shadow-[0_20px_40px_rgba(0,0,0,.2)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-text">
             {cover}
           </button>
         )}
