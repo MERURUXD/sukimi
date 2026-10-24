@@ -300,7 +300,8 @@ function Stack({ id, entries, open, instant, label, sub }: { id: string; entries
     >
       <span aria-hidden className="relative block h-[78px] w-full">
         {top.map((e, i) => {
-          const back = top.length - 1 - i
+          // 第一部（没读的排在前面）放在最上层，已读的垫在后面露出一角
+          const back = i
           return (
             <motion.span key={e.manga.id} data-sfw={sfwAttr(e.manga.source?.displayName)} className="absolute top-0 left-0 block w-12" style={{ zIndex: STACK - back }}>
               <motion.span custom={back} variants={stackCover} layoutId={coverId(id, e.manga.id)} layoutCrossfade={false} transition={instant ? INSTANT : spring.default} className="cv rounded-[7px] shadow-[0_6px_14px_rgba(0,0,0,.18)]">
@@ -355,7 +356,7 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
     useWeekTray.setState((s) => ({ rev: s.rev + 1 }))
   }
   const item = (e: Entry, i: number) => (
-    <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i - (i >= page.from ? page.from : 0)} back={i < STACK ? Math.min(n, STACK) - 1 - i : 0} />
+    <TrayItem key={e.manga.id} entry={e} layoutId={i < STACK ? coverId(id, e.manga.id) : undefined} instant={instant} index={i - (i >= page.from ? page.from : 0)} back={i < STACK ? i : 0} />
   )
   return (
     // 脱离文档流时按量到的边框位置定位，外边距要去掉，否则会再偏一次
