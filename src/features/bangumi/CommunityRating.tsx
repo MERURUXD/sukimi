@@ -247,7 +247,7 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
               <div {...row(4)} className={cn('flex flex-wrap gap-2', row(4).className)}>
                 {/* 手动选定（sure）后仍可直接绑定 */}
                 {bind && (
-                  <button type="button" className="fopt inc" disabled={binding} onClick={() => void bind()}>{binding ? '正在绑定…' : g.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>
+                  <button type="button" className="fopt cta" disabled={binding} onClick={() => void bind()}>{binding ? '正在绑定…' : g.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>
                 )}
                 {!g.match?.sure && !bind && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, shown.id)}>就是这部</button>}
                 {!g.match?.sure && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, 0)}>不是这部</button>}
@@ -344,7 +344,7 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                 )}
                 {guess && (guess.bind || !guess.match?.sure) && (
                   <div className="flex flex-wrap gap-2">
-                    {guess.bind && <button type="button" className="fopt inc" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? '正在绑定…' : guess.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>}
+                    {guess.bind && <button type="button" className="fopt cta" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? '正在绑定…' : guess.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>}
                     {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>就是这部</button>}
                     {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>不是这部</button>}
                     {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>换一个</button>}
