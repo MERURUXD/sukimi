@@ -18,8 +18,9 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
       onClick={() => onChange(!on)}
       className={cn(
         'relative h-[26px] w-11 flex-none rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-track',
-        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:transition-[left] after:content-['']",
+        on ? 'bg-accent' : 'bg-switch-off',
+        // 与设置页的开关一致：圆点带投影，浅色下关闭时也看得出轮廓
+        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:shadow-[0_1px_2px_rgba(0,0,0,.18),0_2px_6px_rgba(0,0,0,.12)] dark:after:shadow-none after:transition-[left] after:content-['']",
         on ? 'after:left-[21px] after:bg-on-accent' : 'after:bg-white',
       )}
     />

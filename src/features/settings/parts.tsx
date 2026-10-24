@@ -191,8 +191,9 @@ export function Switch({ on, onChange, label, disabled }: { on: boolean; onChang
       onClick={() => onChange(!on)}
       className={cn(
         'relative h-[26px] w-11 flex-none rounded-full transition-colors before:absolute before:-inset-y-[9px] before:inset-x-0 disabled:opacity-50',
-        on ? 'bg-accent' : 'bg-track',
-        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:transition-[left] after:content-['']",
+        on ? 'bg-accent' : 'bg-switch-off',
+        // 圆点带投影：浅色下关闭时白点压在浅灰轨道上，没有投影就只剩一团灰
+        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:shadow-[0_1px_2px_rgba(0,0,0,.18),0_2px_6px_rgba(0,0,0,.12)] dark:after:shadow-none after:transition-[left] after:content-['']",
         on ? 'after:left-[21px] after:bg-on-accent' : 'after:bg-white',
       )}
     />

@@ -37,6 +37,12 @@
   --faint: rgba(20, 20, 22, 0.6);
   --track: rgba(0, 0, 0, 0.12);
   --hover: rgba(127, 127, 127, 0.09);
+  /* 浅色下分段控件的底和选中块都接近白色，选中块要靠描边和投影浮起来才分得清 */
+  --seg-on: #ffffff;
+  /* 投影不超出 .seg 的 4px 内边距，否则会被它的横向滚动裁出切边 */
+  --seg-on-edge: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.16);
+  /* 关闭的开关在浅色背景上，轨道比进度条底色再深一点 */
+  --switch-off: rgba(0, 0, 0, 0.16);
   color-scheme: light;
 }
 
@@ -61,6 +67,9 @@
   --faint: rgba(244, 244, 245, 0.54);
   --track: rgba(255, 255, 255, 0.16);
   --hover: rgba(127, 127, 127, 0.09);
+  --seg-on: var(--g-bg-hi);
+  --seg-on-edge: inset 0 0 0 1px var(--g-glow);
+  --switch-off: var(--track);
   color-scheme: dark;
 }
 
@@ -79,6 +88,7 @@
   --color-danger: var(--danger);
   --color-faint: var(--faint);
   --color-track: var(--track);
+  --color-switch-off: var(--switch-off);
   --color-hover: var(--hover);
   --font-sans: 'Space Grotesk Variable', 'Noto Sans SC Variable', 'Microsoft YaHei', system-ui, sans-serif;
   --font-cjk: 'Noto Sans SC Variable', 'Microsoft YaHei', sans-serif;
@@ -443,8 +453,8 @@
     inset: 0;
     z-index: -1;
     border-radius: 999px;
-    background: var(--g-bg-hi);
-    box-shadow: inset 0 0 0 1px var(--g-glow);
+    background: var(--seg-on);
+    box-shadow: var(--seg-on-edge);
   }
 
   /* 弹出层里的选项行 */
