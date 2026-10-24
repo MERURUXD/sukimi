@@ -258,10 +258,10 @@
     --g-veil-plate: contrast(0.86) brightness(1.075);
     --g-veil-float: contrast(0.82) brightness(1.1);
     --g-tint-scale: 1;
-    /* 文字密集的筛选面板：模糊很轻，背后的封面仍清楚，靠底色托住文字 */
-    --g-legible: 45%;
-    --g-veil-line: rgba(255, 255, 255, 0.6);
-    --g-veil-outline: rgba(0, 0, 0, 0.07);
+    /* 浅色玻璃本身就亮，白描边在浅灰背景上会勾出一圈白框；改成墨色细线，芯片、分段轨道也一样 */
+    --g-veil-line: rgba(0, 0, 0, 0.08);
+    --g-veil-inner-line: rgba(0, 0, 0, 0.1);
+    --g-veil-outline: transparent;
     --g-veil-shadow: rgba(0, 0, 0, 0.08);
   }
   html[data-glass-tone='veil'][data-theme='dark'],
@@ -271,8 +271,8 @@
     --g-veil-float: brightness(0.76);
     /* 深色玻璃要一层看得出的灰才像一块厚玻璃；同一个滑块值在深色下按 1.6 倍算（20% → 32%） */
     --g-tint-scale: 1.6;
-    --g-legible: 70%;
     --g-veil-line: rgba(255, 255, 255, 0.14);
+    --g-veil-inner-line: rgba(255, 255, 255, 0.26);
     --g-veil-outline: rgba(0, 0, 0, 0.28);
     --g-veil-shadow: rgba(0, 0, 0, 0.22);
   }
@@ -282,19 +282,19 @@
   html[data-glass-tone='veil'] .glass.dense {
     --g-veil: var(--g-veil-float);
   }
-  /* 边缘：一圈均匀的细亮线加外侧极细暗线，去掉向内的柔光（会让玻璃像鼓起的软垫），投影更短更淡 */
+  /* 边缘：一圈均匀的细线（深色是亮线加外侧暗线，浅色是墨线），去掉向内的柔光（会让玻璃像鼓起的软垫），投影更短更淡 */
   html[data-glass-tone='veil'] .glass[data-refract] {
+    --g-line: var(--g-veil-inner-line);
     background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint, 20%) * var(--g-tint-scale))), transparent);
     border-color: var(--g-veil-line);
     box-shadow:
       0 0 0 0.5px var(--g-veil-outline),
       var(--g-drop, 0 4px 14px var(--g-veil-shadow));
   }
-  html[data-glass-tone='veil'] .glass.dense[data-refract] {
-    background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint-dense, 20%) * var(--g-tint-scale))), transparent);
-  }
+  /* 筛选面板不再单独加厚底色（深色下的 78% 也不套），和其他浮动条一样，先看可读性够不够 */
+  html[data-glass-tone='veil'] .glass.dense[data-refract],
   html[data-glass-tone='veil'] .glass.glass-legible[data-refract] {
-    background: color-mix(in srgb, var(--g-neutral) var(--g-legible), transparent);
+    background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint-dense, 20%) * var(--g-tint-scale))), transparent);
   }
 
   [data-glass='solid'] .glass {
