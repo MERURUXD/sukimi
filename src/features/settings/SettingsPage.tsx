@@ -20,6 +20,7 @@ import { useLayoutEffect, useRef, useState, type ComponentType, type ReactNode }
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { MotionGlass } from '@/components/glass/Glass'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { spring } from '@/design/motion'
 import { can } from '@/features/auth/permissions'
 import { cn } from '@/lib/cn'
@@ -172,21 +173,23 @@ export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: S
 
   return (
     // 设置页没有书库内容，开发安全模式下不打码
-    <div className="wrap max-w-[1120px]! pb-24" data-sfw="">
-      <div className={cn('flex items-center gap-2 pt-7', intro ? 'pb-3' : 'pb-6')}>
-        {current && (
+    <div className="wrap pb-24" data-sfw="">
+      <PageHeader
+        className={cn(intro && 'pb-3')}
+        lead={current && (
           <button type="button" className="gicon plain rounded-full md:hidden" onClick={back} aria-label="返回设置列表">
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </button>
         )}
-        <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">
+        title={<>
           <span className={cn(current && 'max-md:hidden')}>设置</span>
           {current && <span className="md:hidden">{current.label}</span>}
-        </h1>
-      </div>
+        </>}
+      />
       {intro && <p className={cn('mt-0 mb-6 max-w-[62ch] text-sm text-muted', current && 'max-md:hidden')}>{intro}</p>}
 
-      <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
+      {/* 和其他页同宽，标题与分栏对齐顶栏图标；右栏限宽，宽屏上设置项不会被拉得太长，右边留白 */}
+      <div className="md:grid md:grid-cols-[220px_minmax(0,760px)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,760px)]">
         {/* 电脑：粘在左侧的玻璃分栏；手机：整页列表 */}
         <SettingsNavigation selected={shown.id} singlePage={!!current} basePath={basePath} tabs={tabs} />
 
