@@ -28,7 +28,9 @@ export const MODE_ICON: Record<ReadMode, typeof BookOpen> = {
 }
 
 const ib = 'inline-grid size-[42px] flex-none place-items-center rounded-full transition-colors hover:bg-g-hi'
-const tb = 'inline-flex min-h-[42px] items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors hover:bg-g-hi disabled:opacity-40 disabled:hover:bg-transparent'
+// 双页时每个书签按钮旁带页码，比单个图标按钮宽
+const ibNum = 'inline-flex h-[42px] flex-none items-center justify-center gap-0.5 rounded-full px-2.5 transition-colors hover:bg-g-hi'
+const tb ='inline-flex min-h-[42px] items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors hover:bg-g-hi disabled:opacity-40 disabled:hover:bg-transparent'
 const on = 'bg-g-hi shadow-[inset_0_0_0_1px_var(--g-glow)]'
 
 const enter = {
@@ -58,7 +60,7 @@ export function ReaderChrome({
   onPrevChapter,
   onNextChapter,
   bookmarks,
-  bookmarked,
+  bookmarkPages,
   onToggleBookmark,
   saving,
   onSave,
@@ -86,9 +88,9 @@ export function ReaderChrome({
   onNextChapter: () => void
   /** 本话的页面书签（从 0 开始的页码） */
   bookmarks: number[]
-  /** 当前页有没有书签 */
-  bookmarked: boolean
-  onToggleBookmark: () => void
+  /** 当前屏可加书签的页（升序）；双页时有两页，各自一个按钮 */
+  bookmarkPages: number[]
+  onToggleBookmark: (page: number) => void
   saving: boolean
   onSave: () => void
 }) {
@@ -167,16 +169,29 @@ export function ReaderChrome({
                 {FITS.find((f) => f.value === settings.fit)?.label}
               </button>
               <span className="mx-1 h-[22px] w-px self-center bg-line max-sm:hidden" />
-              <button
-                type="button"
-                className={cn(ib, bookmarked && on)}
-                onClick={onToggleBookmark}
-                aria-label={bookmarked ? '取消此页书签' : '为此页添加书签'}
-                aria-pressed={bookmarked}
-                title={`${bookmarked ? '取消此页书签' : '为此页添加书签'}（B）`}
-              >
-                <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
-              </button>
+              {/* 双页时按画面左右排列：从右往左读时页码小的在右边 */}
+              {(rtl && bookmarkPages.length > 1 ? [...bookmarkPages].reverse() : bookmarkPages).map((p, idx) => {
+                const marked = bookmarks.includes(p)
+                const two = bookmarkPages.length > 1
+                const which = two ? `第 ${p + 1} 页` : '此页'
+                const label = `${marked ? '取消' : '为'}${which}${marked ? '书签' : '添加书签'}`
+                // 快捷键：B 管页码小的，Shift+B 管页码大的
+                const key = two && p !== bookmarkPages[0] ? 'Shift+B' : 'B'
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={cn(two ? ibNum : ib, marked && on)}
+                    onClick={() => onToggleBookmark(p)}
+                    aria-label={label}
+                    aria-pressed={marked}
+                    title={`${label}（${key}）`}
+                  >
+                    <Bookmark className={cn('size-5', marked && 'fill-current')} strokeWidth={1.8} />
+                    {two && <span className="text-[11px] font-bold num">{p + 1}</span>}
+                  </button>
+                )
+              })}
               <button type="button" className={ib} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
                 {touch ? <Share2 className="size-5" strokeWidth={1.8} /> : <Download className="size-5" strokeWidth={1.8} />}
               </button>

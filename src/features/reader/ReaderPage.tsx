@@ -398,8 +398,9 @@ function ReaderSession({
 
   /* 页面书签：记在章节元数据里，详情页的章节列表能直接跳到那一页 */
   const [bookmarks, toggleBookmarkAt] = usePageBookmarks(chapter)
-  const bookmarkPage = atEnd ? last : page
-  const toggleBookmark = () => toggleBookmarkAt(bookmarkPage)
+  // 双页模式一屏有两页时，两页都能单独加书签（升序，B 管小页码，Shift+B 管大页码）
+  const bookmarkPages = atEnd ? [last] : shown
+  const toggleBookmark = (second = false) => toggleBookmarkAt(bookmarkPages[second ? bookmarkPages.length - 1 : 0])
 
   /* 保存 / 分享当前页：存原图（不带裁边、滤镜），双页时两页一起 */
   const [saving, setSaving] = useState(false)
@@ -433,7 +434,7 @@ function ReaderSession({
       else if (k === 'z' || k === 'Z') set({ fit: cycle(FITS, settings.fit) })
       else if (k === 'd' || k === 'D') set({ dir: settings.dir === 'rtl' ? 'ltr' : 'rtl' })
       else if (k === 'f' || k === 'F') toggleFullscreen()
-      else if (k === 'b' || k === 'B') toggleBookmark()
+      else if (k === 'b' || k === 'B') toggleBookmark(e.shiftKey)
       else if (k === 'Escape') panel ? setPanel(false) : setUi((v) => !v)
       else return
       e.preventDefault()
@@ -547,8 +548,8 @@ function ReaderSession({
         onPrevChapter={() => goChapter(prev)}
         onNextChapter={() => goChapter(next)}
         bookmarks={bookmarks}
-        bookmarked={bookmarks.includes(bookmarkPage)}
-        onToggleBookmark={toggleBookmark}
+        bookmarkPages={bookmarkPages}
+        onToggleBookmark={toggleBookmarkAt}
         saving={saving}
         onSave={saveCurrent}
       />
