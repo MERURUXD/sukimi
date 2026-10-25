@@ -90,7 +90,7 @@ export function AppearanceTab() {
         <Row
           label="顶栏渐进模糊"
           hint="越靠近屏幕顶端越模糊，避免正文与顶部按钮重叠"
-          warn="可能影响手机滚动流畅度"
+          warn="可能影响滚动流畅度"
         >
           <Switch on={navBlur} onChange={setNavBlur} label="顶栏渐进模糊" />
         </Row>
@@ -120,7 +120,7 @@ export function AppearanceTab() {
                 label="玻璃质感预设"
                 items={[
                   { value: 'tint', label: '默认' },
-                  { value: 'veil', label: '通透（试验）' },
+                  { value: 'veil', label: '通透' },
                 ]}
                 value={tone}
                 onChange={switchPreset}

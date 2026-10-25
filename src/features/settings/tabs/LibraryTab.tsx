@@ -37,7 +37,7 @@ export function LibraryTab() {
         <SSwitch k="excludeUnreadChapters" label="跳过有未读章节的漫画" />
         <SSwitch k="excludeNotStarted" label="跳过还没开始读的漫画" />
         <SSwitch k="excludeCompleted" label="跳过已完结的漫画" />
-        <SSwitch k="updateMangas" label="同时刷新漫画信息和封面" hint="顺便更新简介、作者与封面，会增加检查耗时" />
+        <SSwitch k="updateMangas" label="同时刷新漫画信息和封面" hint="同时更新简介、作者与封面，会增加检查耗时" />
       </Section>
     </>
   )

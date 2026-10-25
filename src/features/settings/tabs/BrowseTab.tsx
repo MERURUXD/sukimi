@@ -78,7 +78,7 @@ export function BrowseTab() {
             label="同时请求的来源数"
             min={1}
             max={20}
-            hint="调高可加快检查更新与下载，但更容易被来源限流"
+            hint="调高可加快检查更新与下载，但更容易被限流"
             help="控制检查更新和下载时最多同时向多少个不同来源发起请求；同一来源内的漫画始终排队进行。"
           />
           <SText k="localSourcePath" label="本地漫画目录" hint="「本地」来源读取的文件夹；留空使用数据目录下的 local" placeholder="默认" stack />
