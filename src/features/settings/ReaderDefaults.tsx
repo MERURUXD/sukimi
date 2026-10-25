@@ -127,8 +127,8 @@ export function ReaderDefaults() {
         <Row label="自动裁掉白边" hint="裁掉页面四周的白边或黑边（Webtoon 模式除外）">
           <Switch on={d.crop} onChange={(crop) => set({ crop })} label="自动裁掉白边" />
         </Row>
-        <Row label="宽页拆成两半" hint="单页与纵向模式下，跨页大图按阅读方向拆成两页">
-          <Switch on={d.split} onChange={(split) => set({ split })} label="宽页拆成两半" />
+        <Row label="拆分双页" hint="单页与纵向模式下，跨页大图按阅读方向拆成两页">
+          <Switch on={d.split} onChange={(split) => set({ split })} label="拆分双页" />
         </Row>
       </Section>
 
