@@ -4,7 +4,7 @@ import test from 'node:test'
 import { buildSchema, executeSync } from 'graphql'
 import * as docs from '../src/api/gql/graphql.ts'
 import { createDemoData } from '../src/features/demo/data.ts'
-import { READER_META_PREFIX, createWriteOrder, hasReaderMeta, mergeMeta, mergeServerMeta, parseReaderMeta, planMigration, readerMetaKey, splitPatch, toReaderMeta } from '../src/features/reader/remote.ts'
+import { READER_META_PREFIX, classifyDevice, createWriteOrder, hasReaderMeta, mergeMeta, mergeServerMeta, parseReaderMeta, planMigration, readerMetaKey, splitPatch, toReaderMeta } from '../src/features/reader/remote.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 function ok(rootValue, document, variableValues) {
@@ -143,4 +143,27 @@ test('演示数据按正式查询读写、统计和清除漫画元数据', () =>
   assert.equal(cleared.deleteMangaMetas.metas.length, 3)
   assert.deepEqual(read(1), [])
   assert.deepEqual(read(2), [])
+})
+
+test('按设备区分：设备类型判断', () => {
+  assert.equal(classifyDevice({ coarse: false, shortSide: 390 }), 'desktop')
+  assert.equal(classifyDevice({ coarse: true, shortSide: 390 }), 'phone')
+  assert.equal(classifyDevice({ coarse: true, shortSide: 820 }), 'tablet')
+})
+
+test('按设备区分：设备自己的值优先，没有再用通用值，写入带设备类型的键', () => {
+  const meta = [
+    { key: readerMetaKey('mode'), value: 'double' },
+    { key: readerMetaKey('dir'), value: 'rtl' },
+    { key: readerMetaKey('mode', 'phone'), value: 'webtoon' },
+    { key: readerMetaKey('fit', 'phone'), value: 'sideways' },
+  ]
+  // 不分设备：只看通用值，设备键不影响
+  assert.deepEqual(parseReaderMeta(meta), { mode: 'double', dir: 'rtl' })
+  // 手机：模式用手机自己的，方向沿用通用值，坏值忽略
+  assert.deepEqual(parseReaderMeta(meta, 'phone'), { mode: 'webtoon', dir: 'rtl' })
+  // 电脑没有自己的值：和通用一致
+  assert.deepEqual(parseReaderMeta(meta, 'desktop'), { mode: 'double', dir: 'rtl' })
+  assert.deepEqual(toReaderMeta({ mode: 'single' }, 'tablet'), [{ key: 'sukimi.reader.tablet.mode', value: 'single' }])
+  assert.deepEqual(toReaderMeta({ mode: 'single' }), [{ key: 'sukimi.reader.mode', value: 'single' }])
 })

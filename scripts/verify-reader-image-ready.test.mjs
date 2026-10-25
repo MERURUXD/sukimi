@@ -33,7 +33,6 @@ function imageCache({ failed = false } = {}) {
 test('首屏裁边：原图可用不代表处理完成，结束后才可显示', async () => {
   const cache = imageCache()
   const v = { crop: true, rtl: false }
-  assert.equal(typeof cache.pageReady, 'function')
   assert.equal(cache.pageSrc('page', v), 'page')
   assert.equal(cache.pageReady('page', v), false)
   await new Promise(resolve => setImmediate(resolve))
@@ -47,7 +46,6 @@ test('首屏裁边：原图可用不代表处理完成，结束后才可显示',
 test('首屏拆页：等待编码完成，不能把占位当作就绪', async () => {
   const cache = imageCache()
   const v = { crop: false, half: 0, rtl: true }
-  assert.equal(typeof cache.pageReady, 'function')
   assert.equal(cache.pageSrc('wide', v), undefined)
   await new Promise(resolve => setImmediate(resolve))
   assert.equal(cache.pageReady('wide', v), false)
@@ -60,7 +58,6 @@ test('首屏拆页：等待编码完成，不能把占位当作就绪', async ()
 test('处理失败：退回原图后可显示，未开启处理的页直接就绪', async () => {
   const cache = imageCache({ failed: true })
   const v = { crop: true, rtl: false }
-  assert.equal(typeof cache.pageReady, 'function')
   assert.equal(cache.pageReady('raw', { crop: false, rtl: false }), true)
   cache.pageSrc('failed', v)
   await new Promise(resolve => setImmediate(resolve))

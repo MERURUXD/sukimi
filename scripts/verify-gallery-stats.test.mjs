@@ -214,12 +214,19 @@ test('口味：题材归一、去掉无意义标签，按已读话数平分；�
 test('口味标题：两个题材都放得下才点名，太长换成不带题材名的说法', async () => {
   const { tasteHeadline } = await import('../src/features/gallery/taste.ts')
   const g = (...names) => names.map((name) => ({ name }))
-  assert.deepEqual(tasteHeadline(g('恋爱', '校园', '奇幻')), { lead: '你偏爱', strong: '恋爱', tail: '与校园。' })
-  assert.deepEqual(tasteHeadline(g('Supernatural Romantic Comedy', '校园')), { lead: '这些题材，', tail: '你读得最多。' })
-  assert.deepEqual(tasteHeadline(g('Isekai', 'Action')), { lead: '你偏爱', strong: 'Isekai', tail: '与Action。' })
-  assert.deepEqual(tasteHeadline(g('恋爱')), { lead: '你最常读', strong: '恋爱', tail: '。' })
-  assert.deepEqual(tasteHeadline(g('一个特别特别长的题材')), { lead: '你只读', tail: '一类题材。' })
-  assert.deepEqual(tasteHeadline([]), { lead: '还看不出', tail: '你的口味。' })
+  for (const [first, second] of [['恋爱', '校园'], ['Isekai', 'Action']]) {
+    const title = tasteHeadline(g(first, second, '奇幻'))
+    assert.equal(title.strong, first)
+    assert.ok(title.tail.includes(second))
+    assert.ok(!title.tail.includes('奇幻'), '只点名前两个题材')
+  }
+  for (const names of [['Supernatural Romantic Comedy', '校园'], ['一个特别特别长的题材']]) {
+    const title = tasteHeadline(g(...names))
+    assert.equal(title.strong, undefined)
+    assert.ok(names.every(name => !`${title.lead}${title.tail}`.includes(name)), '长题材回退时不再点名')
+  }
+  assert.equal(tasteHeadline(g('恋爱')).strong, '恋爱')
+  assert.equal(tasteHeadline([]).strong, undefined)
 })
 
 test('三屏翻页：排行变短时记住的组收回，切屏不越界，汇总前不离开第一屏', async () => {

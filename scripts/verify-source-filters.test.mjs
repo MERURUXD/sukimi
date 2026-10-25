@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { onlineSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
 import { buildSchema, experimentalExecuteIncrementally as execute, validate } from 'graphql'
 import { SourceFiltersDocument, FetchSourceMangaDocument } from '../src/api/gql/graphql.ts'
 import { defaultValue, filterChanges, filterValues, hasIncompleteFilters, sourceBrowseKey } from '../src/features/browse/filters.ts'
@@ -145,4 +146,39 @@ test('正式 Apollo 缓存读写后保留联合类型选项与嵌套分组字段
   const data = { source: { __typename: 'SourceType', id: '1', filters: list } }
   cache.writeQuery({ query: SourceFiltersDocument, variables: { id: '1' }, data })
   assert.deepEqual(cache.readQuery({ query: SourceFiltersDocument, variables: { id: '1' } }), data)
+})
+
+test('发现页全局搜索：排除本地源（id=0），区分成功与失败数量，仅重试失败或指定来源', () => {
+  const all = [
+    { id: '101', displayName: '虚构源 A' },
+    { id: '102', displayName: '虚构源 B' },
+    { id: '103', displayName: '虚构源 C' },
+    { id: '0', displayName: 'Local source' },
+  ]
+  const online = onlineSources(all)
+  assert.deepEqual(online.map((s) => s.id), ['101', '102', '103'])
+
+  const results = {
+    '101': { status: 'done', items: [{ id: 1, title: '虚构漫画', thumbnailUrl: '', author: null, inLibrary: false }] },
+    '102': { status: 'error', items: [] },
+    '103': { status: 'loading', items: [] },
+  }
+  assert.deepEqual(summarizeMultiSearch(online, results), {
+    total: 3,
+    done: 2,
+    succeeded: 1,
+    failed: 1,
+    loading: 1,
+  })
+
+  // 批量重试：跳过已成功的 101，重跑失败的 102 与未完成的 103
+  assert.deepEqual(sourcesToFetch(online, results).map((s) => s.id), ['102', '103'])
+
+  // 全部结束后单源重试 102：只重跑 102，不动成功的 101 和另一失败源 103
+  const settled = {
+    '101': { status: 'done', items: [] },
+    '102': { status: 'error', items: [] },
+    '103': { status: 'error', items: [] },
+  }
+  assert.deepEqual(sourcesToFetch(online, settled, ['102']).map((s) => s.id), ['102'])
 })

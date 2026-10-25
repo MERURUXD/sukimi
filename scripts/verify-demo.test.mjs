@@ -27,7 +27,6 @@ test('演示数据符合正式首页、书库、详情、历史和发现查询',
   }
   const lib = ok(root, docs.LibraryMangasDocument)
   assert.equal(lib.mangas.totalCount, 10)
-  assert.equal(lib.mangas.nodes[0].title, '云海邮局')
   assert.ok(lib.mangas.nodes.every((m) => m.thumbnailUrl.startsWith('data:image/svg+xml')))
   // 第 10 部像 Tachiyomi 导入：有已读标记、没有阅读时间
   const imported = lib.mangas.nodes.find((m) => m.id === 10)

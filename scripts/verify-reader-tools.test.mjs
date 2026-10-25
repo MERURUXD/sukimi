@@ -13,7 +13,6 @@ import {
   parsePageBookmarks,
   togglePageBookmark,
 } from '../src/features/reader/pageTools.ts'
-import { classifyDevice, parseReaderMeta, readerMetaKey, toReaderMeta } from '../src/features/reader/remote.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 function ok(rootValue, document, variableValues) {
@@ -119,27 +118,4 @@ test('页面书签：演示数据里写入后，章节列表查询能读到，�
   ok(root, docs.SetPageBookmarksDocument, { id, key, value: '' })
   const cleared = ok(root, docs.MangaChaptersDocument, { mangaId: 1 }).chapters.nodes.find((c) => c.id === id)
   assert.deepEqual(parsePageBookmarks(cleared.meta, 1), [])
-})
-
-test('按设备区分：设备类型判断', () => {
-  assert.equal(classifyDevice({ coarse: false, shortSide: 390 }), 'desktop')
-  assert.equal(classifyDevice({ coarse: true, shortSide: 390 }), 'phone')
-  assert.equal(classifyDevice({ coarse: true, shortSide: 820 }), 'tablet')
-})
-
-test('按设备区分：设备自己的值优先，没有再用通用值，写入带设备类型的键', () => {
-  const meta = [
-    { key: readerMetaKey('mode'), value: 'double' },
-    { key: readerMetaKey('dir'), value: 'rtl' },
-    { key: readerMetaKey('mode', 'phone'), value: 'webtoon' },
-    { key: readerMetaKey('fit', 'phone'), value: 'sideways' },
-  ]
-  // 不分设备：只看通用值，设备键不影响
-  assert.deepEqual(parseReaderMeta(meta), { mode: 'double', dir: 'rtl' })
-  // 手机：模式用手机自己的，方向沿用通用值，坏值忽略
-  assert.deepEqual(parseReaderMeta(meta, 'phone'), { mode: 'webtoon', dir: 'rtl' })
-  // 电脑没有自己的值：和通用一致
-  assert.deepEqual(parseReaderMeta(meta, 'desktop'), { mode: 'double', dir: 'rtl' })
-  assert.deepEqual(toReaderMeta({ mode: 'single' }, 'tablet'), [{ key: 'sukimi.reader.tablet.mode', value: 'single' }])
-  assert.deepEqual(toReaderMeta({ mode: 'single' }), [{ key: 'sukimi.reader.mode', value: 'single' }])
 })
