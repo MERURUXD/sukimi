@@ -2,7 +2,7 @@ import { RotateCcw } from 'lucide-react'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
-import { GLASS_PRESETS, useGlassTuning } from '@/design/glassTuning'
+import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Row, Section, Switch } from '../parts'
@@ -14,7 +14,7 @@ export function AppearanceTab() {
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const tone = useGlassTuning((s) => s.tone)
-  const setTuning = useGlassTuning((s) => s.set)
+  const switchPreset = useGlassTuning((s) => s.switchPreset)
   const canRefract = supportsRefract()
 
   return (
@@ -123,10 +123,10 @@ export function AppearanceTab() {
                   { value: 'veil', label: '通透（试验）' },
                 ]}
                 value={tone}
-                onChange={(v) => setTuning(GLASS_PRESETS[v])}
+                onChange={switchPreset}
               />
               <span className="text-[13px] text-faint">
-                通透：在模糊里直接提亮或压暗背景，底色换成中性白 / 近黑，饱和度更低、底色更薄。切换会覆盖下方滑块。
+                通透：在模糊里直接提亮或压暗背景，底色换成中性白 / 近黑，饱和度更低、底色更薄。两个预设各自记住你调过的滑块，切换不会丢失；「恢复默认」会清除全部改动。
               </span>
             </div>
             <GlassSliders />
