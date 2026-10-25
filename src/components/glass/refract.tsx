@@ -118,41 +118,31 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
   useLayoutEffect(() => {
     const el = host.current
     if (!enabled || !el) return
-    let raf = 0
-    let timer = 0
     let lastSize = ''
     const draw = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        // 用布局尺寸而不是 getBoundingClientRect：缩放动画中的 transform 不应影响位移图
-        const w = el.offsetWidth
-        const h = el.offsetHeight
-        if (!w || !h) return
-        const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
-        const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
-        const size = `${w}:${h}:${radius}:${bezel}`
-        if (lastSize === size) return
-        lastSize = size
-        feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
-        // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
-        const shift = bezel * o.strength
-        const filter = feImage.current?.parentElement
-        filter?.querySelectorAll('feDisplacementMap').forEach((fe) => {
-          const extra = Number(fe.dataset.extra ?? 0)
-          fe.setAttribute('scale', String(2 * shift + extra))
-        })
+      // 用布局尺寸而不是 getBoundingClientRect：缩放动画中的 transform 不应影响位移图
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      if (!w || !h) return
+      const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
+      const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
+      const size = `${w}:${h}:${radius}:${bezel}`
+      if (lastSize === size) return
+      lastSize = size
+      feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
+      // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
+      const shift = bezel * o.strength
+      const filter = feImage.current?.parentElement
+      filter?.querySelectorAll('feDisplacementMap').forEach((fe) => {
+        const extra = Number(fe.dataset.extra ?? 0)
+        fe.setAttribute('scale', String(2 * shift + extra))
       })
     }
     draw()
-    // 尺寸动画期间先拉伸现有位移图，停止变化后再精确生成，避免每帧逐像素编码 PNG。
-    const ro = new ResizeObserver(() => {
-      window.clearTimeout(timer)
-      timer = window.setTimeout(draw, 80)
-    })
+    // 在本次布局绘制前同步换图；延迟或再等一帧会先拉伸旧透镜带，随后边缘二次跳变。
+    const ro = new ResizeObserver(draw)
     ro.observe(el)
     return () => {
-      cancelAnimationFrame(raf)
-      window.clearTimeout(timer)
       ro.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
