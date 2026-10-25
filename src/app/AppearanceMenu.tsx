@@ -1,10 +1,9 @@
-import { AnimatePresence } from 'motion/react'
 import { LogOut, Settings2, SlidersHorizontal } from 'lucide-react'
 import { Link } from 'react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { signOut } from '@/api/auth'
-import { Glass, MotionGlass } from '@/components/glass/Glass'
-import { spring } from '@/design/motion'
+import { Glass } from '@/components/glass/Glass'
+import { Popover } from '@/components/ui/Popover'
 import { useAppearance, type GlassMode, type ThemePref } from '@/design/settings'
 import { cn } from '@/lib/cn'
 
@@ -47,63 +46,44 @@ function Seg<T extends string>({
   )
 }
 
-/** 外观快捷设置；完整设置在 /settings */
+/** 外观快捷设置；完整设置在 /settings。面板从设置按钮长出来（Popover） */
 export function AppearanceMenu() {
   const [open, setOpen] = useState(false)
-  const root = useRef<HTMLDivElement>(null)
+  const close = useCallback(() => setOpen(false), [])
   const { theme, glass, setTheme, setGlass } = useAppearance()
 
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e: PointerEvent) => {
-      if (!root.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('pointerdown', onDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
   return (
-    <div ref={root} className="relative">
-      <Glass as="button" data-vt-glass="topnav-appearance" className="gicon rounded-full" aria-label="外观设置" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
-        <Settings2 className="size-5" strokeWidth={1.8} />
-      </Glass>
-
-      <AnimatePresence>
-        {open && (
-          <MotionGlass
-            data-vt-glass="topnav-appearance-panel"
-            initial={{ opacity: 0, scale: 0.94, y: -6 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -4 }}
-            transition={spring.fast}
-            className="absolute top-[calc(100%+10px)] right-0 z-50 flex w-[280px] origin-top-right flex-col gap-4 rounded-[22px] p-4"
-          >
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold tracking-[.14em] text-muted">主题</span>
-              <Seg value={theme} options={THEMES} onChange={setTheme} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold tracking-[.14em] text-muted">玻璃</span>
-              <Seg value={glass} options={GLASSES} onChange={setGlass} />
-            </div>
-            <div className="-mx-2 flex flex-col">
-              <Link to="/settings" onClick={() => setOpen(false)} className="gbtn min-h-10 justify-start text-muted no-underline hover:text-text">
-                <SlidersHorizontal className="size-4" />
-                全部设置
-              </Link>
-              <button className="gbtn min-h-10 justify-start text-muted hover:text-text" onClick={signOut}>
-                <LogOut className="size-4" />
-                退出登录
-              </button>
-            </div>
-          </MotionGlass>
-        )}
-      </AnimatePresence>
-    </div>
+    <Popover
+      open={open}
+      onClose={close}
+      label="外观设置"
+      dense={false}
+      vtGlass="topnav-appearance-panel"
+      className="flex w-[280px] flex-col gap-4 rounded-[22px] p-4"
+      trigger={
+        <Glass as="button" data-vt-glass="topnav-appearance" className="gicon rounded-full" aria-label="外观设置" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          <Settings2 className="size-5" strokeWidth={1.8} />
+        </Glass>
+      }
+    >
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-bold tracking-[.14em] text-muted">主题</span>
+        <Seg value={theme} options={THEMES} onChange={setTheme} />
+      </div>
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-bold tracking-[.14em] text-muted">玻璃</span>
+        <Seg value={glass} options={GLASSES} onChange={setGlass} />
+      </div>
+      <div className="-mx-2 flex flex-col">
+        <Link to="/settings" onClick={close} className="gbtn min-h-10 justify-start text-muted no-underline hover:text-text">
+          <SlidersHorizontal className="size-4" />
+          全部设置
+        </Link>
+        <button className="gbtn min-h-10 justify-start text-muted hover:text-text" onClick={signOut}>
+          <LogOut className="size-4" />
+          退出登录
+        </button>
+      </div>
+    </Popover>
   )
 }
