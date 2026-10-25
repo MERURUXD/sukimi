@@ -8,7 +8,7 @@ import ts from 'typescript'
 function fixture() {
   const frames = new Map(), timers = new Map()
   let sequence = 0, resize, cleanup, mapSize, draws = 0
-  const host = { offsetWidth: 360, offsetHeight: 480 }
+  const host = { offsetWidth: 360, offsetHeight: 480, dataset: {} }
   const image = {
     setAttribute(name, value) { if (name === 'href') { mapSize = value; draws++ } },
     parentElement: { querySelectorAll: () => [] },
