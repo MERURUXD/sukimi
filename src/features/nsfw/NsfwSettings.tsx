@@ -10,17 +10,28 @@ import { useNsfwActions, useNsfwStore } from './useNsfw'
 export function NsfwSettings() {
   const { hide, bySource, blur, revealed, set } = useNsfwStore()
   return (
-    <Section title="隐私" desc="NSFW 作品在首页和画廊里不出现，阅读档案只计数、不显示封面。下面的开关只保存在这台设备上；哪些作品和分类算 NSFW 存在服务端，换设备也一样。">
-      <Row label="隐藏 NSFW 内容" hint="关闭后首页和画廊照常显示全部作品">
+    <Section title="隐私" desc="显示开关仅保存在当前浏览器；单部漫画与分类的 NSFW 标记保存在服务端，跨设备同步。">
+      <Row label="隐藏 NSFW 内容" hint="在首页和画廊中隐藏；阅读档案只计数、不显示封面">
         <Switch label="隐藏 NSFW 内容" on={hide} onChange={(v) => set({ hide: v })} />
       </Row>
-      <Row label="按来源自动标记" hint="来源本身标明是 NSFW 的，其中的作品都算；个别作品可以在详情页的「更多」里单独取消">
+      <Row
+        label="按来源自动标记"
+        hint="自动包含标明为 NSFW 的来源"
+        help="来源本身标记为 NSFW 时，其中的作品全部视为 NSFW；个别作品可在漫画详情页的「更多」菜单里单独取消。"
+      >
         <Switch label="按来源自动标记 NSFW" on={bySource} onChange={(v) => set({ bySource: v })} />
       </Row>
-      <Row label="其他列表模糊封面" hint="书库、更新和阅读历史里，NSFW 作品的封面会模糊；用鼠标指上去可以看清">
+      <Row label="其他列表模糊封面" hint="书库、更新和阅读历史中模糊封面，悬停或聚焦时看清">
         <Switch label="其他列表模糊 NSFW 封面" on={blur} onChange={(v) => set({ blur: v })} />
       </Row>
-      <Row label="临时显示全部" hint={<>在任意页面按 <kbd className="font-sans font-semibold text-text">Shift + H</kbd> 也能切换。刷新页面后恢复隐藏</>}>
+      <Row
+        label="临时显示全部"
+        hint={
+          <>
+            刷新页面后恢复隐藏；也可在任意页面按 <kbd className="font-sans font-semibold text-text">Shift + H</kbd> 切换
+          </>
+        }
+      >
         <Switch label="临时显示全部 NSFW 内容" on={revealed} onChange={(v) => set({ revealed: v })} />
       </Row>
       <NsfwCategories />

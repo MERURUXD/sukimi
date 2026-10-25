@@ -2,15 +2,27 @@ import { ms, sec } from '@/lib/format'
 import { inCategory } from './category'
 import type { LibraryManga } from './queries'
 import { compareSortValues, libraryScore } from './sortValues'
+import type { NsfwSubject } from '@/features/nsfw/nsfw'
+import { favoritesFirst } from '@/features/favorite/favorite'
 import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 
-export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga) => boolean }[] = [
+/** 筛选要用到的书库外数据：NSFW 标记存在服务端，由调用方按当前账号的标记和开关给出判定 */
+export interface FilterContext {
+  nsfw: (m: NsfwSubject) => boolean
+}
+
+export const isCompleted = (m: LibraryManga) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED'
+
+export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga, ctx: FilterContext) => boolean }[] = [
   { key: 'unread', label: '未读', test: (m) => m.unreadCount > 0 },
   { key: 'downloaded', label: '已下载', test: (m) => m.downloadCount > 0 },
-  // 没读过的漫画服务端也会给出 lastReadChapter，阅读时间为 0
-  { key: 'started', label: '已开始阅读', test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 },
+  // 没读过的漫画服务端也会给出 lastReadChapter，阅读时间为 0；
+  // 从 Tachiyomi 导入的已读章节没有阅读时间、只有已读标记（latestReadChapter），也算读过，和首页「还没开始读」一致
+  { key: 'started', label: '已开始阅读', test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 || !!m.latestReadChapter },
   { key: 'bookmarked', label: '有书签', test: (m) => m.bookmarkCount > 0 },
-  { key: 'completed', label: '已完结', test: (m) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED' },
+  { key: 'completed', label: '已完结', test: isCompleted },
+  // 不看「首页和画廊隐藏」「模糊封面」这些显示开关：只按标记、分类和来源判定，临时显示（Shift + H）时也能筛出来
+  { key: 'nsfw', label: 'NSFW', test: (m, ctx) => ctx.nsfw(m) },
 ]
 
 export { inCategory }
@@ -60,22 +72,27 @@ export function applyView(
     desc: boolean
     query: string
     scales?: SortContext['scales']
+    nsfw: FilterContext['nsfw']
+    /** 给了就把这些排到最前（「特别关心置顶」） */
+    pinned?: ReadonlyMap<number, number>
   },
 ) {
   const active = FILTERS.filter((f) => opts.filters[f.key] !== 0)
+  const ctx: FilterContext = { nsfw: opts.nsfw }
   const sort = SORTS.find((s) => s.key === opts.sort) ?? SORTS[0]
 
   const out = list.filter(
     (m) =>
       inCategory(m, opts.category, opts.defaultCategoryId) &&
       (opts.sources.length === 0 || (m.source != null && opts.sources.includes(m.source.id))) &&
-      active.every((f) => f.test(m) === (opts.filters[f.key] === 1)) &&
+      active.every((f) => f.test(m, ctx) === (opts.filters[f.key] === 1)) &&
       matchesSearch(m, opts.query),
   )
-  const ctx: SortContext = { scales: opts.scales ?? new Map() }
-  const keyed = out.map((m) => [sort.value(m, ctx), m] as const)
+  const sortCtx: SortContext = { scales: opts.scales ?? new Map() }
+  const keyed = out.map((m) => [sort.value(m, sortCtx), m] as const)
   keyed.sort(([a, ma], [b, mb]) => compareSortValues(a, b, opts.desc, collator.compare, sort.nullsLow) || collator.compare(ma.title, mb.title))
-  return keyed.map(([, m]) => m)
+  const sorted = keyed.map(([, m]) => m)
+  return opts.pinned ? favoritesFirst(sorted, opts.pinned) : sorted
 }
 
 /** 书库里出现过的来源，按漫画数从多到少 */

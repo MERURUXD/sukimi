@@ -28,7 +28,7 @@ export function MigratePage() {
 }
 
 /**
- * 换源迁移：在其他来源里找同一部漫画，把已读、书签、分类搬过去。
+ * 换源迁移：在其他来源里找同一部漫画，把已读、书签、分类搬过去（追踪网站的绑定也一并绑到新漫画）。
  * 服务端没有迁移接口，按步骤调用现有的变更完成。
  */
 export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to: number) => void }) {
@@ -54,7 +54,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
   // 同语言一个来源都没有时直接搜全部
   const effectiveScope = sameLang.length === 0 ? 'all' : scope
   const sources = effectiveScope === 'lang' ? sameLang : everySource
-  const results = useMultiSourceSearch(q, sources, searched)
+  const { results, retry } = useMultiSourceSearch(q, sources, searched)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
@@ -70,7 +70,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
   return (
     <div className="wrap pt-8 pb-20">
       <h1 className="m-0 font-cjk text-[32px] font-black sm:text-[40px]">换源迁移</h1>
-      <p className="mt-2 mb-7 max-w-[60ch] text-[15px] text-muted">在其他来源里找到同一部漫画，把已读进度、书签和分类搬过去。</p>
+      <p className="mt-2 mb-7 max-w-[60ch] text-[15px] text-muted">在其他来源里找到同一部漫画，把已读进度、书签、分类和追踪绑定搬过去。</p>
 
       {manga && (
         <div className="mb-8 flex items-center gap-4" data-sfw={sfwAttr(manga.source?.displayName)}>
@@ -136,7 +136,16 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
         <p className="text-sm leading-relaxed text-muted" role="status">
           {pending.length > 0 && <span className="mr-3 inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />还在搜索 {pending.length} 个来源</span>}
           {empty.length > 0 && <span className="mr-3">没有结果：{empty.map((s) => s.displayName).join('、')}</span>}
-          {failed.length > 0 && <span>搜索失败：{failed.map((s) => s.displayName).join('、')}</span>}
+          {failed.length > 0 && (
+            <span>
+              搜索失败：{failed.map((s) => s.displayName).join('、')}
+              {pending.length === 0 && (
+                <button type="button" className="ml-2 font-semibold text-text hover:underline" onClick={() => retry()}>
+                  重试失败来源
+                </button>
+              )}
+            </span>
+          )}
         </p>
       )}
 
@@ -162,7 +171,7 @@ function CandidateTile({ m, source, onPick }: { m: SourceManga; source: Source; 
         )}
       </span>
       <span className="line-clamp-2 text-sm font-semibold">{m.title}</span>
-      {m.author && <span className="-mt-1.5 truncate text-xs text-muted">{m.author}</span>}
+      {m.author && <span className="-mt-1.5 truncate text-[13px] text-muted">{m.author}</span>}
     </button>
   )
 }

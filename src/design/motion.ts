@@ -16,3 +16,17 @@ export const fade = {
   default: { duration: 0.2, ease: [0.2, 0, 0, 1] },
   slow: { duration: 0.3, ease: [0.2, 0, 0, 1] },
 } satisfies Record<string, Transition>
+
+/**
+ * 进出阅读器（lib/readerTransition.ts）：仿 iOS 打开 / 关闭应用的弹簧，
+ * 写法同 SwiftUI 的 .spring(response:dampingFraction:)，max 为时长上限（秒）。
+ * radius 是展开途中的圆角，落定前收成直角；depth 是背后页面推近的比例。
+ * ready 是开始展开前最多等阅读器首屏图片多久（秒），等不到就照常展开。
+ */
+export const readerVt = {
+  ready: 0.4,
+  enter: { response: 0.36, damping: 0.86, max: 0.4 },
+  exit: { response: 0.3, damping: 0.95, max: 0.36 },
+  radius: 24,
+  depth: 0.04,
+}

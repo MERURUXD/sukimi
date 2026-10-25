@@ -7,6 +7,7 @@ import { useAuth } from '@/api/auth'
 import { captureUser } from '@/api/userContext'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { toast } from '@/components/ui/toast'
+import { USER_KEYS } from '@/features/auth/userScope'
 import { categoryNsfwKey, isNsfw, mangaNsfwKey, NO_MARKS, nsfwPrefix, nsfwReason, nsfwWrite, parseNsfw, type NsfwMarks, type NsfwSubject } from './nsfw'
 import { NsfwMetas, RemoveNsfwMetas, SetNsfwMetas } from './queries'
 
@@ -31,7 +32,7 @@ export const useNsfwStore = create<NsfwState>()(
   persist(
     (set) => ({ ...INITIAL, revealed: false, set: (patch) => set(patch) }),
     {
-      name: 'suwayomi-web.nsfw',
+      name: USER_KEYS.nsfw,
       storage: userStorage<NsfwState>(),
       partialize: ({ hide, bySource, blur, marks }) => ({ hide, bySource, blur, marks }) as NsfwState,
       merge: scopedMerge<NsfwState>(INITIAL),
@@ -166,5 +167,12 @@ export function useNsfwActions() {
     await write([[categoryNsfwKey(currentUserId(), categoryId), on ? '1' : null]])
   }, [write])
 
-  return { setManga, setCategory }
+  /** 换源迁移：手动标记（或手动放行）跟着作品走，原样复制到新版本；没有手动标记时什么都不写 */
+  const copyManga = useCallback(async (fromId: number, toId: number) => {
+    const manual = useNsfwStore.getState().marks.manga[fromId]
+    if (manual === undefined) return
+    await write([[mangaNsfwKey(currentUserId(), toId), manual ? '1' : '0']])
+  }, [write])
+
+  return { setManga, setCategory, copyManga }
 }

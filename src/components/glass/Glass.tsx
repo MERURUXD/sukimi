@@ -1,9 +1,10 @@
-import { createElement, useCallback, useId, useRef, type ComponentPropsWithoutRef, type CSSProperties, type Ref } from 'react'
+import { createElement, useCallback, useContext, useId, useRef, type ComponentPropsWithoutRef, type CSSProperties, type Ref } from 'react'
 import { motion } from 'motion/react'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { useGlassTuning } from '@/design/glassTuning'
 import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
+import { MovingGlassBackdrop } from './MovingGlassBackdrop'
 
 type Tag = 'div' | 'span' | 'nav' | 'header' | 'section' | 'aside' | 'form' | 'footer' | 'label' | 'button' | 'a'
 
@@ -36,14 +37,15 @@ export function Glass<T extends Tag = 'div'>({
 }: GlassProps<T>) {
   const mode = useAppearance((s) => s.glass)
   const t = useGlassTuning()
+  const moving = useContext(MovingGlassBackdrop)
   const host = useRef<HTMLElement>(null)
   const filterId = `lens${useId().replace(/[:«»]/g, '')}`
-  const on = mode === 'refract' && !suspendRefract && supportsRefract()
+  const on = mode === 'refract' && !suspendRefract && moving !== 'suspend' && supportsRefract()
   const o: LensOptions = {
     bezel: lens?.bezel ?? t.bezel,
     strength: lens?.strength ?? t.strength,
     falloff: lens?.falloff ?? t.falloff,
-    dispersion: lens?.dispersion ?? t.dispersion,
+    dispersion: lens?.dispersion ?? (moving ? 0 : t.dispersion),
   }
   const blur = lens?.blur ?? (dense ? t.denseBlur : t.blur)
   const feImage = useLensMap(host, on, o)
@@ -57,7 +59,15 @@ export function Glass<T extends Tag = 'div'>({
   )
 
   const refractStyle: CSSProperties | undefined = on
-    ? { backdropFilter: `url(#${filterId}) blur(${blur}px) saturate(${t.saturate})` }
+    ? {
+        // veil 档：提亮 / 压暗按主题和 dense 取自 CSS 变量 --g-veil（见 index.css）；
+        // 透镜放到最后，弯折和色散的彩边不再被模糊揉开。外缘一个像素要挤进好几个像素的画面，
+        // 黑白文字会挤成断续的虚线，透镜后再补 0.5px 抹平这些台阶
+        backdropFilter:
+          t.tone === 'veil'
+            ? `blur(${blur}px) saturate(${t.saturate}) var(--g-veil) url(#${filterId}) blur(0.5px)`
+            : `url(#${filterId}) blur(${blur}px) saturate(${t.saturate})`,
+      }
     : undefined
 
   return createElement(

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isRecent, isStale, notStarted, pick, pickBatch, STALE_DAYS } from '../src/features/home/picks.ts'
-import { HIDDEN_KEY } from '../src/features/history/history.ts'
+import { hiddenKey } from '../src/features/history/history.ts'
 
 // 虚构书库条目，lastReadAt 为秒
 const NOW = 2_000_000_000
@@ -63,13 +63,13 @@ test('Tachiyomi 时期导入的已读章节没有阅读时间，也不算还没�
 
 test('好久没看：超过两周、还有未读，历史里删掉的不算', () => {
   const old = NOW - (STALE_DAYS + 1) * DAY
-  assert.equal(isStale(manga(1, 3, old), NOW), true)
-  assert.equal(isStale(manga(2, 3, NOW - 3 * DAY), NOW), false)
-  assert.equal(isStale(manga(3, 0, old), NOW), false)
-  assert.equal(isStale(manga(4, 3, 0), NOW), false)
-  assert.equal(isStale(manga(5, 3, old, [{ key: HIDDEN_KEY, value: String(old) }]), NOW), false)
+  assert.equal(isStale(manga(1, 3, old), NOW, 1), true)
+  assert.equal(isStale(manga(2, 3, NOW - 3 * DAY), NOW, 1), false)
+  assert.equal(isStale(manga(3, 0, old), NOW, 1), false)
+  assert.equal(isStale(manga(4, 3, 0), NOW, 1), false)
+  assert.equal(isStale(manga(5, 3, old, [{ key: hiddenKey(1), value: String(old) }]), NOW, 1), false)
   // 删除后又读过（阅读时间晚于删除时间）就重新出现
-  assert.equal(isStale(manga(6, 3, old, [{ key: HIDDEN_KEY, value: String(old - 10) }]), NOW), true)
+  assert.equal(isStale(manga(6, 3, old, [{ key: hiddenKey(1), value: String(old - 10) }]), NOW, 1), true)
 })
 
 test('两周内读过的才算最近', () => {
@@ -89,5 +89,10 @@ test('换一批时第一个一定和上一批不同，同一批结果固定', ()
     }
     assert.deepEqual(ids(pickBatch(list, 4, 'hero:a', 7, (m) => m.id)), ids(pickBatch(list, 4, 'hero:a', 7, (m) => m.id)))
     assert.deepEqual(ids(pickBatch(list, 4, 'hero:a', 0, (m) => m.id)), ids(pick(list, 4, 'hero:a#0', (m) => m.id)))
+    // 第一组只从 first 里挑，换一批才轮到其余候选
+    const head = list.slice(0, 4)
+    assert.deepEqual(new Set(ids(pickBatch(list, 4, 'hero:a', 0, (m) => m.id, head))), new Set(ids(head)))
+    const later = new Set(Array.from({ length: 6 }, (_, b) => ids(pickBatch(list, 4, 'hero:a', b + 1, (m) => m.id, head))).flat())
+    assert.ok([...later].some((id) => !ids(head).includes(id)))
   }
 })

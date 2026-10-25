@@ -202,7 +202,7 @@ function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onD
           <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-semibold">{t.name}</span>
-            <span className="truncate text-xs text-muted">{r.title}</span>
+            <span className="truncate text-[13px] text-muted">{r.title}</span>
           </span>
         </div>
         <span {...row(1, 'text-sm text-muted num')}>
@@ -227,7 +227,7 @@ function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onD
             <span className="truncate font-semibold">{t.name}</span>
             {status && <span className="flex-none rounded-full bg-hover px-2 py-px text-[11px] font-semibold text-muted">{statusLabel(status.name)}</span>}
           </span>
-          <span className="truncate text-xs text-muted">{r.title}</span>
+          <span className="truncate text-[13px] text-muted">{r.title}</span>
         </span>
         <button type="button" className="-mr-1 inline-flex min-h-9 flex-none items-center rounded-full pl-2 text-[13px] font-semibold text-muted transition-colors hover:text-text" onClick={(e) => onDetail(e.currentTarget)}>
           详细设置

@@ -117,6 +117,24 @@ export function predict(
   return { kind: 'next', next, interval, regular, approx, late, minute, days }
 }
 
+/** 公告、番外这类不在正篇序列里的章节名：来源常把名字里的日期（如「公告250921」）解析成话数 */
+const NOT_MAIN = /公告|通知|告知|预告|番外|特别篇|附录|休刊|お知らせ|予告|番外編|notice|announce|extra|special|hiatus/i
+
+/**
+ * 预计的下一话该写第几话：正篇最大话数加一；整数凑不出时返回 null。
+ * 先去掉公告、番外，再去掉远超其余章节的离群话数，免得一个被误解析的日期把结果带到几十万。
+ */
+export function nextChapterNumber(chapters: readonly { chapterNumber: number; name: string }[]) {
+  const nums = chapters
+    .filter((c) => c.chapterNumber >= 0 && !NOT_MAIN.test(c.name))
+    .map((c) => c.chapterNumber)
+    .sort((a, b) => b - a)
+  // 至少还剩三个更小的话数作对照时，比次大值的两倍还多一百的算离群
+  while (nums.length > 3 && nums[0] > nums[1] * 2 + 100) nums.shift()
+  const max = nums[0]
+  return max !== undefined && Number.isInteger(max) ? max + 1 : null
+}
+
 /** 从 next 往后、落在 [from, to) 里的每一次预计发布（日历往后翻几周时用） */
 export function occurrences(p: Extract<Prediction, { kind: 'next' }>, from: number, to: number) {
   const out: number[] = []

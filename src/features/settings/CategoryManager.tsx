@@ -99,7 +99,7 @@ export function CategoryManager() {
       await update({ variables: { id: editing.id, patch: { name: editing.name.trim() } } })
       setEditing(null)
     } catch (err) {
-      toastError('改名失败', err)
+      toastError('重命名失败', err)
     }
   }
 
@@ -139,7 +139,7 @@ export function CategoryManager() {
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{c.name}</span>
-                <span className="text-xs text-muted num">
+                <span className="text-[13px] text-muted num">
                   {c.mangas.totalCount} 部{c.includeInUpdate === 'EXCLUDE' && ' · 不参与检查更新'}
                 </span>
               </span>
@@ -158,7 +158,7 @@ export function CategoryManager() {
               >
                 <RefreshCwOff className="size-[18px]" />
               </button>
-              <button type="button" className="gicon size-10" aria-label="改名" onClick={() => setEditing({ id: c.id, name: c.name })}>
+              <button type="button" className="gicon size-10" aria-label="重命名" onClick={() => setEditing({ id: c.id, name: c.name })}>
                 <Pencil className="size-[18px]" />
               </button>
               <button

@@ -13,11 +13,11 @@ test('未读完时，阅读目标和进度来自当前章节', () => {
   assert.equal(r.isNext, false)
 })
 
-test('读完后，新章节尚未开始的进度为零，不沿用上一话的满进度', () => {
+test('读完后，新章节尚未开始时不显示进度条，也不沿用上一话的满进度', () => {
   const r = readingTarget(record({ isRead: true, manga: { firstUnreadChapter: chapter({ id: 102, lastPageRead: 0, lastReadAt: '0' }) } }))
   assert.equal(r.chapter.id, 102)
   assert.equal(r.page, '尚未开始')
-  assert.equal(r.pct, 0)
+  assert.equal(r.pct, null)
   assert.equal(r.isNext, true)
 })
 

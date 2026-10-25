@@ -5,11 +5,13 @@ import { isDevLab } from '@/lib/demo'
 import { restoreSession, useAuth } from '@/api/auth'
 import { LiveStatus } from '@/api/live'
 import { useSnapshots } from '@/api/persist'
+import { LegacyMetasMigrate } from '@/features/auth/LegacyMetasMigrate'
 import { showBeforeVerified } from '@/features/auth/userScope'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
 import { NsfwSync } from '@/features/nsfw/useNsfw'
+import { useReaderPreload } from '@/features/reader/preload'
 import { MobileTabBar } from './MobileTabBar'
 import { PreviewBadge } from './PreviewBadge'
 import { takeNavDirection } from './navTabs'
@@ -17,6 +19,8 @@ import { ScrollManager } from './ScrollManager'
 import { SideNav } from './SideNav'
 import { TopNav } from './TopNav'
 import { UpdatePrompt } from './UpdatePrompt'
+import { AwayPrompt } from '@/features/favorite/AwayPrompt'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 
 /** 需要登录的页面外壳：未登录跳登录页，连不上服务器给重试 */
 export function AuthGate() {
@@ -40,7 +44,7 @@ export function AuthGate() {
     return (
       <div className="grid min-h-dvh place-items-center px-4 text-center">
         <div>
-          <p className="text-lg font-semibold">连不上 Suwayomi 服务器</p>
+          <p className="text-lg font-semibold">连不上 Suwayomi 服务端</p>
           <p className="mt-1 text-muted">确认服务端已启动后重试。</p>
           <button className="solid mt-6" onClick={() => void restoreSession()}>
             重试
@@ -60,6 +64,7 @@ export function AuthGate() {
       {/* 和上面的 Outlet 同在一层，key 不能重复 */}
       <LiveStatus key={`live-${userId}`} />
       <NsfwSync key={`nsfw-${userId}`} />
+      <LegacyMetasMigrate key={`legacy-${userId}`} />
     </>
   )
 }
@@ -70,6 +75,7 @@ export function AppShell() {
   const tabbar = !useMatch('/manga/:id/*')
   const { pathname } = useLocation()
   const main = useRef<HTMLElement>(null)
+  useReaderPreload()
 
   // 主标签之间切换：新页面带一点水平滑入，淡入淡出由整页过渡负责。
   // 只用位移不用透明度，祖先的透明度会让里面玻璃的背景采样失效；导航栏不在 main 里，保持不动
@@ -81,6 +87,7 @@ export function AppShell() {
 
   return (
     // overflow-x: clip：滑入时 main 暂时比屏幕宽，不能撑出横向滚动条
+    <MovingGlassBackdrop value={pathname === '/' || pathname.startsWith('/library/gallery')}>
     <div className={cn('app-shell relative isolate min-h-dvh overflow-x-clip', tabbar && 'has-tabbar')}>
       <TopNav />
       <SideNav />
@@ -91,7 +98,9 @@ export function AppShell() {
       </main>
       {tabbar && <MobileTabBar />}
       <UpdatePrompt />
+      <AwayPrompt />
       <ScrollManager />
     </div>
+    </MovingGlassBackdrop>
   )
 }

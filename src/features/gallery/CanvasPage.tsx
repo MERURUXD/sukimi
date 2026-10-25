@@ -4,6 +4,7 @@ import { BookOpen, Play, Search, Shuffle, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { MangaChapters, MangaDetail } from '@/features/manga/queries'
 import { STATUS } from '@/features/manga/status'
@@ -106,6 +107,7 @@ export function CanvasPage() {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight })
   const [focus, setFocus] = useState(-1)
   const [ready, setReady] = useState(!fromGallery || reduced || !!restoring)
+  const [playCovered, setPlayCovered] = useState(false)
   // 返回时那一部可能已被移出书库（排序下标对不上了）：对不上就不恢复详情层
   const [sel, setSel] = useState<Selection | null>(restoring?.sel && items[restoring.sel.index]?.id === restoring.selId ? restoring.sel : null)
   const [hudStart] = useState(ready ? 1 : 0)
@@ -145,6 +147,7 @@ export function CanvasPage() {
     retTo: null as null | { x: number; y: number; k: number },
   })
   const assigned = useRef(new Map<string, number>())
+  const painted = useRef({ ox: NaN, oy: NaN, t: NaN, playKey: null as string | null })
   /** 正在倒放过渡回首页：不再重放进入过渡，也不记住位置 */
   const leaving = useRef(false)
   const raf = useRef(0)
@@ -191,6 +194,10 @@ export function CanvasPage() {
       v.ox = c.x
       v.oy = c.y
     }
+    // 取景框落位时还会继续请求帧，墙没有移动就沿用已画好的封面。
+    const prev = painted.current
+    if (prev.ox === v.ox && prev.oy === v.oy && prev.t === v.t && prev.playKey === playKey.current) return
+    Object.assign(prev, { ox: v.ox, oy: v.oy, t: v.t, playKey: playKey.current })
     const p = introPhases(v.t)
     const scale = HOME_WALL.scale + (1 - HOME_WALL.scale) * p.wall
     // 过渡时整面墙顺着首页的流动方向再滑一段（首页的墙按同样的偏移画，第一帧正好接上）
@@ -209,7 +216,7 @@ export function CanvasPage() {
     for (let i = 0; i < poolSize; i++) {
       const el = slots.current[i]
       if (!el) continue
-      if (!used.has(i)) {
+      if (!used.has(i) && el.style.visibility !== 'hidden') {
         el.style.visibility = 'hidden'
         continue
       }
@@ -240,9 +247,11 @@ export function CanvasPage() {
       meta.ry = pose.ry
       // 正在详情里展示的那一格先藏起来，看起来就是它飞出去了
       const away = (s && s.key === key && s.index === s.origin) || playKey.current === key
-      el.style.visibility = away ? 'hidden' : ''
+      const visibility = away ? 'hidden' : ''
+      if (el.style.visibility !== visibility) el.style.visibility = visibility
       el.style.opacity = String(pose.opacity)
-      el.style.zIndex = focused ? '3' : '1'
+      const zIndex = focused ? '3' : '1'
+      if (el.style.zIndex !== zIndex) el.style.zIndex = zIndex
       el.style.transform = `translate3d(${cell.x.toFixed(1)}px, ${cell.y.toFixed(1)}px, ${pose.z.toFixed(1)}px) rotateY(${pose.ry.toFixed(2)}deg) rotateX(${pose.rx.toFixed(2)}deg)`
     }
 
@@ -358,13 +367,15 @@ export function CanvasPage() {
     if (!raf.current) raf.current = requestAnimationFrame((t) => tickRef.current(t))
   }, [])
 
-  // 尺寸、书目、格子池变化后重画；新的 tick 闭包接手正在进行的动画
+  // 尺寸、书目、格子池变化后重画；新的 tick 闭包接手正在进行的动画。
+  // ready 变化时首屏层（stage）会重新挂上，样式要重画一遍：返回倒放的第一帧与上次画的位置相同，paint 会直接跳过
   useLayoutEffect(() => {
     cancelAnimationFrame(raf.current)
     raf.current = 0
+    painted.current.t = NaN
     paint()
     kick()
-  }, [paint, kick, items, sel, closing, play])
+  }, [paint, kick, items, sel, closing, play, ready])
   useEffect(
     () => () => {
       cancelAnimationFrame(raf.current)
@@ -692,6 +703,7 @@ export function CanvasPage() {
   }, [client, selected])
 
   return (
+    <MovingGlassBackdrop value>
     <div
       ref={root}
       data-theme="dark"
@@ -711,7 +723,8 @@ export function CanvasPage() {
         <div
           ref={field}
           className={cn('absolute inset-0 origin-center', ready && 'transition-[filter,transform] duration-700 ease-[cubic-bezier(.2,.8,.2,1)]')}
-          style={{ perspective: PERSPECTIVE, filter: (sel && !closing) || (play && !play.closing) ? 'blur(16px) brightness(.45) saturate(1.2)' : undefined }}
+          data-canvas-field
+          style={{ perspective: PERSPECTIVE, visibility: playCovered ? 'hidden' : undefined, filter: !playCovered && ((sel && !closing) || (play && !play.closing)) ? 'blur(16px) brightness(.45) saturate(1.2)' : undefined }}
         >
           {Array.from({ length: n ? poolSize : 0 }, (_, i) => (
             <button
@@ -721,7 +734,7 @@ export function CanvasPage() {
               }}
               type="button"
               tabIndex={-1}
-              className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0 md:shadow-[0_30px_60px_-24px_rgba(0,0,0,.9)]"
+              className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0"
               style={{ width: grid.cw, visibility: 'hidden', backfaceVisibility: 'hidden' }}
               onClick={() => openSlot(i)}
             >
@@ -860,6 +873,7 @@ export function CanvasPage() {
           onCurrent={onPlayCurrent}
           onExit={exitPlay}
           onClosed={playClosed}
+          onCovered={setPlayCovered}
         />
       )}
 
@@ -881,6 +895,7 @@ export function CanvasPage() {
         />
       )}
     </div>
+    </MovingGlassBackdrop>
   )
 }
 
@@ -1103,7 +1118,7 @@ function CanvasDetail({
           {/* 进场动画放在每个按钮自身，「作品详情」是玻璃，祖先不能带透明度 */}
           <div className="mt-3 flex flex-wrap gap-3 max-md:justify-center">
             {firstUnread ? (
-              <Link to={`/manga/${manga.id}/chapter/${firstUnread}`} className="gallery-up solid h-14 px-[30px] text-[17px] no-underline" style={up(4)}>
+              <Link to={`/manga/${manga.id}/chapter/${firstUnread}`} viewTransition className="gallery-up solid h-14 px-[30px] text-[17px] no-underline" style={up(4)}>
                 <BookOpen className="size-[19px]" strokeWidth={1.8} />
                 {manga.unreadCount > 0 && Number(manga.lastReadChapter?.lastReadAt) > 0 ? '继续阅读' : '开始阅读'}
               </Link>

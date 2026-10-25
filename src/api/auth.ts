@@ -126,7 +126,7 @@ export function getAccessToken() {
 
 /** 不带 Cookie 与登录态直接请求（登录、续期用）；`token` 只给取当前用户这类刚拿到令牌、尚未生效的请求 */
 async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V, token?: string): Promise<R> {
-  if (isDemo) throw new TypeError('演示模式不会请求真实服务端')
+  if (isDemo || isDevLab) throw new TypeError('演示和验收页不会请求真实服务端')
   let res: Response
   try {
     res = await fetch('/api/graphql', {
@@ -137,9 +137,9 @@ async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V
       body: JSON.stringify({ query: print(doc), variables }),
     })
   } catch (e) {
-    throw new TypeError(`无法连接服务器：${(e as Error).message}`)
+    throw new TypeError(`无法连接服务端：${(e as Error).message}`)
   }
-  if (!res.ok && res.status >= 500) throw new TypeError(`服务器错误 ${res.status}`)
+  if (!res.ok && res.status >= 500) throw new TypeError(`服务端错误 ${res.status}`)
   const json = (await res.json()) as { data?: R; errors?: { message: string }[] }
   if (json.errors?.length || !json.data) {
     throw new AuthError(json.errors?.[0]?.message.split('\n')[0] ?? '请求失败')
@@ -163,9 +163,31 @@ function applyAccessToken(token: string) {
   document.cookie = `${COOKIE}=${token}; path=/; SameSite=Strict${expires}`
 
   clearTimeout(refreshTimer)
-  if (accessExp) {
-    const wait = Math.min(Math.max(accessExp - Date.now() - LEEWAY, 5_000), 2 ** 31 - 1)
-    refreshTimer = setTimeout(() => void refreshAccessToken().catch(() => {}), wait)
+  if (accessExp) scheduleRefresh(Math.min(Math.max(accessExp - Date.now() - LEEWAY, 5_000), 2 ** 31 - 1))
+}
+
+function scheduleRefresh(wait: number) {
+  clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(() => void refreshAccessToken().catch(() => {}), wait)
+}
+
+/** 网络问题导致续期失败后，多久再试一次：下一次续期只靠成功后排的定时器，不重排的话令牌过期后就再没人续了 */
+const RETRY_MS = 20_000
+
+/** 令牌已过期或快过期。封面等 <img> 请求靠 Cookie，Cookie 的过期时间就是令牌的过期时间 */
+export const tokenExpiring = () => !!accessExp && accessExp - Date.now() < LEEWAY
+
+/**
+ * 给 WebSocket 握手用：令牌快过期或没有就先续期，免得带着过期令牌被当作访客。
+ * 断网时续期失败，仍用手上的旧令牌握手：握手里抛错会被 graphql-ws 当成致命错误，订阅从此不再重连
+ */
+export async function freshAccessToken() {
+  if (accessToken && !tokenExpiring()) return accessToken
+  try {
+    return await refreshAccessToken()
+  } catch (e) {
+    if (accessToken && !(e instanceof AuthError)) return accessToken
+    throw e
   }
 }
 
@@ -278,6 +300,8 @@ export function refreshAccessToken(): Promise<string> {
     .catch((e: unknown) => {
       // 过期的续期失败不能把后来建立的新会话登出
       if (e instanceof AuthError && started === epoch) signOut()
+      // 断网 / 服务端停机：保留登录态，过一会儿再试，直到连上为止
+      else if (!(e instanceof AuthError) && started === epoch && useAuth.getState().status === 'signedIn') scheduleRefresh(RETRY_MS)
       throw e
     })
     .finally(() => {

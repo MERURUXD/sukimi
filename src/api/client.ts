@@ -6,7 +6,7 @@ import { getMainDefinition } from '@apollo/client/utilities'
 import { OperationTypeNode } from 'graphql'
 import { createClient } from 'graphql-ws'
 import { from, mergeMap } from 'rxjs'
-import { getAccessToken, getSessionEpoch, refreshAccessToken, sessionReady, useAuth } from './auth'
+import { freshAccessToken, getAccessToken, getSessionEpoch, refreshAccessToken, sessionReady, useAuth } from './auth'
 import { isDemo } from '@/lib/demo'
 import { clearSnapshots } from './persist'
 import { resetUserContext } from './userContext'
@@ -53,7 +53,7 @@ export const wsClient = createClient({
   retryAttempts: Infinity,
   // 服务端（Jetty）空闲 30 秒会断开连接，没有下载时订阅很安静，靠心跳保活
   keepAlive: 15_000,
-  connectionParams: async () => ({ Authorization: getAccessToken() ?? (await refreshAccessToken()) }),
+  connectionParams: async () => ({ Authorization: await freshAccessToken() }),
 })
 const wsLink = new GraphQLWsLink(wsClient)
 

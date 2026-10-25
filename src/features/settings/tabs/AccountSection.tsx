@@ -62,8 +62,8 @@ function ChangePassword() {
       <div className="font-semibold">修改密码</div>
       <TextInput type="password" placeholder="当前密码" autoComplete="current-password" value={oldPassword} onChange={(e) => setOld(e.target.value)} />
       <TextInput type="password" placeholder="新密码" autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} />
-      <TextInput type="password" placeholder="再输入一次新密码" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
-      <p role="alert" className="m-0 min-h-[18px] text-xs text-danger">
+      <TextInput type="password" placeholder="确认新密码" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+      <p role="alert" className="m-0 min-h-[18px] text-[13px] text-danger">
         {mismatch ? '两次输入的新密码不一致' : newPassword && newPassword === oldPassword ? '新密码不能和当前密码相同' : ''}
       </p>
       <div className="flex gap-2">
@@ -85,7 +85,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
   const multi = !!user && !user.legacy
 
   return (
-    <Section title="账户">
+    <Section title="账号">
       {multi && (
         <Row label="当前用户" hint={user.roles.map((r) => ROLE_LABEL[r]).join('、') || undefined}>
           <span className="text-muted">{user.username}</span>
@@ -98,7 +98,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
           <ChangePassword />
         ))}
       {!hideSignOut && (
-        <Row label="退出登录" hint="清除这台设备上保存的登录状态和书库缓存">
+        <Row label="退出登录" hint="清除当前浏览器的登录状态与本地书库缓存">
           <button
             type="button"
             className="gbtn plain rounded-full"

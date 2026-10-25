@@ -33,9 +33,16 @@ if (flavor?.toUpperCase() !== 'CUSTOM') {
   fail(`服务端 webUIFlavor 现在是 ${flavor ?? '未设置'}，不是 CUSTOM：部署后会被官方 WebUI 覆盖。先改设置再部署。`)
 }
 
-if (!process.argv.includes('--no-build')) execSync('pnpm build', { stdio: 'inherit' })
+// 日用环境只部署正式构建：环境变量或 .env.local 里残留的 SUKIMI_CHANNEL / SUKIMI_TEST_INSTANCE 会打出带开发者工具箱的包
+if (!process.argv.includes('--no-build')) {
+  execSync('pnpm build', { stdio: 'inherit', env: { ...process.env, SUKIMI_CHANNEL: 'production', SUKIMI_TEST_INSTANCE: '' } })
+}
 const dist = resolve('dist')
 if (!existsSync(join(dist, 'index.html'))) fail('dist 里没有 index.html，先运行 pnpm build')
+// --no-build 直接用现成的 dist，也要拦住 Preview 构建（标题带 [Preview]，与 update-preview.sh 的关卡一致）
+if (readFileSync(join(dist, 'index.html'), 'utf8').includes('<title>[Preview]')) {
+  fail('dist 是 Preview 构建，不能部署到日用环境。去掉 SUKIMI_CHANNEL 后重新运行 pnpm deploy:server')
+}
 
 const target = join(dataDir, 'webUI')
 if (existsSync(target) && readdirSync(target).length && !existsSync(join(target, MARK))) {

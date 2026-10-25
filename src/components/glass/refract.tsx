@@ -43,7 +43,11 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
   const H = Math.max(1, Math.round(h))
   const key = `${W}x${H}r${radius.toFixed(1)}b${bezel.toFixed(1)}f${falloff}`
   const hit = cache.get(key)
-  if (hit) return hit
+  if (hit) {
+    cache.delete(key)
+    cache.set(key, hit)
+    return hit
+  }
 
   canvas ??= document.createElement('canvas')
   canvas.width = W
@@ -84,8 +88,10 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
       const i = (y * W + x) * 4
       let ox = 0
       let oy = 0
-      if (dist > 0 && dist < bezel) {
-        const m = (1 - dist / bezel) ** falloff
+      if (dist < bezel) {
+        // 圆角外侧只露出半个像素的边缘也按最外缘位移：不弯的话它们取到原样的背景，
+        // 紧挨着弯折最强的一圈，沿圆角的像素台阶会露出锯齿
+        const m = (1 - Math.max(0, dist) / bezel) ** falloff
         // 从内侧取样：位移方向与外法线相反
         ox = -sx * nx * m
         oy = -sy * ny * m
@@ -98,7 +104,7 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
   }
   ctx.putImageData(img, 0, 0)
   const url = canvas.toDataURL()
-  if (cache.size > 300) cache.delete(cache.keys().next().value!)
+  if (cache.size >= 48) cache.delete(cache.keys().next().value!)
   cache.set(key, url)
   return url
 }
@@ -112,31 +118,31 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
   useLayoutEffect(() => {
     const el = host.current
     if (!enabled || !el) return
-    let raf = 0
+    let lastSize = ''
     const draw = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        // 用布局尺寸而不是 getBoundingClientRect：缩放动画中的 transform 不应影响位移图
-        const w = el.offsetWidth
-        const h = el.offsetHeight
-        if (!w || !h) return
-        const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
-        const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
-        feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
-        // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
-        const shift = bezel * o.strength
-        const filter = feImage.current?.parentElement
-        filter?.querySelectorAll('feDisplacementMap').forEach((fe) => {
-          const extra = Number(fe.dataset.extra ?? 0)
-          fe.setAttribute('scale', String(2 * shift + extra))
-        })
+      // 用布局尺寸而不是 getBoundingClientRect：缩放动画中的 transform 不应影响位移图
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      if (!w || !h) return
+      const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
+      const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
+      const size = `${w}:${h}:${radius}:${bezel}`
+      if (lastSize === size) return
+      lastSize = size
+      feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
+      // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
+      const shift = bezel * o.strength
+      const filter = feImage.current?.parentElement
+      filter?.querySelectorAll('feDisplacementMap').forEach((fe) => {
+        const extra = Number(fe.dataset.extra ?? 0)
+        fe.setAttribute('scale', String(2 * shift + extra))
       })
     }
     draw()
+    // 在本次布局绘制前同步换图；延迟或再等一帧会先拉伸旧透镜带，随后边缘二次跳变。
     const ro = new ResizeObserver(draw)
     ro.observe(el)
     return () => {
-      cancelAnimationFrame(raf)
       ro.disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

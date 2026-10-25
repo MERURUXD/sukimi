@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
 import { usePrefetchManga } from '@/features/manga/prefetch'
-import { LaterMenuItems } from '@/features/later/LaterMenuItems'
+import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -18,14 +19,14 @@ import { resetOnUserContext } from '@/api/userContext'
 import { sourceBrowseKey } from './filters'
 import { SourceFilterPanel } from './SourceFilterPanel'
 import { SourceIcon } from './SourceIcon'
-import { useMultiSourceSearch, type SearchResults } from './multiSearch'
+import { onlineSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
 import { ExtensionUpdateCount, FetchSourceManga, langLabel, Sources, type Source, type SourceManga } from './queries'
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
 
-/** 封面触屏长按、鼠标右键打开「稍后再看」菜单；单来源网格和全局搜索结果共用 */
-function LaterMenu({ m, align = 'left', children }: {
-  m: Pick<SourceManga, 'id' | 'title'>
+/** 封面触屏长按、鼠标右键打开「稍后再看 / 特别关心」菜单；单来源网格和全局搜索结果共用 */
+function MangaMenu({ m, align = 'left', children }: {
+  m: Pick<SourceManga, 'id' | 'title' | 'inLibrary'>
   align?: 'left' | 'right'
   children: (open: ReturnType<typeof useLongPress> & { onContextMenu: (e: MouseEvent) => void; 'aria-haspopup': 'menu' }) => ReactNode
 }) {
@@ -42,7 +43,7 @@ function LaterMenu({ m, align = 'left', children }: {
   }
   return (
     <Popover open={menu} onClose={close} trigger={children(open)} align={align} label={`${m.title} 的操作`} rootClassName="min-w-0" className="w-[220px]">
-      <LaterMenuItems mangaId={m.id} onDone={close} />
+      <MangaMenuItems mangaId={m.id} inLibrary={m.inLibrary} onDone={close} />
     </Popover>
   )
 }
@@ -50,7 +51,7 @@ function LaterMenu({ m, align = 'left', children }: {
 /** 浏览结果的封面网格 */
 function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
-  return <LaterMenu m={m}>{(open) => (
+  return <MangaMenu m={m}>{(open) => (
     <Link
       to={`/manga/${m.id}`}
       viewTransition
@@ -71,10 +72,10 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-semibold">{m.title}</span>
-        {m.author && <span className="truncate text-xs text-muted">{m.author}</span>}
+        {m.author && <span className="truncate text-[13px] text-muted">{m.author}</span>}
       </span>
     </Link>
-  )}</LaterMenu>
+  )}</MangaMenu>
 }
 
 export function BrowsePage() {
@@ -115,34 +116,37 @@ export function BrowsePage() {
     for (const s of sources) m.set(s.lang, [...(m.get(s.lang) ?? []), s])
     return [...m.entries()]
   }, [sources])
-  const searchSources = useMemo(() => sources.filter((s) => s.id !== '0'), [sources])
+  const searchSources = useMemo(() => onlineSources(sources), [sources])
   // 有可更新的扩展时在入口上显示数量
   const updates = useQuery(ExtensionUpdateCount, { fetchPolicy: 'cache-and-network' }).data?.extensions.totalCount ?? 0
 
   return (
     <div className="wrap">
-      <div className="flex flex-col items-center gap-[18px] pt-9 pb-8 text-center">
-        <h1 className="m-0 font-cjk text-[40px] font-black">发现</h1>
-        <form onSubmit={submit} className="w-[min(680px,100%)]">
-          <Glass as="label" className="flex h-12 items-center gap-2.5 rounded-full px-[18px] text-muted">
-            <Search className="size-5 flex-none" strokeWidth={1.8} />
-            <span className="sr">全局搜索</span>
-            <input
-              type="search"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="在所有漫画源中搜索，回车开始"
-              className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
-            />
-            <span className="text-[13px] whitespace-nowrap">{sources.length} 个源</span>
-          </Glass>
-        </form>
-      </div>
+      <PageHeader
+        title="发现"
+        actions={
+          // 发现页的主要入口，比历史页的搜索框宽一些
+          <form onSubmit={submit} className="min-w-0 flex-[0_1_560px] max-sm:basis-full">
+            <Glass as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
+              <Search className="size-[18px] flex-none" strokeWidth={1.8} />
+              <span className="sr">全局搜索</span>
+              <input
+                type="search"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="在所有在线源中搜索，回车开始"
+                className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
+              />
+              <span className="text-[13px] whitespace-nowrap num">{searchSources.length} 个在线源</span>
+            </Glass>
+          </form>
+        }
+      />
 
       {q && <GlobalSearch q={q} sources={searchSources} onOpen={(id) => set({ source: id, mode: 'SEARCH' })} />}
 
       <div className="flex flex-wrap items-start gap-7 pb-20">
-        <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] border-r border-line pr-4 pb-2.5 max-md:max-w-none max-md:border-r-0 max-md:pr-0">
+        <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] pr-4 pb-2.5 max-md:max-w-none max-md:pr-0">
           <div className="mb-1 flex items-center gap-2 pl-3">
             <h2 className="m-0 flex-1 text-[22px] font-bold">漫画源</h2>
             <Link to="/browse/extensions" className="rounded-full text-text no-underline">
@@ -170,7 +174,7 @@ export function BrowsePage() {
                   <SourceIcon s={s} />
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 leading-snug font-semibold break-words" title={s.displayName}>{s.displayName}</span>
-                    <span className="truncate text-xs text-muted">
+                    <span className="truncate text-[13px] text-muted">
                       {[s.supportsLatest ? '支持最新' : null, s.contentWarning === 'NSFW' ? '含成人内容' : s.contentWarning === 'MIXED' ? '部分成人内容' : null]
                         .filter(Boolean)
                         .join(' · ') || ' '}
@@ -361,40 +365,58 @@ resetOnUserContext(() => {
 })
 
 function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; onOpen: (id: string) => void }) {
-  const results = useMultiSourceSearch(q, sources, searched)
-
-  const done = Object.values(results).filter((r) => r.status !== 'loading').length
+  const { results, retry } = useMultiSourceSearch(q, sources, searched)
+  const summary = summarizeMultiSearch(sources, results)
 
   return (
     <section aria-labelledby="h-gs" className="mb-9">
-      <div className="mb-3.5 flex items-baseline gap-3">
+      <div className="mb-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 id="h-gs" className="m-0 text-[22px] font-bold">
           全局搜索「{q}」
         </h2>
-        <span className="text-[13px] text-muted">
-          已完成 {done} / {sources.length} 个源
+        <span className="text-[13px] text-muted num">
+          已完成 {summary.done} / {summary.total} 个在线源{summary.failed > 0 ? ` · 失败 ${summary.failed}` : ''}
         </span>
+        {summary.failed > 0 && summary.loading === 0 && (
+          <button type="button" className="text-[13px] font-semibold text-text hover:underline" onClick={() => retry()}>
+            重试失败来源
+          </button>
+        )}
       </div>
       <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-3.5">
         {sources.map((s) => {
           const r = results[s.id]
           return (
             <div key={s.id} className="flex flex-col gap-3 bg-[linear-gradient(var(--line),var(--line))] bg-[length:100%_1px] bg-no-repeat pt-4">
-              <button type="button" onClick={() => onOpen(s.id)} className="flex items-center gap-2.5 text-left">
-                <SourceIcon s={s} size={28} />
-                <span className="flex-1 truncate font-semibold">{s.displayName}</span>
-                <span className="text-xs text-muted">
-                  {!r || r.status === 'loading' ? '搜索中…' : r.status === 'error' ? '失败' : r.items.length ? `${r.items.length} 个结果 · 查看全部` : '无结果'}
-                </span>
-              </button>
+              <div className="flex items-center gap-2.5">
+                <button type="button" onClick={() => onOpen(s.id)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+                  <SourceIcon s={s} size={28} />
+                  <span className="flex-1 truncate font-semibold">{s.displayName}</span>
+                  {r?.status !== 'error' && (
+                    <span className="text-xs text-muted">
+                      {!r || r.status === 'loading' ? '搜索中…' : r.items.length ? `${r.items.length} 个结果 · 查看全部` : '无结果'}
+                    </span>
+                  )}
+                </button>
+                {r?.status === 'error' && (
+                  <button
+                    type="button"
+                    onClick={() => retry([s.id])}
+                    className="flex-none rounded-full px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-hover"
+                    aria-label={`重试 ${s.displayName}`}
+                  >
+                    搜索失败 · 重试
+                  </button>
+                )}
+              </div>
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
                 {r?.items.slice(0, 4).map((m, i) => (
                   // 一行四个，右半边的菜单向左展开，不超出屏幕
-                  <LaterMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
+                  <MangaMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
                     <Link to={`/manga/${m.id}`} viewTransition {...open} data-sfw={sfwAttr(s.displayName)} className="cv block rounded-lg" aria-label={m.title} title={m.title}>
                       <CoverImg src={m.thumbnailUrl} loading="lazy" />
                     </Link>
-                  )}</LaterMenu>
+                  )}</MangaMenu>
                 ))}
               </div>
             </div>

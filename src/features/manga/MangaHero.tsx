@@ -13,6 +13,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
+import { FavoriteButton } from '@/features/favorite/FavoriteButton'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { TrackDialog } from '@/features/tracking/TrackPanel'
@@ -23,6 +24,7 @@ import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
 import { StaleSessionError } from '@/api/userContext'
 import { findSameTitle } from './migrate'
 import { SameTitleDialog } from './SameTitleDialog'
+import { CoverZoomHost } from './CoverZoom'
 import { SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
@@ -64,6 +66,8 @@ export function MangaHero({
   const [checking, setChecking] = useState(false)
   // 加入书库前发现书库里已有同名漫画：先问迁移还是照常加入
   const [same, setSame] = useState<LibraryManga[] | null>(null)
+  const [zoom, setZoom] = useState(false)
+  const zoomTrigger = useRef<HTMLButtonElement>(null)
 
   const toggleLibrary = async () => {
     if (!manga.inLibrary) {
@@ -86,7 +90,7 @@ export function MangaHero({
       await setInLibrary({ variables: { id: manga.id, inLibrary: !manga.inLibrary }, refetchQueries: ['LibraryMangas'] })
       toast(manga.inLibrary ? '已移出书库' : '已加入书库')
     } catch (e) {
-      toastError('操作失败', e)
+      toastError(manga.inLibrary ? '移出书库失败' : '加入书库失败', e)
     }
   }
 
@@ -103,7 +107,16 @@ export function MangaHero({
           style={{ viewTransitionName: COVER_VT }}
         >
           <CoverImg src={manga.thumbnailUrl} />
+          {manga.thumbnailUrl && !placeholder && (
+            <button ref={zoomTrigger} type="button" className="absolute inset-0 cursor-zoom-in" aria-label="放大封面" title="放大封面" onClick={() => setZoom(true)} />
+          )}
         </div>
+        <CoverZoomHost
+          src={manga.thumbnailUrl}
+          title={manga.title}
+          open={zoom}
+          onClose={() => { setZoom(false); zoomTrigger.current?.focus({ preventScroll: true }) }}
+        />
 
         <div className="manga-hero-info flex min-w-0 flex-col">
           <div className={cn('manga-hero-identity flex min-w-0 flex-col', placeholder && 'invisible')}>
@@ -138,7 +151,7 @@ export function MangaHero({
 
           <div className={cn('manga-hero-actions', placeholder && 'invisible')}>
             {target ? (
-              <Link to={`/manga/${manga.id}/chapter/${target.chapter.id}`} state={FROM_DETAIL} style={delay(mangaIntro.actions)} className={cn('solid no-underline', animate && 'rise')} aria-label={`${target.verb} · ${chapterLabel(target.chapter)}`}>
+              <Link to={`/manga/${manga.id}/chapter/${target.chapter.id}`} state={FROM_DETAIL} viewTransition style={delay(mangaIntro.actions)} className={cn('solid no-underline', animate && 'rise')} aria-label={`${target.verb} · ${chapterLabel(target.chapter)}`}>
                 <Play className="size-[18px] shrink-0 fill-current" strokeWidth={1.6} />
                 <span className="truncate">{target.verb}<span className="manga-hero-chapter-label"> · {chapterLabel(target.chapter)}</span></span>
               </Link>
@@ -147,6 +160,7 @@ export function MangaHero({
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
             <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn(animate && 'rise')} />
+            {manga.inLibrary && <FavoriteButton mangaId={manga.id} style={delay(mangaIntro.actions + 52)} className={cn(animate && 'rise')} />}
             <Can permission="DOWNLOAD_CHAPTERS">
               <Glass as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
             </Can>
@@ -290,7 +304,7 @@ function NsfwItem({ manga }: { manga: Manga }) {
     setBusy(true)
     try {
       await setManga([manga], !on)
-      toast(on ? '已取消 NSFW 标记' : '已标记为 NSFW，首页和画廊不再显示')
+      toast(on ? '已取消 NSFW 标记' : '已标为 NSFW，首页和画廊不再显示')
     } catch (e) {
       if (!(e instanceof StaleSessionError)) toastError('修改 NSFW 标记失败', e)
     } finally {
@@ -300,7 +314,7 @@ function NsfwItem({ manga }: { manga: Manga }) {
   return (
     <button type="button" role="menuitemcheckbox" aria-checked={on} className="opt" disabled={busy} onClick={() => void toggle()}>
       <EyeOff className="size-5" />
-      <span className="flex-1">标记为 NSFW</span>
+      <span className="flex-1">标为 NSFW</span>
       {why === 'source' && <span className="text-xs text-muted">来自来源</span>}
       {why === 'category' && <span className="text-xs text-muted">来自分类</span>}
       {on && <span aria-hidden>✓</span>}

@@ -1,7 +1,7 @@
 import type { TypedDocumentNode } from '@apollo/client'
 import { print } from 'graphql'
 import { getAccessToken, getSessionEpoch, refreshAccessToken } from './auth'
-import { isDemo } from '@/lib/demo'
+import { isDemo, isDevLab } from '@/lib/demo'
 
 /** 变量里文件所在位置的占位（实际文件通过 files 传入） */
 export const FILE_SLOT = null as unknown as File
@@ -17,7 +17,8 @@ export async function uploadRequest<R, V extends Record<string, unknown>>(
   variables: V,
   files: Record<string, File>,
 ): Promise<R> {
-  if (isDemo) throw new Error('演示模式不上传文件，请退出演示后登录服务器')
+  // 上传不走 Apollo，模拟客户端拦不住；演示和验收页不能把文件传到真实服务端
+  if (isDemo || isDevLab) throw new Error('演示和验收页不上传文件，请退出后登录服务端')
   const send = async (token: string | null) => {
     const form = new FormData()
     form.append('operations', JSON.stringify({ query: print(doc), variables }))

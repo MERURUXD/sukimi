@@ -6,7 +6,7 @@
  * 时间图表套用阅读历史的隐藏规则；Tachiyomi 时期导入的「已读但没有时间」的章节只计入总数。
  */
 import { isVisible } from '../history/history.ts'
-import { sec } from '../../lib/format.ts'
+import { count, sec } from '../../lib/format.ts'
 
 export interface StatChapter {
   mangaId: number
@@ -27,6 +27,8 @@ export interface RankEntry {
   id: number
   read: number
   total: number | null
+  /** 已读页数估算（取整）：页数已知的话按实际页数，未知的按这部已知话的平均页数补，整部都未知则用全库平均 */
+  pages: number
   /** 这部最后一次阅读（毫秒），没有时间的为 0 */
   last: number
 }
@@ -35,7 +37,7 @@ export interface HeatDay {
   /** 当天本地零点（毫秒） */
   date: number
   count: number
-  /** 当天读完的页数（只算页数大于 0 的已读章节） */
+  /** 当天读完的页数估算，口径同 ReadingStats.pages */
   pages: number
   /** 今天之后的格子（本周还没到的几天） */
   future: boolean
@@ -48,7 +50,10 @@ export interface ReadingStats {
   total: number | null
   /** 已追平的部数：已读等于总话数且总话数大于 0 */
   caughtUp: number
-  /** 已读页数，只累加页数大于 0 的已读章节，所以是下限 */
+  /**
+   * 已读页数估算（取整）。服务端只在章节页面被取过后才有页数，批量标已读、同步进度的话没有，
+   * 这些话按所属作品已知话的平均页数补，整部都没有已知页数的用全库平均
+   */
   pages: number
   /** 已读但没有阅读时间的话数（不进时间图表） */
   untimed: number
@@ -102,32 +107,53 @@ export function longestStreak(days: Iterable<number>) {
   return best
 }
 
-export function summarize(chapters: readonly StatChapter[], mangas: readonly StatManga[], now = Date.now()): ReadingStats {
+export function summarize(chapters: readonly StatChapter[], mangas: readonly StatManga[], now = Date.now(), userId?: number): ReadingStats {
   const hours = Array.from({ length: 24 }, () => 0)
   const perDay = new Map<number, number>()
   const pagesPerDay = new Map<number, number>()
-  const perManga = new Map<number, { read: number; last: number }>()
+  const perManga = new Map<number, { read: number; pages: number; last: number }>()
   let read = 0
   let pages = 0
   let untimed = 0
 
+  // 先量出每部、全库已读话的平均页数，再给页数未知的话补上
+  const sample = new Map<number, { n: number; sum: number }>()
+  let allN = 0
+  let allSum = 0
+  for (const c of chapters) {
+    if (!c.isRead || c.pageCount <= 0) continue
+    const e = sample.get(c.mangaId) ?? { n: 0, sum: 0 }
+    e.n++
+    e.sum += c.pageCount
+    sample.set(c.mangaId, e)
+    allN++
+    allSum += c.pageCount
+  }
+  const pagesOf = (c: StatChapter) => {
+    if (c.pageCount > 0) return c.pageCount
+    const e = sample.get(c.mangaId)
+    return e ? e.sum / e.n : allN ? allSum / allN : 0
+  }
+
   for (const c of chapters) {
     const at = sec(c.lastReadAt)
-    const entry = perManga.get(c.mangaId) ?? { read: 0, last: 0 }
+    const entry = perManga.get(c.mangaId) ?? { read: 0, pages: 0, last: 0 }
     if (c.isRead) {
       read++
       entry.read++
-      if (c.pageCount > 0) pages += c.pageCount
+      const p = pagesOf(c)
+      pages += p
+      entry.pages += p
       if (at <= 0) untimed++
     }
     if (at > 0) {
       entry.last = Math.max(entry.last, at)
       // 从历史里删掉的记录不进时间图表（重新读过后又会算上）
-      if (isVisible(c)) {
+      if (isVisible(c, userId)) {
         hours[new Date(at).getHours()]++
         const day = dayStart(at)
         perDay.set(day, (perDay.get(day) ?? 0) + 1)
-        if (c.isRead && c.pageCount > 0) pagesPerDay.set(day, (pagesPerDay.get(day) ?? 0) + c.pageCount)
+        if (c.isRead) pagesPerDay.set(day, (pagesPerDay.get(day) ?? 0) + pagesOf(c))
       }
     }
     perManga.set(c.mangaId, entry)
@@ -151,9 +177,9 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
   const known = mangas.every((m) => m.total != null)
   let caughtUp = 0
   const ranking: RankEntry[] = mangas.map((m) => {
-    const e = perManga.get(m.id) ?? { read: 0, last: 0 }
+    const e = perManga.get(m.id) ?? { read: 0, pages: 0, last: 0 }
     if (m.total != null && m.total > 0 && e.read >= m.total) caughtUp++
-    return { id: m.id, read: e.read, total: m.total, last: e.last }
+    return { id: m.id, read: e.read, total: m.total, pages: Math.round(e.pages), last: e.last }
   })
   ranking.sort((a, b) => b.read - a.read || b.last - a.last || a.id - b.id)
 
@@ -161,7 +187,7 @@ export function summarize(chapters: readonly StatChapter[], mangas: readonly Sta
     read,
     total: known ? mangas.reduce((n, m) => n + (m.total ?? 0), 0) : null,
     caughtUp,
-    pages,
+    pages: Math.round(pages),
     untimed,
     hours,
     peak,
@@ -204,4 +230,79 @@ export function pageGrowth(days: readonly HeatDay[], total: number, n: number) {
     for (const d of days.slice(Math.floor((i * days.length) / n), Math.floor(((i + 1) * days.length) / n))) acc += d.pages
     return acc
   })
+}
+
+/** 3.1 万页；不到一万照常写 */
+export const pagesText = (n: number) => (n >= 10000 ? { v: (n / 10000).toFixed(1).replace(/\.0$/, ''), u: '万页' } : { v: count(n), u: '页' })
+
+export interface KpiBar {
+  v: number
+  on?: boolean
+  lit?: boolean
+}
+
+export interface Kpi {
+  key: string
+  /** 进场时从 0 数上来的目标值；不数的（页数、还没有总话数）为 null，直接显示 text */
+  num: number | null
+  text: string
+  unit: string
+  caption: string
+  bars: KpiBar[]
+  label: string
+}
+
+/**
+ * 档案页两侧的四项数字（每项一个大数字、一行说明和一条细竖条小图）。分享海报画同样的四项，
+ * 数字和说法放在这里共用，两边才一致
+ */
+export function kpiData(s: ReadingStats, works: number, run: ReturnType<typeof bestRun>): { progress: [Kpi, Kpi]; rhythm: [Kpi, Kpi] } {
+  const ratio = (f: number) => Array.from({ length: 24 }, (_, i) => ({ v: 1, lit: (i + 0.5) / 24 <= f }))
+  const frac = s.total ? s.read / s.total : 0
+  const growth = pageGrowth(s.days, s.pages, 24)
+  const base = s.pages - s.days.reduce((a, d) => a + d.pages, 0)
+  const pg = pagesText(s.pages)
+  const runWeeks = run ? [Math.floor(run.from / 7), Math.floor(run.to / 7)] : null
+  return {
+    progress: [
+      {
+        key: 'read',
+        num: s.total ? frac * 100 : null,
+        text: s.total ? `${Math.round(frac * 100)}` : '—',
+        unit: '%',
+        caption: `已读 · ${count(s.read)} / ${s.total == null ? '—' : count(s.total)} 话`,
+        bars: ratio(frac),
+        label: `书库已读 ${Math.round(frac * 100)}%`,
+      },
+      {
+        key: 'caught',
+        num: s.caughtUp,
+        text: `${s.caughtUp}`,
+        unit: ` / ${works}`,
+        caption: '部已追平',
+        bars: ratio(works ? s.caughtUp / works : 0),
+        label: `已追平 ${s.caughtUp} / ${works} 部`,
+      },
+    ],
+    rhythm: [
+      {
+        key: 'days',
+        num: s.activeDays,
+        text: `${s.activeDays}`,
+        unit: '天',
+        caption: '近半年有阅读 · 按周',
+        bars: weekActive(s.days).map((v, w) => ({ v, on: v > 0, lit: !!runWeeks && v > 0 && w >= runWeeks[0] && w <= runWeeks[1] })),
+        label: `近半年有 ${s.activeDays} 天阅读记录`,
+      },
+      {
+        key: 'pages',
+        num: null,
+        text: pg.v,
+        unit: pg.u,
+        caption: '约翻过 · 近半年累计',
+        bars: growth.map((v, i) => ({ v: v - base, on: true, lit: i === growth.length - 1 })),
+        label: `约翻过 ${count(s.pages)} 页`,
+      },
+    ],
+  }
 }

@@ -1,18 +1,22 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { BookOpen, ChevronLeft, ChevronRight, Maximize, Minimize, Pause, Play, Timer, X } from 'lucide-react'
+import { BookOpen, ChevronLeft, ChevronRight, Maximize, Minimize, Pause, Play, Share, Timer, X } from 'lucide-react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
+import { useSoftCover } from './softCover'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { useAppearance } from '@/design/settings'
 import { inCategory } from '@/features/library/category'
 import type { LibraryManga } from '@/features/library/queries'
 import { STATUS } from '@/features/manga/status'
+import { useNsfw } from '@/features/nsfw/useNsfw'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { poseTransform, tileTransform, type Pose, type TilePose } from './coverPose'
 import type { useGalleryLibrary } from './hooks'
+import { PosterShare } from './PosterShare'
 import { GalleryPeek } from './queries'
 import { hfit, mostlyLatin, vfit } from './titleFit'
 import './gallery.css'
@@ -61,6 +65,7 @@ export function PlayView({
   onCurrent,
   onExit,
   onClosed,
+  onCovered,
 }: {
   items: readonly LibraryManga[]
   totals: ReadonlyMap<number, number> | null
@@ -77,6 +82,7 @@ export function PlayView({
   onCurrent: (id: number) => void
   onExit: () => void
   onClosed: () => void
+  onCovered: (covered: boolean) => void
 }) {
   const n = items.length
   const client = useApolloClient()
@@ -97,6 +103,18 @@ export function PlayView({
   const flying = !!entry.tile && !reduced && !mobile
   // 背景：从画布飞进来时从封面卡片的位置圆形展开，退出时收回屏幕中心那一格
   const [revealed, setRevealed] = useState(!flying)
+  const hasItem = !!cur
+  // 分享这一部（见 openShare）
+  const { test } = useNsfw()
+  const [shareWork, setShareWork] = useState<LibraryManga | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const resume = useRef(false)
+
+  useEffect(() => {
+    // 圆形揭幕后画布才被完整盖住；关闭前先恢复，反向收回时仍能看见原来的画布。
+    const timer = (mobile || hasItem) && revealed && !closing ? window.setTimeout(() => onCovered(true), mobile || reduced ? 0 : 1450) : 0
+    return () => { window.clearTimeout(timer); onCovered(false) }
+  }, [hasItem, mobile, revealed, closing, reduced, onCovered])
 
   useEffect(() => {
     if (cur) onCurrent(cur.id)
@@ -256,10 +274,27 @@ export function PlayView({
     )
   }
 
+  /*
+   * 分享这一部：打开时记下当前那一部并暂停放映，面板里的海报不会被自动切换换掉；关上后恢复原来的播放状态。
+   * NSFW 作品（临时显示时也会出现在放映里）不给分享入口
+   */
+  const openShare = () => {
+    if (!cur) return
+    resume.current = playing
+    setShareWork(cur)
+    setSharing(true)
+    setPlaying(false)
+  }
+  const closeShare = () => {
+    setSharing(false)
+    setPlaying(resume.current)
+  }
+
   const cycle = () => setInterval_(INTERVALS[(INTERVALS.indexOf(interval) + 1) % INTERVALS.length] ?? 7)
   const scene = closing ? 'circle(0% at 50% 50%)' : `circle(${revealed ? '150%' : '0%'} at 18% 52%)`
 
   return (
+    <MovingGlassBackdrop value="suspend">
     <div
       ref={root}
       role="dialog"
@@ -270,6 +305,7 @@ export function PlayView({
       style={dur}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      <PosterShare open={sharing} initial="work" work={shareWork} onClose={closeShare} />
       {/* 背景（不含玻璃，整层裁切没问题）：上一部垫底，新的一部从封面卡片的位置圆形展开 */}
       <div
         aria-hidden
@@ -280,6 +316,7 @@ export function PlayView({
         }}
       >
         {cur && <PlayBackdrop key={turn} cur={cur} before={before} open={open} reduced={reduced} />}
+        <div className="gallery-grain absolute inset-0" />
       </div>
 
       {cur && (
@@ -330,6 +367,11 @@ export function PlayView({
             <Timer className="size-[18px]" strokeWidth={1.8} />
             {interval} 秒
           </button>
+          {cur && !test(cur) && (
+            <button type="button" onClick={openShare} aria-label="分享这一部" title="分享海报" className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+              <Share className="size-[18px]" strokeWidth={1.8} />
+            </button>
+          )}
           <button type="button" onClick={toggleFullscreen} aria-label={fullscreen ? '退出全屏' : '全屏'} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
             {fullscreen ? <Minimize className="size-[18px]" strokeWidth={1.8} /> : <Maximize className="size-[18px]" strokeWidth={1.8} />}
           </button>
@@ -381,6 +423,7 @@ export function PlayView({
         </Glass>
       )}
     </div>
+    </MovingGlassBackdrop>
   )
 }
 
@@ -393,14 +436,23 @@ function tickWindow(idx: number, n: number) {
 
 /** 一部作品的背景。每换一部重新挂载：上一部垫底，新的一部从封面卡片的位置圆形展开 */
 function PlayBackdrop({ cur, before, open, reduced }: { cur: LibraryManga; before: LibraryManga | undefined; open: boolean; reduced: boolean }) {
+  const [covered, setCovered] = useState(false)
+  const [imageReady, setImageReady] = useState(!cur.thumbnailUrl)
+  useEffect(() => {
+    if (!open) return
+    const timer = window.setTimeout(() => setCovered(true), reduced ? 0 : 1400)
+    return () => window.clearTimeout(timer)
+  }, [open, reduced])
   return (
     <>
-      {before && <Backdrop src={before.thumbnailUrl} still />}
+      {/* 新图慢到时仍保留已加载的背景，揭幕结束与图片可见两项都满足才释放。 */}
+      {before && !(covered && imageReady) && <div data-play-backdrop="previous" className="absolute inset-0"><Backdrop src={before.thumbnailUrl} still /></div>}
       <div
+        data-play-backdrop="current"
         className="absolute inset-0 overflow-hidden"
         style={{ clipPath: `circle(${open ? '150%' : '0%'} at 18% 52%)`, transition: open && !reduced ? 'clip-path 1.3s cubic-bezier(.7,0,.2,1)' : 'none' }}
       >
-        <Backdrop src={cur.thumbnailUrl} />
+        <Backdrop src={cur.thumbnailUrl} onReady={() => setImageReady(true)} />
       </div>
       <div
         className="absolute inset-0"
@@ -409,13 +461,6 @@ function PlayBackdrop({ cur, before, open, reduced }: { cur: LibraryManga; befor
             'linear-gradient(90deg, rgba(11,11,13,.78) 0%, rgba(11,11,13,.38) 42%, rgba(11,11,13,.18) 64%, rgba(11,11,13,.55) 100%), linear-gradient(180deg, rgba(11,11,13,.5) 0%, transparent 18%, transparent 62%, rgba(11,11,13,.88) 100%)',
         }}
       />
-      <svg className="pointer-events-none absolute inset-0 size-full opacity-[.22] mix-blend-overlay">
-        <filter id="gallery-play-grain">
-          <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" stitchTiles="stitch" />
-          <feColorMatrix type="saturate" values="0" />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#gallery-play-grain)" />
-      </svg>
     </>
   )
 }
@@ -482,7 +527,7 @@ function PlayStage({
           </p>
           <div className="flex flex-wrap gap-2">
             {[category, status, `${chapters} 话`].filter(Boolean).map((t, i) => (
-              <span key={t} {...UI} className="gallery-up flex h-[30px] items-center rounded-full border border-white/18 bg-white/14 px-3 text-[13px] font-medium backdrop-blur-md" style={{ '--d': `${0.62 + i * 0.03}s` } as CSSProperties}>
+              <span key={t} {...UI} className="gallery-up flex h-[30px] items-center rounded-full border border-white/18 bg-white/14 px-3 text-[13px] font-medium" style={{ '--d': `${0.62 + i * 0.03}s` } as CSSProperties}>
                 {t}
               </span>
             ))}
@@ -495,7 +540,7 @@ function PlayStage({
           {/* 进场动画放在每个按钮自身，「作品详情」是玻璃，祖先不能带透明度 */}
           <div className="mt-2 flex gap-3">
             {firstUnread ? (
-              <Link {...UI} to={`/manga/${cur.id}/chapter/${firstUnread}`} className="gallery-up solid h-[54px] px-7 text-base no-underline" style={up(4)}>
+              <Link {...UI} to={`/manga/${cur.id}/chapter/${firstUnread}`} viewTransition className="gallery-up solid h-[54px] px-7 text-base no-underline" style={up(4)}>
                 <BookOpen className="size-[18px]" strokeWidth={1.8} />
                 {Number(cur.lastReadChapter?.lastReadAt) > 0 ? '继续阅读' : '开始阅读'}
               </Link>
@@ -554,11 +599,13 @@ function PlayStage({
 }
 
 /** 放大、模糊的封面背景；still 时不推镜（垫底的上一部） */
-function Backdrop({ src, still }: { src: string | null; still?: boolean }) {
+function Backdrop({ src, still, onReady }: { src: string | null; still?: boolean; onReady?: () => void }) {
+  const soft = useSoftCover(src)
+  useEffect(() => { if (soft.ready) onReady?.() }, [soft.ready, onReady])
   return (
-    <div className="absolute inset-0 overflow-hidden">
+    <div className={cn('absolute inset-0 overflow-hidden', soft.ready && !soft.url && 'bg-[radial-gradient(ellipse_at_30%_40%,#32313b,#0b0b0d_80%)]')} data-soft-fallback={soft.ready && !soft.url ? '' : undefined}>
       <div className={cn('absolute -inset-[8%]', !still && 'gallery-kb')}>
-        {src && <img src={src} alt="" draggable={false} className="size-full object-cover blur-[18px] saturate-[1.25]" />}
+        {soft.url && <img src={soft.url} data-soft-cover alt="" draggable={false} onLoad={onReady} className="size-full object-cover" />}
       </div>
     </div>
   )

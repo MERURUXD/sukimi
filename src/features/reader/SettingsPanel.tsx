@@ -1,4 +1,5 @@
 import { AnimatePresence } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { Seg } from '@/components/ui/Seg'
 import { spring } from '@/design/motion'
@@ -18,8 +19,9 @@ function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
       onClick={() => onChange(!on)}
       className={cn(
         'relative h-[26px] w-11 flex-none rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-track',
-        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:transition-[left] after:content-['']",
+        on ? 'bg-accent' : 'bg-switch-off',
+        // 与设置页的开关一致：圆点带投影，浅色下关闭时也看得出轮廓
+        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:shadow-[0_1px_2px_rgba(0,0,0,.18),0_2px_6px_rgba(0,0,0,.12)] dark:after:shadow-none after:transition-[left] after:content-['']",
         on ? 'after:left-[21px] after:bg-on-accent' : 'after:bg-white',
       )}
     />
@@ -68,7 +70,7 @@ const KEYS: [string, string][] = [
   ['Z', '切换缩放适配'],
   ['D', '切换 LTR / RTL'],
   ['F', '全屏'],
-  ['B', '给当前页加 / 取消书签'],
+  ['B', '添加 / 取消当前页书签'],
   ['Esc', '关闭设置 / 隐藏工具栏'],
 ]
 
@@ -92,6 +94,16 @@ export function SettingsPanel({
   bookmarks?: number[]
   onJump?: (page: number) => void
 }) {
+  const [scrolling, setScrolling] = useState(false)
+  const scrollIdle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => {
+    return () => clearTimeout(scrollIdle.current)
+  }, [])
+  const onScroll = () => {
+    setScrolling(true)
+    clearTimeout(scrollIdle.current)
+    scrollIdle.current = setTimeout(() => setScrolling(false), 160)
+  }
   const storedRemember = useReaderStore((s) => s.rememberPerManga)
   const setStoredRemember = useReaderStore((s) => s.setRemember)
   const remember = rememberPerManga ?? storedRemember
@@ -108,6 +120,9 @@ export function SettingsPanel({
           as="aside"
           aria-label="阅读设置"
           dense
+          // 大面板滚动时三通道色散开销高；保留单次折射，停下后恢复用户参数。
+          lens={scrolling ? { dispersion: 0 } : undefined}
+          onScroll={onScroll}
           layoutScroll
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
@@ -258,7 +273,7 @@ export function SettingsPanel({
                   ))}
                 </div>
               ) : (
-                <Hint>点工具栏的书签按钮或按 B，给当前页加书签。</Hint>
+                <Hint>点击工具栏的书签按钮或按 B，为当前页添加书签。</Hint>
               )}
             </div>
           )}

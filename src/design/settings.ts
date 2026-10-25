@@ -3,6 +3,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { useApplyGlassTuning } from './glassTuning'
 import { preferenceKey } from '@/lib/demo'
+import { defaultGlass } from './defaultGlass'
 import { normalizeHomeOrder, normalizeHomePreferences, type HomeContentSection, type HomeSection } from '@/features/home/preferences'
 
 export type ThemePref = 'system' | 'dark' | 'light'
@@ -13,10 +14,16 @@ interface AppearanceState {
   theme: ThemePref
   glass: GlassMode
   mangaDetailMotion: boolean
+  /** 进出阅读器时从入口展开 / 缩回 */
+  readerMotion: boolean
   autoHideNav: boolean
+  /** 顶栏背后叠一条越往上越模糊的渐进模糊带 */
+  navBlur: boolean
   homeMobileLayout: HomeLayout
   homeDesktopLayout: HomeLayout
   homeMotionBg: boolean
+  /** 冷启动打开首页时桌面「舞台」播一次开屏动画，之后回到首页播轻进场 */
+  homeIntro: boolean
   homeSections: Record<HomeContentSection, boolean>
   homeSectionOrder: HomeSection[]
   homeGallery: boolean
@@ -25,10 +32,13 @@ interface AppearanceState {
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
   setMangaDetailMotion: (on: boolean) => void
+  setReaderMotion: (on: boolean) => void
   setAutoHideNav: (on: boolean) => void
+  setNavBlur: (on: boolean) => void
   setHomeMobileLayout: (layout: HomeLayout) => void
   setHomeDesktopLayout: (layout: HomeLayout) => void
   setHomeMotionBg: (on: boolean) => void
+  setHomeIntro: (on: boolean) => void
   setHomeSection: (id: HomeContentSection, on: boolean) => void
   setHomeSectionOrder: (order: readonly HomeSection[]) => void
   setHomeGallery: (on: boolean) => void
@@ -42,24 +52,33 @@ export const useAppearance = create<AppearanceState>()(
   persist(
     (set) => ({
       theme: 'dark',
-      glass: 'refract',
+      glass: defaultGlass(navigator.hardwareConcurrency),
       mangaDetailMotion: true,
+      // 旧偏好里没有这个字段，合并默认值后开启
+      readerMotion: true,
       // 旧偏好里没有这个字段，合并默认值后等于关闭
       autoHideNav: false,
+      // 旧偏好里没有这个字段，合并默认值后等于关闭
+      navBlur: false,
       homeMobileLayout: 'poster',
       homeDesktopLayout: 'poster',
       // 旧偏好里没有这个字段，合并默认值后开启
       homeMotionBg: true,
+      // 旧偏好里没有这个字段，合并默认值后开启
+      homeIntro: true,
       ...normalizeHomePreferences(null),
       // 旧偏好里没有这个字段，合并默认值后为 7 秒
       galleryInterval: 7,
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
+      setReaderMotion: (readerMotion) => set({ readerMotion }),
       setAutoHideNav: (autoHideNav) => set({ autoHideNav }),
+      setNavBlur: (navBlur) => set({ navBlur }),
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
       setHomeDesktopLayout: (homeDesktopLayout) => set({ homeDesktopLayout }),
       setHomeMotionBg: (homeMotionBg) => set({ homeMotionBg }),
+      setHomeIntro: (homeIntro) => set({ homeIntro }),
       setHomeSection: (id, on) => set((s) => ({ homeSections: { ...s.homeSections, [id]: on } })),
       setHomeSectionOrder: (order) => set({ homeSectionOrder: normalizeHomeOrder(order) }),
       setHomeGallery: (homeGallery) => set({ homeGallery }),
@@ -67,9 +86,9 @@ export const useAppearance = create<AppearanceState>()(
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+      partialize: ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
         homeSections, homeSectionOrder, homeGallery }) =>
-        ({ theme, glass, mangaDetailMotion, autoHideNav, homeMobileLayout, homeDesktopLayout, homeMotionBg, galleryInterval,
+        ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
           homeSections, homeSectionOrder, homeGallery }),
       merge: (saved, current) => ({ ...current, ...saved as Partial<AppearanceState>, ...normalizeHomePreferences(saved) }),
     },

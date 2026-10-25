@@ -1,5 +1,6 @@
 import type { FormEvent, InputHTMLAttributes, ReactNode } from 'react'
 import { Glass } from '@/components/glass/Glass'
+import { BrandBunny } from '@/app/BrandMark'
 import { PreviewBadge } from '@/app/PreviewBadge'
 import { useApplyAppearance } from '@/design/settings'
 
@@ -41,7 +42,7 @@ export function AuthLayout({
       />
 
       <form onSubmit={onSubmit} className="flex w-full max-w-[360px] flex-col items-center">
-        <span className="grid size-14 place-items-center rounded-[16px] bg-solid text-2xl font-bold text-on-solid">S</span>
+        <BrandBunny className="size-[72px]" />
         <h1 className="mt-6 mb-1 text-[28px] font-bold">{title}</h1>
         <p className="m-0 text-center text-muted num">{subtitle ?? ' '}</p>
         {children}

@@ -165,10 +165,10 @@ function InviteSection({ issued, onIssued }: { issued: Issued | null; onIssued: 
   return (
     <Section
       title="邀请新用户"
-      desc="生成注册码发给对方，对方在登录页选择「用注册码注册」，自己设置用户名和密码。新用户的默认权限沿用服务端设置，注册后可以在下面调整。"
+      desc="生成注册码发给对方，由对方在登录页自行设置用户名与密码。新用户权限可在注册后调整。"
     >
       {issued && <IssuedCode issued={issued} onClose={() => onIssued(null)} />}
-      <Row label="注册码" hint="一次性，7 天内有效">
+      <Row label="注册码" hint="一次性使用，7 天内有效">
         <button type="button" className="gbtn plain rounded-full" disabled={loading} onClick={() => void make()}>
           <Plus className="size-[18px]" strokeWidth={1.8} />
           生成注册码
@@ -245,7 +245,10 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
 
 function EditUser({ user, onDone }: { user: { id: number; username: string; roles: UserRole[]; permissions: UserPermission[] }; onDone: () => void }) {
   // 访客角色服务端不允许授予；已经是访客的保持原样显示
-  const [role, setRole] = useState<UserRole>(user.roles.includes('ADMIN') ? 'ADMIN' : user.roles.includes('VISITOR') ? 'VISITOR' : 'USER')
+  const initialRole: UserRole = user.roles.includes('ADMIN') ? 'ADMIN' : user.roles.includes('VISITOR') ? 'VISITOR' : 'USER'
+  const [role, setRole] = useState<UserRole>(initialRole)
+  // 服务端只允许管理员授予角色：只有「管理用户」权限的账号只能改权限，请求里也不能带 role
+  const isAdmin = useAuth((s) => !!s.user?.roles.includes('ADMIN'))
   const [perms, setPerms] = useState(() => new Set(user.permissions))
   const [save, { loading }] = useMutation(UpdateUser)
 
@@ -258,7 +261,8 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
 
   const submit = async () => {
     try {
-      await save({ variables: { input: { userId: user.id, role, permissions: ALL_PERMISSIONS.filter((p) => perms.has(p)) } } })
+      const permissions = ALL_PERMISSIONS.filter((p) => perms.has(p))
+      await save({ variables: { input: { userId: user.id, permissions, ...(role !== initialRole && { role }) } } })
       toast(`已更新「${user.username}」，最长 5 分钟后对方生效`)
       onDone()
     } catch (e) {
@@ -268,17 +272,19 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
 
   return (
     <div className="flex flex-col gap-4 pl-1 md:pl-4">
-      <Seg
-        glass={false}
-        label="角色"
-        value={role}
-        onChange={setRole}
-        items={[
-          { value: 'USER', label: ROLE_LABEL.USER },
-          { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
-          ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
-        ]}
-      />
+      {isAdmin && (
+        <Seg
+          glass={false}
+          label="角色"
+          value={role}
+          onChange={setRole}
+          items={[
+            { value: 'USER', label: ROLE_LABEL.USER },
+            { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
+            ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
+          ]}
+        />
+      )}
       {role === 'ADMIN' ? (
         <p className="m-0 text-sm text-muted">管理员拥有全部权限，不需要单独勾选。</p>
       ) : (
@@ -358,7 +364,7 @@ function CreateUserSection() {
   }
 
   return (
-    <Section title="直接创建账号" desc="由你设置初始密码并告知对方；对方之后可以自己修改。更推荐用注册码，密码不会经过你。">
+    <Section title="直接创建账号" desc="由管理员设定初始密码并告知对方；更推荐使用注册码，密码无需经过管理员。">
       {open ? (
         <form onSubmit={submit} className="flex max-w-[360px] flex-col gap-3">
           <TextInput placeholder="用户名" autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />

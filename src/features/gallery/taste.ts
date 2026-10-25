@@ -1,5 +1,5 @@
 /*
- * 阅读档案第二屏的「口味」：按已读话数算最常读的题材和作者。纯函数，测试直接导入。
+ * 阅读档案第三屏的「口味」：按已读话数算最常读的题材和作者。纯函数，测试直接导入。
  *
  * 题材和作者都来自各个来源，写法不统一：同一个意思有中文、英文、近义词，
  * 还夹着「连载中」「漫画」这类没有意义的标签；作者可能几个人写在一起。这里先归一再合计。
@@ -65,15 +65,19 @@ export const authorsOf = (raw: string | null | undefined) => [
 ]
 
 export interface TasteWork {
+  id: number
   read: number
+  /** 已读页数估算 */
+  pages: number
   genre: readonly string[] | null | undefined
   author: string | null | undefined
 }
 
 export interface Taste {
-  /** pct：占「有题材的作品」已读话数的百分比 */
-  genres: { name: string; pct: number }[]
-  authors: { name: string; read: number; works: number }[]
+  /** pct：占「有题材的作品」已读话数的百分比；read 是分到这个题材的话数（取整），works 是带这个题材的部数 */
+  genres: { name: string; pct: number; read: number; works: number }[]
+  /** ids：这位作者的作品，按传入顺序（调用方按排行传，前面的读得多） */
+  authors: { name: string; read: number; works: number; pages: number; ids: number[] }[]
 }
 
 /**
@@ -81,31 +85,70 @@ export interface Taste {
  * 作者：合写的作品算进每一位，取前 authorTop 位。并列时先出现的在前（调用方按排行传入）
  */
 export function tasteOf(works: readonly TasteWork[], genreTop = 6, authorTop = 3): Taste {
-  const g = new Map<string, number>()
-  const a = new Map<string, { read: number; works: number }>()
+  const g = new Map<string, { read: number; works: number }>()
+  const a = new Map<string, { read: number; works: number; pages: number; ids: number[] }>()
   let sum = 0
   for (const w of works) {
     if (w.read <= 0) continue
     const gs = genresOf(w.genre)
     if (gs.length) {
       sum += w.read
-      for (const x of gs) g.set(x, (g.get(x) ?? 0) + w.read / gs.length)
+      for (const x of gs) {
+        const e = g.get(x) ?? { read: 0, works: 0 }
+        e.read += w.read / gs.length
+        e.works++
+        g.set(x, e)
+      }
     }
     for (const x of authorsOf(w.author)) {
-      const e = a.get(x) ?? { read: 0, works: 0 }
+      const e = a.get(x) ?? { read: 0, works: 0, pages: 0, ids: [] }
       e.read += w.read
       e.works++
+      e.pages += w.pages
+      e.ids.push(w.id)
       a.set(x, e)
     }
   }
   return {
     genres: [...g]
-      .sort((x, y) => y[1] - x[1])
+      .sort((x, y) => y[1].read - x[1].read)
       .slice(0, genreTop)
-      .map(([name, v]) => ({ name, pct: sum ? (v / sum) * 100 : 0 })),
+      .map(([name, e]) => ({ name, pct: sum ? (e.read / sum) * 100 : 0, read: Math.round(e.read), works: e.works })),
     authors: [...a]
       .sort((x, y) => y[1].read - x[1].read)
       .slice(0, authorTop)
       .map(([name, e]) => ({ name, ...e })),
   }
+}
+
+/**
+ * 读过的作品的口味（read 按排行顺序传入）；skip 为 true 的不计入。阅读档案和分享海报都跳过 NSFW 作品，
+ * 免得题材和作者认出是哪部
+ */
+export function readTaste<M extends { genre?: readonly string[] | null; author?: string | null }>(
+  read: readonly { id: number; read: number; pages: number }[],
+  byId: ReadonlyMap<number, M>,
+  skip: (m: M) => boolean,
+) {
+  return tasteOf(
+    read.flatMap((r) => {
+      const m = byId.get(r.id)
+      return m && !skip(m) ? [{ id: r.id, read: r.read, pages: r.pages, genre: m.genre, author: m.author }] : []
+    }),
+  )
+}
+
+/** 标题里放得下的题材名：英文 12 个字符、中文 6 个字以内（来源没归一的题材可能是一长串英文） */
+const fits = (name: string) => name.length <= (/^[ -~]+$/.test(name) ? 12 : 6)
+
+/**
+ * 口味屏的大标题：直接说结论，strong 是亮的那段，tail 是灰的那段。
+ * 题材名太长时换成不带题材名的说法，免得标题撑成好几行
+ */
+export function tasteHeadline(genres: readonly { name: string }[]): { lead: string; strong?: string; tail: string } {
+  const [a, b] = genres
+  if (!a) return { lead: '还看不出', tail: '你的口味。' }
+  if (!b) return fits(a.name) ? { lead: '你最常读', strong: a.name, tail: '。' } : { lead: '你只读', tail: '一类题材。' }
+  if (fits(a.name) && fits(b.name)) return { lead: '你偏爱', strong: a.name, tail: `与${b.name}。` }
+  return { lead: '这些题材，', tail: '你读得最多。' }
 }

@@ -24,7 +24,7 @@ import { Popover } from '@/components/ui/Popover'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { formatFullDate, ms } from '@/lib/format'
-import { intervalLabel, regularLabel, shortText } from '@/features/updates/predict'
+import { intervalLabel, nextChapterNumber, regularLabel, shortText } from '@/features/updates/predict'
 import type { NextPrediction } from './NextUpdate'
 import { cn } from '@/lib/cn'
 import { useLongPress } from '@/lib/useLongPress'
@@ -64,19 +64,27 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
       update({ variables: { ids, patch: p } })
 
     return {
-      setRead: wrap('标记', async (ids: number[], isRead: boolean) => {
+      setRead: async (ids: number[], isRead: boolean) => {
         const still = captureUser()
-        // 标为未读时同时清掉页码，避免「继续阅读」停在最后一页
-        await patch(ids, isRead ? { isRead } : { isRead, lastPageRead: 0 })
-        if (isRead) onMarkedRead?.(still)
-        if (ids.length > 1) return `已将 ${ids.length} 话标为${isRead ? '已读' : '未读'}`
-      }),
-      setBookmarked: wrap('书签', async (ids: number[], isBookmarked: boolean) => {
-        await patch(ids, { isBookmarked })
-        if (ids.length > 1) return isBookmarked ? `已为 ${ids.length} 话加书签` : `已取消 ${ids.length} 话的书签`
-      }),
+        try {
+          // 标为未读时同时清掉页码，避免「继续阅读」停在最后一页
+          await patch(ids, isRead ? { isRead } : { isRead, lastPageRead: 0 })
+          if (isRead) onMarkedRead?.(still)
+          if (ids.length > 1) toast(`已将 ${ids.length} 话标为${isRead ? '已读' : '未读'}`)
+        } catch (e) {
+          toastError(isRead ? '标为已读失败' : '标为未读失败', e)
+        }
+      },
+      setBookmarked: async (ids: number[], isBookmarked: boolean) => {
+        try {
+          await patch(ids, { isBookmarked })
+          if (ids.length > 1) toast(isBookmarked ? `已为 ${ids.length} 话添加书签` : `已取消 ${ids.length} 话的书签`)
+        } catch (e) {
+          toastError(isBookmarked ? '添加书签失败' : '取消书签失败', e)
+        }
+      },
       /** 选中章节（含）之前的全部标为已读 */
-      markPreviousRead: wrap('标记', async (ids: number[]) => {
+      markPreviousRead: wrap('标为已读', async (ids: number[]) => {
         const max = Math.max(...all.filter((c) => ids.includes(c.id)).map((c) => c.sourceOrder))
         const targets = all.filter((c) => c.sourceOrder <= max && !c.isRead).map((c) => c.id)
         if (targets.length) {
@@ -95,7 +103,7 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
       }),
       deleteDownloads: wrap('删除下载', async (ids: number[]) => {
         const targets = all.filter((c) => ids.includes(c.id) && c.isDownloaded).map((c) => c.id)
-        if (!targets.length) return '选中的章节没有下载'
+        if (!targets.length) return '选中的章节未下载'
         await remove({ variables: { ids: targets } })
         onDownloadsDeleted()
         return `已删除 ${targets.length} 话的下载`
@@ -236,8 +244,8 @@ export function ChapterList({
 
       {visible.length === 0 && <p style={mangaIntroDelay(mangaIntro.chapterRow)} className={cn('py-16 text-center text-muted', intro && 'rise')}>{chapters.length ? '没有符合筛选的章节' : '还没有章节'}</p>}
 
-      {/* 只在「最新在上」且看全部或未读时出现，排在列表外面，不参与虚拟列表、多选和筛选计数 */}
-      {prediction && desc && (filter === 'all' || filter === 'unread') && !selecting && (
+      {/* 只在「最新在上」且看全部时出现，排在列表外面，不参与虚拟列表、多选和筛选计数；筛选后预测不属于筛选结果 */}
+      {prediction && desc && filter === 'all' && !selecting && (
         <div className={cn(cols > 1 && 'grid grid-cols-2 gap-x-6')}>
           <PredictedRow p={prediction} chapters={chapters} fill={cols > 1} introDelay={intro ? mangaIntro.chapterRow : undefined} />
         </div>
@@ -293,11 +301,11 @@ export function ChapterList({
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.markPreviousRead(ids)}>
           <CheckCheck className="size-5" strokeWidth={1.8} />
-          此前全部已读
+          此前全部标为已读
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.setBookmarked(ids, !allBookmarked)}>
           {allBookmarked ? <BookmarkMinus className="size-5" strokeWidth={1.8} /> : <Bookmark className="size-5" strokeWidth={1.8} />}
-          {allBookmarked ? '取消书签' : '书签'}
+          {allBookmarked ? '取消书签' : '添加书签'}
         </button>
         <Can permission="DOWNLOAD_CHAPTERS">
           <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.download(ids)}>
@@ -316,8 +324,8 @@ export function ChapterList({
 
 /** 预计的下一话：和章节行同样的排版，半透明、不能点；话数按现有最大话数加一，凑不出整数时只写「下一话」 */
 function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; chapters: readonly Chapter[]; fill: boolean; introDelay?: number }) {
-  const max = Math.max(-1, ...chapters.map((c) => c.chapterNumber))
-  const name = max >= 0 && Number.isInteger(max) ? `第 ${max + 1} 话` : '下一话'
+  const next = nextChapterNumber(chapters)
+  const name = next === null ? '下一话' : `第 ${next} 话`
   const when = p.late > 0 ? `晚了 ${p.late} 天` : `约 ${formatFullDate(p.next)}`
   return (
     <div
@@ -334,10 +342,10 @@ function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; ch
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-[15px] font-medium">{name}</span>
-        <span className="truncate text-xs">预计 · {intervalLabel(p.interval)}更新 · {regularLabel(p)}</span>
+        <span className="truncate text-[13px]">预计 · {intervalLabel(p.interval)}更新 · {regularLabel(p)}</span>
       </span>
       <span className="text-[13px] num max-sm:hidden">{when}</span>
-      <span className="text-xs num sm:hidden">{when}</span>
+      <span className="text-[13px] num sm:hidden">{when}</span>
     </div>
   )
 }
@@ -385,6 +393,7 @@ const ChapterRow = memo(function ChapterRow({
     <div
       role="listitem"
       aria-selected={selecting ? selected : undefined}
+      data-reader-origin
       style={introDelay === undefined ? undefined : mangaIntroDelay(introDelay)}
       {...press}
       onClick={selecting ? (e) => onToggle(c.id, index, e) : undefined}
@@ -407,6 +416,7 @@ const ChapterRow = memo(function ChapterRow({
           <Link
             to={`/manga/${mangaId}/chapter/${c.id}`}
             state={FROM_DETAIL}
+            viewTransition
             className={cn(
               'truncate text-[15px] no-underline after:absolute after:inset-0 after:rounded-2xl',
               c.isRead ? 'font-medium text-faint' : 'font-semibold text-text',
@@ -415,7 +425,7 @@ const ChapterRow = memo(function ChapterRow({
             {c.name}
           </Link>
         )}
-        {sub && <span className={cn('truncate text-xs', inProgress ? 'font-bold text-accent' : 'text-muted')}>{sub}</span>}
+        {sub && <span className={cn('truncate text-[13px]', inProgress ? 'font-bold text-accent' : 'text-muted')}>{sub}</span>}
         {inProgress && c.pageCount > 0 && (
           <span className="mt-[7px] block h-[3px] w-40 overflow-hidden rounded-full bg-track">
             <i className="block h-full bg-accent" style={{ width: `${((c.lastPageRead + 1) / c.pageCount) * 100}%` }} />
@@ -423,10 +433,10 @@ const ChapterRow = memo(function ChapterRow({
         )}
         {/* 页面书签：点页码直接打开到那一页；叠在整行链接上面才能点到 */}
         {marks.length > 0 && !selecting && (
-          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-xs text-muted" aria-label="页面书签">
+          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-[13px] text-muted" aria-label="页面书签">
             <Bookmark className="size-3 flex-none" strokeWidth={2} aria-hidden />
             {marks.slice(0, 4).map((p) => (
-              <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} className="text-muted no-underline num hover:text-text">
+              <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} viewTransition className="text-muted no-underline num hover:text-text">
                 第 {p + 1} 页
               </Link>
             ))}
@@ -480,10 +490,10 @@ const ChapterRow = memo(function ChapterRow({
               {c.isRead ? '标为未读' : '标为已读'}
             </MenuItem>
             <MenuItem icon={c.isBookmarked ? BookmarkMinus : Bookmark} onClick={() => (setMenu(false), actions.setBookmarked([c.id], !c.isBookmarked))}>
-              {c.isBookmarked ? '取消书签' : '加书签'}
+              {c.isBookmarked ? '取消书签' : '添加书签'}
             </MenuItem>
             <MenuItem icon={CheckCheck} onClick={() => (setMenu(false), actions.markPreviousRead([c.id]))}>
-              此前全部已读
+              此前全部标为已读
             </MenuItem>
             {c.isDownloaded ? (
               <MenuItem icon={Trash2} onClick={() => (setMenu(false), actions.deleteDownloads([c.id]))}>

@@ -171,9 +171,9 @@ export function ReaderChrome({
                 type="button"
                 className={cn(ib, bookmarked && on)}
                 onClick={onToggleBookmark}
-                aria-label={bookmarked ? '取消这页的书签' : '给这页加书签'}
+                aria-label={bookmarked ? '取消此页书签' : '为此页添加书签'}
                 aria-pressed={bookmarked}
-                title={`${bookmarked ? '取消这页的书签' : '给这页加书签'}（B）`}
+                title={`${bookmarked ? '取消此页书签' : '为此页添加书签'}（B）`}
               >
                 <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
               </button>

@@ -1,4 +1,5 @@
-import { useEffect, useRef, type CSSProperties, type RefObject } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, type CSSProperties, type RefObject } from 'react'
+import type { Intro } from './statsIntro'
 import { cn } from '@/lib/cn'
 import { clamp01 } from './canvasMath'
 import { LOAD_CAP, chase, loadTarget } from './loadRing'
@@ -31,6 +32,7 @@ export function useDialTilt(ref: RefObject<HTMLDivElement | null>, reduced: bool
     if (!el || reduced) return
     const cur = { x: 0, y: 0 }
     const to = { x: 0, y: 0 }
+    const ping = el.querySelector<HTMLElement>('.gallery-ping')
     let raf = 0
     let last = 0
     let flat = -1
@@ -44,6 +46,7 @@ export function useDialTilt(ref: RefObject<HTMLDivElement | null>, reduced: bool
       // 法线朝向鼠标：鼠标在右，右边缘退后；鼠标在下，下边缘退后
       el.style.transform = `rotateX(${(-cur.y * f).toFixed(2)}deg) rotateY(${(cur.x * f).toFixed(2)}deg)`
       raf = Math.abs(to.x - cur.x) > 0.02 || Math.abs(to.y - cur.y) > 0.02 ? requestAnimationFrame(frame) : 0
+      if (ping) ping.style.animationPlayState = raf || pager.p !== 0 || pager.animating ? 'paused' : ''
     }
     const kick = () => {
       if (raf) return
@@ -163,7 +166,9 @@ export interface YearRing {
 const monthOf = (t: number) => `${new Date(t).getMonth() + 1} 月`
 
 /** 时钟外面的一圈：近半年每天（手机每周）一根刻度，从正下方开始顺时针走到现在；最长连续的那一段点亮 */
-function YearRingSvg({ ring, t }: { ring: YearRing; t: number }) {
+const YearRingSvg = memo(function YearRingSvg({ ring, intro }: { ring: YearRing; intro: Intro }) {
+  const ref = useRef<SVGSVGElement>(null)
+  const t = intro.t
   const { days, run, weekly } = ring
   const bars = weekly
     ? Array.from({ length: days.length / 7 }, (_, w) => {
@@ -185,8 +190,23 @@ function YearRingSvg({ ring, t }: { ring: YearRing; t: number }) {
   const runAt = at(Math.max(0, runMid), 274)
   const w = weekly ? 6 : 2.2
   const H = DIAL_UNITS / 2
+  useLayoutEffect(() => {
+    const rects = ref.current?.querySelectorAll<SVGRectElement>('rect')
+    const labels = ref.current?.querySelector('g')
+    return intro.subscribe(() => {
+      rects?.forEach((el, i) => {
+        const b = bars[i]
+        const grow = easeOut((intro.t - 0.22 - i / bars.length * 0.4) / 0.35)
+        const len = (b.n ? 4 + b.n / max * 22 : 3) * (0.25 + 0.75 * grow)
+        el.setAttribute('y', String(-(204 + len)))
+        el.setAttribute('height', String(len))
+        el.setAttribute('opacity', String(clamp01(grow * 3)))
+      })
+      labels?.setAttribute('opacity', String(easeOut((intro.t - 0.45) / 0.4)))
+    })
+  }, [intro, bars, max])
   return (
-    <svg aria-hidden className="pointer-events-none absolute overflow-visible" viewBox={`${-H} ${-H} ${H * 2} ${H * 2}`} style={{ inset: `${-((DIAL_UNITS - 360) / 2 / 360) * 100}%` }}>
+    <svg ref={ref} aria-hidden className="pointer-events-none absolute overflow-visible" viewBox={`${-H} ${-H} ${H * 2} ${H * 2}`} style={{ inset: `${-((DIAL_UNITS - 360) / 2 / 360) * 100}%` }}>
       {bars.map((b, i) => {
         const grow = easeOut((t - 0.22 - (i / bars.length) * 0.4) / 0.35)
         const len = (b.n ? 4 + (b.n / max) * 22 : 3) * (0.25 + 0.75 * grow)
@@ -221,15 +241,16 @@ function YearRingSvg({ ring, t }: { ring: YearRing; t: number }) {
       </g>
     </svg>
   )
-}
+})
 
 /**
  * 24 小时时钟，外面可以再套一圈近半年年轮。几层叠在不同深度的平面上：底光、外圈与辐条在最后，刻度居中，
  * 越高的刻度越往前浮，「现在」和读得最多的那格最前；鼠标带动整体倾斜时各层错开，才有立体感。
  */
-export function Clock({
+export const Clock = memo(function Clock({
   stats,
-  t,
+  intro,
+  flat,
   size,
   tip,
   onTip,
@@ -242,7 +263,8 @@ export function Clock({
 }: {
   /** 还在加载时为 null：只摆出空刻度和外圈 */
   stats: ReadingStats | null
-  t: number
+  intro: Intro
+  flat?: boolean
   size: number
   tip: Tip
   onTip: (t: Tip) => void
@@ -255,6 +277,8 @@ export function Clock({
   year?: YearRing | null
   className?: string
 }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const t = intro.t
   const k = size / 360
   const c = size / 2
   const hours = stats?.hours ?? NO_HOURS
@@ -270,30 +294,45 @@ export function Clock({
   const ringIn = load ? 1 : easeOut((t - 0.05) / 0.5)
   // 扫光等已读话数落地再开始；减少动态效果或加载失败时不扫
   const sweep = !stats && !!load?.landed && !reduced && !failed
-  const z = (px: number) => `translateZ(${(px * k).toFixed(1)}px)`
+  const z = (px: number) => flat ? '' : `translateZ(${(px * k).toFixed(1)}px)`
+  useLayoutEffect(() => {
+    const rings = ref.current?.querySelectorAll<HTMLElement>('[data-clock-ring]')
+    const marks = ref.current?.querySelectorAll<HTMLElement>('[data-clock-hour]')
+    const dashed = ref.current?.querySelector<HTMLElement>('[data-clock-dashed]')
+    return intro.subscribe(() => {
+      const e = load ? 1 : easeOut((intro.t - 0.05) / 0.5)
+      rings?.forEach((el) => { el.style.opacity = String(e) })
+      if (dashed) dashed.style.rotate = `${(1 - e) * -40}deg`
+      marks?.forEach((el, h) => {
+        const grow = easeOut((intro.t - 0.08 - h * 0.022) / 0.4)
+        el.style.height = `${Math.max(4, (6 + hours[h] / max * 44 * grow) * k)}px`
+      })
+    })
+  }, [intro, load, hours, max, k])
   return (
     <div
+      ref={ref}
       role="img"
       aria-label={stats ? `24 小时阅读时钟：有阅读时间的 ${timed} 话${peak >= 0 ? `，${peak} 点读得最多` : ''}` : '24 小时阅读时钟：正在汇总'}
       className={cn('flex-none', className ?? 'relative', load && !reduced && 'gallery-clock-in')}
-      style={{ width: size, height: size, transformStyle: 'preserve-3d' }}
+      style={{ width: size, height: size, transformStyle: flat ? undefined : 'preserve-3d' }}
       onMouseLeave={() => onTip(null)}
     >
-      <div aria-hidden className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_66%)]" style={{ transform: z(-90), opacity: ringIn }} />
-      <div aria-hidden className="absolute rounded-full border border-white/9" style={{ inset: -8 * k, transform: z(-64), opacity: ringIn }} />
-      <div aria-hidden className="absolute rounded-full border border-white/7" style={{ inset: 64 * k, transform: z(-36), opacity: ringIn }} />
+      <div data-clock-ring aria-hidden className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_66%)]" style={{ transform: z(-90), opacity: ringIn }} />
+      <div data-clock-ring aria-hidden className="absolute rounded-full border border-white/9" style={{ inset: -8 * k, transform: z(-64), opacity: ringIn }} />
+      <div data-clock-ring aria-hidden className="absolute rounded-full border border-white/7" style={{ inset: 64 * k, transform: z(-36), opacity: ringIn }} />
       {/* 每三小时一根辐条，夹在两根刻度之间，从内圈向外淡出 */}
       {Array.from({ length: 8 }, (_, i) => (
-        <div key={i} aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${i * 45 + 7.5}deg) ${z(-48)}`, opacity: ringIn }}>
+        <div data-clock-ring key={i} aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${i * 45 + 7.5}deg) ${z(-48)}`, opacity: ringIn }}>
           <span className="absolute w-px bg-[linear-gradient(to_top,transparent,rgba(255,255,255,.16))]" style={{ left: -0.5, bottom: 78 * k, height: 90 * k }} />
         </div>
       ))}
       {year && (
         <div className="absolute inset-0" style={{ transform: z(-28) }}>
-          <YearRingSvg ring={year} t={t} />
+          <YearRingSvg ring={year} intro={intro} />
         </div>
       )}
-      <div aria-hidden className="absolute rounded-full border border-dashed border-white/10" style={{ inset: 14 * k, opacity: ringIn, rotate: `${(1 - ringIn) * -40}deg`, transform: z(-24) }} />
+      <div data-clock-ring data-clock-dashed aria-hidden className="absolute rounded-full border border-dashed border-white/10" style={{ inset: 14 * k, opacity: ringIn, rotate: `${(1 - ringIn) * -40}deg`, transform: z(-24) }} />
       {load && <LoadRing size={size} fetched={load.fetched} expected={read ?? null} active={load.landed && !failed} done={!!stats} reduced={!!reduced} transform={z(-24)} />}
       {hours.map((n, h) => {
         const grow = easeOut((t - 0.08 - h * 0.022) / 0.4)
@@ -308,6 +347,7 @@ export function Clock({
               onClick={stats ? () => onTip(on ? null : { kind: 'hour', h }) : undefined}
             >
               <span
+                data-clock-hour
                 className={cn('block rounded-full transition-[background-color,box-shadow] duration-200', sweep && 'gallery-sweep')}
                 style={{
                   width: 8 * k,
@@ -324,7 +364,7 @@ export function Clock({
         )
       })}
       {/* 现在几点 */}
-      <div aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${nowDeg}deg) ${z(54)}`, opacity: ringIn }}>
+      <div data-clock-ring aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${nowDeg}deg) ${z(54)}`, opacity: ringIn }}>
         <span className="gallery-ping absolute size-3 rounded-full border-[1.5px] border-white" style={{ left: -6, bottom: radius + 54 * k }} />
         <span className="absolute size-2.5 rounded-full bg-white shadow-[0_0_14px_#fff]" style={{ left: -5, bottom: radius + 55 * k }} />
       </div>
@@ -336,7 +376,7 @@ export function Clock({
           ['18', { left: 0, top: c, transform: 'translateY(-50%)' }],
         ] as [string, CSSProperties][]
       ).map(([label, style]) => (
-        <span key={label} aria-hidden className="absolute text-[11px] text-faint" style={{ ...style, transform: `${style.transform ?? ''} ${z(22)}`, opacity: ringIn }}>
+        <span data-clock-ring key={label} aria-hidden className="absolute text-[11px] text-faint" style={{ ...style, transform: `${style.transform ?? ''} ${z(22)}`, opacity: ringIn }}>
           {label}
         </span>
       ))}
@@ -353,19 +393,30 @@ export function Clock({
       )}
     </div>
   )
-}
+})
 
 /**
  * 四项数字下面的小条图，和表盘一样用圆头竖条：比例类按比例点亮，时间类按高低画；
  * 进场时从左往右长出来。右对齐的一组整体靠右，最后一根贴齐页边距
  */
-export function Strip({ bars, width, height, right, t, at, label }: { bars: { v: number; on?: boolean; lit?: boolean }[]; width: number; height: number; right?: boolean; t: number; at: number; label: string }) {
+export const Strip = memo(function Strip({ bars, width, height, right, intro, at, label }: { bars: { v: number; on?: boolean; lit?: boolean }[]; width: number; height: number; right?: boolean; intro: Intro; at: number; label: string }) {
+  const ref = useRef<SVGSVGElement>(null)
+  const t = intro.t
   const step = width / bars.length
   const span = (bars.length - 1) * step + 3
   const off = right ? width - span : 0
   const max = Math.max(1e-9, ...bars.map((b) => b.v))
+  useLayoutEffect(() => {
+    const rects = ref.current?.querySelectorAll('rect')
+    return intro.subscribe(() => rects?.forEach((el, i) => {
+      const g = easeOut((intro.t - at - i * 0.008) / 0.3)
+      const h = (3 + bars[i].v / max * (height - 3)) * g
+      el.setAttribute('y', String(height - h))
+      el.setAttribute('height', String(h))
+    }))
+  }, [intro, bars, at, height, max])
   return (
-    <svg role="img" aria-label={label} width={width} height={height} className="block overflow-visible">
+    <svg ref={ref} role="img" aria-label={label} width={width} height={height} className="block overflow-visible">
       {bars.map((b, i) => {
         const g = easeOut((t - at - i * 0.008) / 0.3)
         const h = (3 + (b.v / max) * (height - 3)) * g
@@ -373,4 +424,4 @@ export function Strip({ bars, width, height, right, t, at, label }: { bars: { v:
       })}
     </svg>
   )
-}
+})

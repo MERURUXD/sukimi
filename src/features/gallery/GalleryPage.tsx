@@ -11,9 +11,11 @@ import { useAppearance, useForceDark } from '@/design/settings'
 import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
+import { lockGalleryReturnScroll } from './returnScroll'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
+import { PosterShare } from './PosterShare'
 import { galleryOrder, isCompleted, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
-import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry } from './readMorph'
+import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry, withoutHiddenCovers } from './readMorph'
 import './gallery.css'
 
 type FilterValue = 'all' | 'done' | number
@@ -32,6 +34,7 @@ export function GalleryPage() {
   const sharedWall = origin === 'home'
   const { all, full, stats, categories, loading, error, refetch } = useGalleryLibrary()
   const mobile = useMobile()
+  const [sharing, setSharing] = useState(false)
   const homeWindowVisible = useAppearance((s) => s.homeGallery)
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
   const [intro] = useState(() => !hasSnapshot('library') && all.length === 0)
@@ -40,7 +43,10 @@ export function GalleryPage() {
   const [params, setParams] = useSearchParams()
 
   // 从书库点「画廊」进来：书库里的封面从原位飞上墙，标题和暗角等封面上墙了再淡入
-  const [entry] = useState(libraryCoversForEntry)
+  const [rawEntry] = useState(libraryCoversForEntry)
+  // 画廊里被 NSFW 过滤的作品，进出场叠层不能露出书库里记下的原图
+  const visibleIds = useMemo(() => new Set(all.map((m) => m.id)), [all])
+  const entry = useMemo(() => rawEntry && withoutHiddenCovers(rawEntry, visibleIds), [rawEntry, visibleIds])
   // 首页来路保留同一面墙，取景范围和标题一起展开。
   const [reveal] = useState(windowEntryForEntry)
   const [canvasBack] = useState(canvasBackForEntry)
@@ -122,10 +128,18 @@ export function GalleryPage() {
   const navigate = useNavigate()
   const hero = useRef<HTMLElement>(null)
   const leaving = useRef(false)
+  const unlockScroll = useRef<(() => void) | null>(null)
+  useEffect(() => () => {
+    const unlock = unlockScroll.current
+    if (!unlock) return
+    // 目标页先恢复原来的滚动位置；锁一直保留到换页和橱窗收回都结束。
+    void Promise.all([afterViewTransition(), afterWindowWall()]).then(unlock)
+  }, [])
   const leave = useCallback(
     (to: 'back' | 'library') => {
       if (leaving.current) return
       leaving.current = true
+      unlockScroll.current = lockGalleryReturnScroll()
       // 上一条历史记录就是来路页时才能 navigate(-1)（刷新、新标签页打开的没有）
       const canBack = (window.history.state?.idx ?? 0) > 0
       const fromLibrary = origin === 'library' && canBack
@@ -146,12 +160,13 @@ export function GalleryPage() {
         navigate(-1)
         return
       }
-      const rects = fromLibrary ? libraryCoversForReturn() : null
+      const returning = fromLibrary ? libraryCoversForReturn() : null
+      const rects = returning && withoutHiddenCovers(returning, visibleIds)
       if (reduced || !rects || window.scrollY > 2) return go()
       fadeUi()
       if (!flyWallToLibrary(rects, go)) go()
     },
-    [origin, navigate, reduced, homeWindowVisible],
+    [origin, navigate, reduced, homeWindowVisible, visibleIds],
   )
   const toBack = useCallback(() => leave('back'), [leave])
 
@@ -179,8 +194,9 @@ export function GalleryPage() {
         {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
         {!sharedWall && <div aria-hidden data-hero-ui data-hero-fade className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />}
 
-        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} />
+        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} onShare={() => setSharing(true)} />
       </section>
+      <PosterShare open={sharing} initial="library" onClose={() => setSharing(false)} />
 
       {/* 第二页至少占满一屏：切过来时停在它的顶部，内容少也不会切不到位；顶栏的高度留在它自己的上边距里，墙不会从顶栏下面露出来 */}
       {gridReady && (
@@ -193,7 +209,7 @@ export function GalleryPage() {
                 <h2 id="gallery-all" className="m-0 font-cjk text-[40px] leading-[1.1] font-black tracking-[-0.01em]">
                   全部作品 <span className="font-sans font-medium text-muted num">{count(items.length)}</span>
                 </h2>
-                <p className="m-0 text-[15px] text-muted">按收藏时间排列，新收藏的在前。</p>
+                <p className="m-0 text-[15px] text-muted">按加入时间排列，新加入的在前。</p>
               </div>
             )}
             {tabs.length > 1 && <Seg label="筛选" items={tabs} value={active} onChange={pick} className="max-md:w-full" />}

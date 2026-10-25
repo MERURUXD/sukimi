@@ -9,7 +9,7 @@ import { FILE_SLOT, uploadRequest } from '@/api/upload'
 import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
-import { Row, Section } from '../parts'
+import { Row, Section, Switch } from '../parts'
 import { RequireSettings, SettingsNotice } from '../gate'
 
 const CreateBackup = graphql(`
@@ -63,6 +63,50 @@ const STATE: Record<BackupRestoreState, string> = {
   FAILURE: '恢复失败',
 }
 
+/** 备份里的设置默认不恢复：它们会直接覆盖服务端设置（含换界面的 webUIFlavor）和当前账号的个人设置 */
+interface RestoreOptions {
+  serverSettings: boolean
+  userSettings: boolean
+}
+
+/** 确认框里的两个开关；确认框的内容是静态节点，开关状态通过回调写进调用方的 opts，确认后读取 */
+function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => void; onUser: (v: boolean) => void }) {
+  const [server, setServer] = useState(false)
+  const [user, setUser] = useState(false)
+  return (
+    <div className="mt-3 flex flex-col gap-3">
+      <label className="flex items-start justify-between gap-4">
+        <span>
+          同时恢复服务端设置
+          <span className="block text-[13px] text-muted">会用备份里的值覆盖当前服务端设置，包括使用的网页界面；旧备份可能让下次重启后不再显示 Sukimi。</span>
+        </span>
+        <Switch
+          label="同时恢复服务端设置"
+          on={server}
+          onChange={(v) => {
+            onServer(v)
+            setServer(v)
+          }}
+        />
+      </label>
+      <label className="flex items-start justify-between gap-4">
+        <span>
+          同时恢复我的个人设置
+          <span className="block text-[13px] text-muted">会覆盖当前账号的 OPDS、同步、自动下载等设置。</span>
+        </span>
+        <Switch
+          label="同时恢复我的个人设置"
+          on={user}
+          onChange={(v) => {
+            onUser(v)
+            setUser(v)
+          }}
+        />
+      </label>
+    </div>
+  )
+}
+
 export function BackupTab() {
   // 旧服务端没有用户账号，也就没有这一项
   const multi = useAuth((s) => !!s.user && !s.user.legacy)
@@ -72,24 +116,31 @@ export function BackupTab() {
       <ManualBackup />
 
       <RequireSettings>
-        <Section title="自动备份" desc="服务端每隔一段时间自动备份一次，旧备份过期后自动删除。">
-          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 表示不自动备份" />
-          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="在这个时间点进行（服务端所在电脑的时间）" />
-          <SNumber k="backupTTL" label="保留" unit="天" min={0} hint="超过这个天数的自动备份会被删除；0 表示一直保留" />
-          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端所在电脑上的路径；留空使用数据目录下的 backups" stack />
+        <Section title="自动备份" desc="服务端定时生成备份并清理过期文件，所有用户共用。">
+          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 为关闭自动备份" />
+          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="按服务端所在时区的时间执行" />
+          <SNumber k="backupTTL" label="保留时间" unit="天" min={0} hint="自动删除超过该天数的备份，0 为永久保留" />
+          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端本地路径；留空使用数据目录下的 backups" stack />
         </Section>
       </RequireSettings>
 
       <RequireSettings>
-        <Section title="自动备份包含">
+        <Section fold title="自动备份包含" desc="选择自动备份写入的内容，默认全部开启。">
           <SSwitch k="autoBackupIncludeManga" label="漫画" />
           <SSwitch k="autoBackupIncludeCategories" label="分类" />
           <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
           <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
           <SSwitch k="autoBackupIncludeTracking" label="追踪" />
-          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各个前端保存在服务端的偏好" />
+          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各前端保存在服务端的偏好" />
           <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
-          {multi && <SSwitch k="autoBackupIncludeUserSettings" label="各账号的个人设置" hint="OPDS、同步、自动下载等归各账号自己的设置；不勾选时恢复备份后这些设置回到默认值" />}
+          {multi && (
+            <SSwitch
+              k="autoBackupIncludeUserSettings"
+              label="各账号的个人设置"
+              hint="OPDS、同步、自动下载等各账号独立配置"
+              help="不勾选时，恢复备份后各账号的个人设置会回到默认值。"
+            />
+          )}
         </Section>
       </RequireSettings>
     </>
@@ -121,6 +172,7 @@ function ManualBackup() {
   const pick = async (file: File) => {
     // 校验与确认期间换了账号：不能把上一个账号选的备份恢复进新账号的书库
     const still = captureUser()
+    const opts: RestoreOptions = { serverSettings: false, userSettings: false }
     try {
       const v = await uploadRequest(ValidateBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
       still()
@@ -130,6 +182,7 @@ function ManualBackup() {
         body: (
           <>
             <p className="m-0">备份里的漫画、分类、章节进度会合并进当前书库，已有的不会被删除。恢复过程中可以继续使用。</p>
+            <p className="mb-0">服务端设置和个人设置默认保持现状，不会被备份里的值覆盖。</p>
             {missingSources.length > 0 && (
               <p className="mb-0">
                 缺少 {missingSources.length} 个来源的扩展，这些漫画能恢复，但要装上扩展才能阅读：
@@ -137,6 +190,10 @@ function ManualBackup() {
               </p>
             )}
             {missingTrackers.length > 0 && <p className="mb-0">未登录的追踪服务：{missingTrackers.map((t) => t.name).join('、')}</p>}
+            <RestoreOptionsPicker
+              onServer={(v) => (opts.serverSettings = v)}
+              onUser={(v) => (opts.userSettings = v)}
+            />
           </>
         ),
         ok: '开始恢复',
@@ -144,7 +201,11 @@ function ManualBackup() {
       })
       if (!ok) return
       still()
-      const r = await uploadRequest(RestoreBackup, { input: { backup: FILE_SLOT } }, { 'input.backup': file })
+      const r = await uploadRequest(
+        RestoreBackup,
+        { input: { backup: FILE_SLOT, flags: { includeServerSettings: opts.serverSettings, includeUserSettings: opts.userSettings } } },
+        { 'input.backup': file },
+      )
       setRestore({ id: r.restoreBackup.id, state: 'IDLE', done: 0, total: 0 })
     } catch (e) {
       if (!(e instanceof StaleSessionError)) toastError('恢复失败', e)

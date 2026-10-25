@@ -12,6 +12,10 @@ export interface CalendarInput<M> {
   uploadDate: number
   /** 毫秒 */
   fetchedAt: number
+  /** 章节号；来源没给时是 -1 */
+  chapterNumber?: number
+  /** 章节标题，一般是「第 N 话」 */
+  name?: string
   manga: M & { status: string; updateStrategy?: string }
 }
 
@@ -22,7 +26,7 @@ export interface Series<M> {
 }
 
 export type DayEntry<M> =
-  | { kind: 'done'; mangaId: number; manga: M; count: number }
+  | { kind: 'done'; mangaId: number; manga: M; count: number; /** 当天最新的一话，用来显示标题 */ latest: { name: string; chapterNumber: number } }
   | { kind: 'pred'; mangaId: number; manga: M; prediction: Next }
 
 export interface CalendarDay<M> {
@@ -77,16 +81,26 @@ export function buildWeek<M>(chapters: readonly CalendarInput<M>[], series: read
   }
 
   const done = new Map<string, Extract<DayEntry<M>, { kind: 'done' }>>()
+  const latestAt = new Map<string, { n: number; t: number }>()
   for (const { c, t } of placed) {
     const day = startOfDay(t)
     const i = index.get(day)
     if (i === undefined) continue
     const key = `${day}#${c.mangaId}`
     const hit = done.get(key)
-    if (hit) hit.count++
-    else {
-      const e = { kind: 'done' as const, mangaId: c.mangaId, manga: c.manga, count: 1 }
+    const cur = { name: c.name ?? '', chapterNumber: c.chapterNumber ?? -1 }
+    if (hit) {
+      hit.count++
+      // 最新一话：章节号大的；章节号缺失时按发布时间晚的
+      const last = latestAt.get(key)!
+      if (cur.chapterNumber >= 0 && last.n >= 0 ? cur.chapterNumber > last.n : t > last.t) {
+        hit.latest = cur
+        latestAt.set(key, { n: cur.chapterNumber, t })
+      }
+    } else {
+      const e = { kind: 'done' as const, mangaId: c.mangaId, manga: c.manga, count: 1, latest: cur }
       done.set(key, e)
+      latestAt.set(key, { n: cur.chapterNumber, t })
       days[i].entries.push(e)
     }
   }

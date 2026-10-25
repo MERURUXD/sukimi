@@ -1,4 +1,5 @@
 import { useAppearance } from '@/design/settings'
+import { READER_VT_ATTR } from './readerTransition'
 
 /** 封面「飞入 / 飞回」用的 view-transition-name；同一时刻页面上只能有一个 */
 export const COVER_VT = 'manga-cover'
@@ -27,6 +28,9 @@ function unmark(el: HTMLElement) {
   delete el.dataset.coverVt
 }
 
+/** 导航玻璃表面，以及顶栏渐进模糊的各层（它们同样靠背景模糊，被封面盖住就失效） */
+const LIFTED = '.glass[data-vt-glass], .nav-blur-layer[data-vt-glass]'
+
 /**
  * 导航的实际玻璃表面用 data-vt-glass 标记，过渡名不加在透明外壳上。
  * 过渡动画的伪元素都画在页面最上层，封面从栏下面的格子里飞出或飞回时会盖在栏上。
@@ -35,8 +39,13 @@ function unmark(el: HTMLElement) {
  */
 let liftedSurfaces: Map<HTMLElement, string> | undefined
 
-function liftSurfaces(surfaces: Map<HTMLElement, string>) {
-  document.querySelectorAll<HTMLElement>('.glass[data-vt-glass]').forEach((surface) => {
+/**
+ * blur = false 时不提模糊层。转场开头只有旧快照的那几帧里，模糊层的分组拿不到遮罩，
+ * 渐进的模糊带会变成一整块硬边的矩形（点击的一瞬闪一下）；所以它们等新页面渲染好、新旧快照配成对再提。
+ */
+function liftSurfaces(surfaces: Map<HTMLElement, string>, blur = true) {
+  document.querySelectorAll<HTMLElement>(LIFTED).forEach((surface) => {
+    if (!blur && surface.classList.contains('nav-blur-layer')) return
     const r = surface.getBoundingClientRect()
     if (!r.width || !r.height || r.right <= 0 || r.bottom <= 0 || r.left >= innerWidth || r.top >= innerHeight) return
     if (!surfaces.has(surface)) surfaces.set(surface, surface.style.viewTransitionName)
@@ -97,16 +106,18 @@ export function installCoverTransition(basePath = '') {
     dropSurfaces()
     const surfaces = new Map<HTMLElement, string>()
     liftedSurfaces = surfaces
-    const coverTransition = !document.documentElement.hasAttribute('data-theme-vt')
+    // 进出阅读器由 readerTransition 接管（它包在外层，先挂标记），这里不提升玻璃，也不按详情页开关跳过
+    const readerTransition = document.documentElement.hasAttribute(READER_VT_ATTR)
+    const coverTransition = !readerTransition && !document.documentElement.hasAttribute('data-theme-vt')
       && (!!document.querySelector('[data-cover-vt]') || !!(from && origins.has(from)))
-    if (coverTransition) liftSurfaces(surfaces)
+    if (coverTransition) liftSurfaces(surfaces, false)
     const t = start({
       ...(typeof arg === 'object' ? arg : {}),
       update: async () => {
         await update?.()
         const to = pagePath()
         // 仅跳过涉及详情页的换页转场，不影响其他页面、菜单动画，以及停在同一页的转场（如切换主题）。
-        if (!useAppearance.getState().mangaDetailMotion && from !== to && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
+        if (!readerTransition && !useAppearance.getState().mangaDetailMotion && from !== to && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
           t.skipTransition()
           return
         }

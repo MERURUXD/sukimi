@@ -31,12 +31,13 @@ export function pick<T>(items: readonly T[], n: number, seed: string, id: (t: T)
 /**
  * 第 batch 批（从 0 起）：随机挑 n 个，顺序也随机；从第 1 批起，第一个不与上一批的第一个相同，
  * 换一批时大图区一定换一部。上一批也按同样规则得出，所以从第 0 批逐批推过来。
+ * first 是第 0 批的候选（默认同 items），用来让第一组先放更想展示的那些，换一批再从全部里挑。
  */
-export function pickBatch<T>(items: readonly T[], n: number, seed: string, batch: number, id: (t: T) => number) {
+export function pickBatch<T>(items: readonly T[], n: number, seed: string, batch: number, id: (t: T) => number, first: readonly T[] = items) {
   let prev: T | undefined
   let cur: T[] = []
   for (let b = 0; b <= batch; b++) {
-    cur = pick(items, n, `${seed}#${b}`, id)
+    cur = pick(b ? items : first, n, `${seed}#${b}`, id)
     const i = cur.length > 1 && cur[0] === prev ? 1 : 0
     // 和上一批第一个相同就与第二个对调
     if (i) [cur[0], cur[1]] = [cur[1], cur[0]]
@@ -60,9 +61,9 @@ const lastRead = (m: LibraryManga) => Number(m.lastReadChapter?.lastReadAt ?? 0)
 export const notStarted = (m: LibraryManga) => m.unreadCount > 0 && lastRead(m) <= 0 && !m.latestReadChapter
 
 /** 读到一半、超过 STALE_DAYS 天没打开的；在历史里删掉的不算，和首页其他地方一致 */
-export function isStale(m: LibraryManga, nowSec: number) {
+export function isStale(m: LibraryManga, nowSec: number, userId: number | undefined) {
   const c = m.lastReadChapter
-  return !!c && m.unreadCount > 0 && lastRead(m) > 0 && nowSec - lastRead(m) > STALE_SEC && isVisible(c)
+  return !!c && m.unreadCount > 0 && lastRead(m) > 0 && nowSec - lastRead(m) > STALE_SEC && isVisible(c, userId)
 }
 
 /** 最近阅读里「两周内读过」的部分，用来区分继续阅读与好久没看 */

@@ -14,7 +14,8 @@ import { captureUser } from '@/api/userContext'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
-import { pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
 import { WIDE, filterCss, type Half } from './pageTools'
 import { PagedView, type Screen } from './PagedView'
@@ -52,8 +53,26 @@ export function ReaderPage() {
   const list = chapters.data?.chapters.nodes
   const idx = list?.findIndex((c) => c.id === chapterId) ?? -1
   const chapter = list?.[idx]
+  // 章节列表来自缓存，可能是服务端抓到新一话之前的：列表已加载却找不到本话时，重新取一次再下结论
+  const missing = !!list && idx < 0
+  const asked = useRef<number | null>(null)
+  const [askedDone, setAskedDone] = useState<number | null>(null)
+  const refetchChapters = chapters.refetch
+  useEffect(() => {
+    if (!missing || asked.current === chapterId) return
+    asked.current = chapterId
+    refetchChapters()
+      .catch(() => {})
+      .finally(() => setAskedDone(chapterId))
+  }, [missing, chapterId, askedDone, refetchChapters])
+  const notFound = missing && askedDone === chapterId
   const [settings] = useReaderSettings(mangaId)
-  const settingsReady = useReaderMetaSync(mangaId)
+  const synced = useReaderMetaSync(mangaId)
+  // 会话一旦挂上就不再因核对状态卸载：读到一半在设置里打开「按漫画记住阅读模式」时，
+  // 核对要重新开始，卸载重挂会把已读的话按起始页重算而跳回第 1 页；核对结果到了再应用设置
+  const [latched, setLatched] = useState<number | null>(null)
+  if (synced && latched !== mangaId) setLatched(mangaId)
+  const settingsReady = synced || latched === mangaId
   useMigrateReaderPrefs()
   const back = useBackToDetail(mangaId)
   const bg = BGS.find((b) => b.value === settings.bg)!
@@ -65,8 +84,29 @@ export function ReaderPage() {
       style={{ background: bg.color, '--page-filter': filterCss(settings) } as CSSProperties}
       data-theme={settings.bg === 'white' ? 'light' : 'dark'}
       data-sfw={sfwAttr(manga.data?.manga.source?.displayName)}
+      // 进出转场据此判断方向和落回哪一话（lib/readerTransition.ts）
+      data-reader-root={`${mangaId}:${chapterId}`}
     >
-      {error ? (
+      {notFound ? (
+        <Center>
+          <p className="text-danger">找不到这一话，它可能已被服务端移除。</p>
+          <div className="mt-4 flex justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                asked.current = null
+                setAskedDone(null)
+              }}
+              className="gbtn bg-accent-soft"
+            >
+              重试
+            </button>
+            <button type="button" onClick={back} className="gbtn">
+              返回详情
+            </button>
+          </div>
+        </Center>
+      ) : error ? (
         <Center>
           <p className="text-danger">无法加载本话：{error}</p>
           <div className="mt-4 flex justify-center gap-3">
@@ -256,8 +296,29 @@ function ReaderSession({
     if (double && settled && pin?.join('-') !== shownKey) setPin(shownKey.split('-').map(Number))
   }, [double, settled, shownKey, pin])
 
-  // 拆分宽页：一页分成先读、后读两屏，翻页时先在两半之间走
+  // 拆页和裁边也会改图片地址、尺寸：拼版确定后，还要等最终图片处理并解码完才揭开首屏。
+  // 每一话独立等待；显示过一次不再隐藏，失败时仍保留 4 秒兜底。
   const curHalf = paged && shown.length === 1 && splits(shown[0]) ? half : undefined
+  const layoutReady = (!double || (settled && pin?.join('-') === shownKey)) && (!splitOn || shown.every((i) => aspects[i] !== undefined))
+  const imagesReady = shown.every((i) => pageReady(pages[i], variant(curHalf)))
+  const stable = !paged || (layoutReady && imagesReady)
+  const firstSources = JSON.stringify(shown.map((i) => srcOf(i, curHalf)))
+  const [revealed, setRevealed] = useState(false)
+  useEffect(() => {
+    if (!stable || revealed) return
+    let alive = true
+    void Promise.all((JSON.parse(firstSources) as (string | undefined)[]).map(decodePage)).then(() => {
+      if (alive) setRevealed(true)
+    })
+    return () => { alive = false }
+  }, [stable, firstSources, revealed])
+  useEffect(() => {
+    const t = setTimeout(() => setRevealed(true), 4000)
+    return () => clearTimeout(t)
+  }, [])
+  const holding = paged && !revealed
+
+  // 拆分宽页：一页分成先读、后读两屏，翻页时先在两半之间走
   const screenOf = (sp: number[] | undefined, h: Half): Screen | undefined =>
     sp && { pages: sp, half: sp.length === 1 && splits(sp[0]) ? h : undefined }
   const screen: Screen = { pages: shown, half: curHalf }
@@ -267,6 +328,8 @@ function ReaderSession({
   /* 预加载后面几页；快读完时预取下一话 */
   useEffect(() => {
     const from = Math.max(...shown) + 1
+    // 当前屏和下一页也要尽早拿到宽高比，首屏拼版才能尽快确定
+    for (const i of [...shown, from]) if (i < pages.length) warm(pages[i], onAspect)
     for (let i = from; i < Math.min(pages.length, from + settings.preload); i++) {
       warm(pages[i], onAspect)
       // 要裁边或拆分的页提前处理好，翻到时直接显示
@@ -428,7 +491,7 @@ function ReaderSession({
   const syncLabel =
     isDemo
       ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel} · 第 ${synced + 1} 页`
-      : synced == null ? '翻页后自动同步阅读进度到服务器' : `进度已同步到服务器 · ${curLabel} · 第 ${synced + 1} 页`
+      : synced == null ? '翻页后自动同步阅读进度到服务端' : `进度已同步到服务端 · ${curLabel} · 第 ${synced + 1} 页`
 
   const endCard = (
     <EndCard
@@ -450,6 +513,7 @@ function ReaderSession({
           </EndSwipe>
         ) : (
           <PagedView
+            hidden={holding}
             pages={pages}
             screen={screen}
             prevScreen={prevScreen}
@@ -487,6 +551,12 @@ function ReaderSession({
             </>
           }
         />
+      )}
+
+      {paged && holding && (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center text-muted" aria-hidden>
+          正在加载…
+        </div>
       )}
 
       <ReaderChrome

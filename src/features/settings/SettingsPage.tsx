@@ -16,14 +16,14 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type ComponentType } from 'react'
+import { useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { useAuth } from '@/api/auth'
 import { MotionGlass } from '@/components/glass/Glass'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { spring } from '@/design/motion'
 import { can } from '@/features/auth/permissions'
 import { cn } from '@/lib/cn'
-import { Section } from './parts'
 import { ReaderDefaults } from './ReaderDefaults'
 import { usePendingRestart } from './server'
 import { AboutTab } from './tabs/AboutTab'
@@ -39,34 +39,31 @@ import { TrackingTab } from './tabs/TrackingTab'
 import { UsersTab } from './tabs/UsersTab'
 
 function ReadingTab() {
-  return (
-    <Section title="阅读" desc="新打开的漫画使用这些默认值；阅读器里的设置面板可以针对单部漫画修改。只保存在这台设备上。">
-      <ReaderDefaults />
-    </Section>
-  )
+  return <ReaderDefaults />
 }
 
-interface Tab {
+export interface SettingsTab {
   id: string
   label: string
   icon: LucideIcon
   desc: string
   Component: ComponentType
   /** 分组只靠留白区分，见 GROUPS */
-  group: GroupId
+  group: SettingsGroupId
   /** 只有管理用户的账号才看得到；旧服务端没有用户账号，也不显示 */
   adminOnly?: boolean
 }
 
-type GroupId = 'personal' | 'content' | 'system'
+export type SettingsGroupId = 'personal' | 'content' | 'system'
 
-const GROUPS: { id: GroupId; label: string }[] = [
+const GROUPS: { id: SettingsGroupId; label: string }[] = [
   { id: 'personal', label: '浏览与阅读' },
   { id: 'content', label: '内容与数据' },
-  { id: 'system', label: '服务器与账户' },
+  { id: 'system', label: '服务端与账号' },
 ]
 
-const TABS: Tab[] = [
+/** 布局验收页按分栏渲染正式组件，所以导出 */
+export const SETTINGS_TABS: SettingsTab[] = [
   { id: 'appearance', label: '外观', icon: Palette, desc: '主题、玻璃效果、动态背景、NSFW 隐私', Component: AppearanceTab, group: 'personal' },
   { id: 'home', label: '首页', icon: House, desc: '首页布局、内容开关、显示顺序', Component: HomeTab, group: 'personal' },
   { id: 'reading', label: '阅读', icon: BookOpen, desc: '阅读模式、翻页、点击分区', Component: ReadingTab, group: 'personal' },
@@ -76,7 +73,7 @@ const TABS: Tab[] = [
   { id: 'backup', label: '备份', icon: DatabaseBackup, desc: '备份与恢复、自动备份', Component: BackupTab, group: 'content' },
   { id: 'sync', label: '同步', icon: RefreshCcw, desc: 'SyncYomi、KOReader', Component: SyncTab, group: 'content' },
   { id: 'tracking', label: '追踪', icon: ListChecks, desc: 'AniList、MyAnimeList 等，同步阅读进度', Component: TrackingTab, group: 'content' },
-  { id: 'server', label: '服务器', icon: Server, desc: '网络、登录、代理、日志、OPDS', Component: ServerTab, group: 'system' },
+  { id: 'server', label: '服务端', icon: Server, desc: '网络、登录、代理、日志、OPDS', Component: ServerTab, group: 'system' },
   { id: 'users', label: '用户', icon: Users, desc: '邀请新用户、权限、找回码', Component: UsersTab, group: 'system', adminOnly: true },
   { id: 'about', label: '关于', icon: Info, desc: '版本、检查更新、退出登录', Component: AboutTab, group: 'system' },
 ]
@@ -85,7 +82,7 @@ const TABS: Tab[] = [
 function useVisibleTabs() {
   const user = useAuth((s) => s.user)
   const manageUsers = !!user && !user.legacy && can(user, 'MANAGE_USERS')
-  return TABS.filter((t) => !t.adminOnly || manageUsers)
+  return SETTINGS_TABS.filter((t) => !t.adminOnly || manageUsers)
 }
 
 /**
@@ -93,9 +90,10 @@ function useVisibleTabs() {
  * 电脑：只有选中项是一颗玻璃胶囊，用容器内坐标滑动，页面滚动和 sticky 不会改变动画起点。
  * 手机：整页分组列表，不加玻璃（列表背后没有可折射的内容）。两套结构用断点切换。
  */
-export function SettingsNavigation({ selected, singlePage, basePath = '/settings' }: { selected: string; singlePage?: boolean; basePath?: string }) {
+export function SettingsNavigation({ selected, singlePage, basePath = '/settings', tabs: given }: { selected: string; singlePage?: boolean; basePath?: string; tabs?: SettingsTab[] }) {
   const root = useRef<HTMLDivElement>(null)
-  const tabs = useVisibleTabs()
+  const visible = useVisibleTabs()
+  const tabs = given ?? visible
   const groups = GROUPS.map((g) => ({ ...g, tabs: tabs.filter((t) => t.group === g.id) })).filter((g) => g.tabs.length)
   const [highlight, setHighlight] = useState<{ y: number; height: number } | null>(null)
   useLayoutEffect(() => {
@@ -111,7 +109,7 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
     return () => resize.disconnect()
   }, [selected])
 
-  const to = (t: Tab) => `${basePath}/${t.id}`
+  const to = (t: SettingsTab) => `${basePath}/${t.id}`
 
   return (
     <nav aria-label="设置分栏" className={cn('md:sticky md:top-[calc(var(--nav-h)+12px)]', singlePage && 'max-md:hidden')}>
@@ -145,7 +143,7 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
                   <t.icon className="size-[22px] flex-none" strokeWidth={1.8} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="font-medium">{t.label}</span>
-                    <span className="truncate text-xs text-muted">{t.desc}</span>
+                    <span className="truncate text-[13px] text-muted">{t.desc}</span>
                   </span>
                   <ChevronRight className="size-[18px] flex-none text-faint" />
                 </Link>
@@ -159,39 +157,41 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
 }
 
 /**
- * 设置：电脑和平板上左侧分栏；手机上先显示分栏列表，点进去是单独一页（可以返回）。
- * 地址是 /settings/<分栏>，没带分栏时电脑上显示第一栏。
+ * 设置外壳：电脑和平板上左侧分栏；手机上先显示分栏列表，点进去是单独一页（可以返回）。
+ * 正式设置和演示设置共用，只是分栏清单不同。地址是 <basePath>/<分栏>，没带分栏时电脑上显示第一栏。
  */
-export function SettingsPage() {
+export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: SettingsTab[]; basePath?: string; intro?: ReactNode }) {
   const { tab } = useParams()
   const navigate = useNavigate()
-  const tabs = useVisibleTabs()
   const current = tabs.find((t) => t.id === tab)
   const shown = current ?? tabs[0]
   const pending = usePendingRestart((s) => s.keys.length)
 
-  if (tab && !current) return <Navigate to="/settings" replace />
+  if (tab && !current) return <Navigate to={basePath} replace />
 
-  const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/settings'))
+  const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate(basePath))
 
   return (
     // 设置页没有书库内容，开发安全模式下不打码
-    <div className="wrap max-w-[1120px]! pb-24" data-sfw="">
-      <div className="flex items-center gap-2 pt-7 pb-6">
-        {current && (
+    <div className="wrap pb-24" data-sfw="">
+      <PageHeader
+        className={cn(intro && 'pb-3')}
+        lead={current && (
           <button type="button" className="gicon plain rounded-full md:hidden" onClick={back} aria-label="返回设置列表">
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </button>
         )}
-        <h1 className="m-0 font-cjk text-[40px] leading-[1.1] font-black">
+        title={<>
           <span className={cn(current && 'max-md:hidden')}>设置</span>
           {current && <span className="md:hidden">{current.label}</span>}
-        </h1>
-      </div>
+        </>}
+      />
+      {intro && <p className={cn('mt-0 mb-6 max-w-[62ch] text-sm text-muted', current && 'max-md:hidden')}>{intro}</p>}
 
-      <div className="md:grid md:grid-cols-[220px_minmax(0,1fr)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
+      {/* 和其他页同宽，标题与分栏对齐顶栏图标；右栏限宽，宽屏上设置项不会被拉得太长，右边留白 */}
+      <div className="md:grid md:grid-cols-[220px_minmax(0,760px)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,760px)]">
         {/* 电脑：粘在左侧的玻璃分栏；手机：整页列表 */}
-        <SettingsNavigation selected={shown.id} singlePage={!!current} />
+        <SettingsNavigation selected={shown.id} singlePage={!!current} basePath={basePath} tabs={tabs} />
 
         <div className={cn('min-w-0', !current && 'max-md:hidden')}>
           {pending > 0 && (
@@ -208,4 +208,8 @@ export function SettingsPage() {
       </div>
     </div>
   )
+}
+
+export function SettingsPage() {
+  return <SettingsShell tabs={useVisibleTabs()} />
 }

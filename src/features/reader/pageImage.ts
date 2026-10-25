@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import { rememberAspect } from './pageCache'
+import { forgetWarm, rememberAspect } from './pageCache'
+import { forgetDecoded } from './pageDecode'
 import { FULL, contentBox, halfBox, type Box, type Half } from './pageTools'
 
 /**
@@ -110,6 +111,24 @@ async function render(url: string, v: Variant): Promise<string | null> {
   return blob ? URL.createObjectURL(blob) : null
 }
 
+/**
+ * 重新加载一页：忘掉它失败的原图、处理结果和预加载记录，让这一页从头来过。
+ * 失败的原图会被 load() 缓存成 null，不清掉的话换了网络也永远用不上。
+ */
+export function reloadPage(url: string) {
+  sources.delete(url)
+  forgetWarm(url)
+  forgetDecoded(url)
+  for (const key of [...done.keys()]) {
+    if (!key.endsWith(`|${url}`)) continue
+    const out = done.get(key)
+    if (out) URL.revokeObjectURL(out)
+    done.delete(key)
+  }
+  for (const key of [...running]) if (key.endsWith(`|${url}`)) running.delete(key)
+  notify()
+}
+
 /** 开始处理（已在处理或已完成则什么也不做） */
 export function requestPage(url: string, v: Variant) {
   if (!v.crop && v.half === undefined) return
@@ -153,6 +172,9 @@ export function pageSrc(url: string, v: Variant, start = true): string | undefin
 
 /** 这张宽页拆不了（读不了或太大）：调用方让它整页显示、不再分两屏，免得同一张整页看两遍 */
 export const splitFailed = (url: string, v: Variant) => v.half !== undefined && done.get(keyOf(url, v)) === null
+
+/** 首屏要等最终地址确定；处理失败或无需裁边时，原图就是最终结果。 */
+export const pageReady = (url: string, v: Variant) => (!v.crop && v.half === undefined) || done.has(keyOf(url, v))
 
 /** 处理结果变化时重新渲染 */
 export function usePageImages() {

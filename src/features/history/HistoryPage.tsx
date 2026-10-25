@@ -3,10 +3,12 @@ import { Play, Search, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { Reference } from '@apollo/client'
+import { useAuth } from '@/api/auth'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
 import { LoadError } from '@/components/ui/LoadError'
+import { PageHeader } from '@/components/ui/PageHeader'
 import { toast, toastError } from '@/components/ui/toast'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { FROM_DETAIL } from '@/features/reader/nav'
@@ -15,7 +17,7 @@ import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
-import { groupHistory, HIDDEN_KEY, hiddenValue, type HistoryEntry } from './history'
+import { groupHistory, hiddenKey, hiddenValue, type HistoryEntry } from './history'
 import { HideHistory, History, type HistoryItem } from './queries'
 import { HISTORY_PAGE, historyVariables } from './pagination'
 
@@ -31,6 +33,7 @@ export function HistoryPage() {
   const { data, loading, error, fetchMore } = history
   const [introWanted] = useState(() => !data)
   const intro = useIntro(introWanted, !!data)
+  const userId = useAuth((s) => s.user?.id)
   const [query, setQuery] = useState('')
   const list = useMemo(() => data?.chapters.nodes ?? [], [data])
   const hasMore = data?.chapters.pageInfo.hasNextPage ?? false
@@ -38,8 +41,8 @@ export function HistoryPage() {
   const q = query.trim().toLowerCase()
   const days = useMemo(() => {
     const hits = q ? list.filter((c) => c.manga.title.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : list
-    return groupHistory(hits, (t) => dayLabel(t))
-  }, [list, q])
+    return groupHistory(hits, (t) => dayLabel(t), userId)
+  }, [list, q, userId])
 
   const more = () =>
     fetchMore({
@@ -49,18 +52,19 @@ export function HistoryPage() {
       }),
     })
 
-  // 滚到底自动加载；搜索时也继续往下加载，在更早的记录里找
+  // 滚到底自动加载；搜索时交由下方按钮按需加载更早记录，避免无命中时连续翻完整个历史
   const sentinel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = sentinel.current
-    if (!el || !hasMore) return
+    if (!el || !hasMore || q) return
     const io = new IntersectionObserver(([e]) => e.isIntersecting && !loading && void more(), { rootMargin: '600px' })
     io.observe(el)
     return () => io.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, loading, list.length])
+  }, [hasMore, loading, list.length, q])
 
   const [hide] = useMutation(HideHistory)
+  const hiddenKeyOfUser = userId === undefined ? undefined : hiddenKey(userId)
   const remove = async (entry: HistoryEntry<HistoryItem>) => {
     const ok = await confirm({
       title: '删除这条阅读记录？',
@@ -68,10 +72,11 @@ export function HistoryPage() {
       ok: '删除',
     })
     if (!ok) return
+    if (hiddenKeyOfUser === undefined) return
     const value = hiddenValue(entry)
     try {
       await hide({
-        variables: { ids: entry.chapters.map((c) => c.id), key: HIDDEN_KEY, value },
+        variables: { ids: entry.chapters.map((c) => c.id), key: hiddenKeyOfUser, value },
         // 直接改缓存里这些章节的元数据，历史和首页立即生效
         update: (cache) => {
           for (const c of entry.chapters) {
@@ -79,8 +84,8 @@ export function HistoryPage() {
               id: cache.identify({ __typename: 'ChapterType', id: c.id }),
               fields: {
                 meta: (existing: readonly (Reference | { key: string })[] = [], { readField }) => [
-                  ...existing.filter((m) => readField('key', m as Reference) !== HIDDEN_KEY),
-                  { __typename: 'ChapterMetaType', chapterId: c.id, key: HIDDEN_KEY, value },
+                  ...existing.filter((m) => readField('key', m as Reference) !== hiddenKeyOfUser),
+                  { __typename: 'ChapterMetaType', chapterId: c.id, key: hiddenKeyOfUser, value },
                 ],
               },
             })
@@ -98,30 +103,38 @@ export function HistoryPage() {
 
   return (
     <div className="wrap pb-20">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4 pt-9 pb-8">
-        <div className="min-w-0 flex-auto">
-          <h1 className="m-0 font-cjk text-[40px] font-black">阅读历史</h1>
-          <span className="text-sm text-muted">
-            {data ? `${count(data.chapters.totalCount)} 话读过的记录` : loading ? '正在加载…' : ''}
-            {q && data && ` · 在已加载的 ${count(list.length)} 话里搜索`}
-          </span>
-        </div>
-        <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
-          <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-          <span className="sr">搜索历史</span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索漫画或章节名"
-            className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
-          />
-        </Glass>
-      </div>
+      <PageHeader
+        title="阅读历史"
+        sub={<>
+          {data ? `共 ${count(data.chapters.totalCount)} 话阅读记录` : loading ? '正在加载…' : ''}
+          {data && (q ? ` · 在已加载的 ${count(list.length)} 话里搜索` : hasMore ? ` · 已加载 ${count(list.length)} 话` : '')}
+        </>}
+        actions={
+          <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
+            <Search className="size-[18px] flex-none" strokeWidth={1.8} />
+            <span className="sr">搜索历史</span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="在已加载的历史中搜索漫画或章节"
+              className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
+            />
+          </Glass>
+        }
+      />
 
       {error && !data && <LoadError className="py-16" prefix="无法读取阅读历史" message={error.message} onRetry={() => void history.refetch().catch(() => {})} />}
       {!data && !error && <HistorySkeleton />}
       {data && shown === 0 && !hasMore && <p className="py-16 text-center text-muted">{q ? '没有匹配的记录' : '还没有阅读记录'}</p>}
+      {data && shown === 0 && hasMore && q && (
+        <div className="flex flex-col items-center gap-3 py-16 text-center text-muted">
+          <p className="m-0">在已加载的 {count(list.length)} 话中没有找到「{query.trim()}」</p>
+          <Glass as="button" type="button" className="gbtn rounded-full text-text" disabled={loading} onClick={() => void more()}>
+            {loading ? '正在加载更早的记录…' : '继续加载更早的记录'}
+          </Glass>
+        </div>
+      )}
 
       {days.map((d) => (
         <section key={d.label} aria-label={d.label} className="mb-6">
@@ -134,10 +147,12 @@ export function HistoryPage() {
         </section>
       ))}
 
-      {hasMore && (
-        <div ref={sentinel} className="py-6 text-center text-sm text-muted">
+      {hasMore && (shown > 0 || !q) && (
+        <div ref={q ? undefined : sentinel} className="py-6 text-center text-sm text-muted">
           {loading ? '正在加载更早的记录…' : (
-            <button type="button" className="font-semibold text-text" onClick={() => void more()}>加载更早的记录</button>
+            <button type="button" className="font-semibold text-text hover:underline" onClick={() => void more()}>
+              {q ? `继续加载更早的记录（已加载 ${count(list.length)} / ${count(data?.chapters.totalCount ?? 0)} 话）` : '加载更早的记录'}
+            </button>
           )}
         </div>
       )}
@@ -153,6 +168,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(c.manga)}
+      data-reader-origin
       style={rise}
       className={cn('-mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
     >
@@ -165,12 +181,12 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
           <span className="truncate text-[13px] text-muted num">
             {chapterLabel(c)} · {progress} · {clock(Number(c.lastReadAt) * 1000)}
           </span>
-          {entry.chapters.length > 1 && <span className="text-xs text-faint">这天还读了 {entry.chapters.length - 1} 话</span>}
+          {entry.chapters.length > 1 && <span className="text-[13px] text-faint">这天还读了 {entry.chapters.length - 1} 话</span>}
         </span>
       </Link>
       {!c.isRead && (
         // 行有进场动画（改透明度），这里不用玻璃按钮，免得动画期间玻璃失效
-        <Link to={`/manga/${c.manga.id}/chapter/${c.id}`} state={FROM_DETAIL} className="gicon size-10 text-text no-underline" aria-label={`继续阅读 ${c.manga.title}`} title="继续阅读">
+        <Link to={`/manga/${c.manga.id}/chapter/${c.id}`} state={FROM_DETAIL} viewTransition className="gicon size-10 text-text no-underline" aria-label={`继续阅读 ${c.manga.title}`} title="继续阅读">
           <Play className="size-[18px] fill-current" strokeWidth={1.6} />
         </Link>
       )}

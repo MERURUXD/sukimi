@@ -1,5 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="26 5 484 484">
   <title>Sukimi</title>
-  <rect width="64" height="64" rx="18" fill="#141416" />
-  <text x="32" y="46" text-anchor="middle" fill="#f4f4f5" font-family="system-ui, sans-serif" font-size="40" font-weight="700">S</text>
+  <!-- 透明底，跟随浏览器的亮暗：浅色是墨兔配米白眼睛，深色是白兔配墨色眼睛并带腮红 -->
+  <style>
+    .fg { fill: #141416; }
+    .eye { fill: #F1ECE4; }
+    .blush { display: none; }
+    @media (prefers-color-scheme: dark) {
+      .fg { fill: #F1ECE4; }
+      .eye { fill: #141416; }
+      .blush { display: inline; }
+    }
+  </style>
+  <path class="fg" d="M149 207C123 168 105 103 116 51c4-21 12-31 23-27 36 11 67 100 65 174Zm146-13c-3-59 15-105 49-105 24-1 40 16 55 42l35 60c10 18 7 38-9 40-24 3-48-31-70-59-8 14-10 31-9 46Z"/>
+  <path fill="#EFB7AE" d="M160 190C142 156 130 108 136 66C138 54 142 48 148 52C170 76 184 136 184 188ZM318 172C318 130 332 112 346 112C362 112 374 126 386 146L406 191C410 199 408 204 403 202C392 198 378 180 362 158C352 146 340 150 334 172Z"/>
+  <path class="fg" d="M103 222q0-50 50-50h206q50 0 50 50v228q0 26-24 12l-129-75-129 75q-24 14-24-12Z"/>
+  <g class="eye">
+    <rect x="204" y="267" width="25" height="67" rx="12.5" transform="rotate(18 216.5 300.5)"/>
+    <rect x="283" y="267" width="25" height="67" rx="12.5" transform="rotate(18 295.5 300.5)"/>
+  </g>
+  <g class="blush" fill="#EFB7AE">
+    <ellipse cx="184" cy="354" rx="20" ry="11"/>
+    <ellipse cx="330" cy="354" rx="20" ry="11"/>
+  </g>
 </svg>

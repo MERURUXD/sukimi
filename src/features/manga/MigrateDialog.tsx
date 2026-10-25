@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { DeleteDownloads, UpdateChapters } from '@/api/chapters'
 import { captureUser, StaleSessionError } from '@/api/userContext'
+import { useNsfwActions, useNsfwStore } from '@/features/nsfw/useNsfw'
+import { copyTracks, trackCopyPlan } from '@/features/tracking/migrateTracks'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
@@ -36,11 +38,16 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   onDone: (to: number) => void
 }) {
   const client = useApolloClient()
+  const { copyManga } = useNsfwActions()
+  const marked = useNsfwStore((s) => s.marks.manga[from.id] !== undefined)
   const [info, setInfo] = useState<Target>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
   const [read, setRead] = useState(true)
   const [bookmarks, setBookmarks] = useState(true)
   const [categories, setCategories] = useState(true)
+  const [tracks, setTracks] = useState(true)
+  // 旧漫画上能带走的追踪网站数；查不到按没有处理，不挡迁移
+  const [trackCount, setTrackCount] = useState(0)
   const [keepOld, setKeepOld] = useState(false)
   const [deleteDownloads, setDeleteDownloads] = useState(false)
   const [step, setStep] = useState<string | null>(null)
@@ -58,6 +65,16 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   }, [client, target.id, attempt])
 
   useEffect(() => {
+    let alive = true
+    trackCopyPlan(client, from.id, null)
+      .then((p) => alive && setTrackCount(p.records.length))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [client, from.id])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !step && onClose()
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -70,54 +87,76 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const run = async () => {
     if (!plan) return
     const still = captureUser()
+    // 失败提示要说停在哪一步：setStep 是异步的，catch 里读到的 step 还是点击那一刻的值
+    let current = '迁移'
+    let trackFailed: string[] = []
+    const go = (name: string) => {
+      current = name
+      setStep(name)
+    }
     try {
-      setStep('加入书库')
+      // 手动 NSFW 标记跟着漫画 id 走，先带过去，新版本加入书库后才不会露在首页和画廊里
+      if (marked) {
+        go('复制 NSFW 标记')
+        await copyManga(from.id, target.id)
+        still()
+      }
+      go('加入书库')
       await client.mutate({ mutation: SetMangaInLibrary, variables: { id: target.id, inLibrary: true } })
       if (categories && cats.length) {
         still()
-        setStep('复制分类')
+        go('复制分类')
         await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: cats } })
+      }
+      if (tracks && trackCount > 0) {
+        still()
+        go('绑定追踪')
+        // 放在标记已读之前：绑定好以后，下面的进度同步才能推到新漫画的追踪记录。
+        // 个别网站绑不上不算迁移失败（旧漫画的绑定还在），做完后一并提示
+        trackFailed = (await copyTracks(client, from.id, target.id, still)).failed
       }
       if (read && plan.read.length) {
         still()
-        setStep('标记已读')
+        go('标为已读')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
         // 新漫画若已绑定追踪，把复制过来的已读进度推过去
         void syncTrackProgress(client, target.id, still)
       }
       if (bookmarks && plan.bookmarked.length) {
         still()
-        setStep('复制书签')
+        go('复制书签')
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.bookmarked, patch: { isBookmarked: true } } })
       }
       if (!keepOld) {
         if (deleteDownloads && downloaded.length) {
           still()
-          setStep('删除旧的下载')
+          go('删除旧的下载')
           await client.mutate({ mutation: DeleteDownloads, variables: { ids: downloaded } })
         }
         still()
-        setStep('旧的移出书库')
+        go('旧的移出书库')
         await client.mutate({ mutation: SetMangaInLibrary, variables: { id: from.id, inLibrary: false } })
       }
       still()
       // 书库列表在别的页面，没法就地改；清掉让它下次打开时重新查询（本地快照会先顶上）
       client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'mangas', args: { condition: { inLibrary: true } } })
       client.cache.gc()
-      toast(keepOld ? `已复制到「${target.source.displayName}」` : `已迁移到「${target.source.displayName}」`)
+      const done = keepOld ? `已复制到「${target.source.displayName}」` : `已迁移到「${target.source.displayName}」`
+      toast(trackFailed.length ? `${done}，但没能绑定 ${trackFailed.join('、')}，请在新漫画的追踪面板手动绑定` : done)
       onDone(target.id)
     } catch (e) {
       // 中途换了账号：后面的步骤不再发出，对话框早已随页面卸载，不用提示
       if (e instanceof StaleSessionError) return
-      toastError(`${step ?? '迁移'}失败`, e)
+      toastError(`${current}失败`, e)
       setStep(null)
     }
   }
 
   const summary = plan && [
-    read && plan.read.length ? `标记 ${plan.read.length} 话已读` : null,
+    read && plan.read.length ? `${plan.read.length} 话标为已读` : null,
     bookmarks && plan.bookmarked.length ? `${plan.bookmarked.length} 个书签` : null,
     categories && cats.length ? `${cats.length} 个分类` : null,
+    tracks && trackCount ? `${trackCount} 个追踪` : null,
   ].filter(Boolean)
 
   return (
@@ -168,6 +207,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
           <Option label="已读进度" hint={plan ? `${plan.read.length} 话` : undefined} on={read} onChange={setRead} />
           <Option label="书签" hint={plan ? `${plan.bookmarked.length} 个` : undefined} on={bookmarks} onChange={setBookmarks} />
           <Option label="分类" hint={cats.length ? `${cats.length} 个` : '默认分类'} on={categories} onChange={setCategories} disabled={!cats.length} />
+          {trackCount > 0 && <Option label="追踪" hint={`${trackCount} 个网站，绑定到新来源`} on={tracks} onChange={setTracks} />}
         </div>
 
         <div className="flex flex-col gap-3">

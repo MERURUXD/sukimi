@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { afterWindowWall, closeWindowWall, openWindowWall, windowWallBusy } from './windowScene'
+export { withoutHiddenCovers } from './coverLayout'
 
 /*
  * 「已读话数」在画廊首页和阅读档案之间飞来飞去。两页各有一个带 data-gallery-read 的数字，
