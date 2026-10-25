@@ -180,6 +180,13 @@ export type KoreaderSyncConflictStrategy =
   | 'KEEP_REMOTE'
   | 'PROMPT';
 
+export type KoreaderSyncLegacyStrategy =
+  | 'DISABLED'
+  | 'PROMPT'
+  | 'RECEIVE'
+  | 'SEND'
+  | 'SILENT';
+
 export type LoginInput = {
   clientMutationId?: string | null | undefined;
   password: string;
@@ -241,11 +248,26 @@ export type PartialSettingsTypeInput = {
   autoBackupIncludeServerSettings?: boolean | null | undefined;
   autoBackupIncludeTracking?: boolean | null | undefined;
   autoBackupIncludeUserSettings?: boolean | null | undefined;
+  /** @deprecated Replaced with autoDownloadNewChaptersLimit, replace with autoDownloadNewChaptersLimit */
+  autoDownloadAheadLimit?: number | null | undefined;
+  /** @deprecated Now per-user */
+  autoDownloadIgnoreReUploads?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  autoDownloadNewChapters?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  autoDownloadNewChaptersLimit?: number | null | undefined;
   backupInterval?: number | null | undefined;
   backupPath?: string | null | undefined;
   backupTTL?: number | null | undefined;
   backupTime?: string | null | undefined;
+  /** @deprecated Removed - prefer authMode, replace with authMode */
+  basicAuthEnabled?: boolean | null | undefined;
+  /** @deprecated Removed - prefer authPassword, replace with authPassword */
+  basicAuthPassword?: string | null | undefined;
+  /** @deprecated Removed - prefer authUsername, replace with authUsername */
+  basicAuthUsername?: string | null | undefined;
   databasePassword?: string | null | undefined;
+  databaseSchema?: string | null | undefined;
   databaseType?: DatabaseType | null | undefined;
   databaseUrl?: string | null | undefined;
   databaseUsername?: string | null | undefined;
@@ -254,6 +276,16 @@ export type PartialSettingsTypeInput = {
   downloadConversions?: Array<SettingsDownloadConversionTypeInput> | null | undefined;
   downloadsPath?: string | null | undefined;
   electronPath?: string | null | undefined;
+  /** @deprecated Now per-user */
+  excludeCompleted?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  excludeEntryWithUnreadChapters?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  excludeNotStarted?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  excludeUnreadChapters?: boolean | null | undefined;
+  /** @deprecated Replaced with addExtensionStore and removeExtensionStore mutations, replace with extensionStores */
+  extensionRepos?: Array<string> | null | undefined;
   flareSolverrAsResponseFallback?: boolean | null | undefined;
   flareSolverrEnabled?: boolean | null | undefined;
   flareSolverrSessionName?: string | null | undefined;
@@ -261,25 +293,86 @@ export type PartialSettingsTypeInput = {
   flareSolverrTimeout?: number | null | undefined;
   flareSolverrUrl?: string | null | undefined;
   globalUpdateInterval?: number | null | undefined;
+  /** @deprecated Removed - does not do anything */
+  gqlDebugLogsEnabled?: boolean | null | undefined;
+  hikariMaxPoolSize?: number | null | undefined;
   initialOpenInBrowserEnabled?: boolean | null | undefined;
   ip?: string | null | undefined;
   jwtAudience?: string | null | undefined;
   jwtRefreshExpiry?: string | null | undefined;
   jwtTokenExpiry?: string | null | undefined;
   kcefEnabled?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  koreaderSyncChecksumMethod?: KoreaderSyncChecksumMethod | null | undefined;
+  /** @deprecated Moved to preference store. Is supposed to be random and gets auto generated, replace with MOVE TO PREFERENCES */
+  koreaderSyncDeviceId?: string | null | undefined;
+  /** @deprecated Now per-user */
+  koreaderSyncPercentageTolerance?: number | null | undefined;
+  /** @deprecated Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES */
+  koreaderSyncServerUrl?: string | null | undefined;
+  /** @deprecated Replaced with koreaderSyncStrategyForward and koreaderSyncStrategyBackward, replace with koreaderSyncStrategyForward, koreaderSyncStrategyBackward */
+  koreaderSyncStrategy?: KoreaderSyncLegacyStrategy | null | undefined;
+  /** @deprecated Now per-user */
+  koreaderSyncStrategyBackward?: KoreaderSyncConflictStrategy | null | undefined;
+  /** @deprecated Now per-user */
+  koreaderSyncStrategyForward?: KoreaderSyncConflictStrategy | null | undefined;
+  /** @deprecated Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES */
+  koreaderSyncUserkey?: string | null | undefined;
+  /** @deprecated Moved to preference store. User is supposed to use a login/logout mutation, replace with MOVE TO PREFERENCES */
+  koreaderSyncUsername?: string | null | undefined;
   localSourcePath?: string | null | undefined;
   maxLogFileSize?: string | null | undefined;
   maxLogFiles?: number | null | undefined;
   maxLogFolderSize?: string | null | undefined;
   maxSourcesInParallel?: number | null | undefined;
+  /** @deprecated Now per-user */
+  opdsCbzMimetype?: CbzMediaType | null | undefined;
+  /** @deprecated Now per-user */
+  opdsChapterSortOrder?: SortOrder | null | undefined;
+  /** @deprecated Now per-user */
+  opdsEnablePageReadProgress?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  opdsItemsPerPage?: number | null | undefined;
+  /** @deprecated Now per-user */
+  opdsMarkAsReadOnDownload?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  opdsShowOnlyDownloadedChapters?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  opdsShowOnlyUnreadChapters?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  opdsSkipChapterMetadataFeed?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  opdsUseBinaryFileSizes?: boolean | null | undefined;
   port?: number | null | undefined;
+  /** @deprecated Now per-user */
+  serveConversions?: Array<SettingsDownloadConversionTypeInput> | null | undefined;
   socksProxyEnabled?: boolean | null | undefined;
   socksProxyHost?: string | null | undefined;
   socksProxyPassword?: string | null | undefined;
   socksProxyPort?: string | null | undefined;
   socksProxyUsername?: string | null | undefined;
   socksProxyVersion?: number | null | undefined;
+  /** @deprecated Now per-user */
+  syncDataCategories?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  syncDataChapters?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  syncDataHistory?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  syncDataManga?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  syncDataTracking?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  syncInterval?: string | null | undefined;
+  /** @deprecated Now per-user */
+  syncYomiApiKey?: string | null | undefined;
+  /** @deprecated Now per-user */
+  syncYomiEnabled?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  syncYomiHost?: string | null | undefined;
   systemTrayEnabled?: boolean | null | undefined;
+  /** @deprecated Now per-user */
+  updateMangas?: boolean | null | undefined;
   useHikariConnectionPool?: boolean | null | undefined;
   webUIChannel?: WebUiChannel | null | undefined;
   webUIFlavor?: WebUiFlavor | null | undefined;
@@ -530,6 +623,8 @@ export type UpdateTrackInput = {
   /** This will only work if the tracker of the track record supports reading dates */
   startDate?: string | null | undefined;
   status?: number | null | undefined;
+  /** @deprecated Replaced with "unbindTrack" mutation, replace with unbindTrack */
+  unbind?: boolean | null | undefined;
 };
 
 export type UpdateUserInput = {
