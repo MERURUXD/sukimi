@@ -15,7 +15,9 @@ import {
   Share2,
   Shrink,
 } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
+import { Popover } from '@/components/ui/Popover'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
 import { FITS, MODES, cycle, type ReadMode, type ReaderSettings } from './settings'
@@ -28,14 +30,76 @@ export const MODE_ICON: Record<ReadMode, typeof BookOpen> = {
 }
 
 const ib = 'inline-grid size-[42px] flex-none place-items-center rounded-full transition-colors hover:bg-g-hi'
-// 双页时每个书签按钮旁带页码，比单个图标按钮宽
-const ibNum = 'inline-flex h-[42px] flex-none items-center justify-center gap-0.5 rounded-full px-2.5 transition-colors hover:bg-g-hi'
-const tb ='inline-flex min-h-[42px] items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors hover:bg-g-hi disabled:opacity-40 disabled:hover:bg-transparent'
+const tb = 'inline-flex min-h-[42px] items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold whitespace-nowrap transition-colors hover:bg-g-hi disabled:opacity-40 disabled:hover:bg-transparent'
 const on = 'bg-g-hi shadow-[inset_0_0_0_1px_var(--g-glow)]'
 
 const enter = {
   top: { initial: { opacity: 0, y: -16 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -16 } },
   bottom: { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 16 } },
+}
+
+/**
+ * 书签按钮。单页直接切换当前页；双页时展开菜单，选左页还是右页。
+ * 菜单的展开状态放在这里：工具栏收起、翻到单页时组件卸载，状态随之清掉。
+ */
+function BookmarkControl({
+  pages,
+  bookmarks,
+  rtl,
+  onToggle,
+}: {
+  pages: number[]
+  bookmarks: number[]
+  rtl: boolean
+  onToggle: (page: number) => void
+}) {
+  const [menu, setMenu] = useState(false)
+  const close = useCallback(() => setMenu(false), [])
+  const spread = pages.length > 1
+  const marks = pages.map((p) => bookmarks.includes(p))
+  const bookmarked = marks.some(Boolean)
+  const label = spread ? '页面书签' : `${bookmarked ? '取消' : '添加'}此页书签`
+  const button = (
+    <button
+      type="button"
+      className={cn(ib, bookmarked && on)}
+      onClick={spread ? () => setMenu((v) => !v) : () => onToggle(pages[0])}
+      aria-label={label}
+      aria-pressed={spread ? undefined : bookmarked}
+      aria-haspopup={spread ? 'menu' : undefined}
+      aria-expanded={spread ? menu : undefined}
+      title={spread ? '选择要加书签的页（B / Shift+B）' : `${label}（B）`}
+    >
+      <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
+    </button>
+  )
+  if (!spread) return button
+
+  // 按画面左右排列：从右往左读时页码小的在右边
+  const sides = pages.map((p, i) => ({ p, marked: marks[i] }))
+  if (rtl) sides.reverse()
+  return (
+    <Popover open={menu} onClose={close} trigger={button} label="选择要加书签的页" rootClassName="flex-none" className="flex w-[200px] flex-col rounded-[22px] p-2">
+      {sides.map(({ p, marked }, i) => (
+        <button
+          key={p}
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={marked}
+          className="opt"
+          onClick={() => {
+            onToggle(p)
+            close()
+          }}
+        >
+          <Bookmark className={cn('size-5', marked && 'fill-current')} strokeWidth={1.8} />
+          <span className="flex-1">
+            {i === 0 ? '左页' : '右页'} · 第 {p + 1} 页
+          </span>
+        </button>
+      ))}
+    </Popover>
+  )
 }
 
 export function ReaderChrome({
@@ -169,29 +233,7 @@ export function ReaderChrome({
                 {FITS.find((f) => f.value === settings.fit)?.label}
               </button>
               <span className="mx-1 h-[22px] w-px self-center bg-line max-sm:hidden" />
-              {/* 双页时按画面左右排列：从右往左读时页码小的在右边 */}
-              {(rtl && bookmarkPages.length > 1 ? [...bookmarkPages].reverse() : bookmarkPages).map((p, idx) => {
-                const marked = bookmarks.includes(p)
-                const two = bookmarkPages.length > 1
-                const which = two ? `第 ${p + 1} 页` : '此页'
-                const label = `${marked ? '取消' : '为'}${which}${marked ? '书签' : '添加书签'}`
-                // 快捷键：B 管页码小的，Shift+B 管页码大的
-                const key = two && p !== bookmarkPages[0] ? 'Shift+B' : 'B'
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    className={cn(two ? ibNum : ib, marked && on)}
-                    onClick={() => onToggleBookmark(p)}
-                    aria-label={label}
-                    aria-pressed={marked}
-                    title={`${label}（${key}）`}
-                  >
-                    <Bookmark className={cn('size-5', marked && 'fill-current')} strokeWidth={1.8} />
-                    {two && <span className="text-[11px] font-bold num">{p + 1}</span>}
-                  </button>
-                )
-              })}
+              <BookmarkControl pages={bookmarkPages} bookmarks={bookmarks} rtl={rtl} onToggle={onToggleBookmark} />
               <button type="button" className={ib} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
                 {touch ? <Share2 className="size-5" strokeWidth={1.8} /> : <Download className="size-5" strokeWidth={1.8} />}
               </button>
