@@ -1,4 +1,5 @@
 import { AnimatePresence } from 'motion/react'
+import { useEffect, useRef, useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { Seg } from '@/components/ui/Seg'
 import { spring } from '@/design/motion'
@@ -93,6 +94,16 @@ export function SettingsPanel({
   bookmarks?: number[]
   onJump?: (page: number) => void
 }) {
+  const [scrolling, setScrolling] = useState(false)
+  const scrollIdle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => {
+    return () => clearTimeout(scrollIdle.current)
+  }, [])
+  const onScroll = () => {
+    setScrolling(true)
+    clearTimeout(scrollIdle.current)
+    scrollIdle.current = setTimeout(() => setScrolling(false), 160)
+  }
   const storedRemember = useReaderStore((s) => s.rememberPerManga)
   const setStoredRemember = useReaderStore((s) => s.setRemember)
   const remember = rememberPerManga ?? storedRemember
@@ -109,6 +120,9 @@ export function SettingsPanel({
           as="aside"
           aria-label="阅读设置"
           dense
+          // 大面板滚动时三通道色散开销高；保留单次折射，停下后恢复用户参数。
+          lens={scrolling ? { dispersion: 0 } : undefined}
+          onScroll={onScroll}
           layoutScroll
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
