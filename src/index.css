@@ -16,7 +16,9 @@
 }
 
 /* ───────── 设计变量（与设计稿一致）───────── */
-:root {
+/* [data-theme='light'] 让嵌套的浅色区域（深色主题下阅读器切成白底）也能把变量改回浅色 */
+:root,
+[data-theme='light'] {
   --bg: #f4f3ef;
   --surface: #ffffff;
   --line: rgba(0, 0, 0, 0.08);
