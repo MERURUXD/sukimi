@@ -1,10 +1,14 @@
 import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
 import { ApolloProvider } from '@apollo/client/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAuth } from '@/api/auth'
 import { createCache } from '@/api/cache'
 import { ConfirmHost } from '@/components/ui/Confirm'
 import { Toaster } from '@/components/ui/toast'
 import { useApplyAppearance } from '@/design/settings'
+import type { AuthUser } from '@/features/auth/permissions'
+import { favoriteKey } from '@/features/favorite/favorite'
+import { laterKey } from '@/features/later/later'
 import { MigrateView } from '@/features/manga/MigratePage'
 
 const ID = -500
@@ -22,10 +26,18 @@ const chapter = (id: number, n: number, o: Record<string, unknown> = {}) => ({
   __typename: 'ChapterType', id, name: `第 ${n} 话`, chapterNumber: n, sourceOrder: n, scanlator: null, uploadDate: '0',
   isRead: false, isBookmarked: false, isDownloaded: false, lastPageRead: 0, pageCount: -1, lastReadAt: '0', meta: [], ...o,
 })
-// 当前漫画：12 话，读到第 8 话（第 5 话跳过），第 3、10 话有书签，前 4 话已下载
-const OLD = Array.from({ length: 12 }, (_, i) =>
-  chapter(-600 - i, i + 1, { isRead: i < 8 && i !== 4, isBookmarked: i === 2 || i === 9, isDownloaded: i < 4 }),
-)
+// 当前漫画：12 话，读到第 8 话（第 5 话跳过），第 3、10 话有书签，前 4 话已下载；
+// 另有一话读过、被识别成第 2024 话的特别篇，验收它不会把后面没读的标成已读
+const OLD = [
+  ...Array.from({ length: 12 }, (_, i) =>
+    chapter(-600 - i, i + 1, { isRead: i < 8 && i !== 4, isBookmarked: i === 2 || i === 9, isDownloaded: i < 4 }),
+  ),
+  chapter(-650, 2024, { name: '2024 新年特别篇', sourceOrder: 13, isRead: true }),
+]
+
+/** 虚构账号 id 0（旧版单用户）；当前漫画在稍后再看和特别关心里 */
+const USER: AuthUser = { id: 0, username: '', roles: ['ADMIN'], permissions: [], legacy: true }
+const metas = new Map([[laterKey(USER.id, ID), '1700000000'], [favoriteKey(USER.id, ID), '1700000500']])
 
 const tracker = (id: number, name: string, loggedIn: boolean) => ({
   __typename: 'TrackerType', id, name, icon: '', isLoggedIn: loggedIn, isTokenExpired: false, authUrl: null, supportsPrivateTracking: false,
@@ -42,6 +54,12 @@ const bound: ReturnType<typeof record>[] = []
 export function MigrateLab() {
   useApplyAppearance()
   const [log, setLog] = useState<string[]>([])
+  // 迁移要按账号 id 拼稍后再看、特别关心的键；离开时还原原来的身份
+  useEffect(() => {
+    const prev = useAuth.getState().user
+    useAuth.setState({ user: USER })
+    return () => useAuth.setState({ user: prev })
+  }, [])
   const [done, setDone] = useState<number | null>(null)
   const [client] = useState(
     () =>
@@ -100,6 +118,20 @@ export function MigrateLab() {
                 break
               case 'DeleteDownloads':
                 observer.next({ data: { deleteDownloadedChapters: { __typename: 'DeleteDownloadedChaptersPayload', chapters: [] } } })
+                break
+              case 'MigrationMarks':
+                observer.next({ data: { metas: { __typename: 'GlobalMetaNodeList', nodes: (v.keys as string[]).flatMap((key) => {
+                  const value = metas.get(key)
+                  return value === undefined ? [] : [{ __typename: 'GlobalMetaType', key, value }]
+                }) } } })
+                break
+              case 'CopyMigrationMarks':
+                for (const m of v.metas as { key: string; value: string }[]) metas.set(m.key, m.value)
+                observer.next({ data: { setGlobalMetas: { __typename: 'SetGlobalMetasPayload', metas: [] } } })
+                break
+              case 'RemoveMigrationMarks':
+                for (const key of v.keys as string[]) metas.delete(key)
+                observer.next({ data: { deleteGlobalMetas: { __typename: 'DeleteGlobalMetasPayload', metas: [] } } })
                 break
               case 'Trackers':
                 observer.next({ data: { trackers: { __typename: 'TrackerNodeList', nodes: [

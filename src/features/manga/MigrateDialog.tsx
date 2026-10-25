@@ -1,10 +1,15 @@
-import { useApolloClient } from '@apollo/client/react'
+import { useApolloClient, useQuery } from '@apollo/client/react'
 import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { useAuth } from '@/api/auth'
 import { DeleteDownloads, UpdateChapters } from '@/api/chapters'
 import { captureUser, StaleSessionError } from '@/api/userContext'
+import { favoriteKey } from '@/features/favorite/favorite'
+import { FavoriteMetas } from '@/features/favorite/queries'
+import { laterKey } from '@/features/later/later'
+import { LaterMetas } from '@/features/later/queries'
 import { useNsfwActions, useNsfwStore } from '@/features/nsfw/useNsfw'
 import { copyTracks, trackCopyPlan } from '@/features/tracking/migrateTracks'
 import { syncTrackProgress } from '@/features/tracking/sync'
@@ -16,8 +21,8 @@ import { spring } from '@/design/motion'
 import { Switch } from '@/features/settings/parts'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
-import { planMigration } from './migrate'
-import { MigrationTarget, SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
+import { planMetaCopy, planMigration } from './migrate'
+import { CopyMigrationMarks, MigrationMarks, MigrationTarget, RemoveMigrationMarks, SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
 
 type Target = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; chapters: { id: number; chapterNumber: number; isRead: boolean; isBookmarked: boolean }[] }
 
@@ -46,6 +51,8 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const [bookmarks, setBookmarks] = useState(true)
   const [categories, setCategories] = useState(true)
   const [tracks, setTracks] = useState(true)
+  const [later, setLater] = useState(true)
+  const [fav, setFav] = useState(true)
   // 旧漫画上能带走的追踪网站数；查不到按没有处理，不挡迁移
   const [trackCount, setTrackCount] = useState(0)
   const [keepOld, setKeepOld] = useState(false)
@@ -74,6 +81,18 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     }
   }, [client, from.id])
 
+  // 新旧两部的稍后再看、特别关心；新漫画已有的不覆盖。查不到按没有处理，不挡迁移
+  const userId = useAuth((s) => s.user?.id)
+  const markKeys = useMemo(
+    () => (userId === undefined ? [] : [from.id, target.id].flatMap((id) => [laterKey(userId, id), favoriteKey(userId, id)])),
+    [userId, from.id, target.id],
+  )
+  const markQuery = useQuery(MigrationMarks, { variables: { keys: markKeys }, skip: !markKeys.length, fetchPolicy: 'network-only' })
+  const marksReady = !markKeys.length || !!markQuery.data || !!markQuery.error
+  const metas = markQuery.data?.metas.nodes ?? []
+  const hasLater = userId !== undefined && metas.some((m) => m.key === laterKey(userId, from.id))
+  const hasFav = userId !== undefined && metas.some((m) => m.key === favoriteKey(userId, from.id))
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !step && onClose()
     window.addEventListener('keydown', onKey)
@@ -83,6 +102,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const plan = useMemo(() => (info.status === 'ready' ? planMigration(fromChapters, info.chapters) : null), [info, fromChapters])
   const cats = from.categories.nodes.filter((c) => !c.default).map((c) => c.id)
   const downloaded = fromChapters.filter((c) => c.isDownloaded).map((c) => c.id)
+  const readCount = fromChapters.filter((c) => c.isRead).length
 
   const run = async () => {
     if (!plan) return
@@ -107,6 +127,17 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
         still()
         go('复制分类')
         await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: cats } })
+      }
+      const pairs: [string, string][] = []
+      if (userId !== undefined) {
+        if (later && hasLater) pairs.push([laterKey(userId, from.id), laterKey(userId, target.id)])
+        if (fav && hasFav) pairs.push([favoriteKey(userId, from.id), favoriteKey(userId, target.id)])
+      }
+      const marks = planMetaCopy(metas, pairs, keepOld)
+      if (marks.set.length) {
+        still()
+        go(`复制${[later && hasLater && '稍后再看', fav && hasFav && '特别关心'].filter(Boolean).join('和')}`)
+        await client.mutate({ mutation: CopyMigrationMarks, variables: { metas: marks.set } })
       }
       if (tracks && trackCount > 0) {
         still()
@@ -136,8 +167,15 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
         still()
         go('旧的移出书库')
         await client.mutate({ mutation: SetMangaInLibrary, variables: { id: from.id, inLibrary: false } })
+        if (marks.remove.length) {
+          still()
+          go('清理旧的标记')
+          await client.mutate({ mutation: RemoveMigrationMarks, variables: { keys: marks.remove } })
+        }
       }
       still()
+      // 稍后再看、特别关心的清单各自缓存着，重新取一次
+      if (marks.set.length || marks.remove.length) void client.refetchQueries({ include: [LaterMetas, FavoriteMetas] })
       // 书库列表在别的页面，没法就地改；清掉让它下次打开时重新查询（本地快照会先顶上）
       client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'mangas', args: { condition: { inLibrary: true } } })
       client.cache.gc()
@@ -157,6 +195,8 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     bookmarks && plan.bookmarked.length ? `${plan.bookmarked.length} 个书签` : null,
     categories && cats.length ? `${cats.length} 个分类` : null,
     tracks && trackCount ? `${trackCount} 个追踪` : null,
+    later && hasLater ? '稍后再看' : null,
+    fav && hasFav ? '特别关心' : null,
   ].filter(Boolean)
 
   return (
@@ -198,7 +238,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
           {info.status === 'ready' && plan && (
             <span>
               新来源 {info.chapters.length} 话，当前 {fromChapters.length} 话，按话数对上 {plan.matched} 话。
-              {plan.maxRead >= 0 ? ` 你读到第 ${plan.maxRead} 话。` : ' 当前还没有读过的章节。'}
+              {readCount ? ` 当前已读 ${readCount} 话，新来源按同一话数照搬，未读的保持未读。` : ' 当前还没有读过的章节。'}
             </span>
           )}
         </div>
@@ -208,6 +248,8 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
           <Option label="书签" hint={plan ? `${plan.bookmarked.length} 个` : undefined} on={bookmarks} onChange={setBookmarks} />
           <Option label="分类" hint={cats.length ? `${cats.length} 个` : '默认分类'} on={categories} onChange={setCategories} disabled={!cats.length} />
           {trackCount > 0 && <Option label="追踪" hint={`${trackCount} 个网站，绑定到新来源`} on={tracks} onChange={setTracks} />}
+          {hasLater && <Option label="稍后再看" hint="保留原来的加入时间" on={later} onChange={setLater} />}
+          {hasFav && <Option label="特别关心" on={fav} onChange={setFav} />}
         </div>
 
         <div className="flex flex-col gap-3">
@@ -235,7 +277,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
             </span>
           )}
           <button type="button" className="gbtn rounded-full hover:bg-hover" disabled={!!step} onClick={onClose}>取消</button>
-          <button type="button" className="solid min-h-11" disabled={!plan || !!step} onClick={() => void run()}>
+          <button type="button" className="solid min-h-11" disabled={!plan || !marksReady || !!step} onClick={() => void run()}>
             {keepOld ? '复制' : '迁移'}
           </button>
         </div>

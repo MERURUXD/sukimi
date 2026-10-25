@@ -70,7 +70,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
   return (
     <div className="wrap pt-8 pb-20">
       <h1 className="m-0 font-cjk text-[32px] font-black sm:text-[40px]">换源迁移</h1>
-      <p className="mt-2 mb-7 max-w-[60ch] text-[15px] text-muted">在其他来源里找到同一部漫画，把已读进度、书签、分类和追踪绑定搬过去。</p>
+      <p className="mt-2 mb-7 max-w-[60ch] text-[15px] text-muted">在其他来源里找到同一部漫画，把已读进度、书签、分类、追踪绑定和稍后再看、特别关心搬过去。</p>
 
       {manga && (
         <div className="mb-8 flex items-center gap-4" data-sfw={sfwAttr(manga.source?.displayName)}>
