@@ -78,17 +78,52 @@ export const GLASS_PARAMS: { key: Exclude<keyof GlassTuning, 'tone'>; label: str
   { key: 'saturate', label: '饱和度', min: 1, max: 2.5, step: 0.05 },
 ]
 
-export const useGlassTuning = create<GlassTuning & { set: (p: Partial<GlassTuning>) => void; reset: () => void }>()(
+/** 取出一组参数里的数值部分（不含 tone 以外的 store 字段） */
+function pickTuning(s: GlassTuning): GlassTuning {
+  return {
+    bezel: s.bezel,
+    strength: s.strength,
+    falloff: s.falloff,
+    dispersion: s.dispersion,
+    blur: s.blur,
+    denseBlur: s.denseBlur,
+    tint: s.tint,
+    denseTint: s.denseTint,
+    saturate: s.saturate,
+    tone: s.tone,
+  }
+}
+
+interface GlassTuningStore extends GlassTuning {
+  /**
+   * 各预设上一次离开时的参数；切换预设时据此恢复，而不是回到预设默认值。
+   * 当前预设的参数不在这里，直接存在顶层字段里。
+   */
+  saved: Partial<Record<GlassTuning['tone'], GlassTuning>>
+  set: (p: Partial<GlassTuning>) => void
+  /** 切换预设：先记下当前预设的改动，再恢复目标预设上次的参数（没改过则用预设默认值） */
+  switchPreset: (tone: GlassTuning['tone']) => void
+  reset: () => void
+}
+
+export const useGlassTuning = create<GlassTuningStore>()(
   persist(
     (set) => ({
       ...GLASS_DEFAULTS,
+      saved: {},
       set: (p) => set(p),
-      reset: () => set(GLASS_DEFAULTS),
+      switchPreset: (tone) =>
+        set((s) => {
+          if (s.tone === tone) return {}
+          const { [tone]: target, ...rest } = s.saved
+          return { ...(target ?? GLASS_PRESETS[tone]), saved: { ...rest, [s.tone]: pickTuning(s) } }
+        }),
+      reset: () => set({ ...GLASS_DEFAULTS, saved: {} }),
     }),
     {
       name: preferenceKey('suwayomi-web.glass'),
       version: 1,
-      partialize: ({ set: _s, reset: _r, ...rest }) => rest,
+      partialize: ({ set: _s, switchPreset: _w, reset: _r, ...rest }) => rest,
     },
   ),
 )
