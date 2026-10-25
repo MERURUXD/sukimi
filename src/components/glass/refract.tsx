@@ -124,7 +124,8 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
       const w = el.offsetWidth
       const h = el.offsetHeight
       if (!w || !h) return
-      const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
+      // 动画中会改内联圆角的玻璃（Popover 展开）用 data-lens-radius 固定落定后的圆角
+      const radius = Number(el.dataset.lensRadius) || parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
       const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
       const size = `${w}:${h}:${radius}:${bezel}`
       if (lastSize === size) return
