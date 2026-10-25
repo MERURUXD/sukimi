@@ -11,6 +11,7 @@ import { useAppearance, useForceDark } from '@/design/settings'
 import { HeroWall, flyWallToLibrary } from './HeroWall'
 import { WindowWall } from './SharedWindowWall'
 import { afterWindowWall } from './windowScene'
+import { lockGalleryReturnScroll } from './returnScroll'
 import { GALLERY, HERO_BOX, HERO_VIGNETTE, HeroCopy, type HeroLayout } from './GalleryHero'
 import { PosterShare } from './PosterShare'
 import { galleryOrder, isCompleted, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
@@ -127,10 +128,18 @@ export function GalleryPage() {
   const navigate = useNavigate()
   const hero = useRef<HTMLElement>(null)
   const leaving = useRef(false)
+  const unlockScroll = useRef<(() => void) | null>(null)
+  useEffect(() => () => {
+    const unlock = unlockScroll.current
+    if (!unlock) return
+    // 目标页先恢复原来的滚动位置；锁一直保留到换页和橱窗收回都结束。
+    void Promise.all([afterViewTransition(), afterWindowWall()]).then(unlock)
+  }, [])
   const leave = useCallback(
     (to: 'back' | 'library') => {
       if (leaving.current) return
       leaving.current = true
+      unlockScroll.current = lockGalleryReturnScroll()
       // 上一条历史记录就是来路页时才能 navigate(-1)（刷新、新标签页打开的没有）
       const canBack = (window.history.state?.idx ?? 0) > 0
       const fromLibrary = origin === 'library' && canBack
