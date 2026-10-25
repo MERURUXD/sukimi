@@ -172,3 +172,36 @@ export const MigrationTarget = graphql(`
     }
   }
 `)
+
+/** 迁移时要搬的稍后再看、特别关心：只按准确的键取，新旧两部的一起查 */
+export const MigrationMarks = graphql(`
+  query MigrationMarks($keys: [String!]!) {
+    metas(filter: { key: { in: $keys } }) {
+      nodes {
+        key
+        value
+      }
+    }
+  }
+`)
+
+export const CopyMigrationMarks = graphql(`
+  mutation CopyMigrationMarks($metas: [MetaInput!]!) {
+    setGlobalMetas(input: { metas: $metas }) {
+      metas {
+        key
+        value
+      }
+    }
+  }
+`)
+
+export const RemoveMigrationMarks = graphql(`
+  mutation RemoveMigrationMarks($keys: [String!]!) {
+    deleteGlobalMetas(input: { keys: $keys }) {
+      metas {
+        key
+      }
+    }
+  }
+`)

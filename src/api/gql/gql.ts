@@ -84,6 +84,9 @@ type Documents = {
     "\n  mutation SetMangaInLibrary($id: Int!, $inLibrary: Boolean!) {\n    updateManga(input: { id: $id, patch: { inLibrary: $inLibrary } }) {\n      manga {\n        id\n        inLibrary\n      }\n    }\n  }\n": typeof types.SetMangaInLibraryDocument,
     "\n  mutation SetMangaCategories($id: Int!, $add: [Int!], $remove: [Int!]) {\n    updateMangaCategories(input: { id: $id, patch: { addToCategories: $add, removeFromCategories: $remove } }) {\n      manga {\n        id\n        categories {\n          nodes {\n            id\n          }\n        }\n      }\n    }\n  }\n": typeof types.SetMangaCategoriesDocument,
     "\n  mutation MigrationTarget($id: Int!) {\n    fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {\n      manga {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n        source {\n          id\n          displayName\n        }\n      }\n      chapters {\n        id\n        chapterNumber\n        isRead\n        isBookmarked\n      }\n    }\n  }\n": typeof types.MigrationTargetDocument,
+    "\n  query MigrationMarks($keys: [String!]!) {\n    metas(filter: { key: { in: $keys } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": typeof types.MigrationMarksDocument,
+    "\n  mutation CopyMigrationMarks($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n": typeof types.CopyMigrationMarksDocument,
+    "\n  mutation RemoveMigrationMarks($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": typeof types.RemoveMigrationMarksDocument,
     "\n  query NsfwMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": typeof types.NsfwMetasDocument,
     "\n  mutation SetNsfwMetas($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n": typeof types.SetNsfwMetasDocument,
     "\n  mutation RemoveNsfwMetas($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": typeof types.RemoveNsfwMetasDocument,
@@ -225,6 +228,9 @@ const documents: Documents = {
     "\n  mutation SetMangaInLibrary($id: Int!, $inLibrary: Boolean!) {\n    updateManga(input: { id: $id, patch: { inLibrary: $inLibrary } }) {\n      manga {\n        id\n        inLibrary\n      }\n    }\n  }\n": types.SetMangaInLibraryDocument,
     "\n  mutation SetMangaCategories($id: Int!, $add: [Int!], $remove: [Int!]) {\n    updateMangaCategories(input: { id: $id, patch: { addToCategories: $add, removeFromCategories: $remove } }) {\n      manga {\n        id\n        categories {\n          nodes {\n            id\n          }\n        }\n      }\n    }\n  }\n": types.SetMangaCategoriesDocument,
     "\n  mutation MigrationTarget($id: Int!) {\n    fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {\n      manga {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n        source {\n          id\n          displayName\n        }\n      }\n      chapters {\n        id\n        chapterNumber\n        isRead\n        isBookmarked\n      }\n    }\n  }\n": types.MigrationTargetDocument,
+    "\n  query MigrationMarks($keys: [String!]!) {\n    metas(filter: { key: { in: $keys } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": types.MigrationMarksDocument,
+    "\n  mutation CopyMigrationMarks($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n": types.CopyMigrationMarksDocument,
+    "\n  mutation RemoveMigrationMarks($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": types.RemoveMigrationMarksDocument,
     "\n  query NsfwMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": types.NsfwMetasDocument,
     "\n  mutation SetNsfwMetas($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n": types.SetNsfwMetasDocument,
     "\n  mutation RemoveNsfwMetas($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": types.RemoveNsfwMetasDocument,
@@ -590,6 +596,18 @@ export function graphql(source: "\n  mutation SetMangaCategories($id: Int!, $add
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation MigrationTarget($id: Int!) {\n    fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {\n      manga {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n        source {\n          id\n          displayName\n        }\n      }\n      chapters {\n        id\n        chapterNumber\n        isRead\n        isBookmarked\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation MigrationTarget($id: Int!) {\n    fetchMangaAndChapters(input: { id: $id, fetchManga: true, fetchChapters: true }) {\n      manga {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n        source {\n          id\n          displayName\n        }\n      }\n      chapters {\n        id\n        chapterNumber\n        isRead\n        isBookmarked\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MigrationMarks($keys: [String!]!) {\n    metas(filter: { key: { in: $keys } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  query MigrationMarks($keys: [String!]!) {\n    metas(filter: { key: { in: $keys } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation CopyMigrationMarks($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation CopyMigrationMarks($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveMigrationMarks($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation RemoveMigrationMarks($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
