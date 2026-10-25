@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, isRated, readProgress, scoreWord, starScale, statusLabel, toDateInput } from '../src/features/tracking/tracking.ts'
+import { fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, isRated, readProgress, starScale, toDateInput } from '../src/features/tracking/tracking.ts'
 
 test('授权地址带上可解析的 state，回调时能取回追踪服务', () => {
   const url = oauthUrl({ id: 2, name: 'AniList', authUrl: 'https://example.invalid/oauth?client_id=1&response_type=token' }, 'http://localhost:4567')
@@ -16,13 +16,6 @@ test('回调地址里的 state 缺失或损坏', () => {
   assert.equal(parseOAuthState('http://h/tracker/login/oauth'), null)
   assert.equal(parseOAuthState('http://h/tracker/login/oauth?state=%7Bbad'), null)
   assert.equal(parseOAuthState('http://h/tracker/login/oauth?state=%7B%7D'), null)
-})
-
-test('常见状态名换成中文', () => {
-  assert.deepEqual(
-    ['Reading', 'Currently Reading', 'Completed', 'On Hold', 'Paused', 'Dropped', 'Plan to Read', 'Planning', 'Rereading', 'Repeating', 'Other'].map(statusLabel),
-    ['在读', '在读', '读完', '搁置', '搁置', '弃坑', '想读', '想读', '重读', '重读', 'Other'],
-  )
 })
 
 test('日期输入框与毫秒互换，0 表示没有', () => {
@@ -51,9 +44,6 @@ test('星星数字与服务端分数互换', () => {
   assert.equal(scoreString(bgm, 7), '7')
   assert.equal(scoreString(bgm, 0), '0')
   assert.equal(scoreString(['', '1', '2'], 0), '')
-  assert.equal(scoreWord('Bangumi', 8), '力荐')
-  assert.equal(scoreWord('Bangumi', 0), '')
-  assert.equal(scoreWord('AniList', 8), '')
 })
 
 const chapters = (nums, read = () => true) => nums.map((n, i) => ({ chapterNumber: n, sourceOrder: i + 1, isRead: read(n, i) }))

@@ -76,7 +76,7 @@ test('橱窗、画廊、画布和档案共用总话数；同一书库的并发�
   } finally { client.stop() }
 })
 
-test('读完一话、发现新章节和移出书库后，沿用正式书库结果刷新统计', async () => {
+test('阅读、新章节和移出书库刷新统计，未变的列表仍可手动刷新', async () => {
   const { client, requests, rootValue, store } = fixture()
   const library = async () => (await client.query({ query: LibraryMangasDocument, fetchPolicy: 'network-only' })).data.mangas.nodes
   try {
@@ -89,6 +89,11 @@ test('读完一话、发现新章节和移出书库后，沿用正式书库结�
     await store.load(all)
     assert.equal(store.snapshot().totals, before, '仅阅读变化不重新生成总话数映射')
     assert.equal(all.find((m) => m.id === 1).unreadCount, unread - 1)
+    assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 2)
+    // 输入完全不变时，只有 force 能触发这次请求。
+    await store.load(all, true)
+    assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 3)
+    assert.equal(store.snapshot().totals, before)
     const manga = rootValue.manga({ id: 1 })
     manga.chapters.nodes.push({ ...manga.chapters.nodes.at(-1), id: 109 })
     await store.load(await library())
@@ -96,23 +101,7 @@ test('读完一话、发现新章节和移出书库后，沿用正式书库结�
     manga.inLibrary = false
     await store.load(await library())
     assert.equal(store.snapshot().totals.has(1), false, '移出书库后去掉旧条目')
-    assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 4)
-  } finally { client.stop() }
-})
-
-test('书库变化与手动重试会刷新，无变化的总话数保持引用以免重复汇总', async () => {
-  const { client, requests, store } = fixture()
-  try {
-    const { data } = await client.query({ query: LibraryMangasDocument })
-    const library = data.mangas.nodes
-    await store.load(library)
-    const totals = store.snapshot().totals
-    // 模拟阅读后 Apollo 产生的新列表。
-    await store.load(library.map((m, i) => i ? m : { ...m, unreadCount: m.unreadCount - 1 }))
-    assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 2)
-    assert.equal(store.snapshot().totals, totals)
-    await store.load(library, true)
-    assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 3)
+    assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 5)
   } finally { client.stop() }
 })
 

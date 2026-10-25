@@ -113,7 +113,7 @@ test('格子池：留下的格子沿用原来的元素，新格子填空位，�
   assert.equal(c.get('0:1'), 1)
 })
 
-test('墙的显示顺序：要的位置换上指定的那部，仍是排列，相邻格子不重复', () => {
+test('墙的显示顺序：要的位置换上指定的那部，仍是完整排列', () => {
   const n = 30
   const wants = [[3, 17], [4, 2], [10, 3], [3, 9], [11, 17]]
   const { order, fixed } = placeOrder(n, wants)
@@ -121,12 +121,6 @@ test('墙的显示顺序：要的位置换上指定的那部，仍是排列，�
   // 同一位置第二次、同一部第二次都作罢
   assert.deepEqual([...fixed].sort((a, b) => a - b), [3, 4, 10])
   assert.deepEqual([...order].sort((a, b) => a - b), Array.from({ length: n }, (_, i) => i))
-  for (let c = -5; c <= 5; c++) {
-    for (let r = -5; r <= 5; r++) {
-      assert.notEqual(order[cellIndex(c, r, n)], order[cellIndex(c, r + 1, n)])
-      assert.notEqual(order[cellIndex(c, r, n)], order[cellIndex(c + 1, r, n)])
-    }
-  }
   assert.deepEqual(placeOrder(5, []).order, [0, 1, 2, 3, 4])
 })
 

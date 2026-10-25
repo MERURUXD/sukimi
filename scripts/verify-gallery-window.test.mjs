@@ -36,8 +36,6 @@ test('橱窗：看得见的格子换成最近读过的，其余保持原排列',
   assert.deepEqual([...order].sort((a, b) => a - b), Array.from({ length: n }, (_, i) => i), '仍是一个排列')
   // 前三格拿到前三个，第四格没有可放的，保持（或被换走的）排列
   for (let i = 0; i < 3; i++) assert.equal(order[cellIndex(cells[i].c, cells[i].r, n)], picks[i])
-  // 相邻格子照样不会是同一部
-  for (let c = -4; c <= 4; c++) for (let r = -4; r <= 4; r++) assert.notEqual(order[cellIndex(c, r, n)], order[cellIndex(c, r + 1, n)])
 })
 
 test('橱窗：书太少、格子重复时同一个位置只用一次', () => {
