@@ -1,4 +1,4 @@
-import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
+import { useApolloClient, useQuery } from '@apollo/client/react'
 import { useDrag } from '@use-gesture/react'
 import { ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
@@ -10,8 +10,6 @@ import { MangaChapters, MangaDetail, type Chapter } from '@/features/manga/queri
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { isDemo } from '@/lib/demo'
-import { captureUser } from '@/api/userContext'
-import { syncTrackProgress } from '@/features/tracking/sync'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
 import { pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
@@ -19,7 +17,8 @@ import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
 import { WIDE, filterCss, type Half } from './pageTools'
 import { PagedView, type Screen } from './PagedView'
-import { SaveProgress } from './queries'
+import { atChapterEnd } from './progress'
+import { useProgressSync } from './progressSync'
 import { savePages } from './savePage'
 import { ReaderChrome } from './ReaderChrome'
 import { ScrollView } from './ScrollView'
@@ -344,51 +343,18 @@ function ReaderSession({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, settings.preload, pages, next, client, cropOn, splitOn, rtl, aspectTick])
 
-  /* 进度回写：翻页后 0.6 秒写一次，读到最后一页标为已读；离开时立即写 */
-  const [save] = useMutation(SaveProgress)
-  // still：记下这次进度产生时的账号；0.6 秒后真正写入（或离开时补写）前账号换了就放弃，
-  // 否则旧阅读页的章节会带着新账号的令牌被标为已读、并同步到新账号的追踪
-  const pending = useRef<{ page: number; read: boolean; still: () => void } | null>(null)
-  const [synced, setSynced] = useState<number | null>(null)
-  const flush = useCallback(() => {
-    const p = pending.current
-    if (!p) return
-    pending.current = null
-    try {
-      p.still()
-    } catch {
-      return
-    }
-    save({ variables: { id: chapter.id, lastPageRead: p.page, isRead: p.read ? true : undefined } })
-      .then(() => {
-        setSynced(p.page)
-        // 读完一话顺带推到追踪网站，详情页的追踪进度随之刷新
-        if (p.read) void syncTrackProgress(client, mangaId, p.still)
-      })
-      .catch((e) => toastError('进度同步失败', e))
-  }, [save, chapter.id, client, mangaId])
-
-  // 最后一页是拆成两半的宽页时，读到后一半才算读完
-  const reachedEnd = Math.max(...shown) >= last && (!splits(last) || half === 1)
-  useEffect(() => {
-    if (page === chapter.lastPageRead && !reachedEnd) return
-    pending.current = { page, read: reachedEnd && !chapter.isRead, still: captureUser() }
-    const t = setTimeout(flush, 600)
-    return () => clearTimeout(t)
-  }, [page, reachedEnd, chapter.lastPageRead, chapter.isRead, flush])
-  useEffect(() => flush, [flush])
+  /* 进度回写（规则见 progress.ts） */
+  const { synced, leave } = useProgressSync(mangaId, chapter, page, atChapterEnd(shown, last, splits(last), half), last)
 
   /* 翻页与换话 */
   const goChapter = useCallback(
     (c: Chapter | undefined) => {
       if (!c) return
-      // 往后翻 = 这一话读完了（纵向模式自动进下一话时，页码状态可能还没来得及更新）
-      if (c.sourceOrder > chapter.sourceOrder) pending.current = { page: last, read: !chapter.isRead, still: captureUser() }
-      flush()
+      leave(c)
       // 换话替换当前历史记录，并保留「从详情页进来」的标记
       navigate(`/manga/${mangaId}/chapter/${c.id}`, { replace: true, state: location.state })
     },
-    [flush, navigate, mangaId, chapter.sourceOrder, chapter.isRead, last, location.state],
+    [leave, navigate, mangaId, location.state],
   )
 
   // 相邻屏每次渲染都重新算，这里不缓存函数
