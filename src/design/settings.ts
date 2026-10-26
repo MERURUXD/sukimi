@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { useApplyGlassTuning, useGlassTuning } from './glassTuning'
+import { useApplyGlassTuning, useGlassTuning, type GlassTheme } from './glassTuning'
 import { preferenceKey } from '@/lib/demo'
 import { defaultGlass } from './defaultGlass'
 import { normalizeHomeOrder, normalizeHomePreferences, type HomeContentSection, type HomeSection } from '@/features/home/preferences'
@@ -97,32 +97,38 @@ export const useAppearance = create<AppearanceState>()(
 
 const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
 
-/** 正挂着的「固定深色」页面数（书库画廊各页）；按计数算，从一个画廊页换到另一个时不会闪回浅色 */
-let forcedDark = 0
+/** 页面临时主题按挂载顺序覆盖；单独移除自己的记录，兼容换页时新旧页面重叠。 */
+const forcedThemes: { theme: GlassTheme }[] = []
 
-/** 当前页面固定深色时为 true：主题按钮只记下选择，离开这些页面后才生效 */
-export const themeForced = () => forcedDark > 0
+/** 当前页面固定主题时为 true：主题按钮只记下选择，离开这些页面后才生效 */
+export const themeForced = () => forcedThemes.length > 0
 
 function applyTheme() {
   const theme = useAppearance.getState().theme
-  const resolved = forcedDark > 0 ? 'dark' : theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : theme
+  const resolved = forcedThemes.at(-1)?.theme ?? (theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : theme)
   document.documentElement.dataset.theme = resolved
   useGlassTuning.getState().setTheme(resolved)
 }
 
 /**
- * 挂着这个页面期间整个文档固定深色（含顶栏、滚动条和弹出层），离开时恢复用户的主题。
- * 用布局副作用同步写：换页动画的新快照拍到的就已经是深色，不会先闪一帧浅色。
+ * 页面主题与玻璃参数一起临时切换，离开时恢复用户的主题，不改写全站偏好。
+ * 用布局副作用同步写：换页动画的新快照直接使用目标主题，避免先闪出全站主题。
  */
-export function useForceDark() {
+export function useForceTheme(theme: GlassTheme) {
   useLayoutEffect(() => {
-    forcedDark++
+    const entry = { theme }
+    forcedThemes.push(entry)
     applyTheme()
     return () => {
-      forcedDark--
+      forcedThemes.splice(forcedThemes.indexOf(entry), 1)
       applyTheme()
     }
-  }, [])
+  }, [theme])
+}
+
+/** 画廊沿用固定深色，包含顶栏、滚动条和弹出层。 */
+export function useForceDark() {
+  useForceTheme('dark')
 }
 
 /** 把主题与玻璃档位同步到 <html data-theme data-glass> */
