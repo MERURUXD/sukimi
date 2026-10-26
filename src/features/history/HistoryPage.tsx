@@ -170,7 +170,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
       data-nsfw={useNsfwBlur(c.manga)}
       data-reader-origin
       style={rise}
-      className={cn('-mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
+      className={cn('action-row -mx-2.5 flex items-center gap-4 rounded-[18px] p-2.5 transition-colors hover:bg-hover', rise && 'rise')}
     >
       <Link to={`/manga/${c.manga.id}`} viewTransition {...prefetch} className="flex min-w-0 flex-1 items-center gap-4 text-text no-underline">
         <span className="cv w-14 flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]">
@@ -190,7 +190,7 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
           <Play className="size-[18px] fill-current" strokeWidth={1.6} />
         </Link>
       )}
-      <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={`删除 ${c.manga.title} 的这条记录`} title="删除这条记录" onClick={onRemove}>
+      <button type="button" className="row-action gicon size-10 text-muted hover:text-danger" aria-label={`删除 ${c.manga.title} 的这条记录`} title="删除这条记录" onClick={onRemove}>
         <Trash2 className="size-[18px]" strokeWidth={1.8} />
       </button>
     </div>
