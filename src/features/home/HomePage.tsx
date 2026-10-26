@@ -213,6 +213,8 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
   const immersive = homeMobileLayout === 'cover'
   const desktopImmersive = homeDesktopLayout === 'cover'
+  // 背后只是氛围光时折射看不出来，关掉透镜省开销；封面铺满时封面就在按钮背后，透镜才留着
+  const lensOff = !immersive && !desktopImmersive
   // 按漫画 id 记住选中项：从详情页返回时首页会重新挂载，若退回第一部，封面就飞不回原来那张
   const [selId, setSelId] = useState(() => lastHeroManga)
   const found = items.findIndex((c) => c.manga.id === selId)
@@ -424,7 +426,7 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
                   ) : (
                     <span className="solid min-w-0 px-3 text-sm opacity-60 md:px-6 md:text-base">已全部读完</span>
                   )}
-                  <Glass
+                  <Glass suspendRefract={lensOff}
                     as="a"
                     href={detailHref}
                     className="gbtn rounded-full px-3 text-sm no-underline md:px-[18px] md:text-base"
@@ -437,18 +439,18 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
                     <span className="md:hidden">详情</span><span className="hidden md:inline">漫画详情</span>
                   </Glass>
                   {m.inLibrary && (
-                    <Glass as="span" className="gicon rounded-full bg-g-hi" aria-label="已在书库" title="已在书库">
+                    <Glass suspendRefract={lensOff} as="span" className="gicon rounded-full bg-g-hi" aria-label="已在书库" title="已在书库">
                       <Heart className="size-5 fill-current" strokeWidth={1.8} />
                     </Glass>
                   )}
                   <Can permission="DOWNLOAD_CHAPTERS">
-                    <Glass as="button" type="button" className="gicon rounded-full" onClick={downloadRest} aria-label="下载后续章节" title="下载后续章节">
+                    <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full" onClick={downloadRest} aria-label="下载后续章节" title="下载后续章节">
                       <Download className="size-5" strokeWidth={1.8} />
                     </Glass>
                   </Can>
                   {/* 手机的换一批在切换圆点旁边 */}
                   {onShuffle && (
-                    <Glass as="button" type="button" className="gicon rounded-full max-md:hidden" onClick={shuffle} aria-label="换一批继续阅读" title="换一批">
+                    <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full max-md:hidden" onClick={shuffle} aria-label="换一批继续阅读" title="换一批">
                       <Shuffle className="size-5" strokeWidth={1.8} />
                     </Glass>
                   )}
@@ -494,7 +496,7 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
               const r = resume(c)
               const pct = r ? r.pct : 100
               return (
-                <Glass
+                <Glass suspendRefract={lensOff}
                   as="button"
                   key={c.manga.id}
                   type="button"
@@ -554,10 +556,10 @@ function Shelf({ id, title, note, actions, children }: { id: string; title: stri
           {actions}
           {overflow && (
             <>
-              <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
+              <Glass flat as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
                 <ChevronLeft className="size-5" strokeWidth={1.8} />
               </Glass>
-              <Glass as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
+              <Glass flat as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
                 <ChevronRight className="size-5" strokeWidth={1.8} />
               </Glass>
             </>
@@ -587,10 +589,11 @@ function ShelfItem({ manga, sub, badge }: { manga: ShelfManga; sub: string; badg
     >
       <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-1">
         <CoverImg src={manga.thumbnailUrl} loading="lazy" />
+        {/* 角标太小，玻璃看不出来，和书库封面角标一样用半透明黑底 */}
         {badge && (
-          <Glass as="span" dense className="absolute top-2 right-2 z-[2] inline-flex min-h-[26px] items-center rounded-full px-2.5 text-xs font-bold num" suspendRefract>
+          <span className="absolute top-2 right-2 z-[2] inline-flex min-h-[26px] items-center rounded-full border border-white/20 bg-black/45 px-2.5 text-xs font-bold text-white backdrop-blur-md num">
             {badge}
-          </Glass>
+          </span>
         )}
       </span>
       <span className="flex min-w-0 flex-col">
@@ -613,7 +616,7 @@ function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: strin
       note={note(mangas.length)}
       actions={
         mangas.length > SHELF_COUNT && (
-          <Glass as="button" type="button" className="gbtn mr-1 rounded-full" onClick={next} aria-label={`换一批${title}`}>
+          <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={next} aria-label={`换一批${title}`}>
             <Shuffle className="size-[18px]" strokeWidth={1.8} />
             <span className="max-sm:hidden">换一批</span>
           </Glass>
@@ -642,7 +645,7 @@ function FavoriteShelf({ library }: { library: LibManga[] | undefined }) {
       title="特别关心"
       note={`${items.length} 部有 ${unread} 话没读`}
       actions={
-        <Glass as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('favorite'); navigate('/library') }} aria-label="查看全部特别关心">
+        <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('favorite'); navigate('/library') }} aria-label="查看全部特别关心">
           全部
           <ChevronRight className="size-[18px]" strokeWidth={1.8} />
         </Glass>
@@ -670,7 +673,7 @@ function LaterShelf() {
       title="稍后再看"
       note={`存了 ${items.length} 部，最近加入的在前`}
       actions={
-        <Glass as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('later'); navigate('/library') }} aria-label="查看全部稍后再看">
+        <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('later'); navigate('/library') }} aria-label="查看全部稍后再看">
           全部
           <ChevronRight className="size-[18px]" strokeWidth={1.8} />
         </Glass>
@@ -730,7 +733,7 @@ function RecentList({ items }: { items: ReadChapter[] }) {
           <span className="text-sm text-muted">{isDemo ? '演示进度仅在本次会话中保留' : '阅读进度已同步到服务端'}</span>
         </div>
         <Link to="/history" className="rounded-full text-text no-underline">
-          <Glass as="span" className="gbtn rounded-full">
+          <Glass flat as="span" className="gbtn rounded-full">
             <History className="size-[18px]" strokeWidth={1.8} />
             全部历史
           </Glass>

@@ -3,7 +3,6 @@ import { ArrowDown, ArrowUp, Check, ChevronDown, Minus, Plus, X } from 'lucide-r
 import { motion } from 'motion/react'
 import { useId, useRef, useState, type FormEvent } from 'react'
 import type { FilterChangeInput, SortSelectionInput, TriState } from '@/api/gql/graphql'
-import { Glass } from '@/components/glass/Glass'
 import { cn } from '@/lib/cn'
 import { defaultValue, filterChanges, filterValues, hasIncompleteFilters, TRI_LABELS, TRI_STATES, type FilterValue, type FilterValues, type SourceFilter } from './filters'
 import { SourceFilters } from './queries'
@@ -19,9 +18,9 @@ export function SourceFilterPanel({ sourceId, applied, onApply, onClose }: {
     <div>
       <div className="mb-4 flex items-center gap-3">
         <h3 className="m-0 flex-1 text-lg font-bold">来源筛选</h3>
-        <Glass as="button" type="button" className="gicon rounded-full" aria-label="关闭来源筛选" onClick={onClose}>
+        <button type="button" className="gicon plain rounded-full" aria-label="关闭来源筛选" onClick={onClose}>
           <X className="size-[18px]" />
-        </Glass>
+        </button>
       </div>
       {loading && !data && <p className="text-sm text-muted" role="status">正在加载筛选项…</p>}
       {error ? (
@@ -58,9 +57,9 @@ function SourceFilterForm({ filters, applied, onApply, onClose }: {
       </motion.div>
       {incomplete && <p role="alert" className="m-0 text-sm text-danger">这个来源的筛选分组层级过深，暂时无法完整加载。</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => setValues({})}>恢复默认</Glass>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => setValues({})}>恢复默认</button>
         <span className="flex-1" />
-        <Glass as="button" type="button" className="gbtn rounded-full" onClick={onClose}>取消</Glass>
+        <button type="button" className="gbtn plain rounded-full" onClick={onClose}>取消</button>
         <button type="submit" className="solid" disabled={incomplete}>应用筛选</button>
       </div>
     </form>
@@ -98,9 +97,9 @@ function FilterFields({ filters, values, onChange, parent = [] }: {
             return (
               <label key={key} htmlFor={fieldId} className="flex w-full flex-col gap-2 text-sm font-semibold">
                 {filter.name || '关键词'}
-                <Glass as="span" className="flex h-11 items-center rounded-[14px] px-3.5">
+                <span className="plain flex h-11 items-center rounded-[14px] px-3.5">
                   <input id={fieldId} type="text" value={value as string} onChange={(e) => onChange(key, e.target.value)} className="w-full min-w-0 border-0 bg-transparent font-normal text-text outline-none" />
-                </Glass>
+                </span>
               </label>
             )
           case 'SelectFilter':

@@ -25,8 +25,9 @@ export function FavoriteButton({ mangaId, style, className }: { mangaId: number;
     }
   }
 
+  // 只放在详情页顶部，背后是封面取色的氛围光，关掉透镜省开销
   return (
-    <Glass as="button" type="button" style={style} className={cn('gicon rounded-full', on && 'bg-g-hi', className)}
+    <Glass suspendRefract as="button" type="button" style={style} className={cn('gicon rounded-full', on && 'bg-g-hi', className)}
       onClick={toggle} disabled={busy || !map} aria-pressed={on} aria-label={on ? '取消特别关心' : '特别关心'} title={on ? '已特别关心' : '特别关心'}>
       <Star className={cn('size-5', on && 'fill-current')} strokeWidth={1.8} />
     </Glass>

@@ -12,8 +12,10 @@ type GlassProps<T extends Tag> = {
   as?: T
   /** 浮在内容之上的条（批量栏、下载条、阅读器工具栏），底色更实、模糊更强 */
   dense?: boolean
-  /** 临时关闭折射（尺寸动画、长列表快速滚动时） */
+  /** 关掉透镜（尺寸动画、长列表快速滚动、背后只是氛围光时），底色和模糊照旧 */
   suspendRefract?: boolean
+  /** 直接放在纯色页面上：背后没有可采样的内容，用不透明表面，不挂模糊和折射 */
+  flat?: boolean
   /** 单独覆盖折射参数 */
   lens?: Partial<LensOptions & { blur: number }>
   ref?: Ref<HTMLElement>
@@ -22,12 +24,15 @@ type GlassProps<T extends Tag> = {
 /**
  * 玻璃容器。外观取决于设置里的玻璃档位：
  * - frosted / solid：纯 CSS（.glass 与 [data-glass] 规则）
- * - refract：在 Chromium 上额外挂透镜位移滤镜，其他浏览器自动退回毛玻璃
+ * - refract：在 Chromium 上额外挂透镜位移滤镜，其他浏览器自动退回毛玻璃；
+ *   关掉透镜时仍用折射档的底色，不然会突然换成毛玻璃的白底，在氛围光上明显发亮
+ * - flat：不论档位都是不透明表面
  */
 export function Glass<T extends Tag = 'div'>({
   as,
   dense,
   suspendRefract,
+  flat,
   lens,
   className,
   style,
@@ -40,7 +45,8 @@ export function Glass<T extends Tag = 'div'>({
   const moving = useContext(MovingGlassBackdrop)
   const host = useRef<HTMLElement>(null)
   const filterId = `lens${useId().replace(/[:«»]/g, '')}`
-  const on = mode === 'refract' && !suspendRefract && moving !== 'suspend' && supportsRefract()
+  const tone = !flat && mode === 'refract' && supportsRefract()
+  const on = tone && !suspendRefract && moving !== 'suspend'
   const o: LensOptions = {
     bezel: lens?.bezel ?? t.bezel,
     strength: lens?.strength ?? t.strength,
@@ -58,6 +64,7 @@ export function Glass<T extends Tag = 'div'>({
     [ref],
   )
 
+  const veil = t.tone === 'veil' ? ' var(--g-veil)' : ''
   const refractStyle: CSSProperties | undefined = on
     ? {
         // veil 档：提亮 / 压暗按主题和 dense 取自 CSS 变量 --g-veil（见 index.css）；
@@ -65,17 +72,20 @@ export function Glass<T extends Tag = 'div'>({
         // 黑白文字会挤成断续的虚线，透镜后再补 0.5px 抹平这些台阶
         backdropFilter:
           t.tone === 'veil'
-            ? `blur(${blur}px) saturate(${t.saturate}) var(--g-veil) url(#${filterId}) blur(0.5px)`
+            ? `blur(${blur}px) saturate(${t.saturate})${veil} url(#${filterId}) blur(0.5px)`
             : `url(#${filterId}) blur(${blur}px) saturate(${t.saturate})`,
       }
-    : undefined
+    : tone
+      ? { backdropFilter: `blur(${blur}px) saturate(${t.saturate})${veil}` }
+      : undefined
 
   return createElement(
     as ?? 'div',
     {
       ...rest,
       ref: setRef,
-      'data-refract': on || undefined,
+      'data-refract': tone || undefined,
+      'data-flat': flat || undefined,
       className: cn('glass', dense && 'dense', className),
       style: { ...refractStyle, ...style },
     },

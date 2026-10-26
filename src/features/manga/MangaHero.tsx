@@ -145,8 +145,9 @@ export function MangaHero({
             </div>
           </div>
           {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
+          {/* 标签和按钮背后只是封面取色的氛围光，折射看不出来，关掉透镜省开销 */}
           {genres.length > 0 && <div className="manga-hero-tags flex flex-wrap gap-1.5">
-            {genres.map((t, i) => <Glass as="span" key={t} style={delay(mangaIntro.tags + i * 30)} className={cn('manga-hero-genre', animate && 'rise')}>{t}</Glass>)}
+            {genres.map((t, i) => <Glass suspendRefract as="span" key={t} style={delay(mangaIntro.tags + i * 30)} className={cn('manga-hero-genre', animate && 'rise')}>{t}</Glass>)}
           </div>}
 
           <div className={cn('manga-hero-actions', placeholder && 'invisible')}>
@@ -156,13 +157,13 @@ export function MangaHero({
                 <span className="truncate">{target.verb}<span className="manga-hero-chapter-label"> · {chapterLabel(target.chapter)}</span></span>
               </Link>
             ) : <span style={delay(mangaIntro.actions)} className={cn('solid opacity-50', animate && 'rise')}><span className="truncate">{fetching ? '正在获取章节…' : '暂无章节'}</span></span>}
-            <Glass as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
+            <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
             <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn(animate && 'rise')} />
             {manga.inLibrary && <FavoriteButton mangaId={manga.id} style={delay(mangaIntro.actions + 52)} className={cn(animate && 'rise')} />}
             <Can permission="DOWNLOAD_CHAPTERS">
-              <Glass as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
+              <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
             </Can>
             <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} intro={animate} />
           </div>
@@ -283,7 +284,7 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
       <Link className="opt no-underline" to={`/manga/${manga.id}/migrate`} replace={sheetOpen} state={sheetOpen ? { ...location.state, mangaMore: undefined } : undefined} onClick={() => setPopoverOpen(false)}><ArrowLeftRight className="size-5" />换源迁移</Link>
     </>}
   </>
-  const button = <Glass ref={trigger} as="button" type="button" style={delay(mangaIntro.actions + 90)} className={cn('gicon rounded-full', intro && 'rise')} aria-label="更多漫画操作" aria-expanded={open} aria-controls={panelId} aria-haspopup="dialog" onClick={toggle}><MoreHorizontal className="size-5" strokeWidth={1.8} /></Glass>
+  const button = <Glass suspendRefract ref={trigger} as="button" type="button" style={delay(mangaIntro.actions + 90)} className={cn('gicon rounded-full', intro && 'rise')} aria-label="更多漫画操作" aria-expanded={open} aria-controls={panelId} aria-haspopup="dialog" onClick={toggle}><MoreHorizontal className="size-5" strokeWidth={1.8} /></Glass>
   return <>
     {mobile ? button : <Popover id={panelId} open={open} onClose={close} label={label} fitViewport className="manga-hero-more-panel w-[256px]" trigger={button}>{content}</Popover>}
     {createPortal(<>

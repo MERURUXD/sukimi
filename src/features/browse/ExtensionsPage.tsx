@@ -224,13 +224,13 @@ export function ExtensionsPage() {
         title="扩展"
         lead={
           <Link to="/browse" aria-label="返回发现" className="flex-none rounded-full text-text no-underline">
-            <Glass as="span" className="gicon size-11 rounded-full">
+            <Glass flat as="span" className="gicon size-11 rounded-full">
               <ChevronLeft className="size-6" strokeWidth={1.8} />
             </Glass>
           </Link>
         }
         actions={
-          <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_560px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
+          <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_560px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
             <Search className="size-[18px] flex-none" strokeWidth={1.8} />
             <span className="sr">搜索扩展</span>
             <input
@@ -248,7 +248,7 @@ export function ExtensionsPage() {
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2.5 max-sm:gap-2">
-        <Seg label="扩展分栏" items={tabs} value={tab} onChange={setTab} className="max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:justify-center" />
+        <Seg flat label="扩展分栏" items={tabs} value={tab} onChange={setTab} className="max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:justify-center" />
         {tab === 'available' && (
           <Popover
             open={langPop}
@@ -258,7 +258,7 @@ export function ExtensionsPage() {
             fitViewport
             className="flex w-[380px] max-w-[calc(100vw-32px)] flex-col gap-5 px-4 py-5"
             trigger={
-              <Glass as="button" type="button" className={cn('gbtn rounded-full', langPop && 'bg-g-hi')} aria-expanded={langPop} onClick={() => setLangPop((v) => !v)}>
+              <Glass flat as="button" type="button" className={cn('gbtn rounded-full', langPop && 'bg-g-hi')} aria-expanded={langPop} onClick={() => setLangPop((v) => !v)}>
                 <Globe className="size-[18px]" strokeWidth={1.8} />
                 {langs.length === 0 ? '全部语言' : langs.length === 1 ? langLabel(langs[0]) : `${langs.length} 种语言`}
               </Glass>
@@ -297,12 +297,12 @@ export function ExtensionsPage() {
             <span className="max-sm:hidden">全部</span>更新
           </button>
         )}
-        <Glass as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="检查更新" disabled={checking} onClick={() => void check()}>
+        <Glass flat as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="检查更新" disabled={checking} onClick={() => void check()}>
           <RefreshCw className={cn('size-[18px]', checking && 'animate-spin')} strokeWidth={1.8} />
           <span className="max-sm:hidden">检查更新</span>
         </Glass>
         <Can permission="INSTALL_EXTERNAL_EXTENSIONS">
-          <Glass as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="安装 APK 文件" disabled={installingFile} onClick={() => fileInput.current?.click()}>
+          <Glass flat as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="安装 APK 文件" disabled={installingFile} onClick={() => fileInput.current?.click()}>
             {installingFile ? <Loader2 className="size-[18px] animate-spin" /> : <PackagePlus className="size-[18px]" strokeWidth={1.8} />}
             <span className="max-sm:hidden">安装 APK</span>
           </Glass>
@@ -387,7 +387,7 @@ function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extens
       ) : !e.isInstalled ? (
         canInstall && (
           // 行有 content-visibility（隐含绘制裁切），按钮的外投影会被截成行边缘一圈方形阴影，这里去掉
-          <Glass as="button" type="button" className="gbtn min-h-10 rounded-full px-4 [--g-drop:0_0_0_transparent]" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
+          <Glass flat as="button" type="button" className="gbtn min-h-10 rounded-full px-4 [--g-drop:0_0_0_transparent]" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
             安装
           </Glass>
         )

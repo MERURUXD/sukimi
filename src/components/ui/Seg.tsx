@@ -10,7 +10,7 @@ export interface SegItem<T> {
   count?: number
 }
 
-/** 分段控件，选中块在选项间滑动；glass=false 时用普通表面（静态页面里的设置项）*/
+/** 分段控件，选中块在选项间滑动；glass=false 时用普通表面（静态页面里的设置项），flat / suspendRefract 透传给玻璃（纯色页面上的工具栏 / 只衬氛围光时）*/
 export function Seg<T extends string | number>({
   items,
   value,
@@ -18,6 +18,8 @@ export function Seg<T extends string | number>({
   label,
   className,
   glass = true,
+  flat,
+  suspendRefract,
 }: {
   items: SegItem<T>[]
   value: T
@@ -25,6 +27,8 @@ export function Seg<T extends string | number>({
   label: string
   className?: string
   glass?: boolean
+  flat?: boolean
+  suspendRefract?: boolean
 }) {
   const layoutId = useId()
   const root = useRef<HTMLDivElement>(null)
@@ -68,7 +72,7 @@ export function Seg<T extends string | number>({
     )
   })
   return glass ? (
-    <Glass ref={root as React.Ref<HTMLElement>} role="group" aria-label={label} data-fade={fade} className={cn('seg', className)}>
+    <Glass ref={root as React.Ref<HTMLElement>} flat={flat} suspendRefract={suspendRefract} role="group" aria-label={label} data-fade={fade} className={cn('seg', className)}>
       {body}
     </Glass>
   ) : (
