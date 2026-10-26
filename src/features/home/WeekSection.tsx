@@ -372,19 +372,19 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
         // 收起时下方内容立刻上移、盖过托盘，玻璃不再停留，跟着一起淡出
         exit={{ opacity: 0, transition: fade.default }}
       />
-      {/* 标题行不整体淡入：两个按钮是玻璃，透明度只能加在它们自己身上（托盘不在表单里，按钮不必写 type） */}
+      {/* 标题行不整体淡入，透明度分别加在文字和两个按钮上 */}
       <div className="relative mb-[18px] flex items-center gap-2.5">
         <motion.div className="min-w-0 flex-1" {...headerFade}>
           <div className="text-[17px] font-extrabold">{dayName} · {lane.name}</div>
           <div className="mt-1 text-[13px] text-muted">{lane.id === 'recent' ? `读了 ${n} 部` : `${n} 部 · ${lane.chapters[day]} 话新章节 · ${unread ? `${unread} 部未读` : '都读过了'}`}</div>
         </motion.div>
-        <MotionGlass as="button" className="gbtn flex-none rounded-full" onClick={go} {...headerFade}>
+        <motion.button type="button" className="gbtn plain flex-none rounded-full" onClick={go} {...headerFade}>
           {LANE_LINK[lane.id]}
           <ChevronRight className="size-[18px]" strokeWidth={1.8} />
-        </MotionGlass>
-        <MotionGlass as="button" className="gicon size-10 flex-none rounded-full" onClick={() => close(id)} aria-label="收起" {...headerFade}>
+        </motion.button>
+        <motion.button type="button" className="gicon plain size-10 flex-none rounded-full" onClick={() => close(id)} aria-label="收起" {...headerFade}>
           <X className="size-4" strokeWidth={2} />
-        </MotionGlass>
+        </motion.button>
       </div>
       {unread > 0 && unread < n ? (
         <>
@@ -402,9 +402,9 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
       )}
       {shown < n && (
         <div className="relative mt-6 flex justify-center">
-          <MotionGlass as="button" className="gbtn rounded-full" onClick={more} {...headerFade}>
+          <motion.button type="button" className="gbtn plain rounded-full" onClick={more} {...headerFade}>
             显示更多 · 还有 {n - shown} 部
-          </MotionGlass>
+          </motion.button>
         </div>
       )}
     </motion.div>

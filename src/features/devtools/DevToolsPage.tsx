@@ -244,7 +244,7 @@ function MockData() {
         <Switch on={edge} onChange={setEdge} label="边界作品" />
       </Row>
       <div className="flex flex-wrap gap-2.5">
-        <Glass as="a" href={demo} className="gbtn rounded-full no-underline">
+        <Glass flat as="a" href={demo} className="gbtn rounded-full no-underline">
           <FlaskConical className="size-[18px]" strokeWidth={1.8} />
           打开虚构书库
         </Glass>
@@ -446,12 +446,12 @@ function BulkImport() {
         {num('delay', '请求间隔', 'ms', '每页、每批之间至少等这么久；失败时加倍退避')}
         <div className="flex flex-wrap gap-2.5">
           {busy ? (
-            <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => abort.current?.abort()}>
+            <Glass flat as="button" type="button" className="gbtn rounded-full" onClick={() => abort.current?.abort()}>
               <Square className="size-[16px]" strokeWidth={2} />
               停止
             </Glass>
           ) : (
-            <Glass as="button" type="button" className="gbtn rounded-full" disabled={!source} onClick={() => void dryRun()}>
+            <Glass flat as="button" type="button" className="gbtn rounded-full" disabled={!source} onClick={() => void dryRun()}>
               <Search className="size-[18px]" strokeWidth={1.8} />
               预演
             </Glass>
@@ -497,7 +497,7 @@ function ImportStatus({ phase, onRun }: { phase: Phase; onRun: (plan: Planned, i
       <>
         {summary}
         <div>
-          <Glass
+          <Glass flat
             as="button"
             type="button"
             className="gbtn rounded-full"
@@ -532,7 +532,7 @@ function ImportStatus({ phase, onRun }: { phase: Phase; onRun: (plan: Planned, i
       {phase.k === 'done' && (
         <div className="flex flex-wrap gap-2.5">
           {r.failed.length + r.skipped.length > 0 && (
-            <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => onRun(plan, [...r.failed, ...r.skipped])}>
+            <Glass flat as="button" type="button" className="gbtn rounded-full" onClick={() => onRun(plan, [...r.failed, ...r.skipped])}>
               <RotateCcw className="size-[18px]" strokeWidth={1.8} />
               重试失败和未提交（{r.failed.length + r.skipped.length}）
             </Glass>

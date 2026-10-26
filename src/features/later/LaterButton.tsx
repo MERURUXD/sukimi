@@ -43,8 +43,9 @@ export function LaterButton({ manga, hasChapters, style, className }: {
   }
 
   const Icon = on ? ClockCheck : ClockPlus
+  // 只放在详情页顶部，背后是封面取色的氛围光，关掉透镜省开销
   return (
-    <Glass as="button" type="button" style={style} className={cn('gicon rounded-full', on && 'bg-g-hi', className)}
+    <Glass suspendRefract as="button" type="button" style={style} className={cn('gicon rounded-full', on && 'bg-g-hi', className)}
       onClick={toggle} disabled={busy || !map} aria-pressed={on} aria-label={on ? '移出稍后再看' : '稍后再看'} title={on ? '已加入稍后再看' : '稍后再看'}>
       <Icon className="size-5" strokeWidth={1.8} />
     </Glass>

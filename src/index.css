@@ -31,6 +31,8 @@
   --g-bg-hi: rgba(255, 255, 255, 0.72);
   --g-line: rgba(255, 255, 255, 0.85);
   --g-glow: rgba(255, 255, 255, 0.45);
+  /* --g-bg 叠在页面底色上的不透明结果，给纯色页面上的 flat 控件用 */
+  --g-flat: color-mix(in srgb, #fff 42%, var(--bg));
   --scrim-a: rgba(244, 243, 239, 0.3);
   --scrim-b: rgba(244, 243, 239, 0.72);
   --solid-bg: #141416;
@@ -62,6 +64,7 @@
   --g-bg-hi: rgba(255, 255, 255, 0.18);
   --g-line: rgba(255, 255, 255, 0.26);
   --g-glow: rgba(255, 255, 255, 0.09);
+  --g-flat: color-mix(in srgb, #fff 9%, var(--bg));
   --scrim-a: rgba(11, 11, 13, 0.3);
   --scrim-b: rgba(11, 11, 13, 0.62);
   --solid-bg: #f4f4f5;
@@ -298,6 +301,18 @@
   html[data-glass-tone='veil'] .glass.dense[data-refract],
   html[data-glass-tone='veil'] .glass.glass-legible[data-refract] {
     background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint-dense, 20%) * var(--g-tint-scale))), transparent);
+  }
+
+  /*
+   * 直接放在纯色页面上的控件（flat）：背后只有页面底色，玻璃采不到东西。
+   * 把玻璃色直接叠在页面底色上画成不透明表面，不要玻璃的亮边和内发光，只留投影，省掉模糊的合成开销
+   */
+  .glass[data-flat] {
+    background: var(--g-flat);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: transparent;
+    box-shadow: var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.22));
   }
 
   [data-glass='solid'] .glass {

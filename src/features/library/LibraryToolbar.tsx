@@ -91,7 +91,7 @@ export function LibraryToolbar({
 
   const closePanel = () => setPanel(false)
   const button = (
-    <Glass as="button"
+    <Glass flat as="button"
         type="button"
         className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', (panel || filtering) && 'bg-g-hi')}
         aria-expanded={panel}
@@ -256,7 +256,7 @@ export function LibraryToolbar({
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2.5">
       {categories.length > 1 && (
-        <Seg label="分类" items={categories} value={view.category} onChange={view.setCategory} />
+        <Seg flat label="分类" items={categories} value={view.category} onChange={view.setCategory} />
       )}
 
       {activeFilters.map((f) => (
@@ -287,7 +287,7 @@ export function LibraryToolbar({
 
       <span className="flex-1 max-sm:hidden" />
 
-      <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-[1_1_120px]">
+      <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-[1_1_120px]">
         <Search className="size-[18px] flex-none" strokeWidth={1.8} />
         <span className="sr">搜索书库</span>
         <input
@@ -322,12 +322,12 @@ export function LibraryToolbar({
         document.body,
       )}
 
-      <Glass as="button" type="button" className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', selecting && 'bg-g-hi')} aria-pressed={selecting} onClick={onToggleSelect}>
+      <Glass flat as="button" type="button" className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', selecting && 'bg-g-hi')} aria-pressed={selecting} onClick={onToggleSelect}>
         {selecting ? <Check className="size-[18px]" strokeWidth={2} /> : <CheckSquare className="size-[18px]" strokeWidth={1.8} />}
         <span className="max-sm:hidden">{selecting ? '完成' : '选择'}</span>
       </Glass>
 
-      <Glass as="button"
+      <Glass flat as="button"
           type="button"
           className="gicon rounded-full"
           onClick={onRefresh}

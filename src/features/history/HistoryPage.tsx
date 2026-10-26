@@ -110,7 +110,7 @@ export function HistoryPage() {
           {data && (q ? ` · 在已加载的 ${count(list.length)} 话里搜索` : hasMore ? ` · 已加载 ${count(list.length)} 话` : '')}
         </>}
         actions={
-          <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
+          <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
             <Search className="size-[18px] flex-none" strokeWidth={1.8} />
             <span className="sr">搜索历史</span>
             <input
@@ -130,7 +130,7 @@ export function HistoryPage() {
       {data && shown === 0 && hasMore && q && (
         <div className="flex flex-col items-center gap-3 py-16 text-center text-muted">
           <p className="m-0">在已加载的 {count(list.length)} 话中没有找到「{query.trim()}」</p>
-          <Glass as="button" type="button" className="gbtn rounded-full text-text" disabled={loading} onClick={() => void more()}>
+          <Glass flat as="button" type="button" className="gbtn rounded-full text-text" disabled={loading} onClick={() => void more()}>
             {loading ? '正在加载更早的记录…' : '继续加载更早的记录'}
           </Glass>
         </div>

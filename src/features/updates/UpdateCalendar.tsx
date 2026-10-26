@@ -98,13 +98,13 @@ export function UpdateCalendar() {
       <div className="mt-5 mb-4 flex items-center justify-between gap-3">
         <p className="m-0 min-w-0 text-[13px] text-muted md:text-sm">{summary || (offset < 0 ? '这周没有新章节' : '这周没有预计的更新')}</p>
         <div className="flex flex-none items-center gap-1.5">
-          <Glass as="button" type="button" className="gicon size-10 rounded-full" disabled={offset <= MIN_WEEK} onClick={() => setOffset((o) => o - 1)} aria-label="上一周">
+          <Glass flat as="button" type="button" className="gicon size-10 rounded-full" disabled={offset <= MIN_WEEK} onClick={() => setOffset((o) => o - 1)} aria-label="上一周">
             <ChevronLeft className="size-[18px]" strokeWidth={1.8} />
           </Glass>
-          <Glass as="button" type="button" className="gbtn min-w-[92px] rounded-full num" onClick={() => setOffset(0)} aria-label="回到本周" title="回到本周">
+          <Glass flat as="button" type="button" className="gbtn min-w-[92px] rounded-full num" onClick={() => setOffset(0)} aria-label="回到本周" title="回到本周">
             {offset === 0 ? '本周' : range}
           </Glass>
-          <Glass as="button" type="button" className="gicon size-10 rounded-full" disabled={offset >= MAX_WEEK} onClick={() => setOffset((o) => o + 1)} aria-label="下一周">
+          <Glass flat as="button" type="button" className="gicon size-10 rounded-full" disabled={offset >= MAX_WEEK} onClick={() => setOffset((o) => o + 1)} aria-label="下一周">
             <ChevronRight className="size-[18px]" strokeWidth={1.8} />
           </Glass>
         </div>

@@ -207,7 +207,7 @@ export function UpdatesPage() {
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4 md:gap-7">
               <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
-              <Seg
+              <Seg flat
                 label="视图"
                 className="[&>button]:min-h-11 md:[&>button]:min-h-9"
                 items={[
@@ -232,7 +232,7 @@ export function UpdatesPage() {
           </div>
           <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || ' '}</p>
           {view === 'recent' && <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">
-            <Seg
+            <Seg flat
               label="筛选"
               className="[&>button]:min-h-11 md:[&>button]:min-h-9"
               items={[
@@ -260,7 +260,7 @@ export function UpdatesPage() {
             <div className="flex flex-col items-center gap-3 py-20 text-center text-muted">
               <p className="m-0">没有符合条件的章节</p>
               {filter !== 'all' && (
-                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
+                <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
                   查看全部更新
                 </Glass>
               )}
@@ -269,7 +269,7 @@ export function UpdatesPage() {
           {noFavorites && favorites.map && (
             <div className="flex flex-col items-center gap-3 py-20 text-center text-muted">
               <p className="m-0">还没有特别关心的漫画。在漫画详情页点星标，或右键、长按这里的条目设置。</p>
-              <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
+              <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
                 查看全部更新
               </Glass>
             </div>

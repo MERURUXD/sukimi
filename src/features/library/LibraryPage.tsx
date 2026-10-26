@@ -316,16 +316,16 @@ export function LibraryPage() {
               </p>
               {favoriteList.length === 0 ? (
                 all.length > 0 ? (
-                  <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
+                  <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
                     查看全部书库
                   </Glass>
                 ) : (
                   <Link to="/browse" className="rounded-full text-text no-underline">
-                    <Glass as="span" className="gbtn rounded-full">前往发现</Glass>
+                    <Glass flat as="span" className="gbtn rounded-full">前往发现</Glass>
                   </Link>
                 )
               ) : hasFilter && (
-                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
+                <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
                   清除筛选条件
                 </Glass>
               )}
@@ -341,10 +341,10 @@ export function LibraryPage() {
               </p>
               {later.items.length === 0 ? (
                 <Link to="/browse" className="rounded-full text-text no-underline">
-                  <Glass as="span" className="gbtn rounded-full">前往发现</Glass>
+                  <Glass flat as="span" className="gbtn rounded-full">前往发现</Glass>
                 </Link>
               ) : hasFilter && (
-                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
+                <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
                   清除筛选条件
                 </Glass>
               )}
@@ -360,14 +360,14 @@ export function LibraryPage() {
               </p>
               {all.length === 0 ? (
                 <Link to="/browse" className="rounded-full text-text no-underline">
-                  <Glass as="span" className="gbtn rounded-full">前往发现</Glass>
+                  <Glass flat as="span" className="gbtn rounded-full">前往发现</Glass>
                 </Link>
               ) : hasFilter ? (
-                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
+                <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
                   清除筛选条件
                 </Glass>
               ) : typeof view.category === 'number' && (
-                <Glass as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
+                <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
                   查看全部书库
                 </Glass>
               )}

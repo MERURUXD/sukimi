@@ -403,7 +403,8 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
           ) : (
             <span className="solid h-[54px] px-[30px] text-base opacity-60">已全部读完</span>
           )}
-          <Glass
+          {/* 背后只是氛围光，折射看不出来，关掉透镜省开销 */}
+          <Glass suspendRefract
             as="a"
             href={detailHref}
             className="gbtn h-[54px] rounded-full px-6 text-[15px] no-underline"
@@ -416,12 +417,12 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
             漫画详情
           </Glass>
           <Can permission="DOWNLOAD_CHAPTERS">
-            <Glass as="button" type="button" className="gicon size-[54px] rounded-full" onClick={onDownload} aria-label="下载后续章节" title="下载后续章节">
+            <Glass suspendRefract as="button" type="button" className="gicon size-[54px] rounded-full" onClick={onDownload} aria-label="下载后续章节" title="下载后续章节">
               <Download className="size-5" strokeWidth={1.8} />
             </Glass>
           </Can>
           {onShuffle && (
-            <Glass as="button" type="button" className="gicon size-[54px] rounded-full" onClick={() => { interrupt(); onShuffle() }} aria-label="换一批继续阅读" title="换一批">
+            <Glass suspendRefract as="button" type="button" className="gicon size-[54px] rounded-full" onClick={() => { interrupt(); onShuffle() }} aria-label="换一批继续阅读" title="换一批">
               <Shuffle className="size-5" strokeWidth={1.8} />
             </Glass>
           )}
