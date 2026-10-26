@@ -218,17 +218,18 @@ export function ChapterList({
           </span>
         </div>
         <div style={mangaIntroDelay(mangaIntro.chapterTools)} className="flex items-center gap-2.5 max-sm:w-full">
-          <Seg
+          {/* 背后还有没淡完的封面氛围光（见 MangaBackdrop），和顶部按钮一样只关透镜 */}
+          <Seg suspendRefract
             label="章节筛选"
             items={FILTERS.map((f) => ({ value: f.value, label: f.label, count: f.value === 'all' ? undefined : counts[f.value] }))}
             value={filter}
             onChange={setFilter}
             className={cn('max-sm:min-w-0 max-sm:flex-1', intro && 'rise')}
           />
-          <Glass as="button" type="button" style={mangaIntroDelay(mangaIntro.chapterTools)} className={cn('gicon size-10 rounded-full', intro && 'rise')} onClick={toggleOrder} aria-label={desc ? '切换为最早在上' : '切换为最新在上'} title={desc ? '最新在上' : '最早在上'}>
+          <Glass suspendRefract as="button" type="button" style={mangaIntroDelay(mangaIntro.chapterTools)} className={cn('gicon size-10 rounded-full', intro && 'rise')} onClick={toggleOrder} aria-label={desc ? '切换为最早在上' : '切换为最新在上'} title={desc ? '最新在上' : '最早在上'}>
             <ArrowDownUp className="size-[18px]" strokeWidth={1.8} />
           </Glass>
-          <Glass as="button"
+          <Glass suspendRefract as="button"
               type="button"
               style={mangaIntroDelay(mangaIntro.chapterTools)}
               className={cn('rounded-full', 'gicon size-10', selecting && 'bg-g-hi', intro && 'rise')}

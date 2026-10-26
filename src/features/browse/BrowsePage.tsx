@@ -127,7 +127,7 @@ export function BrowsePage() {
         actions={
           // 发现页的主要入口，比历史页的搜索框宽一些
           <form onSubmit={submit} className="min-w-0 flex-[0_1_560px] max-sm:basis-full">
-            <Glass as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
+            <Glass flat as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
               <Search className="size-[18px] flex-none" strokeWidth={1.8} />
               <span className="sr">全局搜索</span>
               <input
@@ -150,7 +150,7 @@ export function BrowsePage() {
           <div className="mb-1 flex items-center gap-2 pl-3">
             <h2 className="m-0 flex-1 text-[22px] font-bold">漫画源</h2>
             <Link to="/browse/extensions" className="rounded-full text-text no-underline">
-              <Glass as="span" className="gbtn min-h-10 rounded-full">
+              <Glass flat as="span" className="gbtn min-h-10 rounded-full">
                 <Puzzle className="size-[18px]" strokeWidth={1.8} />
                 扩展
                 {updates > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-solid px-1.5 text-[11px] font-bold text-on-solid num">{updates}</span>}
@@ -236,7 +236,7 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
           <h2 id="h-src" className="m-0 text-[22px] font-bold">{source.displayName}</h2>
           <span className="text-xs text-muted">{langLabel(source.lang)}</span>
         </div>
-        <Seg label="浏览方式" items={modes} value={mode} onChange={onMode} />
+        <Seg flat label="浏览方式" items={modes} value={mode} onChange={onMode} />
         {source.id !== '0' && (
           <Popover
             id={panelId}
@@ -246,7 +246,7 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
             onClose={closePanel}
             className="w-[400px] max-w-[calc(100vw-32px)] px-4 py-4 [--g-drop:0_0_0_transparent] [&_.solid]:shadow-none max-md:fixed max-md:inset-x-4 max-md:top-4 max-md:w-auto"
             trigger={
-              <Glass as="button" ref={filterButton} type="button" aria-expanded={panel} aria-controls={panelId} aria-haspopup="dialog" onClick={() => setPanel((value) => !value)} className={cn('gbtn rounded-full [--g-drop:0_0_0_transparent]', (panel || (mode === 'SEARCH' && filters.length > 0)) && 'bg-g-hi')}>
+              <Glass flat as="button" ref={filterButton} type="button" aria-expanded={panel} aria-controls={panelId} aria-haspopup="dialog" onClick={() => setPanel((value) => !value)} className={cn('gbtn rounded-full [--g-drop:0_0_0_transparent]', (panel || (mode === 'SEARCH' && filters.length > 0)) && 'bg-g-hi')}>
                 <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />
                 来源筛选{mode === 'SEARCH' && filters.length > 0 && <span className="text-xs num">{filters.length}</span>}
               </Glass>
@@ -256,7 +256,7 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
           </Popover>
         )}
         {source.homeUrl && (
-          <Glass as="a" href={source.homeUrl} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label="打开来源网站" title="打开来源网站">
+          <Glass flat as="a" href={source.homeUrl} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label="打开来源网站" title="打开来源网站">
             <ExternalLink className="size-[18px]" strokeWidth={1.8} />
           </Glass>
         )}

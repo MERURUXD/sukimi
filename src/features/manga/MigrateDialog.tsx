@@ -254,6 +254,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
 
         <div className="flex flex-col gap-3">
           <Seg
+            glass={false}
             label="旧的这部"
             value={keepOld ? 'keep' : 'move'}
             onChange={(v) => setKeepOld(v === 'keep')}

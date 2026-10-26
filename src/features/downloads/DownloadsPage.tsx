@@ -132,13 +132,13 @@ export function DownloadsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2.5 max-sm:gap-2">
           {errors.length > 0 && (
-            <Glass as="button" type="button" className="gbtn rounded-full" onClick={() => void retry()}>
+            <Glass flat as="button" type="button" className="gbtn rounded-full" onClick={() => void retry()}>
               <RotateCcw className="size-[18px]" strokeWidth={1.8} />
               重试<span className="max-sm:hidden">失败项</span>
             </Glass>
           )}
           {queue.length > 0 && (
-            <Glass as="button" type="button" className="gbtn rounded-full hover:text-danger" title={shared ? '移出所有账号排队的章节' : undefined} onClick={() => void clearAll()}>
+            <Glass flat as="button" type="button" className="gbtn rounded-full hover:text-danger" title={shared ? '移出所有账号排队的章节' : undefined} onClick={() => void clearAll()}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />
               清空
             </Glass>
@@ -171,7 +171,7 @@ export function DownloadsPage() {
         </p>
       ) : (
         <>
-          <Seg
+          <Seg flat
             label="显示方式"
             value={view}
             onChange={setView}

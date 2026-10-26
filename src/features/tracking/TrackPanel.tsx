@@ -195,7 +195,7 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
           <button type="button" className="gicon size-9" aria-label="少一话" onClick={() => saveChapters(Number(chapters) - 1)}>
             <Minus className="size-4" />
           </button>
-          <Glass as="label" className="flex h-10 w-[72px] items-center rounded-[12px] px-2.5">
+          <label className="plain flex h-10 w-[72px] items-center rounded-[12px] px-2.5">
             <input
               inputMode="decimal"
               aria-label="读到第几话"
@@ -205,7 +205,7 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               className="w-full min-w-0 border-0 bg-transparent text-center text-text outline-none num"
             />
-          </Glass>
+          </label>
           <button type="button" className="gicon size-9" aria-label="多一话" onClick={() => saveChapters(Number(chapters) + 1)}>
             <Plus className="size-4" />
           </button>
@@ -251,7 +251,7 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
   return (
     <span className="flex items-center gap-2">
       <span className="text-sm text-muted">{label}</span>
-      <Glass as="label" className="flex h-10 items-center rounded-[12px] px-2.5">
+      <label className="plain flex h-10 items-center rounded-[12px] px-2.5">
         <input
           type="date"
           aria-label={`${label}日期`}
@@ -259,7 +259,7 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
           onChange={(e) => onChange(fromDateInput(e.target.value))}
           className="border-0 bg-transparent text-sm text-text outline-none [color-scheme:inherit]"
         />
-      </Glass>
+      </label>
     </span>
   )
 }
@@ -308,11 +308,11 @@ function Binder({ t, mangaId, title }: { t: Tracker; mangaId: number; title: str
   return (
     <div className="flex flex-col gap-3 pl-[38px]">
       <form onSubmit={submit}>
-        <Glass as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
+        <label className="plain flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
           <Search className="size-[18px] flex-none" strokeWidth={1.8} />
           <span className="sr">在 {t.name} 搜索</span>
           <input type="search" value={input} onChange={(e) => setInput(e.target.value)} className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none" />
-        </Glass>
+        </label>
       </form>
       {t.supportsPrivateTracking && (
         <label className="flex items-center gap-3 text-sm">

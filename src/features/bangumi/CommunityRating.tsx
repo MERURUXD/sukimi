@@ -2,7 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { ChevronRight, ExternalLink, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { Glass, MotionGlass } from '@/components/glass/Glass'
+import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { scoreWord } from '@/features/tracking/tracking'
 import { cn } from '@/lib/cn'
@@ -339,7 +339,7 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                 </div>
                 {subject.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {subject.tags.map((t) => <Glass as="span" key={t.name} className="rounded-full px-3 py-1 text-xs">{t.name} <span className="text-faint num">{shortCount(t.count)}</span></Glass>)}
+                    {subject.tags.map((t) => <span key={t.name} className="plain rounded-full px-3 py-1 text-xs">{t.name} <span className="text-faint num">{shortCount(t.count)}</span></span>)}
                   </div>
                 )}
                 {guess && (guess.bind || !guess.match?.sure) && (
@@ -399,10 +399,10 @@ function Picker({ guess }: { guess: GuessProps }) {
   return (
     <>
       <form onSubmit={submit}>
-        <Glass as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
+        <label className="plain flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
           <Search className="size-4 flex-none" />
           <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="作品名，原名或中文名都可以" aria-label="搜索 Bangumi 条目" className="min-w-0 flex-1 bg-transparent text-[15px] text-text outline-none" />
-        </Glass>
+        </label>
       </form>
       {state === 'loading' && <span className="text-sm text-muted">正在搜索…</span>}
       {state === 'error' && <button type="button" className="self-start text-sm font-semibold text-muted hover:text-text" onClick={() => void run(input)}>搜索失败，点此重试</button>}

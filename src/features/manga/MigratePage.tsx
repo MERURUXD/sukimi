@@ -89,7 +89,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
 
       <div className="mb-8 flex flex-wrap items-center gap-2.5">
         <form onSubmit={submit} className="min-w-0 flex-[1_1_360px]">
-          <Glass as="label" className="flex h-12 items-center gap-2.5 rounded-full px-[18px] text-muted">
+          <Glass flat as="label" className="flex h-12 items-center gap-2.5 rounded-full px-[18px] text-muted">
             <Search className="size-5 flex-none" strokeWidth={1.8} />
             <span className="sr">搜索候选</span>
             <input
@@ -102,7 +102,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
           </Glass>
         </form>
         {sameLang.length > 0 && (
-          <Seg
+          <Seg flat
             label="搜索范围"
             value={effectiveScope}
             onChange={setScope}
