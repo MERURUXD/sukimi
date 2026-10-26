@@ -94,36 +94,66 @@ function pickTuning(s: GlassTuning): GlassTuning {
   }
 }
 
-interface GlassTuningStore extends GlassTuning {
+export type GlassTheme = 'light' | 'dark'
+
+interface GlassProfile extends GlassTuning {
   /**
    * 各预设上一次离开时的参数；切换预设时据此恢复，而不是回到预设默认值。
    * 当前预设的参数不在这里，直接存在顶层字段里。
    */
   saved: Partial<Record<GlassTuning['tone'], GlassTuning>>
+}
+
+interface GlassTuningStore extends GlassProfile {
+  theme: GlassTheme
+  profiles: Record<GlassTheme, GlassProfile>
+  setTheme: (theme: GlassTheme) => void
   set: (p: Partial<GlassTuning>) => void
   /** 切换预设：先记下当前预设的改动，再恢复目标预设上次的参数（没改过则用预设默认值） */
   switchPreset: (tone: GlassTuning['tone']) => void
   reset: () => void
 }
 
+const initialTheme: GlassTheme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
+const defaultProfile = (): GlassProfile => ({ ...GLASS_DEFAULTS, saved: {} })
+
 export const useGlassTuning = create<GlassTuningStore>()(
   persist(
     (set) => ({
-      ...GLASS_DEFAULTS,
-      saved: {},
-      set: (p) => set(p),
+      ...defaultProfile(),
+      theme: initialTheme,
+      profiles: { light: defaultProfile(), dark: defaultProfile() },
+      setTheme: (theme) => set((s) => s.theme === theme ? {} : { ...s.profiles[theme], theme }),
+      set: (p) => set((s) => {
+        const profile = { ...s.profiles[s.theme], ...p }
+        return { ...profile, profiles: { ...s.profiles, [s.theme]: profile } }
+      }),
       switchPreset: (tone) =>
         set((s) => {
           if (s.tone === tone) return {}
           const { [tone]: target, ...rest } = s.saved
-          return { ...(target ?? GLASS_PRESETS[tone]), saved: { ...rest, [s.tone]: pickTuning(s) } }
+          const profile = { ...(target ?? GLASS_PRESETS[tone]), saved: { ...rest, [s.tone]: pickTuning(s) } }
+          return { ...profile, profiles: { ...s.profiles, [s.theme]: profile } }
         }),
-      reset: () => set({ ...GLASS_DEFAULTS, saved: {} }),
+      reset: () => set((s) => {
+        const profile = defaultProfile()
+        return { ...profile, profiles: { ...s.profiles, [s.theme]: profile } }
+      }),
     }),
     {
       name: preferenceKey('suwayomi-web.glass'),
-      version: 1,
-      partialize: ({ set: _s, switchPreset: _w, reset: _r, ...rest }) => rest,
+      version: 2,
+      partialize: ({ profiles }) => ({ profiles }),
+      // 旧版共用一组参数，复制到两个模式作为起点，保留已调整的预设。
+      migrate: (saved) => {
+        const previous = saved as Partial<GlassProfile>
+        const profile = { ...defaultProfile(), ...previous }
+        return { profiles: { light: profile, dark: { ...profile, saved: { ...profile.saved } } } }
+      },
+      merge: (saved, current) => {
+        const profiles = (saved as { profiles?: GlassTuningStore['profiles'] })?.profiles ?? current.profiles
+        return { ...current, ...profiles[current.theme], profiles }
+      },
     },
   ),
 )

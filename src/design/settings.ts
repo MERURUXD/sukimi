@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { useApplyGlassTuning } from './glassTuning'
+import { useApplyGlassTuning, useGlassTuning } from './glassTuning'
 import { preferenceKey } from '@/lib/demo'
 import { defaultGlass } from './defaultGlass'
 import { normalizeHomeOrder, normalizeHomePreferences, type HomeContentSection, type HomeSection } from '@/features/home/preferences'
@@ -105,7 +105,9 @@ export const themeForced = () => forcedDark > 0
 
 function applyTheme() {
   const theme = useAppearance.getState().theme
-  document.documentElement.dataset.theme = forcedDark > 0 ? 'dark' : theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : theme
+  const resolved = forcedDark > 0 ? 'dark' : theme === 'system' ? (darkQuery.matches ? 'dark' : 'light') : theme
+  document.documentElement.dataset.theme = resolved
+  useGlassTuning.getState().setTheme(resolved)
 }
 
 /**
