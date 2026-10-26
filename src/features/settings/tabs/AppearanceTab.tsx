@@ -15,6 +15,7 @@ export function AppearanceTab() {
   const reset = useGlassTuning((s) => s.reset)
   const tone = useGlassTuning((s) => s.tone)
   const switchPreset = useGlassTuning((s) => s.switchPreset)
+  const glassTheme = useGlassTuning((s) => s.theme)
   const canRefract = supportsRefract()
 
   return (
@@ -100,19 +101,32 @@ export function AppearanceTab() {
 
       <Section
         fold
-        wide
         title="液态玻璃质感"
-        desc="仅在「液态」档生效，调整后立即应用到全局。"
+        desc="浅色、深色独立保存，仅在「液态」档生效。"
         action={
-          <button type="button" className="gbtn plain min-h-9 w-fit rounded-full px-3.5 text-[13px]" onClick={reset}>
+          <button type="button" className="gbtn plain min-h-9 w-fit rounded-full px-3.5 text-[13px]" onClick={reset} aria-label={`恢复${glassTheme === 'light' ? '浅色' : '深色'}玻璃默认参数`}>
             <RotateCcw className="size-4" strokeWidth={1.8} />
             恢复默认
           </button>
         }
       >
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
           <GlassPreview className="lg:sticky lg:top-[calc(var(--nav-h)+12px)]" />
-          <div className="flex flex-col gap-4">
+          <div className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm">调整模式</span>
+              <Seg
+                glass={false}
+                label="玻璃参数模式"
+                items={[
+                  { value: 'light', label: '浅色' },
+                  { value: 'dark', label: '深色' },
+                ]}
+                value={glassTheme}
+                onChange={setTheme}
+              />
+              <span className="text-[13px] text-faint">切换时同步预览对应主题；跟随系统时自动使用对应参数。</span>
+            </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-sm">预设</span>
               <Seg
@@ -126,7 +140,7 @@ export function AppearanceTab() {
                 onChange={switchPreset}
               />
               <span className="text-[13px] text-faint">
-                通透：在模糊里直接提亮或压暗背景，底色换成中性白 / 近黑，饱和度更低、底色更薄。两个预设各自记住你调过的滑块，切换不会丢失；「恢复默认」会清除全部改动。
+                通透：在模糊里直接提亮或压暗背景，底色换成中性白 / 近黑，饱和度更低、底色更薄。每种模式的两个预设各自记住滑块；「恢复默认」只清除当前模式的改动。
               </span>
             </div>
             <GlassSliders />
