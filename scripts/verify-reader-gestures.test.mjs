@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { clampPan, NO_ZOOM, panBounds, settle, swipeResult, zoomAround } from '../src/features/reader/gestures.ts'
+import { blocksWheelTurn, clampPan, flipStillCurrent, invalidateFlip, NO_ZOOM, panBounds, settle, swipeResult, zoomAround } from '../src/features/reader/gestures.ts'
 
 test('平移边界：放大后超出视口的一半；没超出就不能移', () => {
   assert.deepEqual(panBounds({ w: 400, h: 600 }, { w: 400, h: 800 }, 1), { x: 0, y: 0 })
@@ -25,6 +25,24 @@ test('以手指位置为中心缩放：那一点留在原地', () => {
 test('接近原大时复位', () => {
   assert.deepEqual(settle({ s: 1.03, x: 10, y: 5 }), NO_ZOOM)
   assert.deepEqual(settle({ s: 1.5, x: 10, y: 5 }), { s: 1.5, x: 10, y: 5 })
+})
+
+test('Ctrl+滚轮停在 1.02 倍时不算放大，滚轮仍可翻页', () => {
+  assert.equal(blocksWheelTurn(1), false)
+  assert.equal(blocksWheelTurn(1.02), false)
+  assert.equal(blocksWheelTurn(1.04), false)
+  assert.equal(blocksWheelTurn(1.05), true)
+  assert.equal(blocksWheelTurn(2), true)
+})
+
+test('新的翻页让上一次轻扫的定时器失效，不会再翻一页', () => {
+  let generation = 0
+  const scheduled = (generation = invalidateFlip(generation))
+  assert.equal(flipStillCurrent(generation, scheduled), true)
+  generation = invalidateFlip(generation)
+  assert.equal(flipStillCurrent(generation, scheduled), false)
+  const again = (generation = invalidateFlip(generation))
+  assert.equal(flipStillCurrent(generation, again), true)
 })
 
 test('松手是否翻页：轻扫或拖过 22%', () => {

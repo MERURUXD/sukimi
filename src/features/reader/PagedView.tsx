@@ -1,7 +1,7 @@
 import { useGesture } from '@use-gesture/react'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { cn } from '@/lib/cn'
-import { clampPan, MAX_ZOOM, NO_ZOOM, panBounds, settle, swipeResult, TAP_ZOOM, zoomAround, type Zoom } from './gestures'
+import { blocksWheelTurn, clampPan, flipStillCurrent, invalidateFlip, MAX_ZOOM, NO_ZOOM, panBounds, settle, swipeResult, TAP_ZOOM, zoomAround, type Zoom } from './gestures'
 import { ReaderImage } from './ReaderImage'
 import { rememberAspect } from './pageCache'
 import { decodePage } from './pageDecode'
@@ -22,6 +22,8 @@ const SLIDE_MS = 200
 const EASE = 'cubic-bezier(0.33, 1, 0.68, 1)'
 /** 双击的判定间隔；单击要等这么久确认不是双击 */
 const DOUBLE_MS = 250
+/** Ctrl+滚轮停顿这么久后，接近原大就复位，免得停在 1.02 倍锁住滚轮翻页 */
+const WHEEL_SETTLE_MS = 200
 
 /**
  * 单页 / 双页。
@@ -79,15 +81,25 @@ export function PagedView({
   const dragged = useRef(false)
   const wheel = useRef({ last: 0, acc: 0, locked: false })
   const pendingTap = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const zoomSettle = useRef<ReturnType<typeof setTimeout>>(undefined)
   // 翻页动画的序号：卸载或新的翻页开始后，旧的那次不再继续
   const flipping = useRef(0)
   // 放大时这一下拖动开始时顶着哪边：1 = 左边缘（内容右移到底），-1 = 右边缘
   const startEdge = useRef(0)
-  const zoomed = zoom.s > 1.01
+  // 和捏合松手的复位线一致：1.02 这种看不出的倍数不锁滚轮翻页
+  const zoomed = blocksWheelTurn(zoom.s)
   const key = screenKey(screen)
+  // 键盘、点击、滚轮已经翻走时，作废还在等的轻扫定时器，并收回轨道
+  const [trackedKey, setTrackedKey] = useState(key)
+  if (trackedKey !== key) {
+    setTrackedKey(key)
+    flipping.current = invalidateFlip(flipping.current)
+    if (slide.x !== 0 || slide.ms !== 0) setSlide({ x: 0, ms: 0 })
+  }
 
   // 翻页后：复位缩放，滚动回到起点（适应宽度时页面比屏幕高）
   useEffect(() => {
+    clearTimeout(zoomSettle.current)
     setZoom(NO_ZOOM)
     scroller.current?.scrollTo({ top: 0, left: settings.dir === 'rtl' ? scroller.current.scrollWidth : 0 })
   }, [key, settings.dir])
@@ -106,7 +118,8 @@ export function PagedView({
   useEffect(
     () => () => {
       clearTimeout(pendingTap.current)
-      flipping.current++
+      clearTimeout(zoomSettle.current)
+      flipping.current = invalidateFlip(flipping.current)
     },
     [],
   )
@@ -138,10 +151,10 @@ export function PagedView({
     // 这条减速曲线起步约是平均速度的 3 倍：按剩余距离和手指速度算时长，看起来就是手指那一下的延续；
     // 限制在 180–300ms，慢慢拖过去松手也不会拖沓
     const ms = Math.round(Math.min(300, Math.max(180, (3 * (w - Math.abs(from))) / Math.max(velocity, 0.5))))
-    const id = ++flipping.current
+    const id = (flipping.current = invalidateFlip(flipping.current))
     setSlide({ x: dir * w, ms })
     setTimeout(() => {
-      if (id !== flipping.current) return
+      if (!flipStillCurrent(flipping.current, id)) return
       // 放大时在边缘轻扫翻页：新页直接以原大出现，不带过渡地复位缩放
       setLive(true)
       setZoom(NO_ZOOM)
@@ -174,7 +187,7 @@ export function PagedView({
         }
         if (active) {
           // 新的拖动打断还没滑完的翻页
-          flipping.current++
+          flipping.current = invalidateFlip(flipping.current)
           setSlide({ x: mx, ms: 0 })
           return
         }
@@ -197,10 +210,13 @@ export function PagedView({
           event.preventDefault()
           const s = Math.min(MAX_ZOOM, Math.max(1, zoom.s * (1 - dy / 400)))
           zoomTo(zoomAround(zoom, fromCenter(event.clientX, event.clientY), s))
+          clearTimeout(zoomSettle.current)
+          zoomSettle.current = setTimeout(() => setZoom((z) => settle(z)), WHEEL_SETTLE_MS)
           return
         }
         if (zoomed || dy === 0) return
-        const el = scroller.current!
+        const el = scroller.current
+        if (!el) return
         const atTop = el.scrollTop <= 1
         const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1
         if ((dy > 0 && !atBottom) || (dy < 0 && !atTop)) return // 先正常滚动长页面
