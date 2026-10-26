@@ -32,8 +32,71 @@ function glassFixture(theme = 'light', saved) {
     },
     document: { documentElement: { dataset: { theme } } },
   })
-  return { store: exports.useGlassTuning, defaults: exports.GLASS_DEFAULTS, data }
+  return { store: exports.useGlassTuning, defaults: exports.GLASS_DEFAULTS, data, module: exports }
 }
+
+// 执行正式页面主题钩子，保留真实玻璃 store；逐次挂载/卸载布局副作用。
+function pageThemeFixture(theme = 'light') {
+  const glass = glassFixture(theme)
+  const cleanups = []
+  const document = { documentElement: { dataset: { theme } } }
+  const media = { matches: false }
+  const exports = {}
+  runInNewContext(ts.transpileModule(read('src/design/settings.ts'), {
+    compilerOptions: { module: ts.ModuleKind.CommonJS },
+  }).outputText, {
+    exports, document, navigator: { hardwareConcurrency: 8 }, window: { matchMedia: () => media },
+    require: name => {
+      if (name === 'react') return { useLayoutEffect: effect => cleanups.push(effect()) }
+      if (name === './glassTuning') return glass.module
+      if (name === '@/lib/demo') return { preferenceKey: key => `${key}.demo` }
+      if (name === './defaultGlass') return { defaultGlass: () => 'refract' }
+      if (name === '@/features/home/preferences') return { normalizeHomePreferences: () => ({}) }
+      if (name === 'zustand/middleware') return { persist: config => config }
+      return require(name)
+    },
+  })
+  exports.useAppearance.getState().setTheme(theme)
+  return { ...exports, glass: glass.store, document, media, cleanups }
+}
+
+test('阅读器主题：深色背景使用深色玻璃参数，切白底与退出时恢复对应参数', () => {
+  const f = pageThemeFixture()
+  f.glass.getState().set({ denseTint: 95, denseBlur: 20 })
+  f.glass.getState().setTheme('dark')
+  f.glass.getState().set({ denseTint: 25, denseBlur: 2 })
+  f.glass.getState().setTheme('light')
+  const profiles = JSON.stringify(f.glass.getState().profiles)
+  f.useForceTheme('dark')
+  assert.equal(f.document.documentElement.dataset.theme, 'dark')
+  assert.equal(f.glass.getState().denseTint, 25)
+  assert.equal(f.glass.getState().denseBlur, 2)
+  assert.equal(f.useAppearance.getState().theme, 'light', '阅读器不能改写全站偏好')
+  f.cleanups.pop()()
+  f.useForceTheme('light')
+  assert.equal(f.glass.getState().denseTint, 95)
+  f.cleanups.pop()()
+  assert.equal(f.themeForced(), false)
+  assert.equal(f.document.documentElement.dataset.theme, 'light')
+  assert.equal(JSON.stringify(f.glass.getState().profiles), profiles, '进出阅读器不改写两套参数')
+})
+
+test('页面主题：画廊深色保持兼容，重叠页面按挂载顺序生效，卸载恢复系统主题', () => {
+  const f = pageThemeFixture('system')
+  f.useForceDark()
+  const darkCleanup = f.cleanups.pop()
+  f.useForceTheme('light')
+  const lightCleanup = f.cleanups.pop()
+  assert.equal(f.document.documentElement.dataset.theme, 'light')
+  darkCleanup()
+  assert.equal(f.themeForced(), true)
+  assert.equal(f.document.documentElement.dataset.theme, 'light')
+  f.media.matches = true
+  lightCleanup()
+  assert.equal(f.document.documentElement.dataset.theme, 'dark')
+  assert.equal(f.glass.getState().theme, 'dark')
+  assert.equal(f.themeForced(), false)
+})
 
 test('玻璃参数：深浅模式分别保存预设和滑块，恢复默认只影响当前模式', () => {
   const { store, defaults } = glassFixture()

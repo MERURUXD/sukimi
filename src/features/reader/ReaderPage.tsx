@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { useForceTheme } from '@/design/settings'
 import { toastError } from '@/components/ui/toast'
 import { chapterLabel } from '@/lib/format'
 import { MangaChapters, MangaDetail, type Chapter } from '@/features/manga/queries'
@@ -66,6 +67,8 @@ export function ReaderPage() {
   }, [missing, chapterId, askedDone, refetchChapters])
   const notFound = missing && askedDone === chapterId
   const [settings] = useReaderSettings(mangaId)
+  // 主题与玻璃参数一起跟随阅读背景，避免深色组件继承全站浅色的浓度和模糊。
+  useForceTheme(settings.bg === 'white' ? 'light' : 'dark')
   const synced = useReaderMetaSync(mangaId)
   // 会话一旦挂上就不再因核对状态卸载：读到一半在设置里打开「按漫画记住阅读模式」时，
   // 核对要重新开始，卸载重挂会把已读的话按起始页重算而跳回第 1 页；核对结果到了再应用设置
