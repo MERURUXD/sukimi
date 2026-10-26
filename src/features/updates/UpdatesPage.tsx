@@ -463,7 +463,7 @@ function Row({
       >
         {c.isRead ? <BookOpen className="size-5 lg:size-[22px]" strokeWidth={1.8} /> : <BookCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />}
       </button>
-      <span className="flex w-11 flex-none justify-end sm:w-24">
+      <span className={cn('flex w-11 flex-none justify-end', queued && 'sm:w-[84px]')}>
         {queued ? (
           <span className="flex w-11 flex-col items-center gap-1 sm:w-[84px] sm:items-stretch" title={downloadStatus}>
             <Download className="size-5 text-muted sm:hidden" strokeWidth={1.8} />
@@ -531,7 +531,7 @@ function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
       </button>
       <span className="line-clamp-2 w-28 flex-none text-[13px] leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{c.manga.source?.displayName}</span>
       <span className="w-[52px] flex-none text-right text-[13px] text-muted num max-sm:hidden lg:hidden">{time}</span>
-      <span className="w-11 flex-none sm:w-24" aria-hidden />
+      <span className="w-11 flex-none" aria-hidden />
       <button type="button" className="gicon text-muted hover:text-text" onClick={onToggle} tabIndex={-1} aria-hidden>
         <ChevronDown className={cn('size-5 transition-transform lg:size-[22px]', expanded && 'rotate-180')} strokeWidth={1.8} />
       </button>
