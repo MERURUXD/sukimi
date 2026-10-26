@@ -454,6 +454,15 @@ function Row({
       </Link>
       <span className="line-clamp-2 w-28 flex-none text-[13px] leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
       <span className="w-[52px] flex-none text-right text-[13px] text-muted num max-sm:hidden lg:hidden">{time}</span>
+      <button
+        type="button"
+        className="row-action gicon text-muted hover:text-text"
+        onClick={onToggleRead}
+        aria-label={c.isRead ? '标为未读' : '标为已读'}
+        title={c.isRead ? '标为未读' : '标为已读'}
+      >
+        {c.isRead ? <BookOpen className="size-5 lg:size-[22px]" strokeWidth={1.8} /> : <BookCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />}
+      </button>
       <span className="flex w-11 flex-none justify-end sm:w-24">
         {queued ? (
           <span className="flex w-11 flex-col items-center gap-1 sm:w-[84px] sm:items-stretch" title={downloadStatus}>
@@ -475,15 +484,6 @@ function Row({
           </Can>
         )}
       </span>
-      <button
-        type="button"
-        className="row-action gicon text-muted hover:text-text"
-        onClick={onToggleRead}
-        aria-label={c.isRead ? '标为未读' : '标为已读'}
-        title={c.isRead ? '标为未读' : '标为已读'}
-      >
-        {c.isRead ? <BookOpen className="size-5 lg:size-[22px]" strokeWidth={1.8} /> : <BookCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />}
-      </button>
     </div>
   )
 }
