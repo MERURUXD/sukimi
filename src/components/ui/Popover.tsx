@@ -147,7 +147,7 @@ const mix = (a: number, b: number, t: number) => a + (b - a) * t
 
 /**
  * 仿 iOS 菜单：玻璃从触发按钮的位置和大小长成面板，内容稍后淡入，收起时原路缩回按钮。
- * 全程只动 transform，玻璃的布局尺寸不变，折射位移图（refract.tsx 按 offsetWidth 生成）不会逐帧重画。
+ * 位移和缩放不改布局尺寸；圆角补偿会触发重绘，折射位移图（refract.tsx 按 offsetWidth 生成）不会逐帧重画。
  * 触发区域太大（比如长按整张封面）时退回原来的就地轻缩放。
  */
 function MorphPanel({
@@ -182,6 +182,7 @@ function MorphPanel({
   const reduced = useReducedMotion()
   const panel = useRef<HTMLElement>(null)
   const radius = useRef<number | null>(null)
+  const measuredSize = useRef({ width: 0, height: 0 })
   const progress = useMotionValue(0)
   // 量到之前保持隐藏，避免第一帧在终点闪一下
   const geo = useMotionValue<Geometry | null>(null)
@@ -201,7 +202,10 @@ function MorphPanel({
     if (!g || g === IDENTITY) return ''
     const r = mix(g.from, g.to, v)
     const { sx, sy } = at(g, v)
-    return `${r / sx}px / ${r / sy}px`
+    // 四分之一像素足以保持轮廓；避免弹簧尾段不可见的小数变化持续触发圆角重绘。
+    const rx = Math.round(r / sx * 4) / 4
+    const ry = Math.round(r / sy * 4) / 4
+    return `${rx}px / ${ry}px`
   })
   // 玻璃先出现，内容等形状基本长开再淡入；收起时反过来
   const opacity = useTransform(() => {
@@ -230,6 +234,7 @@ function MorphPanel({
     // 位移从计算样式读：motion 下一帧才把新值写进 DOM，按 motion value 推算会和实际画面对不上
     const pw = el.offsetWidth
     const ph = el.offsetHeight
+    measuredSize.current = { width: pw, height: ph }
     const shift = new DOMMatrixReadOnly(getComputedStyle(el).transform)
     const box = el.getBoundingClientRect()
     const left = box.left - shift.e
@@ -237,7 +242,6 @@ function MorphPanel({
     // 终点圆角只在第一次量时读：之后面板上挂着动画中的椭圆圆角，读到的不是样式表里的值
     radius.current ??= parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
     // 折射位移图也按这个圆角画（refract.tsx），否则途中变高时会按椭圆圆角重画，落定后一直不对
-    el.dataset.lensRadius = String(radius.current)
     const to = Math.min(radius.current, pw / 2, ph / 2)
     if (reduced || !pw || !ph) return IDENTITY
     const t = trigger.getBoundingClientRect()
@@ -255,12 +259,20 @@ function MorphPanel({
   useLayoutEffect(() => {
     const sync = () => {
       const g = measure()
+      const el = panel.current
+      // 所有几何读取完成后才写属性，避免同一测量内交错读写引发样式刷新。
+      if (el && radius.current !== null && el.dataset.lensRadius !== String(radius.current)) el.dataset.lensRadius = String(radius.current)
       if (g) geo.set(g)
     }
     sync()
     showContent(progress.get())
     // 内容异步加载会让面板在展开途中变高，起点比例要跟着重算，否则会从比按钮大得多的形状开始
-    const ro = new ResizeObserver(sync)
+    const ro = new ResizeObserver(([entry]) => {
+      // 订阅会立即交付一次当前尺寸；没变时不再读取布局或重新发布几何值。
+      const size = entry.borderBoxSize[0]
+      if (size && Math.round(size.inlineSize) === measuredSize.current.width && Math.round(size.blockSize) === measuredSize.current.height) return
+      sync()
+    })
     if (panel.current) ro.observe(panel.current)
     return () => ro.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
