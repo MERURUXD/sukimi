@@ -19,7 +19,7 @@ export const fade = {
 
 /**
  * 弹出层从触发按钮长出来（components/ui/Popover.tsx）：展开带一点回弹，收起干脆不回弹。
- * 只动位移和缩放，玻璃的实际尺寸不变，折射位移图不用逐帧重画。
+ * 位移和缩放保持布局尺寸不变，另有圆角补偿重绘；折射位移图不用逐帧重画。
  */
 export const morph = {
   open: { type: 'spring', duration: 0.45, bounce: 0.16 },
