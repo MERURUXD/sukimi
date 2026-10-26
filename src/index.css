@@ -344,6 +344,18 @@
   .gicon:hover {
     background: var(--g-bg-hi);
   }
+  /* 精确指针按需显示次要操作；保留占位防止行宽跳动，触屏与键盘仍可直接操作。 */
+  @media (hover: hover) and (pointer: fine) {
+    .action-row .row-action {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .action-row:hover .row-action,
+    .action-row:focus-within .row-action {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
   /* 实心主按钮（白 / 墨）*/
   .solid {
     display: inline-flex;

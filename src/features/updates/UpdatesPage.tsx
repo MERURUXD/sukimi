@@ -173,35 +173,12 @@ export function UpdatesPage() {
   /* 右键 / 长按某一行：特别关心、稍后再看 */
   const ctx = useContextMenu<UpdateChapter['manga']>()
 
-  /* 按天批量操作 */
+  /* 章节状态与按天下载 */
   const [update] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
   const queue = useLive((s) => s.queue)
   const queued = useMemo(() => new Map(queue.map((d) => [d.chapter.id, d])), [queue])
 
-  const markDayRead = async (label: string, rows: UpdateChapter[]) => {
-    const unread = rows.filter((c) => !c.isRead)
-    const ids = unread.map((c) => c.id)
-    if (!ids.length) return toast(`${label}没有未读章节`)
-    const still = captureUser()
-    try {
-      await update({ variables: { ids, patch: { isRead: true } } })
-      // 这一天全部读完后重排当天分组，不再留着之前单独点过的原档位
-      setHeld((prev) => {
-        if (prev.size === 0) return prev
-        const next = new Map(prev)
-        for (const k of next.keys()) {
-          if (k.startsWith(`${label}#`)) next.delete(k)
-        }
-        return next
-      })
-      toast(`已将${label}的 ${ids.length} 话标为已读`)
-      void syncTrackProgressMany(client, unread.map((c) => c.mangaId), still)
-      if (filter === 'unread') void refetch({ offset: 0 })
-    } catch (e) {
-      toastError('标为已读失败', e)
-    }
-  }
   const downloadDay = async (label: string, rows: UpdateChapter[]) => {
     const ids = rows.filter((c) => !c.isRead && !c.isDownloaded && !queued.has(c.id)).map((c) => c.id)
     if (!ids.length) return toast(`${label}的未读章节都已下载`)
@@ -308,15 +285,6 @@ export function UpdatesPage() {
                 </h2>
                 {unreadCount > 0 && (
                   <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      className="gbtn min-h-9 rounded-full px-3 text-[13px] text-muted hover:bg-hover hover:text-text"
-                      aria-label={`将${d.label}的 ${unreadCount} 话未读标为已读`}
-                      onClick={() => void markDayRead(d.label, d.rows)}
-                    >
-                      <BookCheck className="size-4" strokeWidth={1.8} />
-                      当日已读
-                    </button>
                     <Can permission="DOWNLOAD_CHAPTERS">
                       <button
                         type="button"
@@ -460,7 +428,7 @@ function Row({
       data-nsfw={useNsfwBlur(c.manga)}
       data-reader-origin
       style={rise}
-      className={cn('flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4 lg:gap-[18px]', nested ? 'py-1.5' : 'py-2.5 lg:py-3', rise && 'rise')}
+      className={cn('action-row flex items-center gap-2 rounded-2xl pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4 lg:gap-[18px]', nested ? 'py-1.5' : 'py-2.5 lg:py-3', rise && 'rise')}
     >
       {nested ? (
         <span className="w-[46px] flex-none lg:w-[72px]" aria-hidden />
@@ -509,7 +477,7 @@ function Row({
       </span>
       <button
         type="button"
-        className="gicon text-muted hover:text-text"
+        className="row-action gicon text-muted hover:text-text"
         onClick={onToggleRead}
         aria-label={c.isRead ? '标为未读' : '标为已读'}
         title={c.isRead ? '标为未读' : '标为已读'}

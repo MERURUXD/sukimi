@@ -150,10 +150,10 @@ test('迁移时一并抓到的章节不算更新：只列加入书库之后才�
   assert.equal(isFreshUpdate(ch('1000', '1000')), false, '同一秒算一起抓的')
 })
 
-test('更新页：批量已读和下载保留按天入口，避免跨天全局操作', () => {
+test('更新页：移除批量已读，下载仍按天提供', () => {
   const updates = readFileSync(new URL('../src/features/updates/UpdatesPage.tsx', import.meta.url), 'utf8')
   assert.ok(!updates.includes('全部标为已读'), '不再渲染跨天/整页的「全部标为已读」')
   assert.ok(!updates.includes('下载全部未读'), '不再渲染跨天/整页的「下载全部未读」')
-  assert.ok(updates.includes('markDayRead') && updates.includes('当日已读'), '按天提供「当日已读」')
+  assert.ok(!updates.includes('markDayRead') && !updates.includes('当日已读'), '移除按天批量已读入口及处理逻辑')
   assert.ok(updates.includes('downloadDay') && updates.includes('下载未读'), '按天提供「下载未读」')
 })
