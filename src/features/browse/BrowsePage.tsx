@@ -13,6 +13,7 @@ import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
+import { httpUrl } from '@/lib/url'
 import { riseStep } from '@/lib/intro'
 import { LibrarySkeleton } from '@/features/library/LibraryGrid'
 import type { FilterChangeInput } from '@/api/gql/graphql'
@@ -224,6 +225,7 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
   const filterButton = useRef<HTMLElement>(null)
   const panelId = `source-filters-${source.id}`
   const key = sourceBrowseKey(source.id, mode, q, filters)
+  const home = httpUrl(source.homeUrl)
   const closePanel = () => {
     setPanel(false)
     filterButton.current?.focus()
@@ -270,8 +272,8 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
             <SourceFilterPanel sourceId={source.id} applied={filters} onApply={apply} onClose={closePanel} />
           </Popover>
         )}
-        {source.homeUrl && (
-          <Glass flat as="a" href={source.homeUrl} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label="打开来源网站" title="打开来源网站">
+        {home && (
+          <Glass flat as="a" href={home} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label="打开来源网站" title="打开来源网站">
             <ExternalLink className="size-[18px]" strokeWidth={1.8} />
           </Glass>
         )}
