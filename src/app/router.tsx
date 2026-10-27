@@ -4,7 +4,7 @@ import { LibraryPage } from '@/features/library/LibraryPage'
 import { MangaPage } from '@/features/manga/MangaPage'
 import { AppShell, AuthGate } from './AppShell'
 import { Placeholder } from './Placeholder'
-import { RouteError } from './RouteError'
+import { RouteError, RoutePending } from './RouteError'
 import { isDemo } from '@/lib/demo'
 import { DemoGate, DemoUnavailable } from '@/features/demo/DemoGate'
 
@@ -14,6 +14,10 @@ import { DemoGate, DemoUnavailable } from '@/features/demo/DemoGate'
  */
 const page = <K extends string>(load: () => Promise<Record<K, React.ComponentType>>, name: K) => ({
   lazy: async () => ({ Component: (await load())[name] }),
+  // 写在路由上而不是 lazy 的返回值里：分包还没回来时首屏就能画占位。
+  // 错误也停在这一层，外层的导航不会被整页错误页换掉。
+  hydrateFallbackElement: <RoutePending />,
+  errorElement: <RouteError />,
 })
 
 /** 书库画廊的全屏页（固定深色），和阅读器一样不带导航 */
@@ -26,7 +30,7 @@ const galleryRoutes = [
   { path: 'library/gallery/stats', ...page(() => import('@/features/gallery/StatsPage'), 'StatsPage') },
 ]
 
-const demoRoutes = [{
+export const demoRoutes = [{
   element: <DemoGate />,
   errorElement: <RouteError />,
   children: [
@@ -46,7 +50,7 @@ const demoRoutes = [{
   ],
 }]
 
-export const router = createBrowserRouter(isDemo ? demoRoutes : [
+export const appRoutes = [
   { path: '/login', ...page(() => import('@/features/auth/LoginPage'), 'LoginPage') },
   { path: '/register', ...page(() => import('@/features/auth/RedeemPage'), 'RegisterPage') },
   { path: '/recover', ...page(() => import('@/features/auth/RedeemPage'), 'RecoverPage') },
@@ -100,4 +104,6 @@ export const router = createBrowserRouter(isDemo ? demoRoutes : [
       },
     ],
   },
-], { basename: isDemo ? '/demo' : '/' })
+]
+
+export const router = createBrowserRouter(isDemo ? demoRoutes : appRoutes, { basename: isDemo ? '/demo' : '/' })
