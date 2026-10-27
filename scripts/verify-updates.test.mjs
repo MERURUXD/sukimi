@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { groupByManga, groupRank, sortGroups } from '../src/features/updates/group.ts'
 import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
 import { firstValueFrom, filter } from 'rxjs'
+import { rememberLoadedWindow } from '../src/api/paging.ts'
 import { createCache } from '../src/api/cache.ts'
 import { UpdatesFeedAllDocument, UpdatesFeedUnreadDocument } from '../src/api/gql/graphql.ts'
 import { UPDATES_PAGE, updatesVariables } from '../src/features/updates/pagination.ts'
@@ -96,7 +97,9 @@ async function more(query, offset) {
       chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
     }),
   })
-  await firstValueFrom(query.pipe(filter(value => !value.loading && value.data?.chapters.nodes.length === offset + result.data.chapters.nodes.length)))
+  const loaded = offset + result.data.chapters.nodes.length
+  rememberLoadedWindow(query, loaded, UPDATES_PAGE)
+  await firstValueFrom(query.pipe(filter(value => !value.loading && value.data?.chapters.nodes.length === loaded)))
 }
 
 test('更新页分页返回：首帧和刷新响应都保留已加载范围，继续分页仍每次一页', async () => {
@@ -125,6 +128,25 @@ test('更新页分页返回：首帧和刷新响应都保留已加载范围，�
       assert.equal(new Set(result.nodes.map(c => c.id)).size, 200)
       assert.equal(result.pageInfo.hasNextPage, false)
     } finally { back.unsubscribe() }
+  } finally { subscription.unsubscribe(); client.stop() }
+})
+
+test('同一次停留里翻页后再刷新，更新列表不会缩回第一页', async () => {
+  const { client, requests, watch } = fixture(160)
+  const query = watch()
+  const subscription = query.subscribe(() => {})
+  try {
+    await ready(query)
+    await more(query, UPDATES_PAGE)
+    const loaded = query.getCurrentResult().data.chapters.nodes.length
+    assert.equal(loaded, UPDATES_PAGE * 2)
+    await query.refetch()
+    const again = query.getCurrentResult().data.chapters.nodes.length
+    assert.ok(again >= loaded, `刷新后只剩 ${again} 条`)
+    assert.ok(requests.at(-1).first >= loaded)
+    assert.equal(requests.at(-1).offset, 0)
+    const ids = query.getCurrentResult().data.chapters.nodes.map((chapter) => chapter.id)
+    assert.equal(new Set(ids).size, again)
   } finally { subscription.unsubscribe(); client.stop() }
 })
 

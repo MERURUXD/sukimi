@@ -10,6 +10,7 @@ import { COVER_VT } from '@/lib/coverTransition'
 import { Popover } from '@/components/ui/Popover'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toast, toastError } from '@/components/ui/toast'
+import { dropFromLibraryList, refreshLibraryList } from '@/features/library/libraryList'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
@@ -86,11 +87,20 @@ export function MangaHero({
 
   const applyLibrary = async () => {
     setSame(null)
+    const next = !manga.inLibrary
     try {
-      await setInLibrary({ variables: { id: manga.id, inLibrary: !manga.inLibrary }, refetchQueries: ['LibraryMangas'] })
-      toast(manga.inLibrary ? '已移出书库' : '已加入书库')
+      await setInLibrary({
+        variables: { id: manga.id, inLibrary: next },
+        // 移出时书库页多半已经卸载，refetchQueries 刷不到那条查询
+        update: (cache, { data }) => {
+          const saved = data?.updateManga?.manga
+          if (saved && !saved.inLibrary) dropFromLibraryList(cache, [saved.id])
+        },
+      })
+      if (next) void refreshLibraryList(client)
+      toast(next ? '已加入书库' : '已移出书库')
     } catch (e) {
-      toastError(manga.inLibrary ? '移出书库失败' : '加入书库失败', e)
+      toastError(next ? '加入书库失败' : '移出书库失败', e)
     }
   }
 
