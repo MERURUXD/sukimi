@@ -1,10 +1,10 @@
 import { useQuery } from '@apollo/client/react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { Loader2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
-import { spring } from '@/design/motion'
+import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import type { LibraryManga } from '@/features/library/queries'
 import { sfwAttr } from '@/lib/devSafe'
 import { MigrateDialog, type MigrateTarget } from './MigrateDialog'
@@ -23,27 +23,15 @@ export function SameTitleDialog({ target, matches, onAdd, onClose, onMigrated }:
   onMigrated: () => void
 }) {
   const [from, setFrom] = useState<number | null>(null)
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !from && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, from])
+  const pop = usePopMotion()
 
   if (from !== null) return <MigrateFrom fromId={from} target={target} onBack={() => setFrom(null)} onDone={onMigrated} />
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center p-4" role="presentation">
-      <motion.div className="absolute inset-0 bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+    <Dialog label="书库里已有同名漫画" onClose={onClose}>
       <MotionGlass
         dense
-        role="dialog"
-        aria-modal="true"
-        aria-label="书库里已有同名漫画"
-        initial={{ opacity: 0, scale: 0.94, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={spring.fast}
+        {...pop}
         className="no-scrollbar relative flex max-h-[calc(100dvh-32px)] w-[min(480px,100%)] flex-col gap-5 overflow-y-auto rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
       >
         <div className="flex flex-col gap-1.5">
@@ -75,7 +63,7 @@ export function SameTitleDialog({ target, matches, onAdd, onClose, onMigrated }:
           <button type="button" className="gbtn rounded-full hover:bg-hover" onClick={onAdd}>只加入书库</button>
         </div>
       </MotionGlass>
-    </div>
+    </Dialog>
   )
 }
 

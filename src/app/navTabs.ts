@@ -1,5 +1,10 @@
 import { Bell, Compass, History, House, LibraryBig, Settings } from 'lucide-react'
 
+/** 更新标签上的下载角标：读屏要同时听到「更新」和队列里有几话，不能把数字当成更新条数 */
+export function updatesTabLabel(downloading: number) {
+  return downloading > 0 ? `更新，下载队列 ${downloading} 话` : undefined
+}
+
 /** 手机底部标签栏和平板左侧导航栏共用的主导航项 */
 export const TABS = [
   { to: '/', label: '首页', icon: House, end: true },

@@ -1,4 +1,4 @@
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
@@ -22,6 +22,7 @@ export function BatchBar({
   onCancel: () => void
   children: ReactNode
 }) {
+  const reduced = useReducedMotion()
   return (
     <AnimatePresence>
       {open && (
@@ -30,10 +31,10 @@ export function BatchBar({
             role="toolbar"
             aria-label="批量操作"
             dense
-            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            initial={reduced ? false : { opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.97 }}
-            transition={spring.default}
+            exit={reduced ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.97 }}
+            transition={reduced ? { duration: 0 } : spring.default}
             className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-0.5 rounded-[32px] p-1.5 [--g-drop:0_24px_60px_rgba(0,0,0,.5)]"
           >
             <div className="flex flex-col px-3.5 leading-[1.3]">

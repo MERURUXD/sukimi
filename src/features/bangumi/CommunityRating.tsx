@@ -1,9 +1,8 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { ChevronRight, ExternalLink, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { MotionGlass } from '@/components/glass/Glass'
-import { spring } from '@/design/motion'
+import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { scoreWord } from '@/features/tracking/tracking'
 import { cn } from '@/lib/cn'
 import { timeAgo } from '@/lib/format'
@@ -287,27 +286,15 @@ interface GuessProps {
 }
 
 function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: { open: boolean; subject: BgmSubject | null; at: number; state: BgmState; mine: number; guess?: GuessProps; onRefresh: () => void; onClose: () => void }) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  const pop = usePopMotion()
 
-  return createPortal(
+  return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[70] grid place-items-end p-3 sm:place-items-center sm:p-4" role="presentation">
-          <motion.div className="absolute inset-0 bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+        <Dialog label="Bangumi 站内评分" onClose={onClose} className="place-items-end p-3 sm:place-items-center sm:p-4">
           <MotionGlass
             dense
-            role="dialog"
-            aria-modal="true"
-            aria-label="Bangumi 站内评分"
-            initial={{ opacity: 0, scale: 0.94, y: 8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={spring.fast}
+            {...pop}
             className="no-scrollbar relative flex max-h-[calc(100dvh-24px)] w-[min(460px,100%)] flex-col gap-6 overflow-y-auto overscroll-contain rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
           >
             <div className="flex items-center gap-3">
@@ -368,10 +355,9 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
               <Status state={state} onRetry={onRefresh} />
             )}
           </MotionGlass>
-        </div>
+        </Dialog>
       )}
-    </AnimatePresence>,
-    document.body,
+    </AnimatePresence>
   )
 }
 
