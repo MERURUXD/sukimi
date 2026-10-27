@@ -190,7 +190,7 @@ export function Dialog({
   ) : (
     <div ref={layerRef} className={cn('fixed inset-0 z-[70] grid place-items-center p-4', className)} role="presentation">
       {backdrop}
-      <div ref={panelRef} {...dialogProps} className="relative outline-none">
+      <div ref={panelRef} {...dialogProps} className="relative grid max-w-full place-items-center outline-none">
         {children}
       </div>
     </div>
