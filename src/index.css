@@ -1,6 +1,6 @@
 @import 'tailwindcss' source(none);
+/* 中文走系统字体。整套 Noto Sans SC 可变字体不打进首屏。 */
 @import '@fontsource-variable/space-grotesk';
-@import '@fontsource-variable/noto-sans-sc';
 /* 只扫前端源码：自动检测会把 .claude/ 里十几万个截图和记录也扫一遍，dev 首个请求要同步卡二十几秒 */
 @source '../src';
 @source '../index.html';
@@ -96,8 +96,8 @@
   --color-track: var(--track);
   --color-switch-off: var(--switch-off);
   --color-hover: var(--hover);
-  --font-sans: 'Space Grotesk Variable', 'Noto Sans SC Variable', 'Microsoft YaHei', system-ui, sans-serif;
-  --font-cjk: 'Noto Sans SC Variable', 'Microsoft YaHei', sans-serif;
+  --font-sans: 'Space Grotesk Variable', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', system-ui, sans-serif;
+  --font-cjk: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC', sans-serif;
 }
 
 @layer base {
@@ -742,6 +742,7 @@
 
 @utility num {
   font-variant-numeric: tabular-nums;
+  font-family: 'Space Grotesk Variable', ui-sans-serif, sans-serif;
 }
 
 /* ───────── 页面切换（View Transitions）─────────

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/check-bundle-budget.mjs",
     "lint": "oxlint",
     "preview": "vite preview",
     "schema": "node scripts/fetch-schema.mjs",
@@ -23,7 +23,6 @@
   },
   "dependencies": {
     "@apollo/client": "^4.3.1",
-    "@fontsource-variable/noto-sans-sc": "^5.3.0",
     "@fontsource-variable/space-grotesk": "^5.3.0",
     "@tanstack/react-virtual": "^3.14.13",
     "@use-gesture/react": "^10.3.1",
