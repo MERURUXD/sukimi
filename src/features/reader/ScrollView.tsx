@@ -3,11 +3,12 @@ import { cn } from '@/lib/cn'
 import { aspectOf, rememberAspect } from './pageCache'
 import { ReaderImage } from './ReaderImage'
 import { halfAspect, type Half } from './pageTools'
+import { bestBandHit, scrollBandRootMargin } from './scrollBand'
 import type { ReaderSettings } from './settings'
 
 /**
  * 纵向连续 / Webtoon：页面竖排滚动。
- * 当前页 = 跨过视口 45% 高度那条线的页面。
+ * 当前页 = 穿过视口顶部一条窄带的页面。短页顶对齐后仍算在这一页。
  * 未加载的页按已知宽高比（或 0.7）占位，Chrome 的滚动锚定会抵消加载后的高度变化。
  * 拆分宽页时一页显示成上下两张（先读的一半在上），两张都标着同一个页码。
  */
@@ -22,6 +23,7 @@ export function ScrollView({
   onCenter,
   onScroll,
   onScrolling,
+  onInteract,
   footer,
   scrollerRef,
 }: {
@@ -34,12 +36,14 @@ export function ScrollView({
   onAspect: () => void
   startPage: number
   settings: ReaderSettings
-  /** 跨过视口那条线的页；拆成两半的页同时给出是哪一半 */
+  /** 穿过顶部观察带的页；拆成两半的页同时给出是哪一半 */
   onPage: (i: number, half?: Half) => void
   onCenter: () => void
   /** 点击分区翻屏：1 向下、-1 向上 */
   onScroll: (d: 1 | -1) => void
   onScrolling: (v: boolean) => void
+  /** 用户自己滚动或点按：跳页时先压住的页码可以交给观察器 */
+  onInteract?: () => void
   footer: ReactNode
   scrollerRef: React.RefObject<HTMLDivElement | null>
 }) {
@@ -60,15 +64,29 @@ export function ScrollView({
   useEffect(() => {
     const root = scrollerRef.current
     if (!root) return
+    const hits = new Map<Element, { index: number; overlap: number; half?: Half }>()
+    const emit = () => {
+      const best = bestBandHit([...hits.values()])
+      if (best) onPageRef.current(best.index, best.half)
+    }
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) {
-          if (!e.isIntersecting) continue
-          const { i, half } = (e.target as HTMLElement).dataset
-          onPageRef.current(Number(i), half === undefined ? undefined : (Number(half) as Half))
+          const el = e.target as HTMLElement
+          if (!e.isIntersecting || e.intersectionRect.height <= 0) {
+            hits.delete(el)
+            continue
+          }
+          const { i, half } = el.dataset
+          hits.set(el, {
+            index: Number(i),
+            overlap: e.intersectionRect.height,
+            half: half === undefined || half === '' ? undefined : (Number(half) as Half),
+          })
         }
+        emit()
       },
-      { root, rootMargin: '-45% 0px -55% 0px' },
+      { root, rootMargin: scrollBandRootMargin() },
     )
     root.querySelectorAll('[data-i]').forEach((el) => io.observe(el))
     return () => io.disconnect()
@@ -102,6 +120,8 @@ export function ScrollView({
     <div
       ref={scrollerRef}
       tabIndex={-1}
+      onPointerDown={() => onInteract?.()}
+      onWheel={() => onInteract?.()}
       onClick={(e) => {
         const zones = settings.tapZones === 'auto' ? 'tb' : settings.tapZones
         const pos = zones === 'lr' ? e.clientX / window.innerWidth : e.clientY / window.innerHeight
