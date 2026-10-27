@@ -190,7 +190,15 @@ export function Dialog({
   ) : (
     <div ref={layerRef} className={cn('fixed inset-0 z-[70] grid place-items-center p-4', className)} role="presentation">
       {backdrop}
-      <div ref={panelRef} {...dialogProps} className="relative grid max-w-full place-items-center outline-none">
+      <div
+        ref={panelRef}
+        {...dialogProps}
+        // 占满可用宽度，面板的百分比上限才不会随短文案缩小；空白处仍按遮罩关闭。
+        className="relative grid w-full place-items-center outline-none"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && backdropRef.current) closeRef.current()
+        }}
+      >
         {children}
       </div>
     </div>
