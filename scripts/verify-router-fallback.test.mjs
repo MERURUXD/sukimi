@@ -22,9 +22,12 @@ function installBrowser(pathname) {
   const documentElement = { dataset: {}, style: {}, classList: { add() {}, remove() {}, contains: () => false } }
   const document = {
     documentElement,
+    // react-router 用 document.defaultView 当 window
+    defaultView: null,
     body: { style: {}, appendChild() {}, removeChild() {} },
     cookie: '',
     visibilityState: 'visible',
+    fonts: { ready: Promise.resolve(), addEventListener() {}, removeEventListener() {} },
     addEventListener() {},
     removeEventListener() {},
     getElementById: () => null,
@@ -64,14 +67,24 @@ function installBrowser(pathname) {
     getComputedStyle: () => ({ getPropertyValue: () => '', transform: 'none' }),
   }
   window.window = window
+  document.defaultView = window
   class Observer { observe() {} unobserve() {} disconnect() {} }
-  Object.assign(globalThis, {
+  const globals = {
     window, document, location, navigator: window.navigator,
     localStorage: window.localStorage, sessionStorage: window.sessionStorage,
     matchMedia: window.matchMedia, getComputedStyle: window.getComputedStyle,
     requestAnimationFrame: window.requestAnimationFrame, cancelAnimationFrame: window.cancelAnimationFrame,
     ResizeObserver: Observer, IntersectionObserver: Observer,
-  })
+    CSS: { supports: () => false, escape: (value) => value },
+  }
+  // Node 自带不可写的 navigator 等全局；写不上就用 window 上的那一份
+  for (const [name, value] of Object.entries(globals)) {
+    try {
+      Object.defineProperty(globalThis, name, { value, configurable: true, writable: true })
+    } catch {
+      // 已有且不可配置
+    }
+  }
 }
 
 function walk(routes, visit) {
