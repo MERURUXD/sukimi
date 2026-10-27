@@ -1,5 +1,4 @@
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { motion } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
@@ -15,9 +14,9 @@ import { copyTracks, trackCopyPlan } from '@/features/tracking/migrateTracks'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
-import { spring } from '@/design/motion'
 import { Switch } from '@/features/settings/parts'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -58,6 +57,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const [keepOld, setKeepOld] = useState(false)
   const [deleteDownloads, setDeleteDownloads] = useState(false)
   const [step, setStep] = useState<string | null>(null)
+  const pop = usePopMotion()
 
   // 打开时从新来源拉取信息和章节：搜索结果里只有封面和标题
   useEffect(() => {
@@ -92,12 +92,6 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const metas = markQuery.data?.metas.nodes ?? []
   const hasLater = userId !== undefined && metas.some((m) => m.key === laterKey(userId, from.id))
   const hasFav = userId !== undefined && metas.some((m) => m.key === favoriteKey(userId, from.id))
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && !step && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, step])
 
   const plan = useMemo(() => (info.status === 'ready' ? planMigration(fromChapters, info.chapters) : null), [info, fromChapters])
   const cats = from.categories.nodes.filter((c) => !c.default).map((c) => c.id)
@@ -200,17 +194,10 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   ].filter(Boolean)
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center p-4" role="presentation">
-      <motion.div className="absolute inset-0 bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !step && onClose()} />
+    <Dialog label={`迁移到 ${target.source.displayName}`} onClose={() => { if (!step) onClose() }} closeOnBackdrop={!step}>
       <MotionGlass
         dense
-        role="dialog"
-        aria-modal="true"
-        aria-label={`迁移到 ${target.source.displayName}`}
-        initial={{ opacity: 0, scale: 0.94, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={spring.fast}
+        {...pop}
         className="no-scrollbar relative flex max-h-[calc(100dvh-32px)] w-[min(480px,100%)] flex-col gap-5 overflow-y-auto rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
       >
         <div className="flex gap-4" data-sfw={sfwAttr(target.source.displayName)}>
@@ -283,7 +270,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
           </button>
         </div>
       </MotionGlass>
-    </div>
+    </Dialog>
   )
 }
 

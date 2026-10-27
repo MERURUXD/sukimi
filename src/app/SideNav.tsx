@@ -6,7 +6,7 @@ import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { BrandMark } from './BrandMark'
-import { markNavDirection, TABS } from './navTabs'
+import { markNavDirection, TABS, updatesTabLabel } from './navTabs'
 
 /**
  * 触控移动设备在 768–1279px 使用左侧玻璃导航栏。宽度和内容让位由 index.css 的 --side-w 统一给出，
@@ -37,6 +37,7 @@ export function SideNav() {
               if (t.to === '/library' && exitGalleryToLibrary(e)) return e.preventDefault()
               markNavDirection(pathname, t.to)
             }}
+            aria-label={t.to === '/updates' ? updatesTabLabel(downloading) : undefined}
             className={({ isActive }) =>
               cn(
                 'relative flex min-h-[58px] flex-col items-center justify-center gap-0.5 rounded-[20px] text-[11px] font-semibold no-underline transition-colors',
@@ -47,7 +48,7 @@ export function SideNav() {
             <t.icon className="size-[22px]" strokeWidth={1.8} />
             {t.label}
             {t.to === '/updates' && downloading > 0 && (
-              <span className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent num">
+              <span aria-hidden className="absolute top-1.5 right-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent num">
                 {downloading}
               </span>
             )}
