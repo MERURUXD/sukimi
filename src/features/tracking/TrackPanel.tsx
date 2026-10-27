@@ -12,6 +12,7 @@ import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select, Switch } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { httpUrl } from '@/lib/url'
 import { BindTrack, FetchTrack, MangaTracks, SearchTracker, Trackers, UnbindTrack, type Tracker, type TrackRecord } from './queries'
 import { pullTrackProgress, pushTrackProgress } from './sync'
 import { Stars } from './Stars'
@@ -166,13 +167,16 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
 
   const statuses = t.statuses.map((s) => ({ value: s.value, label: statusLabel(s.name) }))
   const scale = starScale(t.scores)
+  const remote = httpUrl(r.remoteUrl)
   return (
     <div className="flex flex-col gap-3.5 pl-[38px]">
       <div className="flex items-start gap-2">
         <span className="min-w-0 flex-1 text-[15px] leading-snug font-semibold">{r.title}</span>
-        <a href={r.remoteUrl} target="_blank" rel="noreferrer" className="gicon size-9 text-muted hover:text-text" aria-label={`在 ${t.name} 打开`} title={`在 ${t.name} 打开`}>
-          <ExternalLink className="size-4" />
-        </a>
+        {remote && (
+          <a href={remote} target="_blank" rel="noreferrer" className="gicon size-9 text-muted hover:text-text" aria-label={`在 ${t.name} 打开`} title={`在 ${t.name} 打开`}>
+            <ExternalLink className="size-4" />
+          </a>
+        )}
         <button type="button" className="gicon size-9 text-muted hover:text-text" disabled={refreshing} aria-label="从网站刷新" title="从网站刷新" onClick={() => void refresh({ variables: { recordId: r.id } }).catch((e) => toastError('刷新失败', e))}>
           <RefreshCw className={cn('size-4', refreshing && 'animate-spin')} />
         </button>

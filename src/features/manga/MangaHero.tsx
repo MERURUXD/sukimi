@@ -10,11 +10,13 @@ import { COVER_VT } from '@/lib/coverTransition'
 import { Popover } from '@/components/ui/Popover'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toast, toastError } from '@/components/ui/toast'
+import { dropFromLibraryList, refreshLibraryList } from '@/features/library/libraryList'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
 import { FavoriteButton } from '@/features/favorite/FavoriteButton'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
+import { httpUrl } from '@/lib/url'
 import { cn } from '@/lib/cn'
 import { TrackDialog } from '@/features/tracking/TrackPanel'
 import { TrackSummary } from '@/features/tracking/TrackSummary'
@@ -86,11 +88,20 @@ export function MangaHero({
 
   const applyLibrary = async () => {
     setSame(null)
+    const next = !manga.inLibrary
     try {
-      await setInLibrary({ variables: { id: manga.id, inLibrary: !manga.inLibrary }, refetchQueries: ['LibraryMangas'] })
-      toast(manga.inLibrary ? '已移出书库' : '已加入书库')
+      await setInLibrary({
+        variables: { id: manga.id, inLibrary: next },
+        // 移出时书库页多半已经卸载，refetchQueries 刷不到那条查询
+        update: (cache, { data }) => {
+          const saved = data?.updateManga?.manga
+          if (saved && !saved.inLibrary) dropFromLibraryList(cache, [saved.id])
+        },
+      })
+      if (next) void refreshLibraryList(client)
+      toast(next ? '已加入书库' : '已移出书库')
     } catch (e) {
-      toastError(manga.inLibrary ? '移出书库失败' : '加入书库失败', e)
+      toastError(next ? '加入书库失败' : '移出书库失败', e)
     }
   }
 
@@ -271,12 +282,13 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
   useEffect(() => {
     if (open && !mobile) document.getElementById(panelId)?.querySelector<HTMLElement>('button:not(:disabled), a')?.focus({ preventScroll: true })
   }, [open, mobile, categories, panelId])
+  const sourceUrl = httpUrl(manga.realUrl)
   const content = categories ? <>
     <button type="button" className="opt font-semibold" onClick={() => setCategories(false)}><ChevronLeft className="size-5" />返回更多操作</button>
     <CategoryChoices manga={manga} />
   </> : <>
     <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? '正在刷新…' : '刷新信息与章节'}</button>
-    {manga.realUrl && <a className="opt no-underline" href={manga.realUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
+    {sourceUrl && <a className="opt no-underline" href={sourceUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
     <NsfwItem manga={manga} />
     {manga.inLibrary && <>
       <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />管理分类</button>

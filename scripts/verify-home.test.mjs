@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { homeBlockState } from '../src/features/home/queryState.ts'
 import { isRecent, isStale, notStarted, pick, pickBatch, STALE_DAYS } from '../src/features/home/picks.ts'
 import { hiddenKey } from '../src/features/history/history.ts'
 import { readingTarget } from '../src/features/home/reading.ts'
@@ -164,6 +165,15 @@ test('首页偏好：顺序忽略未知项、去重并补全，已有合法顺�
   assert.deepEqual(normalizeHomeOrder('gallery'), [...HOME_SECTION_ORDER])
   const order = [...HOME_SECTION_ORDER].reverse()
   assert.deepEqual(normalizeHomeOrder(order), order)
+})
+
+test('首页请求失败且没有数据时是错误，不是一直在加载；有数据时保留并标成未同步', () => {
+  assert.equal(homeBlockState(false, false, true), 'error')
+  assert.equal(homeBlockState(false, true, true), 'error')
+  assert.equal(homeBlockState(false, true, false), 'loading')
+  assert.equal(homeBlockState(false, false, false), 'empty')
+  assert.equal(homeBlockState(true, false, true), 'stale')
+  assert.equal(homeBlockState(true, true, false), 'ready')
 })
 
 test('首页偏好：连续移动保留全部模块，边界不丢项、不修改输入', () => {

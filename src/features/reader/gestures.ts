@@ -37,6 +37,15 @@ export function zoomAround(from: Zoom, p: { x: number; y: number }, s: number): 
 /** 缩小到接近原大就直接复位，免得留下 1.02 倍这种看不出来又锁住翻页的状态 */
 export const settle = (z: Zoom): Zoom => (z.s < 1.05 ? NO_ZOOM : z)
 
+/** 这个倍数是否锁住滚轮翻页。settle 会复位的范围（含 Ctrl+滚轮停在 1.02）不算放大 */
+export const blocksWheelTurn = (scale: number) => settle({ s: scale, x: 0, y: 0 }).s > 1
+
+/** 轻扫翻页的序号加一。键盘、点击、滚轮或新的一次拖动都要加，旧定时器到点就对不上 */
+export const invalidateFlip = (generation: number) => generation + 1
+
+/** 定时器记下的序号还是不是当前这一次 */
+export const flipStillCurrent = (generation: number, scheduled: number) => generation === scheduled
+
 /**
  * 横向拖动结束时是否翻页：快速轻扫，或拖过视口宽度的 22%。
  * 返回手指移动的方向：1 = 向右（看左边那页），-1 = 向左，0 = 弹回。

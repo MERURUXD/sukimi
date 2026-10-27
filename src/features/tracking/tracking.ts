@@ -1,21 +1,54 @@
+import { httpUrl } from '../../lib/url.ts'
+
 /** 和官方网页界面用同一个回调地址：suwayomi.org 的中转页按 state.redirectUrl 跳回来 */
 export const OAUTH_PATH = '/tracker/login/oauth'
 
-/** 授权地址：带上回调地址和追踪服务，回来时才知道是哪个服务 */
-export function oauthUrl(tracker: { id: number; name: string; authUrl: string }, origin: string) {
-  const state = { redirectUrl: `${origin}${OAUTH_PATH}`, clientName: 'Sukimi', trackerId: tracker.id, trackerName: tracker.name }
-  return `${tracker.authUrl}&state=${encodeURIComponent(JSON.stringify(state))}`
+/** 这次授权写进 sessionStorage 的随机数；回调对不上就不交给服务端 */
+const OAUTH_NONCE_KEY = 'sukimi.oauth.nonce'
+
+/** 虚构验收页用页内锚点跳转，只改网址的 #，不离开当前页 */
+function samePageHash(authUrl: string) {
+  return /^#[^:?\s\\]*\?/.test(authUrl)
 }
 
-/** 回调地址里的 state；不是合法 JSON 或没有 trackerId 时返回 null */
-export function parseOAuthState(href: string): { trackerId: number; trackerName: string } | null {
+/**
+ * 授权地址。只接受已经带查询串的 http(s)，或验收页的页内锚点；
+ * 其它协议、没有 ? 的地址返回 null，避免把 &state= 接到错误的位置，也不要 location.assign 到 javascript:。
+ */
+export function oauthUrl(tracker: { id: number; name: string; authUrl: string }, origin: string): string | null {
+  const target = samePageHash(tracker.authUrl) ? tracker.authUrl : httpUrl(tracker.authUrl)
+  if (!target || !target.includes('?')) return null
+  const nonce = crypto.randomUUID()
   try {
-    const raw = new URL(href).searchParams.get('state')
-    const s = raw ? (JSON.parse(raw) as { trackerId?: unknown; trackerName?: unknown }) : null
-    if (!s || typeof s.trackerId !== 'number') return null
-    return { trackerId: s.trackerId, trackerName: typeof s.trackerName === 'string' ? s.trackerName : '' }
+    sessionStorage.setItem(OAUTH_NONCE_KEY, nonce)
   } catch {
     return null
+  }
+  const state = { redirectUrl: `${origin}${OAUTH_PATH}`, clientName: 'Sukimi', trackerId: tracker.id, trackerName: tracker.name, nonce }
+  return `${target}&state=${encodeURIComponent(JSON.stringify(state))}`
+}
+
+/** 回调地址里的 state；不是合法 JSON、没有 trackerId 或没有随机数时返回 null */
+export function parseOAuthState(href: string): { trackerId: number; trackerName: string; nonce: string } | null {
+  try {
+    const raw = new URL(href).searchParams.get('state')
+    const s = raw ? (JSON.parse(raw) as { trackerId?: unknown; trackerName?: unknown; nonce?: unknown }) : null
+    if (!s || typeof s.trackerId !== 'number' || typeof s.nonce !== 'string' || !s.nonce) return null
+    return { trackerId: s.trackerId, trackerName: typeof s.trackerName === 'string' ? s.trackerName : '', nonce: s.nonce }
+  } catch {
+    return null
+  }
+}
+
+/** 随机数和这次跳转前存下的一致才算数，用过即删 */
+export function consumeOAuthNonce(nonce: string) {
+  try {
+    const saved = sessionStorage.getItem(OAUTH_NONCE_KEY)
+    if (!saved || saved !== nonce) return false
+    sessionStorage.removeItem(OAUTH_NONCE_KEY)
+    return true
+  } catch {
+    return false
   }
 }
 

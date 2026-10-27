@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { toast, toastError } from '@/components/ui/toast'
 import { LoginTrackerOAuth } from './queries'
-import { parseOAuthState } from './tracking'
+import { consumeOAuthNonce, parseOAuthState } from './tracking'
 
 /**
  * 追踪网站授权完成后回到这里（地址里带着令牌和 state）。
@@ -19,7 +19,7 @@ export function OAuthCallback() {
     if (once.current) return
     once.current = true
     void (async () => {
-      if (!state) toast('授权回调缺少追踪服务信息，请重新登录', 'error')
+      if (!state || !consumeOAuthNonce(state.nonce)) toast('授权回调缺少追踪服务信息，请重新登录', 'error')
       else
         try {
           const r = await login({ variables: { trackerId: state.trackerId, callbackUrl: window.location.href } })

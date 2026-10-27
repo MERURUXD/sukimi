@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { groupHistory, HIDDEN_KEY, hiddenKey, hiddenValue, isVisible } from '../src/features/history/history.ts'
+import { rememberLoadedWindow } from '../src/api/paging.ts'
+import { groupHistory, HIDDEN_KEY, hiddenKey, hiddenValue, isVisible, visibleHistoryCount } from '../src/features/history/history.ts'
 import { ApolloClient, ApolloLink, Observable, gql } from '@apollo/client'
 import { firstValueFrom, filter } from 'rxjs'
 import { createCache } from '../src/api/cache.ts'
@@ -93,7 +94,9 @@ async function more(query, offset) {
       chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
     }),
   })
-  await firstValueFrom(query.pipe(filter(value => !value.loading && value.data?.chapters.nodes.length === offset + result.data.chapters.nodes.length)))
+  const loaded = offset + result.data.chapters.nodes.length
+  rememberLoadedWindow(query, loaded, HISTORY_PAGE)
+  await firstValueFrom(query.pipe(filter(value => !value.loading && value.data?.chapters.nodes.length === loaded)))
 }
 
 test('历史分页返回：首帧和刷新响应都保留已加载范围，继续分页仍每次一百条', async () => {
@@ -126,6 +129,49 @@ test('历史分页返回：首帧和刷新响应都保留已加载范围，继�
       assert.equal(new Set(result.nodes.map(c => c.id)).size, 260)
       assert.equal(result.pageInfo.hasNextPage, false)
     } finally { back.unsubscribe() }
+  } finally { subscription.unsubscribe(); client.stop() }
+})
+
+test('同一次停留里翻页后再刷新，列表不会缩回第一页', async () => {
+  const { client, requests, watch } = fixture(160)
+  const query = watch()
+  const subscription = query.subscribe(() => {})
+  try {
+    await ready(query)
+    await more(query, 100)
+    const loaded = query.getCurrentResult().data.chapters.nodes.length
+    assert.equal(loaded, 160)
+    await query.refetch()
+    const again = query.getCurrentResult().data.chapters.nodes.length
+    assert.ok(again >= loaded, `刷新后只剩 ${again} 条`)
+    assert.ok(requests.at(-1).first >= loaded)
+    assert.equal(requests.at(-1).offset, 0)
+    const ids = query.getCurrentResult().data.chapters.nodes.map((chapter) => chapter.id)
+    assert.equal(new Set(ids).size, again)
+  } finally { subscription.unsubscribe(); client.stop() }
+})
+
+test('写入隐藏标记后，页头计数跟着可见条数走，服务端总数不变', async () => {
+  const { client, watch } = fixture(160)
+  const query = watch()
+  const subscription = query.subscribe(() => {})
+  try {
+    await ready(query)
+    await more(query, 100)
+    const before = query.getCurrentResult().data.chapters
+    assert.deepEqual(visibleHistoryCount(before.totalCount, before.nodes, USER), { total: 160, loaded: 160 })
+    const first = before.nodes[0]
+    const key = hiddenKey(USER)
+    client.cache.modify({
+      id: client.cache.identify({ __typename: 'ChapterType', id: first.id }),
+      fields: {
+        meta: () => [{ __typename: 'ChapterMetaType', chapterId: first.id, key, value: first.lastReadAt }],
+      },
+    })
+    const next = client.cache.readQuery({ query: HistoryDocument, variables: { first: HISTORY_PAGE, offset: 0 } })
+    assert.equal(next.chapters.totalCount, 160)
+    assert.equal(isVisible(next.chapters.nodes[0], USER), false)
+    assert.deepEqual(visibleHistoryCount(next.chapters.totalCount, next.chapters.nodes, USER), { total: 159, loaded: 159 })
   } finally { subscription.unsubscribe(); client.stop() }
 })
 
