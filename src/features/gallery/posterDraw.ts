@@ -10,11 +10,11 @@ import { bestRun, kpiData, type KpiBar } from './stats'
 /*
  * 用画布直接画出分享海报（1080 × 1350 的 PNG），不加依赖。
  * 只用画布 2D 的仿射变换、渐变和阴影：不用透视，也不用 ctx.filter（手机 Safari 不支持）。
- * 拉丁字母和数字用应用自带的 Space Grotesk，中文走系统字体。封面和页面同源，画完可以导出。
+ * 字体是应用自带的同源字体，封面和页面同源，画完可以导出。
  */
 
-const SANS = '"Space Grotesk Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", sans-serif'
-const CJK = '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "Source Han Sans SC", sans-serif'
+const SANS = '"Space Grotesk Variable", "Noto Sans SC Variable", "Microsoft YaHei", sans-serif'
+const CJK = '"Noto Sans SC Variable", "Microsoft YaHei", sans-serif'
 const BG = '#0b0b0d'
 const INK = '#f4f4f5'
 const ink = (a: number) => `rgba(244,244,245,${a})`
@@ -38,12 +38,12 @@ function text(ctx: Ctx, s: string, x: number, y: number, color: string, align: C
 }
 
 /**
- * Space Grotesk 按 unicode-range 分片加载，没在页面上出现过的字母所在的分片还没下载：
- * 把海报上要画的字交给 document.fonts.load，取完再画。中文用系统字体，不在这里等待。
+ * 字体按 unicode-range 分片加载，没在页面上出现过的字所在的分片还没下载：
+ * 把海报上要画的字都交给 document.fonts.load，取完再画，否则会先用系统字体画出来
  */
 async function loadFonts(strings: readonly string[]) {
   const chars = [...new Set(strings.join(''))].join('')
-  const specs = [400, 500, 700, 900].map((w) => `${w} 40px "Space Grotesk Variable"`)
+  const specs = [400, 500, 700, 900].flatMap((w) => [`${w} 40px "Noto Sans SC Variable"`, `${w} 40px "Space Grotesk Variable"`])
   await Promise.all(specs.map((s) => document.fonts.load(s, chars).catch(() => [])))
 }
 
