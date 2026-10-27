@@ -1,13 +1,13 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, ListChecks, Loader2, Minus, Plus, RefreshCw, Search, Unlink, X } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
+import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { toast, toastError } from '@/components/ui/toast'
 import { StaleSessionError } from '@/api/userContext'
-import { spring } from '@/design/motion'
 import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select, Switch } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
@@ -39,12 +39,7 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
   const client = useApolloClient()
   const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null)
   const loggedIn = trackers?.filter((t) => t.isLoggedIn) ?? []
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  const pop = usePopMotion()
 
   const sync = async (dir: 'push' | 'pull') => {
     setSyncing(dir)
@@ -64,17 +59,10 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
   }
 
   return (
-    <div className="fixed inset-0 z-[70] grid place-items-center p-4" role="presentation">
-      <motion.div className="absolute inset-0 bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+    <Dialog label="追踪" onClose={onClose}>
       <MotionGlass
         dense
-        role="dialog"
-        aria-modal="true"
-        aria-label="追踪"
-        initial={{ opacity: 0, scale: 0.94, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={spring.fast}
+        {...pop}
         className="no-scrollbar relative flex max-h-[calc(100dvh-32px)] w-[min(560px,100%)] flex-col gap-6 overflow-y-auto overscroll-contain rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
       >
         <div className="flex items-center gap-3">
@@ -124,7 +112,7 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
           )
         })}
       </MotionGlass>
-    </div>
+    </Dialog>
   )
 }
 

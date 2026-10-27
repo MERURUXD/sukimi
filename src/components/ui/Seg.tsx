@@ -1,4 +1,4 @@
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
@@ -31,6 +31,7 @@ export function Seg<T extends string | number>({
   suspendRefract?: boolean
 }) {
   const layoutId = useId()
+  const reduced = useReducedMotion()
   const root = useRef<HTMLDivElement>(null)
   // 选项放不下时 .seg 内部横向滚动：哪一侧还有内容，那一侧边缘渐隐作提示
   const [fade, setFade] = useState<'l' | 'r' | 'lr' | undefined>()
@@ -58,14 +59,17 @@ export function Seg<T extends string | number>({
     if (!el || !on) return
     const left = on.offsetLeft - 8
     const right = on.offsetLeft + on.offsetWidth + 8
-    if (left < el.scrollLeft) el.scrollTo({ left, behavior: 'smooth' })
-    else if (right > el.scrollLeft + el.clientWidth) el.scrollTo({ left: right - el.clientWidth, behavior: 'smooth' })
-  }, [value])
+    const behavior = reduced ? 'auto' : 'smooth'
+    if (left < el.scrollLeft) el.scrollTo({ left, behavior })
+    else if (right > el.scrollLeft + el.clientWidth) el.scrollTo({ left: right - el.clientWidth, behavior })
+  }, [value, reduced])
   const body = items.map((it) => {
     const on = it.value === value
     return (
       <button key={String(it.value)} type="button" aria-pressed={on} onClick={() => onChange(it.value)}>
-        {on && <motion.span layoutId={layoutId} transition={spring.fast} className="seg-on" />}
+        {on && (reduced
+          ? <span className="seg-on" />
+          : <motion.span layoutId={layoutId} transition={spring.fast} className="seg-on" />)}
         {it.label}
         {it.count != null && <span className="c num">{it.count.toLocaleString('en-US')}</span>}
       </button>

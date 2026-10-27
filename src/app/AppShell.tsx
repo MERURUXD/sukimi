@@ -89,11 +89,23 @@ export function AppShell() {
     // overflow-x: clip：滑入时 main 暂时比屏幕宽，不能撑出横向滚动条
     <MovingGlassBackdrop value={pathname === '/' || pathname.startsWith('/library/gallery')}>
     <div className={cn('app-shell relative isolate min-h-dvh overflow-x-clip', tabbar && 'has-tabbar')}>
+      <a
+        href="#main"
+        className="skip-link"
+        onClick={(e) => {
+          const el = main.current
+          if (!el) return
+          e.preventDefault()
+          el.focus()
+        }}
+      >
+        跳到内容
+      </a>
       <TopNav />
       <SideNav />
       {/* 导航悬浮在内容之上；详情页的封面背景会延伸到导航下面 */}
       {/* data-page-path：封面飞回动画用来判断「从哪页回到哪页」，见 lib/coverTransition */}
-      <main ref={main} className="pt-[var(--nav-h)] pb-[var(--tabbar-h)]" data-page-path={pathname}>
+      <main id="main" tabIndex={-1} ref={main} className="pt-[var(--nav-h)] pb-[var(--tabbar-h)] outline-none" data-page-path={pathname}>
         <Outlet />
       </main>
       {tabbar && <MobileTabBar />}

@@ -17,6 +17,9 @@ export const fade = {
   slow: { duration: 0.3, ease: [0.2, 0, 0, 1] },
 } satisfies Record<string, Transition>
 
+/** 系统开启「减少动态效果」时用：不位移、不缩放 */
+export const still = { duration: 0 } satisfies Transition
+
 /**
  * 弹出层从触发按钮长出来（components/ui/Popover.tsx）：展开带一点回弹，收起干脆不回弹。
  * 位移和缩放保持布局尺寸不变，另有圆角补偿重绘；折射位移图不用逐帧重画。
