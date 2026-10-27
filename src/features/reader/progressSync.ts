@@ -90,8 +90,9 @@ export function useProgressSync(mangaId: number, chapter: Chapter, page: number,
       },
     })
       .then(() => {
-        if (my !== latest.current || !mounted.current) return
-        setSynced(p.page)
+        if (my !== latest.current) return
+        // 换话会先卸载阅读页，不能因此跳过已经保存成功的追踪同步；只停止更新页面状态。
+        if (mounted.current) setSynced(p.page)
         // 读完一话顺带推到追踪网站，详情页的追踪进度随之刷新。补写同一页时不再推一次
         if (p.read && reported.current !== p) {
           reported.current = p

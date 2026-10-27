@@ -392,3 +392,41 @@ check('打开已读话停在起始页时不把上次的页码写成 0，翻页�
     assert.equal(turned.view.current.synced, 2)
   } finally { await turned.unmount() }
 })
+
+check('换到下一话后才收到保存响应，仍同步追踪进度', async () => {
+  const ui = mount({ chapter: base, page: 4, last: 19, hold: true })
+  const before = tracks.length
+  let unmounted = false
+  try {
+    await ui.render()
+    await ui.leave({ sourceOrder: 6 })
+    await ui.unmount()
+    unmounted = true
+    await ui.release(0)
+    assert.equal(ui.server.isRead, true)
+    assert.equal(ui.cached().lastPageRead, 19)
+    assert.deepEqual(tracks.slice(before), [7], '卸载阅读页面不应取消已经成功保存的追踪同步')
+  } finally { if (!unmounted) await ui.unmount() }
+})
+
+check('换话并卸载后的旧响应补写保留已读，追踪只推送一次', async () => {
+  const ui = mount({ chapter: base, page: 4, last: 19, hold: true })
+  const before = tracks.length
+  let unmounted = false
+  try {
+    await ui.render()
+    await ui.advance(650)
+    await ui.leave({ sourceOrder: 6 })
+    await ui.unmount()
+    unmounted = true
+    await ui.release(1)
+    await ui.release(0)
+    assert.equal(ui.waiting.length, 1, '旧响应后到时应补写换话时确定的末页')
+    await ui.release(0)
+    assert.deepEqual(ui.sent.map(p => p.lastPageRead), [19, 4, 19])
+    assert.equal(ui.server.isRead, true)
+    assert.equal(ui.server.lastPageRead, 19)
+    assert.equal(ui.cached().lastPageRead, 19)
+    assert.deepEqual(tracks.slice(before), [7], '修正旧响应的补写不应重复追踪同步')
+  } finally { if (!unmounted) await ui.unmount() }
+})
