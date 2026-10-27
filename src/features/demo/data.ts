@@ -19,8 +19,16 @@ function cover(title: string, i: number) {
   </svg>`)
 }
 
-/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读；大书库的章节页数更多，画面按六页循环，页码照实际页数 */
-function storyPage(title: string, index: number, total = 6) {
+/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读；大书库的章节页数更多，画面按六页循环，页码照实际页数。wide 是跨页横幅，用来看拆页。 */
+function storyPage(title: string, index: number, total = 6, wide = false) {
+  if (wide) {
+    return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+      <rect width="1400" height="900" fill="#f3efe5"/>
+      <rect x="70" y="70" width="1260" height="740" fill="#d1dcda"/>
+      <text x="700" y="430" font-size="42" text-anchor="middle" fill="#303735" font-family="sans-serif">${title}</text>
+      <text x="700" y="500" font-size="28" text-anchor="middle" fill="#303735" font-family="sans-serif">跨页 ${index + 1} / ${total}</text>
+    </svg>`)
+  }
   const page = index % 6
   const lines = ['清晨，一封没有地址的信来到了邮局。', '「把它送到云海另一端吧。」', '列车穿过森林，山风翻动着信封。', '在最后一站，小猫已经等了很久。', '原来，最远的地方也有人等你。', '明天，我们再出发。']
   return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1300" viewBox="0 0 900 1300">
@@ -48,6 +56,8 @@ interface DemoChapter {
   isRead: boolean; isBookmarked: boolean; isDownloaded: boolean; scanlator: string; manga: DemoManga;
   /** 本地缓存的真实章节才有，缺省时用生成的演示页。 */
   pages?: string[];
+  /** 每隔这么多页插入一张横幅，给拆页演示用；缺省则全是竖页。 */
+  wideStride?: number;
   meta: { chapterId: number; key: string; value: string }[];
 }
 interface DemoManga {
@@ -242,8 +252,30 @@ function rhythmTimes(i: number, n: number, now: number) {
   return { uploadDate: r.noUpload ? '0' : String(upload), fetchedAt: String(Math.floor(fetched / 1000)) }
 }
 
+/** 开发环境与 Preview 的 `?long=1`：多一部 180 页的虚构长话，用来量纵向阅读的窗口渲染。默认演示不包含。 */
+export const LONG_MANGA_ID = 6101
+export const LONG_CHAPTER_ID = 6_101_801
+const LONG_PAGES = 180
+
+function longRead(now: number, categories: Category[], makeManga: MakeManga) {
+  const chapters: DemoChapter[] = []
+  const m = makeManga({
+    id: LONG_MANGA_ID, title: '一百八十页的长信', thumbnailUrl: cover('长信', 0), author: 'Sukimi 演示画室', artist: 'Sukimi 演示画室',
+    description: '一话一百八十页的虚构章节，只在 ?long=1 时出现，用来测量纵向连续阅读。',
+    genre: ['日常'], status: 'ONGOING', realUrl: null, initialized: true, inLibrary: false, inLibraryAt: '0',
+    source: SOURCE, categories: { nodes: [categories[0]] }, meta: [],
+  }, chapters)
+  chapters.push({
+    id: LONG_CHAPTER_ID, mangaId: m.id, manga: m, name: '一封很长的信', chapterNumber: 1, sourceOrder: 1,
+    pageCount: LONG_PAGES, lastPageRead: 0, lastReadAt: '0', isRead: false, isBookmarked: false, isDownloaded: false,
+    scanlator: '演示画室', meta: [], wideStride: 15,
+    fetchedAt: String(Math.floor(now / 1000)), uploadDate: String(now),
+  })
+  return m
+}
+
 /** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
-export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0, edge = false }: { scale?: number; edge?: boolean } = {}) {
+export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0, edge = false, long = false }: { scale?: number; edge?: boolean; long?: boolean } = {}) {
   const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }, ...(edge ? EDGE_CATEGORIES : [])]
   /** 各项统计都按章节现算，改了已读、书签后跟着变 */
   const makeManga: MakeManga = (fields, chapters) => {
@@ -325,6 +357,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     mangas.push(m)
   })
   if (scale > 0) mangas.push(...scaledLibrary(scale, now, categories, makeManga))
+  if (long) mangas.push(longRead(now, categories, makeManga))
   if (edge) {
     mangas.push(...edgeLibrary(now, categories, makeManga))
     // 大书库里再混进不在任何分类、同时在三个分类的作品；不消耗随机数，同样规模的其余数据不变
@@ -442,7 +475,7 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     fetchMangaAndChapters: ({ input }: { input: { id: number } }) => ({ manga: findManga(input.id), chapters: findManga(input.id).chapters.nodes }),
     fetchChapterPages: ({ input }: { input: { chapterId: number } }) => {
       const c = findChapter(input.chapterId)
-      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i, c.pageCount)) }
+      return { chapter: c, pages: c.pages ?? Array.from({ length: c.pageCount }, (_, i) => storyPage(c.manga.title, i, c.pageCount, !!c.wideStride && c.wideStride > 0 && i % c.wideStride === 0)) }
     },
     updateChapter: ({ input }: { input: { id: number; patch: Partial<DemoChapter> } }) => ({ chapter: patchChapter(input.id, input.patch) }),
     updateChapters: ({ input }: { input: { ids: number[]; patch: Partial<DemoChapter> } }) => ({ chapters: input.ids.map((id) => patchChapter(id, input.patch)) }),

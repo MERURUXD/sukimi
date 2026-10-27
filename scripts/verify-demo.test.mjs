@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { buildSchema, executeSync } from 'graphql'
 import * as docs from '../src/api/gql/graphql.ts'
-import { createDemoData } from '../src/features/demo/data.ts'
+import { createDemoData, LONG_MANGA_ID } from '../src/features/demo/data.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 const run = (rootValue, document, variableValues) => executeSync({ schema, rootValue, document, variableValues })
@@ -100,6 +100,19 @@ test('边界作品：缺封面、零话、五千话和分类组合都能通过�
   const plain = createDemoData(now, [], { scale: 50 })
   assert.equal(ok(plain, docs.CategoriesDocument).categories.nodes.length, 2)
   assert.equal(ok(plain, docs.LibraryMangasDocument).mangas.nodes.length, 60)
+})
+
+test('默认演示没有长话；long 选项有一话至少 150 页，并且夹着跨页', () => {
+  assert.throws(() => createDemoData().manga({ id: LONG_MANGA_ID }))
+  const root = createDemoData(1, [], { long: true })
+  const manga = root.manga({ id: LONG_MANGA_ID })
+  assert.equal(manga.inLibrary, false)
+  const chapter = manga.chapters.nodes[0]
+  assert.ok(chapter.pageCount >= 150)
+  const pages = root.fetchChapterPages({ input: { chapterId: chapter.id } }).pages.map(decodeURIComponent)
+  assert.equal(pages.length, chapter.pageCount)
+  assert.ok(pages.filter(page => page.includes('width="1400"')).length >= 8)
+  assert.equal(ok(createDemoData(), docs.LibraryMangasDocument).mangas.totalCount, 10)
 })
 
 test('大书库章节页数超过六页时，阅读页按实际页数生成', () => {
