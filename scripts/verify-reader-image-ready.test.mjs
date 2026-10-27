@@ -219,6 +219,57 @@ test('还在处理的原图不会被缓存淘汰后再解码一次', async () =>
   assert.equal(cache.loads('kept'), 1)
 })
 
+function warmModule() {
+  const source = readFileSync(new URL('../src/features/reader/pageCache.ts', import.meta.url), 'utf8')
+  const exports = {}
+  const shared = new Map()
+  class SyncImage {
+    complete = false
+    naturalWidth = 0
+    naturalHeight = 0
+    set src(_) {
+      this.complete = true
+      this.naturalWidth = 900
+      this.naturalHeight = 1300
+    }
+    addEventListener() {}
+  }
+  runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 } }).outputText, {
+    exports,
+    require(name) {
+      if (name !== './imageLoad' && name !== './queries') throw new Error(name)
+      if (name === './queries') return {}
+      return {
+        acquireImage(url) {
+          let img = shared.get(url)
+          if (!img) {
+            img = new SyncImage()
+            img.src = url
+            shared.set(url, img)
+          }
+          return img
+        },
+        forgetImage(url) { shared.delete(url) },
+      }
+    },
+  })
+  return exports
+}
+
+test('已经预加载过的图不再重复通知宽高比，忘掉之后才会再通知', () => {
+  const { warm, forgetWarm, aspectOf } = warmModule()
+  const url = 'http://demo.local/warm-once.svg'
+  let notices = 0
+  const notify = () => { notices++ }
+  warm(url, notify)
+  warm(url, notify)
+  assert.equal(notices, 1)
+  assert.equal(aspectOf(url), 900 / 1300)
+  forgetWarm(url)
+  warm(url, notify)
+  assert.equal(notices, 2)
+})
+
 test('处理失败后重试重新请求原图，成功后再给出新的结果', async () => {
   const cache = imageCache({ failed: true, unique: true })
   const v = { crop: true, rtl: false }

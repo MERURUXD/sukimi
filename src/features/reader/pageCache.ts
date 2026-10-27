@@ -38,19 +38,18 @@ export function forgetWarm(url: string) {
   forgetImage(url)
 }
 
-/** 预加载图片（同源 Cookie 鉴权）。同一地址和裁边、预解码共用一张图。 */
+/** 预加载图片（同源 Cookie 鉴权）。同一地址和裁边、预解码共用一张图。宽高比只通知一次，避免阅读页的预取效果来回触发。 */
 export function warm(url: string, onAspect?: () => void) {
+  if (warmed.has(url)) return
+  warmed.add(url)
   const img = acquireImage(url)
   const apply = () => {
     rememberAspect(url, img)
     onAspect?.()
   }
-  if (img.complete && img.naturalWidth) {
-    warmed.add(url)
-    apply()
+  if (img.complete) {
+    if (img.naturalWidth) apply()
     return
   }
-  if (warmed.has(url)) return
-  warmed.add(url)
   img.addEventListener('load', apply, { once: true })
 }
