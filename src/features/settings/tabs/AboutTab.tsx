@@ -6,6 +6,7 @@ import { graphql } from '@/api/gql'
 import { toast, toastError } from '@/components/ui/toast'
 import { checkForUpdate } from '@/app/UpdatePrompt'
 import { isPreview } from '@/lib/channel'
+import { httpUrl } from '@/lib/url'
 import { formatDate } from '@/lib/format'
 import { Row, Section } from '../parts'
 import { AccountSection } from './AccountSection'
@@ -65,6 +66,9 @@ export function AboutTab() {
   }
 
   const newer = updates?.filter((u) => a && u.tag !== a.version) ?? []
+  const download = httpUrl(newer[0]?.url)
+  const github = httpUrl(a?.github)
+  const discord = httpUrl(a?.discord)
 
   return (
     <>
@@ -95,8 +99,8 @@ export function AboutTab() {
           }
         >
           <div className="flex gap-2.5">
-            {newer[0] && (
-              <a className="gbtn rounded-full bg-accent-soft no-underline" href={newer[0].url} target="_blank" rel="noreferrer">
+            {download && (
+              <a className="gbtn rounded-full bg-accent-soft no-underline" href={download} target="_blank" rel="noreferrer">
                 <ExternalLink className="size-[18px]" strokeWidth={1.8} />
                 下载页
               </a>
@@ -110,12 +114,16 @@ export function AboutTab() {
         {a && (
           <Row label="项目主页">
             <div className="flex gap-3 text-sm">
-              <a href={a.github} target="_blank" rel="noreferrer" className="text-muted hover:text-text">
-                GitHub
-              </a>
-              <a href={a.discord} target="_blank" rel="noreferrer" className="text-muted hover:text-text">
-                Discord
-              </a>
+              {github && (
+                <a href={github} target="_blank" rel="noreferrer" className="text-muted hover:text-text">
+                  GitHub
+                </a>
+              )}
+              {discord && (
+                <a href={discord} target="_blank" rel="noreferrer" className="text-muted hover:text-text">
+                  Discord
+                </a>
+              )}
             </div>
           </Row>
         )}

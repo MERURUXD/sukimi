@@ -20,6 +20,14 @@ export const Sources = graphql(`
 
 export type Source = SourcesQuery['sources']['nodes'][number]
 
+/** 发现页角标只看缓存里的在库状态，不把来源结果上的副本当成最新值 */
+export const MangaInLibrary = graphql(`
+  fragment MangaInLibrary on MangaType {
+    id
+    inLibrary
+  }
+`)
+
 export const FetchSourceManga = graphql(`
   mutation FetchSourceManga($source: LongString!, $type: FetchSourceMangaType!, $page: Int!, $query: String, $filters: [FilterChangeInput!]) {
     fetchSourceManga(input: { source: $source, type: $type, page: $page, query: $query, filters: $filters }) {

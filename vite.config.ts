@@ -1,12 +1,13 @@
 import { execSync } from 'node:child_process'
-import { createReadStream, existsSync } from 'node:fs'
-import { join, normalize } from 'node:path'
+import { createReadStream } from 'node:fs'
+import { join } from 'node:path'
 import { fileURLToPath, URL } from 'node:url'
 import { babelOptimizerPlugin } from '@graphql-codegen/client-preset'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
+import { openComicsFile } from './scripts/open-comics-path.ts'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode, command }) => {
@@ -48,8 +49,8 @@ export default defineConfig(({ mode, command }) => {
       configureServer(server) {
         const root = join(process.cwd(), '.cache', 'open-comics')
         server.middlewares.use('/dev-data/open-comics', (req, res, next) => {
-          const file = normalize(join(root, decodeURIComponent((req.url ?? '/').split('?')[0])))
-          if (!file.startsWith(root) || !existsSync(file)) return next()
+          const file = openComicsFile(root, req.url)
+          if (!file) return next()
           res.setHeader('Content-Type', file.endsWith('.json') ? 'application/json' : 'image/jpeg')
           createReadStream(file).pipe(res)
         })

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { onlineSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
-import { buildSchema, experimentalExecuteIncrementally as execute, validate } from 'graphql'
+import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
+import { fetchSourceMangas, globalSearchSources, onlineSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
+import { libraryMark } from '../src/features/browse/libraryMark.ts'
+import { buildSchema, experimentalExecuteIncrementally as execute, parse, validate } from 'graphql'
 import { SourceFiltersDocument, FetchSourceMangaDocument } from '../src/api/gql/graphql.ts'
 import { defaultValue, filterChanges, filterValues, hasIncompleteFilters, sourceBrowseKey } from '../src/features/browse/filters.ts'
 import { createCache } from '../src/api/cache.ts'
@@ -181,4 +183,50 @@ test('发现页全局搜索：排除本地源（id=0），区分成功与失败�
     '103': { status: 'error', items: [] },
   }
   assert.deepEqual(sourcesToFetch(online, settled, ['102']).map((s) => s.id), ['102'])
+})
+
+test('全局搜索跳过当前正在浏览的源', () => {
+  const online = [{ id: '101' }, { id: '102' }, { id: '103' }]
+  assert.deepEqual(globalSearchSources(online, '102').map((source) => source.id), ['101', '103'])
+  assert.deepEqual(globalSearchSources(online, undefined).map((source) => source.id), ['101', '102', '103'])
+})
+
+test('在库标记以缓存为准，缓存还没有这部漫画时用来源结果', () => {
+  assert.equal(libraryMark(true, false), true)
+  assert.equal(libraryMark(false, true), false)
+  assert.equal(libraryMark(undefined, true), true)
+})
+
+test('来源抓取不盖掉缓存里已有的漫画', async () => {
+  const mark = parse('fragment Mark on MangaType { id title inLibrary }')
+  const cache = createCache()
+  const client = new ApolloClient({
+    cache,
+    link: new ApolloLink((op) => new Observable((observer) => {
+      assert.equal(op.operationName, 'FetchSourceManga')
+      observer.next({
+        data: {
+          fetchSourceManga: {
+            __typename: 'FetchSourceMangaPayload',
+            hasNextPage: false,
+            mangas: [{ __typename: 'MangaType', id: 1, title: '来源标题', thumbnailUrl: null, author: null, inLibrary: false }],
+          },
+        },
+      })
+      observer.complete()
+    })),
+  })
+  const id = cache.identify({ __typename: 'MangaType', id: 1 })
+  cache.writeFragment({
+    id,
+    fragment: mark,
+    data: { __typename: 'MangaType', id: 1, title: '书库标题', inLibrary: true },
+  })
+  try {
+    const { data } = await fetchSourceMangas(client, { source: '9000', type: 'POPULAR', page: 1 })
+    assert.equal(data?.fetchSourceManga?.mangas[0].inLibrary, false)
+    const stored = cache.readFragment({ id, fragment: mark })
+    assert.equal(stored.title, '书库标题')
+    assert.equal(stored.inLibrary, true)
+  } finally { client.stop() }
 })

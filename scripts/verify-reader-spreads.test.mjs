@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildSpreads, nextOf, pickSpread, prevOf, spreadOf } from '../src/features/reader/spreads.ts'
+import { buildSpreads, nextOf, pickSpread, pinAfterStep, prevOf, spreadOf } from '../src/features/reader/spreads.ts'
 
 const P = 0.7 // 竖页
 const W = 1.5 // 横向跨页
@@ -61,6 +61,17 @@ test('前面的页后加载出横页，正在看的这一屏不会变', () => {
   later[20] = W
   const wide = buildSpreads(30, true, true, later)
   assert.deepEqual(pickSpread(wide, 20, shown, later, 30), [20])
+})
+
+test('单页翻页不留下一页钉子，切到双页后仍是两页', () => {
+  const spreads = buildSpreads(6, true, false, [])
+  // 单页翻到第 2 页：不写钉子。若写成 [1]，双页会一直只显示这一页
+  assert.equal(pinAfterStep(false, [1]), null)
+  assert.deepEqual(pickSpread(spreads, 1, pinAfterStep(false, [1]), [], 6), [0, 1])
+  assert.deepEqual(pickSpread(spreads, 1, [1], [], 6), [1])
+  // 双页翻页仍然钉住这一屏
+  assert.deepEqual(pinAfterStep(true, [2, 3]), [2, 3])
+  assert.deepEqual(pickSpread(spreads, 2, pinAfterStep(true, [2, 3]), [], 6), [2, 3])
 })
 
 test('钉住的拼版：必须包含当前页，且不能含横页', () => {

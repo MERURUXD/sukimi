@@ -1,7 +1,18 @@
+import type { ApolloClient } from '@apollo/client'
 import { useApolloClient } from '@apollo/client/react'
 import { useCallback, useEffect, useState } from 'react'
-import { FetchSourceMangaDocument } from '../../api/gql/graphql.ts'
+import { FetchSourceMangaDocument, type FetchSourceMangaMutationVariables } from '../../api/gql/graphql.ts'
 import type { Source, SourceManga } from './queries'
+
+/** 来源结果只给发现页用。写进规范化缓存会用这几个字段盖掉书库里同一部漫画，慢响应还可能盖住刚改的 inLibrary。 */
+export function fetchSourceMangas(client: Pick<ApolloClient, 'mutate'>, variables: FetchSourceMangaMutationVariables) {
+  return client.mutate({ mutation: FetchSourceMangaDocument, variables, fetchPolicy: 'no-cache' })
+}
+
+/** 当前正在浏览的源由源列表自己请求，全局搜索不再打同一页。 */
+export function globalSearchSources<T extends { id: string }>(sources: readonly T[], currentId: string | undefined) {
+  return currentId ? sources.filter((source) => source.id !== currentId) : [...sources]
+}
 
 export type SearchResults = Record<string, { status: 'loading' | 'done' | 'error'; items: SourceManga[] }>
 
@@ -85,7 +96,7 @@ export function useMultiSourceSearch(q: string, sources: readonly Source[], memo
       for (let s = queue.shift(); s && alive; s = queue.shift()) {
         const id = s.id
         try {
-          const { data } = await client.mutate({ mutation: FetchSourceMangaDocument, variables: { source: id, type: 'SEARCH', page: 1, query: q } })
+          const { data } = await fetchSourceMangas(client, { source: id, type: 'SEARCH', page: 1, query: q })
           if (alive) put(id, { status: 'done', items: data?.fetchSourceManga?.mangas ?? [] })
         } catch {
           if (alive) put(id, { status: 'error', items: [] })

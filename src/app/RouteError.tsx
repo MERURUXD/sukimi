@@ -1,5 +1,10 @@
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
 
+/** 懒加载路由的首屏占位。直接打开这些页面时，分包回来之前先显示这句话 */
+export function RoutePending() {
+  return <p className="wrap py-24 text-center text-muted">正在打开…</p>
+}
+
 /** 页面出错时的兜底：给出错误信息和回首页的路 */
 export function RouteError() {
   const error = useRouteError()

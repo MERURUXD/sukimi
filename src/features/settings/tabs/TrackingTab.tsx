@@ -31,9 +31,17 @@ function TrackerRow({ t }: { t: Tracker }) {
   const oauth = !!t.authUrl
 
   const signIn = () => {
+    if (!oauth) {
+      setForm({ username: '', password: '' })
+      return
+    }
     // 跳到追踪网站授权，完成后回到 /tracker/login/oauth（features/tracking/OAuthCallback）
-    if (oauth) window.location.assign(oauthUrl({ id: t.id, name: t.name, authUrl: t.authUrl! }, window.location.origin))
-    else setForm({ username: '', password: '' })
+    const url = oauthUrl({ id: t.id, name: t.name, authUrl: t.authUrl! }, window.location.origin)
+    if (!url) {
+      toast('无法打开授权页面', 'error')
+      return
+    }
+    window.location.assign(url)
   }
 
   const signOut = async () => {
