@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { runInNewContext } from 'node:vm'
 import ts from 'typescript'
@@ -52,8 +53,8 @@ test('正式构建产物不含 Preview 写入警告', { timeout: 180_000 }, asyn
   process.env.SUKIMI_CHANNEL = 'production'
   try {
     await build({
-      root: new URL('..', import.meta.url).pathname,
-      configFile: new URL('../vite.config.ts', import.meta.url).pathname,
+      root: fileURLToPath(new URL('..', import.meta.url)),
+      configFile: fileURLToPath(new URL('../vite.config.ts', import.meta.url)),
       build: { outDir, emptyOutDir: true, sourcemap: false },
       logLevel: 'warn',
     })
