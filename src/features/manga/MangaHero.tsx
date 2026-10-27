@@ -16,6 +16,7 @@ import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
 import { FavoriteButton } from '@/features/favorite/FavoriteButton'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
+import { httpUrl } from '@/lib/url'
 import { cn } from '@/lib/cn'
 import { TrackDialog } from '@/features/tracking/TrackPanel'
 import { TrackSummary } from '@/features/tracking/TrackSummary'
@@ -281,12 +282,13 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
   useEffect(() => {
     if (open && !mobile) document.getElementById(panelId)?.querySelector<HTMLElement>('button:not(:disabled), a')?.focus({ preventScroll: true })
   }, [open, mobile, categories, panelId])
+  const sourceUrl = httpUrl(manga.realUrl)
   const content = categories ? <>
     <button type="button" className="opt font-semibold" onClick={() => setCategories(false)}><ChevronLeft className="size-5" />返回更多操作</button>
     <CategoryChoices manga={manga} />
   </> : <>
     <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? '正在刷新…' : '刷新信息与章节'}</button>
-    {manga.realUrl && <a className="opt no-underline" href={manga.realUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
+    {sourceUrl && <a className="opt no-underline" href={sourceUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
     <NsfwItem manga={manga} />
     {manga.inLibrary && <>
       <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />管理分类</button>
