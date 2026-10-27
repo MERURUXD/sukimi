@@ -1,9 +1,10 @@
-import { useApolloClient, useQuery } from '@apollo/client/react'
+import { useApolloClient, useFragment, useQuery } from '@apollo/client/react'
 import { BookmarkCheck, ExternalLink, Puzzle, Search, SlidersHorizontal } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { LoadError } from '@/components/ui/LoadError'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
@@ -19,10 +20,20 @@ import { resetOnUserContext } from '@/api/userContext'
 import { sourceBrowseKey } from './filters'
 import { SourceFilterPanel } from './SourceFilterPanel'
 import { SourceIcon } from './SourceIcon'
-import { onlineSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
-import { ExtensionUpdateCount, FetchSourceManga, langLabel, Sources, type Source, type SourceManga } from './queries'
+import { libraryMark } from './libraryMark'
+import { fetchSourceMangas, globalSearchSources, onlineSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
+import { ExtensionUpdateCount, langLabel, MangaInLibrary, Sources, type Source, type SourceManga } from './queries'
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
+
+/** 角标和菜单都看缓存里的在库状态，从详情页回来不用重新搜索 */
+function useLibraryMark(id: number, listed: boolean) {
+  const { complete, data } = useFragment({
+    fragment: MangaInLibrary,
+    from: { __typename: 'MangaType', id },
+  })
+  return libraryMark(complete ? data.inLibrary : undefined, listed)
+}
 
 /** 封面触屏长按、鼠标右键打开「稍后再看 / 特别关心」菜单；单来源网格和全局搜索结果共用 */
 function MangaMenu({ m, align = 'left', children }: {
@@ -30,6 +41,7 @@ function MangaMenu({ m, align = 'left', children }: {
   align?: 'left' | 'right'
   children: (open: ReturnType<typeof useLongPress> & { onContextMenu: (e: MouseEvent) => void; 'aria-haspopup': 'menu' }) => ReactNode
 }) {
+  const inLibrary = useLibraryMark(m.id, m.inLibrary)
   const [menu, setMenu] = useState(false)
   const close = useCallback(() => setMenu(false), [])
   const press = useLongPress(() => setMenu(true))
@@ -43,7 +55,7 @@ function MangaMenu({ m, align = 'left', children }: {
   }
   return (
     <Popover open={menu} onClose={close} trigger={children(open)} align={align} label={`${m.title} 的操作`} rootClassName="min-w-0" className="w-[220px]">
-      <MangaMenuItems mangaId={m.id} inLibrary={m.inLibrary} onDone={close} />
+      <MangaMenuItems mangaId={m.id} inLibrary={inLibrary} onDone={close} />
     </Popover>
   )
 }
@@ -51,6 +63,7 @@ function MangaMenu({ m, align = 'left', children }: {
 /** 浏览结果的封面网格 */
 function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
+  const inLibrary = useLibraryMark(m.id, m.inLibrary)
   return <MangaMenu m={m}>{(open) => (
     <Link
       to={`/manga/${m.id}`}
@@ -63,7 +76,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
     >
       <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-[3px]">
         <CoverImg src={m.thumbnailUrl} loading="lazy" />
-        {m.inLibrary && (
+        {inLibrary && (
           <span className="absolute bottom-2 left-2 z-[2] inline-flex h-[26px] items-center gap-1 rounded-full border border-white/20 bg-black/45 px-2.5 text-xs font-bold text-white backdrop-blur-[14px]">
             <BookmarkCheck className="size-3.5" strokeWidth={2.2} />
             已在书库
@@ -79,7 +92,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
 }
 
 export function BrowsePage() {
-  const { data } = useQuery(Sources)
+  const { data, error, refetch } = useQuery(Sources)
   const sources = useMemo(
     // 本地源放最后
     () => [...(data?.sources.nodes ?? [])].sort((a, b) => Number(a.id === '0') - Number(b.id === '0') || a.displayName.localeCompare(b.displayName)),
@@ -117,6 +130,7 @@ export function BrowsePage() {
     return [...m.entries()]
   }, [sources])
   const searchSources = useMemo(() => onlineSources(sources), [sources])
+  const globalSources = useMemo(() => globalSearchSources(searchSources, sourceId), [searchSources, sourceId])
   // 有可更新的扩展时在入口上显示数量
   const updates = useQuery(ExtensionUpdateCount, { fetchPolicy: 'cache-and-network' }).data?.extensions.totalCount ?? 0
 
@@ -143,7 +157,7 @@ export function BrowsePage() {
         }
       />
 
-      {q && <GlobalSearch q={q} sources={searchSources} onOpen={(id) => set({ source: id, mode: 'SEARCH' })} />}
+      {q && <GlobalSearch q={q} sources={globalSources} onOpen={(id) => set({ source: id, mode: 'SEARCH' })} />}
 
       <div className="flex flex-wrap items-start gap-7 pb-20">
         <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] pr-4 pb-2.5 max-md:max-w-none max-md:pr-0">
@@ -157,6 +171,7 @@ export function BrowsePage() {
               </Glass>
             </Link>
           </div>
+          {error && !data && <LoadError prefix="无法读取漫画源" message={error.message} onRetry={() => void refetch()} />}
           {groups.map(([lang, list]) => (
             <div key={lang}>
               <div className="px-3 pt-3.5 pb-1.5 text-xs font-bold tracking-[.08em] text-muted">{langLabel(lang)}</div>
@@ -300,9 +315,8 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
     setLoading(true)
     setError(null)
     try {
-      const { data } = await client.mutate({
-        mutation: FetchSourceManga,
-        variables: { source: source.id, type: mode, page: page + 1, query: mode === 'SEARCH' ? q : undefined, filters: mode === 'SEARCH' ? filters : undefined },
+      const { data } = await fetchSourceMangas(client, {
+        source: source.id, type: mode, page: page + 1, query: mode === 'SEARCH' ? q : undefined, filters: mode === 'SEARCH' ? filters : undefined,
       })
       if (!mounted.current) return
       const r = data?.fetchSourceManga

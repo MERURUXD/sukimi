@@ -10,6 +10,7 @@ import { useAuth } from './auth'
 import { contextGeneration } from './userContext'
 import { markCompletedDownloads } from './downloadCache'
 import { invalidateChapterTotals } from '@/features/gallery/chapterTotals'
+import { refreshLibraryList } from '@/features/library/libraryList'
 import { graphql } from './gql'
 import type { DownloadItemFragment } from './gql/graphql'
 import { wsClient } from './client'
@@ -155,10 +156,15 @@ export function LiveStatus() {
             if (!j) return
             const was = useLive.getState().updater.isRunning
             useLive.setState({ updater: { isRunning: j.isRunning, finished: j.finishedJobs, total: j.totalJobs } })
-            // 一轮更新结束：刷新书库、更新列表等正在显示的查询
+            // 一轮更新结束：书库页可能没打开，也要重取整表；正在显示的查询照常刷新。
+            // 历史和更新在翻页时已经把查询变量改成已加载条数，这里的 refetch 不会把列表截回第一页。
             if (was && !j.isRunning) {
               invalidateChapterTotals(client)
-              void client.refetchQueries({ include: 'active' })
+              void refreshLibraryList(client)
+              void client.refetchQueries({
+                include: 'active',
+                onQueryUpdated: (observable) => observable.queryName !== 'LibraryMangas',
+              })
             }
           },
           error: onError,
