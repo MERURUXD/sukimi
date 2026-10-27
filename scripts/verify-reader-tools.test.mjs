@@ -13,6 +13,7 @@ import {
   parsePageBookmarks,
   togglePageBookmark,
 } from '../src/features/reader/pageTools.ts'
+import { aroundSlot, padRange, prefetchIndexes, slotsInView } from '../src/features/reader/scrollWindow.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 function ok(rootValue, document, variableValues) {
@@ -85,6 +86,34 @@ test('图像滤镜：默认不加 filter，各项按顺序拼接并限制范围'
   assert.equal(filterCss({ ...base, brightness: 10 }), 'brightness(0.3)')
   assert.equal(filterCss({ brightness: 80, warmth: 30, grayscale: true, invert: true }), 'invert(1) grayscale(1) sepia(0.3) brightness(0.8)')
   assert.equal(filterCss({ ...base, warmth: 90 }), 'sepia(0.6)')
+})
+
+test('纵向窗口只挂视口附近的页，页码线落在窗口里', () => {
+  const height = 1000
+  const boxes = Array.from({ length: 180 }, (_, i) => ({ top: i * height, bottom: (i + 1) * height }))
+  const viewport = 800
+  const scrollTop = 90 * height
+  const visible = slotsInView(boxes, scrollTop, viewport, viewport)
+  assert.ok(visible)
+  const padded = padRange(visible, 3, boxes.length)
+  assert.ok(padded.end - padded.start < 30)
+  assert.ok(padded.start > 70 && padded.end < 110)
+  const line = scrollTop + viewport * 0.45
+  const at = boxes.findIndex(box => box.top <= line && box.bottom > line)
+  assert.ok(at >= padded.start && at <= padded.end)
+  assert.equal(slotsInView([], 0, viewport, viewport), null)
+})
+
+test('打开时长话先挂当前页附近，预取包含上一屏', () => {
+  const first = aroundSlot(0, 180, 4)
+  assert.equal(first.start, 0)
+  assert.ok(first.end < 20)
+  const mid = aroundSlot(90, 180, 4)
+  assert.ok(mid.start < 90 && mid.end > 90)
+  assert.deepEqual(prefetchIndexes([10], 100, 3), [7, 8, 9, 10, 11, 12, 13])
+  assert.deepEqual(prefetchIndexes([0], 100, 3), [0, 1, 2, 3])
+  assert.deepEqual(prefetchIndexes([5, 6], 8, 3), [2, 3, 4, 5, 6, 7])
+  assert.deepEqual(prefetchIndexes([], 8, 3), [])
 })
 
 test('页面书签：按账号分开，解析容错、去重排序，切换加上或去掉', () => {
