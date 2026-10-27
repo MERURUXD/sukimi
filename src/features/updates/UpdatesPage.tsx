@@ -2,6 +2,7 @@ import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, RefreshCw, Square, Star } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router'
+import { rememberLoadedWindow } from '@/api/paging'
 import { captureUser } from '@/api/userContext'
 import { syncTrackProgressMany } from '@/features/tracking/sync'
 import { useCan, useSharedServer } from '@/api/auth'
@@ -119,6 +120,9 @@ export function UpdatesPage() {
             updateQuery: (prev, { fetchMoreResult }) => ({
               chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
             }),
+          }).then((result) => {
+            const added = result.data?.chapters.nodes.length ?? 0
+            if (added) rememberLoadedWindow(updates.observable, loaded + added, UPDATES_PAGE)
           })
       },
       { rootMargin: '600px' },
@@ -159,12 +163,14 @@ export function UpdatesPage() {
       toastError('停止失败', e)
     }
   }
-  // 检查结束后刷新列表与时间（订阅那边也会刷新活动查询，这里保证分页从头来）
+  // 检查结束后刷新列表与时间。first 用已经加载的条数，只改 offset 会把这次停留里翻出来的页截掉。
   const wasRunning = useRef(false)
+  const loadedCount = useRef(0)
+  loadedCount.current = loaded
   useEffect(() => {
     if (wasRunning.current && !updater.isRunning) {
       setHeld(new Map())
-      void refetch({ offset: 0 })
+      void refetch({ first: Math.max(UPDATES_PAGE, loadedCount.current), offset: 0 })
       void last.refetch()
     }
     wasRunning.current = updater.isRunning

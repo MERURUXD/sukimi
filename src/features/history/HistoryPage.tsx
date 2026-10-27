@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { Reference } from '@apollo/client'
 import { useAuth } from '@/api/auth'
+import { rememberLoadedWindow } from '@/api/paging'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
@@ -17,7 +18,7 @@ import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
-import { groupHistory, hiddenKey, hiddenValue, type HistoryEntry } from './history'
+import { groupHistory, hiddenKey, hiddenValue, visibleHistoryCount, type HistoryEntry } from './history'
 import { HideHistory, History, type HistoryItem } from './queries'
 import { HISTORY_PAGE, historyVariables } from './pagination'
 
@@ -44,13 +45,18 @@ export function HistoryPage() {
     return groupHistory(hits, (t) => dayLabel(t), userId)
   }, [list, q, userId])
 
-  const more = () =>
-    fetchMore({
-      variables: { first: HISTORY_PAGE, offset: list.length },
+  const more = () => {
+    const offset = list.length
+    return fetchMore({
+      variables: { first: HISTORY_PAGE, offset },
       updateQuery: (prev, { fetchMoreResult }) => ({
         chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
       }),
+    }).then((result) => {
+      const added = result.data?.chapters.nodes.length ?? 0
+      if (added) rememberLoadedWindow(history.observable, offset + added, HISTORY_PAGE)
     })
+  }
 
   // 滚到底自动加载；搜索时交由下方按钮按需加载更早记录，避免无命中时连续翻完整个历史
   const sentinel = useRef<HTMLDivElement>(null)
@@ -100,14 +106,15 @@ export function HistoryPage() {
 
   let row = 0
   const shown = days.reduce((n, d) => n + d.entries.length, 0)
+  const visible = data ? visibleHistoryCount(data.chapters.totalCount, list, userId) : null
 
   return (
     <div className="wrap pb-20">
       <PageHeader
         title="阅读历史"
         sub={<>
-          {data ? `共 ${count(data.chapters.totalCount)} 话阅读记录` : loading ? '正在加载…' : ''}
-          {data && (q ? ` · 在已加载的 ${count(list.length)} 话里搜索` : hasMore ? ` · 已加载 ${count(list.length)} 话` : '')}
+          {visible ? `共 ${count(visible.total)} 话阅读记录` : loading ? '正在加载…' : ''}
+          {visible && (q ? ` · 在已加载的 ${count(visible.loaded)} 话里搜索` : hasMore ? ` · 已加载 ${count(visible.loaded)} 话` : '')}
         </>}
         actions={
           <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
@@ -129,7 +136,7 @@ export function HistoryPage() {
       {data && shown === 0 && !hasMore && <p className="py-16 text-center text-muted">{q ? '没有匹配的记录' : '还没有阅读记录'}</p>}
       {data && shown === 0 && hasMore && q && (
         <div className="flex flex-col items-center gap-3 py-16 text-center text-muted">
-          <p className="m-0">在已加载的 {count(list.length)} 话中没有找到「{query.trim()}」</p>
+          <p className="m-0">在已加载的 {count(visible?.loaded ?? 0)} 话中没有找到「{query.trim()}」</p>
           <Glass flat as="button" type="button" className="gbtn rounded-full text-text" disabled={loading} onClick={() => void more()}>
             {loading ? '正在加载更早的记录…' : '继续加载更早的记录'}
           </Glass>
@@ -151,7 +158,7 @@ export function HistoryPage() {
         <div ref={q ? undefined : sentinel} className="py-6 text-center text-sm text-muted">
           {loading ? '正在加载更早的记录…' : (
             <button type="button" className="font-semibold text-text hover:underline" onClick={() => void more()}>
-              {q ? `继续加载更早的记录（已加载 ${count(list.length)} / ${count(data?.chapters.totalCount ?? 0)} 话）` : '加载更早的记录'}
+              {q ? `继续加载更早的记录（已加载 ${count(visible?.loaded ?? 0)} / ${count(visible?.total ?? 0)} 话）` : '加载更早的记录'}
             </button>
           )}
         </div>

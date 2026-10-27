@@ -30,6 +30,7 @@ type Documents = {
     "\n  mutation StopDownloader {\n    stopDownloader(input: {}) {\n      downloadStatus {\n        state\n      }\n    }\n  }\n": typeof types.StopDownloaderDocument,
     "\n  query AboutServer {\n    aboutServer {\n      name\n      version\n    }\n  }\n": typeof types.AboutServerDocument,
     "\n  query Sources {\n    sources {\n      nodes {\n        id\n        name\n        displayName\n        lang\n        iconUrl\n        supportsLatest\n        contentWarning\n        homeUrl\n      }\n    }\n  }\n": typeof types.SourcesDocument,
+    "\n  fragment MangaInLibrary on MangaType {\n    id\n    inLibrary\n  }\n": typeof types.MangaInLibraryFragmentDoc,
     "\n  mutation FetchSourceManga($source: LongString!, $type: FetchSourceMangaType!, $page: Int!, $query: String, $filters: [FilterChangeInput!]) {\n    fetchSourceManga(input: { source: $source, type: $type, page: $page, query: $query, filters: $filters }) {\n      hasNextPage\n      mangas {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n      }\n    }\n  }\n": typeof types.FetchSourceMangaDocument,
     "\n  fragment SourceFilterFields on Filter {\n    __typename\n    ... on TextFilter { name textDefault: default }\n    ... on CheckBoxFilter { name checkBoxDefault: default }\n    ... on TriStateFilter { name triStateDefault: default }\n    ... on SelectFilter { name values selectDefault: default }\n    ... on SortFilter { name values sortDefault: default { index ascending } }\n    ... on HeaderFilter { name }\n    ... on SeparatorFilter { name }\n    ... on GroupFilter { name }\n  }\n": typeof types.SourceFilterFieldsFragmentDoc,
     "\n  fragment SourceFilterLevel1 on Filter {\n    ...SourceFilterFields\n    ... on GroupFilter { filters { ...SourceFilterFields } }\n  }\n": typeof types.SourceFilterLevel1FragmentDoc,
@@ -174,6 +175,7 @@ const documents: Documents = {
     "\n  mutation StopDownloader {\n    stopDownloader(input: {}) {\n      downloadStatus {\n        state\n      }\n    }\n  }\n": types.StopDownloaderDocument,
     "\n  query AboutServer {\n    aboutServer {\n      name\n      version\n    }\n  }\n": types.AboutServerDocument,
     "\n  query Sources {\n    sources {\n      nodes {\n        id\n        name\n        displayName\n        lang\n        iconUrl\n        supportsLatest\n        contentWarning\n        homeUrl\n      }\n    }\n  }\n": types.SourcesDocument,
+    "\n  fragment MangaInLibrary on MangaType {\n    id\n    inLibrary\n  }\n": types.MangaInLibraryFragmentDoc,
     "\n  mutation FetchSourceManga($source: LongString!, $type: FetchSourceMangaType!, $page: Int!, $query: String, $filters: [FilterChangeInput!]) {\n    fetchSourceManga(input: { source: $source, type: $type, page: $page, query: $query, filters: $filters }) {\n      hasNextPage\n      mangas {\n        id\n        title\n        thumbnailUrl\n        author\n        inLibrary\n      }\n    }\n  }\n": types.FetchSourceMangaDocument,
     "\n  fragment SourceFilterFields on Filter {\n    __typename\n    ... on TextFilter { name textDefault: default }\n    ... on CheckBoxFilter { name checkBoxDefault: default }\n    ... on TriStateFilter { name triStateDefault: default }\n    ... on SelectFilter { name values selectDefault: default }\n    ... on SortFilter { name values sortDefault: default { index ascending } }\n    ... on HeaderFilter { name }\n    ... on SeparatorFilter { name }\n    ... on GroupFilter { name }\n  }\n": types.SourceFilterFieldsFragmentDoc,
     "\n  fragment SourceFilterLevel1 on Filter {\n    ...SourceFilterFields\n    ... on GroupFilter { filters { ...SourceFilterFields } }\n  }\n": types.SourceFilterLevel1FragmentDoc,
@@ -380,6 +382,10 @@ export function graphql(source: "\n  query AboutServer {\n    aboutServer {\n   
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  query Sources {\n    sources {\n      nodes {\n        id\n        name\n        displayName\n        lang\n        iconUrl\n        supportsLatest\n        contentWarning\n        homeUrl\n      }\n    }\n  }\n"): (typeof documents)["\n  query Sources {\n    sources {\n      nodes {\n        id\n        name\n        displayName\n        lang\n        iconUrl\n        supportsLatest\n        contentWarning\n        homeUrl\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  fragment MangaInLibrary on MangaType {\n    id\n    inLibrary\n  }\n"): (typeof documents)["\n  fragment MangaInLibrary on MangaType {\n    id\n    inLibrary\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
