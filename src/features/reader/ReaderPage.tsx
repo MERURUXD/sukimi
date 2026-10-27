@@ -14,6 +14,7 @@ import { isDemo } from '@/lib/demo'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
 import { pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { prefetchIndexes } from './scrollWindow'
 import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
 import { WIDE, filterCss, type Half } from './pageTools'
@@ -289,7 +290,7 @@ function ReaderSession({
   const variant = (h?: Half): Variant => ({ crop: cropOn, half: h, rtl })
   // 拆不了的宽页（太大或读不了像素）整页显示一屏
   const splits = (i: number) => splitOn && (aspects[i] ?? 0) > WIDE && !splitFailed(pages[i], variant(0))
-  // 只为当前页附近（预加载范围内）的页开始处理；纵向模式会一次渲染整话，远处的页先用原图或占位
+  // 只为当前页附近（预加载范围内，含上一屏）的页开始处理；纵向模式视口外只有占位，不在这里启动
   const srcOf = (i: number, h?: Half) => pageSrc(pages[i], variant(h), Math.abs(i - page) <= settings.preload + 1)
   // 这一屏和下一页的宽高比都知道了才钉：没加载完时按竖页算的配对随时可能变
   const settled = [...shown, Math.max(...shown) + 1].every((i) => i >= pages.length || aspects[i] !== undefined)
@@ -327,16 +328,19 @@ function ReaderSession({
   const nextScreen = curHalf === 0 ? { pages: shown, half: 1 as const } : screenOf(nextSpread, 0)
   const prevScreen = curHalf === 1 ? { pages: shown, half: 0 as const } : screenOf(prevSpread, 1)
 
-  /* 预加载后面几页；快读完时预取下一话 */
+  /* 预加载当前屏前后各几页（含上一屏）；快读完时预取下一话 */
   useEffect(() => {
-    const from = Math.max(...shown) + 1
-    // 当前屏和下一页也要尽早拿到宽高比，首屏拼版才能尽快确定
-    for (const i of [...shown, from]) if (i < pages.length) warm(pages[i], onAspect)
-    for (let i = from; i < Math.min(pages.length, from + settings.preload); i++) {
+    for (const i of prefetchIndexes(shown, pages.length, settings.preload)) {
       warm(pages[i], onAspect)
-      // 要裁边或拆分的页提前处理好，翻到时直接显示
+      // 要裁边或拆分的页提前处理好，翻到时直接显示。地址用最终要显示的那张。
       if (cropOn && !splits(i)) requestPage(pages[i], variant())
       if (splits(i)) for (const h of [0, 1] as const) requestPage(pages[i], variant(h))
+      for (const h of (splits(i) ? [0, 1] : [undefined]) as (Half | undefined)[]) {
+        const v = variant(h)
+        if (!pageReady(pages[i], v)) continue
+        const display = pageSrc(pages[i], v, false)
+        if (display) void decodePage(display)
+      }
     }
     if (next && page >= last - settings.preload) {
       void loadPages(client, next.id)
