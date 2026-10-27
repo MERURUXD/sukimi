@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { cn } from '@/lib/cn'
 import { aspectOf, pixelWidthOf, rememberAspect } from './pageCache'
 import { ReaderImage } from './ReaderImage'
+import { processedSizeOf } from './pageImage'
 import { aroundSlot, padRange, slotsInView } from './scrollWindow'
 import { halfAspect, type Half } from './pageTools'
 import { bestBandHit, scrollBandRootMargin } from './scrollBand'
@@ -179,10 +180,12 @@ export function ScrollView({
         {entries.map(({ url, i, half }, index) => {
           const shown = src(i, half)
           const known = aspectOf(url)
+          const processed = processedSizeOf(shown)
           // 处理过的图宽高比和原图不同：先按估计值占位，载入后按图片自己的比例
-          const ratio = shown === url ? (known ?? 'auto 0.7') : half === undefined ? `auto ${known ?? 0.7}` : `auto ${halfAspect(known) ?? 0.7}`
-          const natural = pixelWidthOf(url)
-          const boxWidth = width ?? (natural ? Math.round(half === undefined ? natural : natural / 2) : '100%')
+          const ratio = processed ? processed.width / processed.height : shown === url ? (known ?? 'auto 0.7') : half === undefined ? `auto ${known ?? 0.7}` : `auto ${halfAspect(known) ?? 0.7}`
+          const original = pixelWidthOf(url)
+          const natural = processed?.width ?? (original ? Math.round(half === undefined ? original : original / 2) : undefined)
+          const boxWidth = width ?? natural ?? '100%'
           const box = { width: boxWidth, maxWidth: '100%', aspectRatio: ratio } as const
           const key = `${url}#${half ?? ''}`
           const inWindow = index >= range.start && index <= range.end

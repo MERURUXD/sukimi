@@ -36,6 +36,9 @@ const sources = new Map<string, Promise<{ img: HTMLImageElement; box: Box | null
 const using = new Map<string, number>()
 /** 处理好的图：Blob 地址，或 null（处理不了，用原图） */
 const done = new Map<string, string | null>()
+/** 处理后尺寸供纵向原始大小和离屏占位使用，不能再沿用裁边前的宽高。 */
+const sizes = new Map<string, { width: number; height: number }>()
+export const processedSizeOf = (src: string | undefined) => src ? sizes.get(src) : undefined
 /** 文档里正在显示的 Blob。回收会把还挂着的页变成空白 */
 const shown = new Map<string, number>()
 const running = new Set<string>()
@@ -49,6 +52,11 @@ const notify = () => {
 }
 
 const genOf = (url: string) => urlGen.get(url) ?? 0
+
+function revokeProcessed(src: string) {
+  sizes.delete(src)
+  URL.revokeObjectURL(src)
+}
 
 export function retainShown(url: string | undefined) {
   if (!url?.startsWith('blob:')) return
@@ -94,7 +102,7 @@ function evictDone() {
     for (const [key, blob] of done) {
       if (blob && isShown(blob)) continue
       done.delete(key)
-      if (blob) URL.revokeObjectURL(blob)
+      if (blob) revokeProcessed(blob)
       removed = true
       break
     }
@@ -177,7 +185,10 @@ async function render(url: string, v: Variant): Promise<string | null> {
         resolve(null)
       }
     })
-    return blob ? URL.createObjectURL(blob) : null
+    if (!blob) return null
+    const result = URL.createObjectURL(blob)
+    sizes.set(result, { width: sw, height: sh })
+    return result
   } finally {
     drop(url)
   }
@@ -196,7 +207,7 @@ export function reloadPage(url: string, fresh?: HTMLImageElement) {
   for (const key of [...done.keys()]) {
     if (!key.endsWith(`|${url}`)) continue
     const out = done.get(key)
-    if (out && !isShown(out)) URL.revokeObjectURL(out)
+    if (out && !isShown(out)) revokeProcessed(out)
     done.delete(key)
   }
   for (const key of [...running]) if (key.endsWith(`|${url}`)) running.delete(key)
@@ -236,7 +247,7 @@ export function requestPage(url: string, v: Variant) {
     .then((out) => {
       running.delete(key)
       if (genOf(url) !== gen) {
-        if (out) URL.revokeObjectURL(out)
+        if (out) revokeProcessed(out)
         return
       }
       done.set(key, out)

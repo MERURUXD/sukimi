@@ -130,6 +130,9 @@ test('首屏裁边：原图可用不代表处理完成，结束后才可显示',
   await tick()
   assert.equal(cache.pageReady('page', v), true)
   assert.equal(cache.pageSrc('page', v), 'blob:processed')
+  const size = cache.processedSizeOf('blob:processed')
+  assert.ok(size.width > 0 && size.width < 900)
+  assert.ok(size.height > 0 && size.height < 1300)
 })
 
 test('首屏拆页：等待编码完成，不能把占位当作就绪', async () => {
@@ -142,6 +145,7 @@ test('首屏拆页：等待编码完成，不能把占位当作就绪', async ()
   await tick()
   assert.equal(cache.pageReady('wide', v), true)
   assert.equal(cache.pageSrc('wide', v), 'blob:processed')
+  assert.deepEqual({ ...cache.processedSizeOf('blob:processed') }, { width: 450, height: 1300 })
 })
 
 test('处理失败：退回原图后可显示，未开启处理的页直接就绪', async () => {
@@ -199,6 +203,7 @@ test('正在显示的处理结果超出缓存上限也不回收，松开后才�
   cache.finishAll()
   await tick()
   assert.equal(cache.revoked.includes(first), false)
+  assert.ok(cache.processedSizeOf(first))
   assert.equal(cache.pageSrc('p0', v), first)
   cache.releaseShown(first)
   cache.pageSrc('p71', v)
@@ -206,6 +211,7 @@ test('正在显示的处理结果超出缓存上限也不回收，松开后才�
   cache.finish()
   await tick()
   assert.equal(cache.revoked.includes(first), true)
+  assert.equal(cache.processedSizeOf(first), undefined)
 })
 
 test('还在处理的原图不会被缓存淘汰后再解码一次', async () => {
