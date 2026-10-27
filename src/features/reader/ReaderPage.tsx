@@ -238,7 +238,7 @@ function ReaderSession({
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement)
   const [aspectTick, bump] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
-  // 纵向跳页后，观察器还没落到目标页时先别改页码（短页顶对齐时它会先报后面的页）
+  // 纵向跳页后保持目标，防止异步裁边改变高度后偏页；用户主动滚动再解除。
   const landed = useRef<number | null>(null)
   useEffect(() => () => cancelGlide(), [])
 
@@ -483,7 +483,6 @@ function ReaderSession({
     setAtEnd(false)
     // 单页翻页留下的一页钉子在双页里仍合法，切模式时丢掉，让拼版回到全局的两页
     setPin(null)
-    landed.current = null
   }, [settings.mode])
 
   const pageLabel = atEnd
@@ -533,6 +532,7 @@ function ReaderSession({
         <ScrollView
           key={settings.mode}
           scrollerRef={scroller}
+          jumpTarget={landed}
           pages={pages}
           src={srcOf}
           splits={splits}
@@ -541,7 +541,6 @@ function ReaderSession({
           settings={settings}
           onPage={(i, h) => {
             if (observedAfterJump(landed.current, i) === null) return
-            landed.current = null
             setPage(i)
             setHalf(h ?? 0)
           }}

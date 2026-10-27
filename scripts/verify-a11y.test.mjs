@@ -141,6 +141,86 @@ function quietClient() {
 }
 const dialogs = () => document.querySelector('[role="dialog"], [role="alertdialog"]')
 
+test('纵向跳页在图片尺寸变化后保持物理落点，用户滚动后解除', async () => {
+  const { ScrollView } = await mod('/src/features/reader/ScrollView.tsx')
+  const scroller = { current: null }, jumpTarget = { current: 30 }
+  const heights = Array(180).fill(1200)
+  const frames = new Map(), resize = []
+  let frameId = 0
+  const original = {
+    rect: window.HTMLElement.prototype.getBoundingClientRect,
+    into: window.HTMLElement.prototype.scrollIntoView,
+    height: Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'clientHeight'),
+    ro: g.ResizeObserver, io: g.IntersectionObserver,
+    raf: g.requestAnimationFrame, caf: g.cancelAnimationFrame,
+  }
+  const topOf = (i) => heights.slice(0, i).reduce((sum, h) => sum + h, 0)
+  window.HTMLElement.prototype.getBoundingClientRect = function () {
+    const i = this.dataset.i
+    const top = i === undefined ? 0 : topOf(Number(i)) - (scroller.current?.scrollTop ?? 0)
+    const height = i === undefined ? 800 : heights[Number(i)]
+    return { top, bottom: top + height, left: 0, right: 900, width: 900, height }
+  }
+  window.HTMLElement.prototype.scrollIntoView = function () {
+    if (this.dataset.i !== undefined) scroller.current.scrollTop = topOf(Number(this.dataset.i))
+  }
+  Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', { configurable: true, get: () => 800 })
+  g.ResizeObserver = class { constructor(fn) { resize.push(fn) } observe() {} disconnect() {} }
+  g.IntersectionObserver = class { observe() {} disconnect() {} }
+  g.requestAnimationFrame = (fn) => { frames.set(++frameId, fn); return frameId }
+  g.cancelAnimationFrame = (id) => frames.delete(id)
+  const pages = Array.from({ length: 180 }, (_, i) => `https://example.invalid/jump-${i}.png`)
+  const props = {
+    pages, src: (i) => pages[i], splits: () => false, startPage: 30,
+    settings: { mode: 'vertical', fit: 'original', preload: 2 },
+    scrollerRef: scroller, jumpTarget, footer: null,
+    onPage() {}, onAspect() {}, onCenter() {}, onScroll() {}, onScrolling() {},
+    onInteract() { jumpTarget.current = null },
+  }
+  const resizeNow = async () => {
+    await act(async () => {
+      for (const fn of resize) fn()
+      const queued = [...frames.values()]
+      frames.clear()
+      for (const fn of queued) fn()
+    })
+  }
+  try {
+    await render(createElement(ScrollView, props))
+    assert.equal(scroller.current.scrollTop, 36_000)
+    heights.fill(800)
+    await act(async () => root.render(createElement(ScrollView, props)))
+    assert.equal(scroller.current.scrollTop, 24_000, '裁边后目标前的占位变矮，画面也要重新对齐')
+    heights.fill(700)
+    await resizeNow()
+    assert.equal(scroller.current.scrollTop, 21_000, 'ResizeObserver 捕获的布局变化也要重新对齐')
+    const inputs = [
+      () => scroller.current.dispatchEvent(new window.WheelEvent('wheel', { bubbles: true })),
+      () => scroller.current.dispatchEvent(new window.MouseEvent('pointerdown', { bubbles: true })),
+      ...['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].map(key => () => press(key, scroller.current)),
+    ]
+    for (const input of inputs) {
+      jumpTarget.current = 30
+      await act(async () => root.render(createElement(ScrollView, props)))
+      await act(async () => input())
+      assert.equal(jumpTarget.current, null, '主动滚动解除程序目标')
+      scroller.current.scrollTop = 21_400
+      await resizeNow()
+      assert.equal(scroller.current.scrollTop, 21_400, '用户滚动后不再拉回旧目标')
+    }
+  } finally {
+    await cleanup()
+    window.HTMLElement.prototype.getBoundingClientRect = original.rect
+    window.HTMLElement.prototype.scrollIntoView = original.into
+    if (original.height) Object.defineProperty(window.HTMLElement.prototype, 'clientHeight', original.height)
+    else delete window.HTMLElement.prototype.clientHeight
+    g.ResizeObserver = original.ro
+    g.IntersectionObserver = original.io
+    g.requestAnimationFrame = original.raf
+    g.cancelAnimationFrame = original.caf
+  }
+})
+
 after(async () => { await vite.close() })
 
 describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {

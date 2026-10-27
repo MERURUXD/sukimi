@@ -8,6 +8,15 @@ import { halfAspect, type Half } from './pageTools'
 import { bestBandHit, scrollBandRootMargin } from './scrollBand'
 import type { ReaderSettings } from './settings'
 
+/** 图片处理会改动占位高度，程序跳页的目标要继续对齐，直到用户主动滚动。 */
+function alignJump(root: HTMLDivElement | null, target: number | null) {
+  if (!root || target === null) return
+  const slot = root.querySelector<HTMLElement>(`[data-i="${target}"]`)
+  if (!slot) return
+  const delta = slot.getBoundingClientRect().top - root.getBoundingClientRect().top
+  if (Math.abs(delta) > 0.5) root.scrollTop += delta
+}
+
 /**
  * 纵向连续 / Webtoon：页面竖排滚动。
  * 当前页 = 穿过视口顶部一条窄带的页面。短页顶对齐后仍算在这一页。
@@ -27,6 +36,7 @@ export function ScrollView({
   onScroll,
   onScrolling,
   onInteract,
+  jumpTarget,
   footer,
   scrollerRef,
 }: {
@@ -47,6 +57,8 @@ export function ScrollView({
   onScrolling: (v: boolean) => void
   /** 用户自己滚动或点按：跳页时先压住的页码可以交给观察器 */
   onInteract?: () => void
+  /** 程序跳页时固定物理落点；用户滚动后由外层解除。 */
+  jumpTarget: React.RefObject<number | null>
   footer: ReactNode
   scrollerRef: React.RefObject<HTMLDivElement | null>
 }) {
@@ -63,10 +75,15 @@ export function ScrollView({
 
   // 打开时跳到续读的页
   useLayoutEffect(() => {
+    jumpTarget.current = startPage
     scrollerRef.current?.querySelector(`[data-i="${startPage}"]`)?.scrollIntoView({ block: 'start' })
     scrollerRef.current?.focus({ preventScroll: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useLayoutEffect(() => {
+    alignJump(scrollerRef.current, jumpTarget.current)
+  })
 
   // 按滚动位置决定哪些槽位挂图片。占位节点一直都在，总高度不变。
   useLayoutEffect(() => {
@@ -75,6 +92,7 @@ export function ScrollView({
     let frame = 0
     const measure = () => {
       frame = 0
+      alignJump(root, jumpTarget.current)
       const nodes = root.querySelectorAll<HTMLElement>('[data-slot]')
       if (nodes.length !== countRef.current || !root.clientHeight) return
       const rootTop = root.getBoundingClientRect().top
@@ -103,7 +121,7 @@ export function ScrollView({
       root.removeEventListener('scroll', schedule)
       ro.disconnect()
     }
-  }, [layout, scrollerRef, settings.preload, settings.fit, settings.mode])
+  }, [layout, scrollerRef, jumpTarget, settings.preload, settings.fit, settings.mode])
 
   useEffect(() => {
     const root = scrollerRef.current
@@ -166,6 +184,10 @@ export function ScrollView({
       tabIndex={-1}
       onPointerDown={() => onInteract?.()}
       onWheel={() => onInteract?.()}
+      onKeyDown={(e) => {
+        // 这些按键使用浏览器原生滚动，不能继续把画面钉在上一次跳页的位置。
+        if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End'].includes(e.key)) onInteract?.()
+      }}
       onClick={(e) => {
         const zones = settings.tapZones === 'auto' ? 'tb' : settings.tapZones
         const pos = zones === 'lr' ? e.clientX / window.innerWidth : e.clientY / window.innerHeight
