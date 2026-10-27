@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, type Variants } from 'motion/react'
 import { ChevronRight, X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { create } from 'zustand'
 import { resetOnUserContext } from '@/api/userContext'
@@ -472,22 +472,42 @@ function Badge({ children }: { children: ReactNode }) {
 
 function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lanes: Lane[] }) {
   const [sel, setSel] = useState(0)
+  const base = useId()
+  const tabs = useRef<Array<HTMLButtonElement | null>>([])
   const subs = days.map((_, i) => {
     const updates = lanes.filter((l) => l.id !== 'recent').reduce((n, l) => n + l.days[i].length, 0)
     const reads = lanes.find((l) => l.id === 'recent')?.days[i].length ?? 0
     return weekTabSub(updates, reads)
   })
   const shown = lanes.filter((l) => l.days[sel].length)
+  const panelId = `${base}-panel`
+  // 方向键在日期间移动，只有当前日期留在 Tab 顺序里
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    const next = e.key === 'ArrowRight' ? (i + 1) % days.length
+      : e.key === 'ArrowLeft' ? (i + days.length - 1) % days.length
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? days.length - 1
+      : null
+    if (next === null) return
+    e.preventDefault()
+    setSel(next)
+    tabs.current[next]?.focus()
+  }
   return (
     <div>
       <div role="tablist" aria-label="选择日期" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1.5 [scrollbar-width:none]">
         {days.map((d, i) => (
           <button
             key={d.date}
+            ref={(el) => { tabs.current[i] = el }}
+            id={`${base}-tab-${i}`}
             type="button"
             role="tab"
             aria-selected={i === sel}
+            aria-controls={panelId}
+            tabIndex={i === sel ? 0 : -1}
             onClick={() => setSel(i)}
+            onKeyDown={(e) => onKey(e, i)}
             className={cn('flex h-16 min-w-[62px] flex-none flex-col items-center justify-center gap-1 rounded-[18px] px-2.5 whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text', i === sel ? 'bg-text text-bg' : 'bg-hover text-text')}
           >
             <span className="text-[13px] font-bold">{d.name}</span>
@@ -495,7 +515,7 @@ function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lan
           </button>
         ))}
       </div>
-      <div role="tabpanel" aria-label={days[sel].name} className="mt-5 flex flex-col gap-6">
+      <div role="tabpanel" id={panelId} aria-labelledby={`${base}-tab-${sel}`} className="mt-5 flex flex-col gap-6">
         {shown.length === 0 && <p className="m-0 py-10 text-center text-sm text-muted">这一天没有更新，也没有阅读记录</p>}
         {shown.map((lane) => (
           <div key={lane.id}>

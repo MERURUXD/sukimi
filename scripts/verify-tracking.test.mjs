@@ -1,15 +1,63 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, isRated, readProgress, starScale, toDateInput } from '../src/features/tracking/tracking.ts'
+import { httpUrl } from '../src/lib/url.ts'
+import { consumeOAuthNonce, fromDateInput, oauthUrl, parseOAuthState, scoreString, scoreValue, isRated, readProgress, starScale, toDateInput } from '../src/features/tracking/tracking.ts'
+
+function useSession() {
+  const data = new Map()
+  globalThis.sessionStorage = {
+    getItem: (key) => data.get(key) ?? null,
+    setItem: (key, value) => data.set(key, String(value)),
+    removeItem: (key) => data.delete(key),
+  }
+}
 
 test('授权地址带上可解析的 state，回调时能取回追踪服务', () => {
+  useSession()
   const url = oauthUrl({ id: 2, name: 'AniList', authUrl: 'https://example.invalid/oauth?client_id=1&response_type=token' }, 'http://localhost:4567')
   assert.ok(url.startsWith('https://example.invalid/oauth?client_id=1&response_type=token&state='))
   const state = JSON.parse(new URL(url).searchParams.get('state'))
   assert.equal(state.redirectUrl, 'http://localhost:4567/tracker/login/oauth')
+  assert.equal(typeof state.nonce, 'string')
+  assert.ok(state.nonce.length > 0)
   // 中转页把 state 原样带回到回调地址
   const back = `http://localhost:4567/tracker/login/oauth?state=${encodeURIComponent(JSON.stringify(state))}#access_token=x`
-  assert.deepEqual(parseOAuthState(back), { trackerId: 2, trackerName: 'AniList' })
+  const parsed = parseOAuthState(back)
+  assert.equal(parsed.trackerId, 2)
+  assert.equal(parsed.trackerName, 'AniList')
+  assert.equal(parsed.nonce, state.nonce)
+  assert.equal(consumeOAuthNonce(parsed.nonce), true)
+  assert.equal(consumeOAuthNonce(parsed.nonce), false)
+})
+
+test('别人构造的回调对不上这次存下的随机数', () => {
+  useSession()
+  const url = oauthUrl({ id: 2, name: 'AniList', authUrl: 'https://example.invalid/oauth?client_id=1' }, 'http://localhost')
+  const state = JSON.parse(new URL(url).searchParams.get('state'))
+  const forged = `http://localhost/tracker/login/oauth?state=${encodeURIComponent(JSON.stringify({ ...state, nonce: 'forged' }))}`
+  assert.equal(consumeOAuthNonce(parseOAuthState(forged).nonce), false)
+  assert.equal(consumeOAuthNonce(state.nonce), true)
+})
+
+test('非 http(s) 或没有查询串的授权地址不会生成跳转', () => {
+  useSession()
+  assert.equal(oauthUrl({ id: 1, name: 'x', authUrl: 'javascript:alert(1)?x=1' }, 'http://localhost'), null)
+  assert.equal(oauthUrl({ id: 1, name: 'x', authUrl: 'data:text/html,hi?x=1' }, 'http://localhost'), null)
+  assert.equal(oauthUrl({ id: 1, name: 'x', authUrl: 'https://example.invalid/oauth' }, 'http://localhost'), null)
+  assert.equal(sessionStorage.getItem('sukimi.oauth.nonce'), null)
+  const hash = oauthUrl({ id: 2, name: 'B', authUrl: '#oauth-b?x=1' }, 'http://localhost')
+  assert.ok(hash.startsWith('#oauth-b?x=1&state='))
+})
+
+test('外链只接受 http 和 https', () => {
+  assert.equal(httpUrl('https://example.invalid/a'), 'https://example.invalid/a')
+  assert.equal(httpUrl('http://example.invalid/a'), 'http://example.invalid/a')
+  assert.equal(httpUrl('#'), '#')
+  assert.equal(httpUrl('javascript:alert(1)'), null)
+  assert.equal(httpUrl(' javascript:alert(1)'), null)
+  assert.equal(httpUrl('data:text/html,hi'), null)
+  assert.equal(httpUrl('//evil.example'), null)
+  assert.equal(httpUrl(''), null)
 })
 
 test('回调地址里的 state 缺失或损坏', () => {

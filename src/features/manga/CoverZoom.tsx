@@ -1,30 +1,24 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
-import { spring } from '@/design/motion'
+import { Dialog } from '@/components/ui/Dialog'
+import { spring, still } from '@/design/motion'
 
 /**
  * 详情页封面的放大查看：点封面打开，点任意处、按 Esc 或关闭按钮收起。
+ * 焦点、Tab 循环和背后页面的 inert 交给共用对话框；打开时落在「关闭」上。
  * 图片已在详情页载入过，直接复用浏览器缓存；按真实宽高比铺满可用区域，宽高比读到之前先按 2:3 占位。
  * 遮罩和玻璃按钮的透明度各自动画，外层不做透明度，玻璃才能采样到背后的页面。
  */
 export function CoverZoom({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
-  const closeRef = useRef<HTMLButtonElement>(null)
+  const reduced = useReducedMotion()
   const [ratio, setRatio] = useState(2 / 3)
   const [failed, setFailed] = useState(false)
+  const pop = reduced ? still : spring.default
 
-  useEffect(() => {
-    closeRef.current?.focus({ preventScroll: true })
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return createPortal(
-    <div className="fixed inset-0 z-[70] grid place-items-center p-4" role="dialog" aria-modal="true" aria-label={`${title} 的封面`} onClick={onClose}>
-      <motion.div className="absolute inset-0 bg-black/70" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />
+  return (
+    <Dialog label={`${title} 的封面`} onClose={onClose} fill backdropClassName="bg-black/70">
       {failed ? (
         <p className="relative m-0 text-sm text-muted">封面加载失败</p>
       ) : (
@@ -32,10 +26,10 @@ export function CoverZoom({ src, title, onClose }: { src: string; title: string;
           src={src}
           alt={title}
           draggable={false}
-          initial={{ opacity: 0, scale: 0.9 }}
+          initial={reduced ? false : { opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.94 }}
-          transition={spring.default}
+          exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.94 }}
+          transition={pop}
           onLoad={(e) => {
             const { naturalWidth: w, naturalHeight: h } = e.currentTarget
             if (w && h) setRatio(w / h)
@@ -47,20 +41,18 @@ export function CoverZoom({ src, title, onClose }: { src: string; title: string;
       )}
       <MotionGlass
         as="button"
-        ref={closeRef}
         aria-label="关闭"
         title="关闭"
-        initial={{ opacity: 0 }}
+        initial={reduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
+        transition={reduced ? still : { duration: 0.2 }}
         className="gicon absolute top-4 right-4 rounded-full"
         onClick={(e: React.MouseEvent) => { e.stopPropagation(); onClose() }}
       >
         <X className="size-5" strokeWidth={1.8} />
       </MotionGlass>
-    </div>,
-    document.body,
+    </Dialog>
   )
 }
 

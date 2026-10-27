@@ -5,7 +5,7 @@ import { NavPill } from '@/components/ui/NavPill'
 import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
-import { markNavDirection, TABS } from './navTabs'
+import { markNavDirection, TABS, updatesTabLabel } from './navTabs'
 
 /** 手机（< 768px）底部标签栏；平板用左侧导航栏，桌面用顶部导航 */
 export function MobileTabBar() {
@@ -26,6 +26,7 @@ export function MobileTabBar() {
               if (t.to === '/library' && exitGalleryToLibrary(e)) return e.preventDefault()
               markNavDirection(pathname, t.to)
             }}
+            aria-label={t.to === '/updates' ? updatesTabLabel(downloading) : undefined}
             className={({ isActive }) =>
               cn(
                 'relative flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-[20px] text-[11px] font-semibold no-underline transition-colors',
@@ -36,7 +37,7 @@ export function MobileTabBar() {
             <t.icon className="size-[22px]" strokeWidth={1.8} />
             {t.label}
             {t.to === '/updates' && downloading > 0 && (
-              <span className="absolute top-1.5 right-[calc(50%-20px)] grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent num">
+              <span aria-hidden className="absolute top-1.5 right-[calc(50%-20px)] grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-on-accent num">
                 {downloading}
               </span>
             )}

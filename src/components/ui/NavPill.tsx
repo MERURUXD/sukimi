@@ -1,5 +1,5 @@
-import { motion, useMotionValue, useTransform, useVelocity } from 'motion/react'
-import { spring } from '@/design/motion'
+import { motion, useMotionValue, useReducedMotion, useTransform, useVelocity } from 'motion/react'
+import { spring, still } from '@/design/motion'
 import { cn } from '@/lib/cn'
 import type { PillBox } from './useNavPill'
 
@@ -26,6 +26,7 @@ export function NavPill({ box, className }: { box: PillBox | null; className?: s
   const stretch = (v: number) => Math.min(Math.abs(v) * STRETCH, MAX_STRETCH)
   const scaleX = useTransform([vx, vy], ([a, b]: number[]) => 1 + stretch(a) - stretch(b) / 2)
   const scaleY = useTransform([vx, vy], ([a, b]: number[]) => 1 + stretch(b) - stretch(a) / 2)
+  const reduced = useReducedMotion()
 
   if (!box) return null
   return (
@@ -33,8 +34,8 @@ export function NavPill({ box, className }: { box: PillBox | null; className?: s
       aria-hidden
       initial={false}
       animate={box}
-      transition={spring.fast}
-      style={{ x, y, scaleX, scaleY }}
+      transition={reduced ? still : spring.fast}
+      style={reduced ? { x, y, scaleX: 1, scaleY: 1 } : { x, y, scaleX, scaleY }}
       className={cn('pointer-events-none absolute top-0 left-0 -z-10 bg-g-hi shadow-[inset_0_0_0_1px_var(--g-glow)]', className)}
     />
   )

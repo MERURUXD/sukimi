@@ -53,3 +53,13 @@ export function groupHistory<C extends HistoryChapter>(list: readonly C[], dayOf
 /** 隐藏一条记录要写的元数据值：这条里最晚的阅读时间 */
 export const hiddenValue = (entry: HistoryEntry<HistoryChapter>) =>
   String(Math.max(...entry.chapters.map((c) => Number(c.lastReadAt))))
+
+/**
+ * 页头计数。服务端 totalCount 不认识历史隐藏标记，已加载窗口里藏掉的要从总数和「已加载」里减去。
+ * 更早、还没加载的页里藏过的记录仍算在服务端总数里，还有下一页时页头会略高。
+ */
+export function visibleHistoryCount(totalCount: number, nodes: readonly Pick<HistoryChapter, 'lastReadAt' | 'meta'>[], userId: number | undefined) {
+  let hidden = 0
+  for (const node of nodes) if (!isVisible(node, userId)) hidden++
+  return { total: Math.max(0, totalCount - hidden), loaded: nodes.length - hidden }
+}

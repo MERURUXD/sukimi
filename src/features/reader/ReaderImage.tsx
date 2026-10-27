@@ -1,15 +1,13 @@
 import { ImageOff, LoaderCircle, RotateCw } from 'lucide-react'
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { cn } from '@/lib/cn'
-import { reloadPage } from './pageImage'
-
-/** 重新加载时给原图地址加的参数：绕开浏览器可能留着的失败记录；同源地址多一个参数服务端不在意 */
-const bust = (src: string, n: number) => (n && !/^(data|blob):/.test(src) ? `${src}${src.includes('?') ? '&' : '?'}reload=${n}` : src)
+import { bust, releaseShown, retainShown, retryOriginal } from './pageImage'
 
 /**
  * 一页图片。加载失败时原位换成提示和「重新加载」按钮，页码、排版占位保持不变；
- * 点了按钮先在后台重新请求，成功了才换回图片，失败就留在提示上（不闪一下破图）。
+ * 点了按钮先重新请求原图，成功了才换回图片，失败就留在提示上（不闪一下破图）。
+ * 裁边 / 拆页的旧 Blob 不再拿来重试；新的处理结果出来后再换上。
  * url 是原图地址（缓存都按它记），src 是实际显示的地址（可能是裁边 / 拆半后的 Blob）。
  */
 export function ReaderImage({
@@ -43,21 +41,40 @@ export function ReaderImage({
   const [retrying, setRetrying] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [loaded, setLoaded] = useState(false)
+  // 重试成功后先显示刚请求到的原图。父组件稍后换成新的 Blob 时再改回去，避免中间一帧还指着刚回收的地址。
+  const [fresh, setFresh] = useState<string | null>(null)
+  const seenBlob = useRef(src.startsWith('blob:') ? src : null)
+  useEffect(() => {
+    if (!fresh) {
+      if (src.startsWith('blob:')) seenBlob.current = src
+      return
+    }
+    if (src.startsWith('blob:') && src !== seenBlob.current) setFresh(null)
+  }, [src, fresh])
+  const displaySrc = fresh ?? (src.startsWith('blob:') ? src : bust(src, src === url ? attempt : 0))
+
+  // 挂在文档里的 Blob 不回收。失败提示不占着那张图，回收才不会把重试用的地址一起废掉。
+  useLayoutEffect(() => {
+    if (failed || !displaySrc.startsWith('blob:')) return
+    retainShown(displaySrc)
+    return () => releaseShown(displaySrc)
+  }, [failed, displaySrc])
 
   const retry = () => {
     if (retrying) return
     setRetrying(true)
-    reloadPage(url)
     const next = attempt + 1
-    const probe = new Image()
-    probe.onload = () => {
+    void retryOriginal(url, next).then((ok) => {
+      if (!ok) {
+        setRetrying(false)
+        return
+      }
       setAttempt(next)
+      setFresh(bust(url, next))
       setLoaded(false)
       setFailed(false)
       setRetrying(false)
-    }
-    probe.onerror = () => setRetrying(false)
-    probe.src = bust(src === url ? url : src, src === url ? next : 0)
+    })
   }
 
   if (failed) {
@@ -101,7 +118,7 @@ export function ReaderImage({
         ref={(el) => {
           if (el?.complete && el.naturalWidth) setLoaded(true)
         }}
-        src={bust(src, src === url ? attempt : 0)}
+        src={displaySrc}
         alt={`第 ${page + 1} 页`}
         loading={loading}
         decoding="async"

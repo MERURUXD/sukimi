@@ -12,6 +12,7 @@ import { Can } from '@/features/auth/Can'
 import { Glass } from '@/components/glass/Glass'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { LoadError } from '@/components/ui/LoadError'
 import { toast, toastError } from '@/components/ui/toast'
 import { ChapterIds, LibraryMangas } from '@/features/library/queries'
 import { isFreshUpdate } from '@/features/updates/visible'
@@ -41,6 +42,7 @@ import { useHeroSwipe } from './useHeroSwipe'
 import { updatesPartial, weekStartSec } from './week'
 import { useWeekTray, WeekSection } from './WeekSection'
 import { useLocalNow } from './useLocalNow'
+import { homeBlockState } from './queryState'
 import { useWeekUpdates } from './useWeekUpdates'
 
 /** 按漫画去重：每部漫画只保留最近读的那一话 */
@@ -163,10 +165,28 @@ export function HomePage() {
     return !!read && updatesPartial(read.map((c) => sec(c.lastReadAt)), read.length >= READS_LIMIT, Date.now())
   }, [readsData])
 
+  const readsState = homeBlockState(!!readsData, reads.loading, !!reads.error)
+  const libState = homeBlockState(!!libData, lib.loading, !!lib.error)
+  const updatesState = homeBlockState(!!updatesData, updates.loading, !!updates.error)
+  const usesLibrary = homeSections.favorite || homeSections.stale || homeSections.fresh || showGallery
+  const retryReads = () => void reads.refetch()
+  const retryLibrary = () => void lib.refetch()
+  const retryUpdates = () => void updates.refetch()
+
   const content = {
     week: homeSections.week && <WeekSection updates={weekUpdates} partial={weekPartial} reads={readChapters} error={week.error} onRetry={week.retry} />,
     favorite: homeSections.favorite && <FavoriteShelf library={library} />,
-    updates: homeSections.updates && <UpdatesShelf chapters={updateChapters} />,
+    updates: homeSections.updates && (updatesState === 'error' && updates.error ? (
+      <section aria-labelledby="h-up" className="pt-11">
+        <h2 id="h-up" className="m-0 text-[26px] font-bold">最近更新</h2>
+        <LoadError prefix="无法读取最近更新" message={updates.error.message} onRetry={retryUpdates} />
+      </section>
+    ) : (
+      <>
+        {updatesState === 'stale' && updates.error && <LoadError message="暂时未能刷新，正在显示上次的更新" onRetry={retryUpdates} />}
+        <UpdatesShelf chapters={updateChapters} />
+      </>
+    )),
     stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}
       mangas={shelves?.stale} sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`} />,
     fresh: homeSections.fresh && <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`}
@@ -180,8 +200,19 @@ export function HomePage() {
   // 系统开启「减弱动态效果」时 Motion 的位移、缩放和布局动画都直接到位，只保留淡入淡出（全局 CSS 管不到 JS 动画）
   return (
     <MotionConfig reducedMotion="user">
-      <Hero items={hero.items} loading={!readsData} stage={stage} entrance={entrance} onShuffle={hero.more ? nextHero : undefined} />
+      <Hero
+        items={hero.items}
+        loading={readsState === 'loading'}
+        error={readsState === 'error' ? reads.error : null}
+        onRetry={retryReads}
+        stage={stage}
+        entrance={entrance}
+        onShuffle={hero.more ? nextHero : undefined}
+      />
       <div className="wrap pb-20">
+        {readsState === 'stale' && reads.error && <LoadError message="暂时未能刷新，正在显示上次的阅读记录" onRetry={retryReads} />}
+        {usesLibrary && libState === 'error' && lib.error && <LoadError prefix="无法读取书库" message={lib.error.message} onRetry={retryLibrary} />}
+        {usesLibrary && libState === 'stale' && lib.error && <LoadError message="暂时未能刷新，正在显示上次的书库" onRetry={retryLibrary} />}
         {homeSectionOrder.map((id) => content[id] && <Slot key={id} id={id}>{content[id]}</Slot>)}
       </div>
     </MotionConfig>
@@ -207,7 +238,15 @@ resetOnUserContext(() => {
   batches.clear()
 })
 
-function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapter[]; loading: boolean; stage: boolean; entrance: ReturnType<typeof useEntrance>; onShuffle?: () => void }) {
+function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
+  items: ReadChapter[]
+  loading: boolean
+  error?: { message: string } | null
+  onRetry?: () => void
+  stage: boolean
+  entrance: ReturnType<typeof useEntrance>
+  onShuffle?: () => void
+}) {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
@@ -274,11 +313,17 @@ function Hero({ items, loading, stage, entrance, onShuffle }: { items: ReadChapt
       <section className="relative -mt-[var(--nav-h)] pt-[var(--nav-h)]">
         <div className="wrap flex min-h-[240px] flex-col justify-end gap-4 pb-8 md:min-h-[420px] md:pb-12">
           <span className="text-xs font-bold tracking-[.14em] text-muted">继续阅读</span>
-          <h1 className="m-0 font-cjk text-[28px] leading-[1.1] font-black md:text-[44px]">{loading ? ' ' : '还没有读过的漫画'}</h1>
-          {!loading && (
-            <Link to="/library" className="solid w-fit no-underline">
-              去书库挑一部
-            </Link>
+          {error ? (
+            <LoadError className="py-2 text-left" prefix="无法读取最近阅读" message={error.message} onRetry={() => onRetry?.()} />
+          ) : (
+            <>
+              <h1 className="m-0 font-cjk text-[28px] leading-[1.1] font-black md:text-[44px]">{loading ? ' ' : '还没有读过的漫画'}</h1>
+              {!loading && (
+                <Link to="/library" className="solid w-fit no-underline">
+                  去书库挑一部
+                </Link>
+              )}
+            </>
           )}
         </div>
       </section>

@@ -5,6 +5,7 @@ name: webui-preview
 on:
   push:
     branches: [preview]
+  pull_request:
   workflow_dispatch:
     inputs:
       ref:
@@ -15,20 +16,23 @@ on:
 permissions:
   contents: write
 
-# 和 webui-release 不同组：两边互不取消
+# 和 webui-release 不同组：两边互不取消。拉取请求单独成组，不取消正在发布的作业
 concurrency:
-  group: webui-preview
+  group: webui-preview-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # actions/checkout v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ inputs.ref || github.ref }}
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      # pnpm/action-setup v4.3.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      # actions/setup-node v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 24
           cache: pnpm
@@ -39,7 +43,9 @@ jobs:
         env:
           SUKIMI_CHANNEL: preview
 
+      # 拉取请求只做检查和构建，不打标签、不上传
       - name: 打包与清单
+        if: github.event_name != 'pull_request'
         run: |
           commit=$(git rev-parse --short HEAD)
           now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -50,6 +56,7 @@ jobs:
           cat sukimi-webui-preview.json
 
       - name: 发布到 webui-preview
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

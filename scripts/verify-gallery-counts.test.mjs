@@ -8,6 +8,7 @@ import { createCache } from '../src/api/cache.ts'
 import { LibraryMangasDocument } from '../src/api/gql/graphql.ts'
 import { createDemoData } from '../src/features/demo/data.ts'
 import { chapterTotalsFor, invalidateChapterTotals } from '../src/features/gallery/chapterTotals.ts'
+import { dropFromLibraryList, refreshLibraryList } from '../src/features/library/libraryList.ts'
 
 const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
 const ready = (query) => firstValueFrom(query.pipe(filter((r) => !r.loading && !!r.data)))
@@ -118,6 +119,61 @@ test('整轮更新完成时，即使书库列表字段未变也刷新总话数',
     await chapterTotalsFor(client).load(library)
     assert.equal(store.snapshot().totals.get(1), 7)
     assert.equal(requests.filter((n) => n === 'GalleryCounts').length, 2)
+  } finally { client.stop() }
+})
+
+test('没人订着书库列表时，移出仍会从缓存里拿掉', async () => {
+  const { client, requests } = fixture()
+  try {
+    const { data } = await client.query({ query: LibraryMangasDocument })
+    const total = data.mangas.totalCount
+    assert.equal(data.mangas.nodes.some((manga) => manga.id === 1), true)
+    dropFromLibraryList(client.cache, [1])
+    const cached = client.cache.readQuery({ query: LibraryMangasDocument })
+    assert.equal(cached.mangas.nodes.some((manga) => manga.id === 1), false)
+    assert.equal(cached.mangas.totalCount, total - 1)
+    const again = await client.query({ query: LibraryMangasDocument, fetchPolicy: 'cache-first' })
+    assert.equal(again.data.mangas.nodes.some((manga) => manga.id === 1), false)
+    assert.deepEqual(requests, ['LibraryMangas'])
+  } finally { client.stop() }
+})
+
+test('没人订着书库列表时，加入会重新写入缓存', async () => {
+  const { client, rootValue, requests } = fixture()
+  try {
+    const first = await client.query({ query: LibraryMangasDocument })
+    assert.equal(first.data.mangas.nodes.some((manga) => manga.id === 11), false)
+    rootValue.updateManga({ input: { id: 11, patch: { inLibrary: true } } })
+    await refreshLibraryList(client)
+    const cached = client.cache.readQuery({ query: LibraryMangasDocument })
+    assert.equal(cached.mangas.nodes.some((manga) => manga.id === 11), true)
+    assert.equal(cached.mangas.totalCount, first.data.mangas.totalCount + 1)
+    assert.deepEqual(requests, ['LibraryMangas', 'LibraryMangas'])
+  } finally { client.stop() }
+})
+
+test('书库列表刷新失败时清掉旧结果', async () => {
+  const rootValue = createDemoData(Date.UTC(2026, 9, 20))
+  let fail = false
+  const client = new ApolloClient({
+    cache: createCache(),
+    link: new ApolloLink((op) => new Observable((observer) => {
+      const timer = setTimeout(() => {
+        if (fail && op.operationName === 'LibraryMangas') observer.error(new Error('虚构请求失败'))
+        else {
+          observer.next(executeSync({ schema, rootValue, document: op.query, variableValues: op.variables }))
+          observer.complete()
+        }
+      }, 0)
+      return () => clearTimeout(timer)
+    })),
+  })
+  try {
+    const first = await client.query({ query: LibraryMangasDocument })
+    assert.ok(first.data.mangas.nodes.length > 0)
+    fail = true
+    await refreshLibraryList(client)
+    assert.equal(client.cache.readQuery({ query: LibraryMangasDocument }), null)
   } finally { client.stop() }
 })
 

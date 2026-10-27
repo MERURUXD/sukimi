@@ -75,3 +75,11 @@ export function pickSpread(
   }
   return spreads[spreadOf(spreads, page)] ?? [page]
 }
+
+/**
+ * 翻页后要钉住的一屏。单页时这一屏只有一页，而一页钉子在双页里仍算合法，
+ * 切到双页后会一直只显示这一页。单页翻页不写钉子，让之后的双页走全局拼版。
+ */
+export function pinAfterStep(double: boolean, pages: readonly number[]): number[] | null {
+  return double ? [...pages] : null
+}

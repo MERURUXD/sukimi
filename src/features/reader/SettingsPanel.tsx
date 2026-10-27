@@ -63,7 +63,7 @@ const H = ({ children }: { children: string }) => (
 )
 
 const KEYS: [string, string][] = [
-  ['← →', '翻页（随方向自动对调）'],
+  ['← →', '分页随方向对调；纵向 ← 上一页、→ 下一页'],
   ['Space', '下一页 / 向下滚动'],
   ['[ ]', '上一话 / 下一话'],
   ['M', '切换阅读模式'],
@@ -172,7 +172,7 @@ export function SettingsPanel({
             />
             <p className="mt-1.5 mb-0 text-xs text-muted">
               {!paged
-                ? '纵向模式下始终自上而下阅读。'
+                ? '纵向模式始终自上而下：← 上一页，→ 下一页。'
                 : settings.dir === 'rtl'
                   ? '日漫习惯：点击左侧或按 ← 前进到下一页。'
                   : '美漫 / 国漫习惯：点击右侧或按 → 前进到下一页。'}

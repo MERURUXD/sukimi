@@ -14,6 +14,7 @@ import { isDemo } from '@/lib/demo'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
 import { pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { prefetchIndexes } from './scrollWindow'
 import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
 import { WIDE, filterCss, type Half } from './pageTools'
@@ -25,7 +26,9 @@ import { ReaderChrome } from './ReaderChrome'
 import { ScrollView } from './ScrollView'
 import { SettingsPanel } from './SettingsPanel'
 import { BGS, FITS, MODES, cycle, useMigrateReaderPrefs, useReaderMetaSync, useReaderSettings } from './settings'
-import { buildSpreads, nextOf, pickSpread, prevOf } from './spreads'
+import { pageTurn, keyGoesToControl } from './keys'
+import { observedAfterJump } from './scrollBand'
+import { buildSpreads, nextOf, pickSpread, pinAfterStep, prevOf } from './spreads'
 import { useWakeLock } from './wakeLock'
 
 export function ReaderPage() {
@@ -148,11 +151,14 @@ export function ReaderPage() {
  * 导致连按空格时每隔一次才动。
  */
 let gliding = 0
+let glideGen = 0
 function glide(el: HTMLElement, dy: number) {
+  const gen = ++glideGen
   cancelAnimationFrame(gliding)
   const start = performance.now()
   let done = 0
   const tick = (now: number) => {
+    if (gen !== glideGen || !el.isConnected) return
     const t = Math.min(1, (now - start) / 260)
     const eased = 1 - (1 - t) ** 3
     const target = dy * eased
@@ -161,6 +167,11 @@ function glide(el: HTMLElement, dy: number) {
     if (t < 1) gliding = requestAnimationFrame(tick)
   }
   gliding = requestAnimationFrame(tick)
+}
+function cancelGlide() {
+  glideGen++
+  cancelAnimationFrame(gliding)
+  gliding = 0
 }
 
 function useNarrow() {
@@ -227,6 +238,9 @@ function ReaderSession({
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement)
   const [aspectTick, bump] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
+  // 纵向跳页后保持目标，防止异步裁边改变高度后偏页；用户主动滚动再解除。
+  const landed = useRef<number | null>(null)
+  useEffect(() => () => cancelGlide(), [])
 
   /* 工具栏自动隐藏：显示后 3 秒没有操作就收起；设置面板打开时不收。
      鼠标（精确指针）移到屏幕上下边缘或停在工具栏上会呼出 / 保持显示。 */
@@ -289,7 +303,7 @@ function ReaderSession({
   const variant = (h?: Half): Variant => ({ crop: cropOn, half: h, rtl })
   // 拆不了的宽页（太大或读不了像素）整页显示一屏
   const splits = (i: number) => splitOn && (aspects[i] ?? 0) > WIDE && !splitFailed(pages[i], variant(0))
-  // 只为当前页附近（预加载范围内）的页开始处理；纵向模式会一次渲染整话，远处的页先用原图或占位
+  // 只为当前页附近（预加载范围内，含上一屏）的页开始处理；纵向模式视口外只有占位，不在这里启动
   const srcOf = (i: number, h?: Half) => pageSrc(pages[i], variant(h), Math.abs(i - page) <= settings.preload + 1)
   // 这一屏和下一页的宽高比都知道了才钉：没加载完时按竖页算的配对随时可能变
   const settled = [...shown, Math.max(...shown) + 1].every((i) => i >= pages.length || aspects[i] !== undefined)
@@ -327,16 +341,19 @@ function ReaderSession({
   const nextScreen = curHalf === 0 ? { pages: shown, half: 1 as const } : screenOf(nextSpread, 0)
   const prevScreen = curHalf === 1 ? { pages: shown, half: 0 as const } : screenOf(prevSpread, 1)
 
-  /* 预加载后面几页；快读完时预取下一话 */
+  /* 预加载当前屏前后各几页（含上一屏）；快读完时预取下一话 */
   useEffect(() => {
-    const from = Math.max(...shown) + 1
-    // 当前屏和下一页也要尽早拿到宽高比，首屏拼版才能尽快确定
-    for (const i of [...shown, from]) if (i < pages.length) warm(pages[i], onAspect)
-    for (let i = from; i < Math.min(pages.length, from + settings.preload); i++) {
+    for (const i of prefetchIndexes(shown, pages.length, settings.preload)) {
       warm(pages[i], onAspect)
-      // 要裁边或拆分的页提前处理好，翻到时直接显示
+      // 要裁边或拆分的页提前处理好，翻到时直接显示。地址用最终要显示的那张。
       if (cropOn && !splits(i)) requestPage(pages[i], variant())
       if (splits(i)) for (const h of [0, 1] as const) requestPage(pages[i], variant(h))
+      for (const h of (splits(i) ? [0, 1] : [undefined]) as (Half | undefined)[]) {
+        const v = variant(h)
+        if (!pageReady(pages[i], v)) continue
+        const display = pageSrc(pages[i], v, false)
+        if (display) void decodePage(display)
+      }
     }
     if (next && page >= last - settings.preload) {
       void loadPages(client, next.id)
@@ -372,7 +389,7 @@ function ReaderSession({
       setPage(to.pages[0])
       // 往回翻进宽高比还不知道的页时先记成后一半：图载入后判定是宽页，就停在后一半而不是跳回先读的那半
       setHalf(to.half ?? (d < 0 ? 1 : 0))
-      setPin(to.pages)
+      setPin(pinAfterStep(double, to.pages))
     } else if (d > 0) setAtEnd(true)
     else if (prev) goChapter(prev)
     setUi(false)
@@ -386,7 +403,11 @@ function ReaderSession({
     setAtEnd(false)
     setPage(i)
     setHalf(0)
-    if (!paged) scroller.current?.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ block: 'start' })
+    if (!paged) {
+      cancelGlide()
+      landed.current = i
+      scroller.current?.querySelector(`[data-i="${i}"]`)?.scrollIntoView({ block: 'start' })
+    }
   }
 
   const toggleFullscreen = useCallback(() => {
@@ -420,31 +441,39 @@ function ReaderSession({
     }
   }
 
-  /* 键盘 */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return
-      const k = e.key
-      if (k === 'ArrowLeft') paged ? left() : jump(Math.max(0, page - 1))
-      else if (k === 'ArrowRight') paged ? right() : jump(Math.min(last, page + 1))
-      else if (k === ' ') {
-        if (!paged) {
-          if (scroller.current) glide(scroller.current, (e.shiftKey ? -1 : 1) * window.innerHeight * 0.85)
-        } else step(e.shiftKey ? -1 : 1)
-      } else if (k === '[') goChapter(prev)
-      else if (k === ']') goChapter(next)
-      else if (k === 'm' || k === 'M') set({ mode: cycle(MODES, settings.mode) })
-      else if (k === 'z' || k === 'Z') set({ fit: cycle(FITS, settings.fit) })
-      else if (k === 'd' || k === 'D') set({ dir: settings.dir === 'rtl' ? 'ltr' : 'rtl' })
-      else if (k === 'f' || k === 'F') toggleFullscreen()
-      else if (k === 'b' || k === 'B') toggleBookmark(e.shiftKey)
-      else if (k === 'Escape') panel ? setPanel(false) : setUi((v) => !v)
-      else return
-      e.preventDefault()
+  /* 键盘。翻页函数放在 ref 里，监听只注册一次，避免每次渲染拆掉再绑上。 */
+  const onKeyRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  onKeyRef.current = (e: KeyboardEvent) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return
+    const el = e.target instanceof HTMLElement ? e.target : null
+    const target = el ? { tagName: el.tagName, isContentEditable: el.isContentEditable } : null
+    // 滑块和输入框自己用方向键，不要翻页，也不要取消它们的默认步进
+    if (keyGoesToControl(target)) return
+    const turn = pageTurn(e.key, settings.mode, settings.dir, e.shiftKey, target)
+    if (turn?.kind === 'screen') step(turn.delta)
+    else if (turn?.kind === 'page') jump(Math.min(last, Math.max(0, page + turn.delta)))
+    else if (turn?.kind === 'scroll') {
+      landed.current = null
+      if (scroller.current) glide(scroller.current, turn.delta * window.innerHeight * 0.85)
+    } else if (e.key === '[') goChapter(prev)
+    else if (e.key === ']') goChapter(next)
+    else if (e.key === 'm' || e.key === 'M') set({ mode: cycle(MODES, settings.mode) })
+    else if (e.key === 'z' || e.key === 'Z') set({ fit: cycle(FITS, settings.fit) })
+    else if (e.key === 'd' || e.key === 'D') set({ dir: settings.dir === 'rtl' ? 'ltr' : 'rtl' })
+    else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
+    else if (e.key === 'b' || e.key === 'B') toggleBookmark(e.shiftKey)
+    else if (e.key === 'Escape') {
+      if (panel) setPanel(false)
+      else setUi((v) => !v)
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+    else return
+    e.preventDefault()
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => onKeyRef.current(e)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
 
   // 切模式时保持当前页
   const prevMode = useRef(settings.mode)
@@ -452,6 +481,8 @@ function ReaderSession({
     if (prevMode.current === settings.mode) return
     prevMode.current = settings.mode
     setAtEnd(false)
+    // 单页翻页留下的一页钉子在双页里仍合法，切模式时丢掉，让拼版回到全局的两页
+    setPin(null)
   }, [settings.mode])
 
   const pageLabel = atEnd
@@ -501,6 +532,7 @@ function ReaderSession({
         <ScrollView
           key={settings.mode}
           scrollerRef={scroller}
+          jumpTarget={landed}
           pages={pages}
           src={srcOf}
           splits={splits}
@@ -508,11 +540,18 @@ function ReaderSession({
           startPage={page}
           settings={settings}
           onPage={(i, h) => {
+            if (observedAfterJump(landed.current, i) === null) return
             setPage(i)
             setHalf(h ?? 0)
           }}
           onCenter={() => setUi((v) => !v)}
-          onScroll={(d) => scroller.current && glide(scroller.current, d * window.innerHeight * 0.85)}
+          onInteract={() => {
+            landed.current = null
+          }}
+          onScroll={(d) => {
+            landed.current = null
+            if (scroller.current) glide(scroller.current, d * window.innerHeight * 0.85)
+          }}
           onScrolling={setScrolling}
           footer={
             <>
