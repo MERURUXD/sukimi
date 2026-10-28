@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
-import { ArrowLeftRight, ChevronLeft, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeftRight, ChevronLeft, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -23,6 +23,8 @@ import { TrackSummary } from '@/features/tracking/TrackSummary'
 import { Can } from '@/features/auth/Can'
 import { MangaTracks } from '@/features/tracking/queries'
 import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
+import { isShelved, shelfIds, withoutShelf } from '@/features/shelf/shelf'
+import { useShelf, useShelfActions } from '@/features/shelf/useShelf'
 import { StaleSessionError } from '@/api/userContext'
 import { findSameTitle } from './migrate'
 import { SameTitleDialog } from './SameTitleDialog'
@@ -295,6 +297,7 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
     <NsfwItem manga={manga} />
     {manga.inLibrary && <>
       <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />{t('manga.hero.manageCategories')}</button>
+      <ShelfItem manga={manga} />
       <button type="button" className="opt" onClick={() => { close(); setTracking(true) }}><ListChecks className="size-5" /><span className="flex-1">{t('manga.hero.tracking')}</span>{bound > 0 && <span className="text-xs text-muted">{t('manga.hero.bound', { n: bound })}</span>}</button>
       <Link className="opt no-underline" to={`/manga/${manga.id}/migrate`} replace={sheetOpen} state={sheetOpen ? { ...location.state, mangaMore: undefined } : undefined} onClick={() => setPopoverOpen(false)}><ArrowLeftRight className="size-5" />{t('manga.hero.migrate')}</Link>
     </>}
@@ -338,11 +341,37 @@ function NsfwItem({ manga }: { manga: Manga }) {
   )
 }
 
+/** 搁置：不想读又不想移出书库，自动更新跳过它 */
+function ShelfItem({ manga }: { manga: Manga }) {
+  const shelf = useShelf()
+  const { setShelved } = useShelfActions()
+  const [busy, setBusy] = useState(false)
+  const on = isShelved(manga, shelf.ids)
+  const toggle = async () => {
+    setBusy(true)
+    try {
+      await setShelved([manga.id], !on)
+      toast(on ? t('misc.shelf.off') : t('misc.shelf.on'))
+    } catch (e) {
+      if (!(e instanceof StaleSessionError)) toastError(t('misc.menu.failed'), e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button type="button" role="menuitemcheckbox" aria-checked={on} className="opt" disabled={busy || !shelf.ready} onClick={() => void toggle()}>
+      {on ? <ArchiveRestore className="size-5" /> : <Archive className="size-5" />}
+      <span className="flex-1">{t('misc.shelf.action')}</span>
+      {on && <span aria-hidden>✓</span>}
+    </button>
+  )
+}
+
 function CategoryChoices({ manga }: { manga: Manga }) {
   const { data } = useQuery(Categories)
   const [setCats] = useMutation(SetMangaCategories)
   const mine = new Set(manga.categories.nodes.map((c) => c.id))
-  const cats = (data?.categories.nodes ?? []).filter((c) => !c.default)
+  const cats = withoutShelf(data?.categories.nodes ?? [], shelfIds(data?.categories.nodes)).filter((c) => !c.default)
   const toggle = async (id: number) => {
     try { await setCats({ variables: { id: manga.id, add: mine.has(id) ? [] : [id], remove: mine.has(id) ? [id] : [] } }) }
     catch (e) { toastError(t('settings.nsfw.categoryFailed'), e) }

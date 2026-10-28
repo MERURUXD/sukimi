@@ -4,6 +4,7 @@ import { withSnapshot } from '@/api/persist'
 import { isCompleted } from '@/features/library/filtering'
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { useNsfw } from '@/features/nsfw/useNsfw'
+import { shelfIds, withoutShelf } from '@/features/shelf/shelf'
 import { useLanded } from './readMorph'
 import { useChapterTotals } from './useChapterTotals'
 import { t } from '@/i18n'
@@ -50,6 +51,9 @@ export function useGalleryLibrary() {
   const { hidden } = useNsfw()
   const all = useMemo(() => full.filter((m) => !hidden(m)), [full, hidden])
   const totals = counts.totals
+  // 搁置分类不当成标签显示，只在搁置分类里的作品仍算默认分类
+  const shelf = useMemo(() => shelfIds(catData?.categories.nodes), [catData])
+  const categories = useMemo(() => withoutShelf(catData?.categories.nodes ?? [], shelf), [catData, shelf])
   const stats = useMemo(() => {
     const done = full.filter(isCompleted).length
     return {
@@ -68,7 +72,8 @@ export function useGalleryLibrary() {
     full,
     totals,
     stats,
-    categories: catData?.categories.nodes ?? [],
+    categories,
+    shelf,
     loading: lib.loading && !data,
     error: data ? undefined : lib.error,
     refetch: lib.refetch,

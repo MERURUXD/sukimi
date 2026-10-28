@@ -57,6 +57,7 @@ export default {
     noTracker: 'This tracker is not in the demo data',
     noManga: 'This manga is not in the demo library',
     noChapter: 'This chapter is not in the demo library',
+    noCategory: 'This category is not in the demo library',
     needServer: 'This feature needs a server connection; demo mode runs locally only',
     catJourney: 'Journeys',
     catDaily: 'Daily life',
@@ -74,6 +75,14 @@ export default {
     notLoggedIn: 'Not signed in; cannot change Favorites',
     away: '{{count}} favorites updated while you were away',
     closeAria: 'Dismiss',
+  },
+  shelf: {
+    on: 'Shelved; automatic updates will skip it',
+    off: 'Unshelved',
+    action: 'Shelve',
+    unaction: 'Unshelve',
+    category: 'Shelved',
+    createFailed: 'Could not create the Shelved category',
   },
   later: {
     on: 'Added to Read Later',
