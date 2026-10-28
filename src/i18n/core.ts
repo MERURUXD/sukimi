@@ -8,7 +8,7 @@ export type Locale = 'zh-CN' | 'en'
 /** 语言偏好单独存放：要在整个模块图加载之前读出来，不能等外观 store 恢复 */
 export const LOCALE_KEY = 'suwayomi-web.locale'
 
-/** 跟随系统：浏览器语言以 zh 开头、或读不到语言（Node 测试）时用简体中文，其余用英文 */
+/** 跟随系统：浏览器语言以 zh 开头、或不在浏览器里（Node 测试）时用简体中文，其余用英文 */
 export function resolveLocale(pref: LocalePref, navLang?: string | null): Locale {
   if (pref === 'zh-CN' || pref === 'en') return pref
   if (!navLang) return 'zh-CN'
@@ -24,7 +24,8 @@ export function readLocalePref(): LocalePref {
   }
 }
 
-const lang = resolveLocale(readLocalePref(), typeof navigator === 'undefined' ? null : navigator.language)
+// Node 24 也有全局 navigator（语言取自系统环境），所以以 window 判断是不是浏览器，测试里固定用简体中文
+const lang = resolveLocale(readLocalePref(), typeof window === 'undefined' ? null : navigator.language)
 
 export const i18n = i18next.createInstance()
 // 词典内联，init 同步完成，模块顶层和纯函数里也能直接用 t
