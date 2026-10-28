@@ -2,7 +2,7 @@
 
 为 Suwayomi Server 打造的漫画网页客户端，采用液态玻璃设计，适配桌面与手机。
 
-A liquid-glass web client for Suwayomi Server. The interface is currently available in Simplified Chinese only.
+A liquid-glass web client for Suwayomi Server. The interface is currently available in Simplified Chinese only. English documentation: [README.en.md](README.en.md).
 
 **语言**：界面目前只有简体中文，多语言支持在计划中。
 
