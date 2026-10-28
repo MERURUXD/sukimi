@@ -4,12 +4,14 @@ import type { LibraryManga } from './queries'
 import { compareSortValues, libraryScore } from './sortValues'
 import type { NsfwSubject } from '@/features/nsfw/nsfw'
 import { favoritesFirst } from '@/features/favorite/favorite'
+import { isShelved } from '@/features/shelf/shelf'
 import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 import { t } from '@/i18n'
 
 /** 筛选要用到的书库外数据：NSFW 标记存在服务端，由调用方按当前账号的标记和开关给出判定 */
 export interface FilterContext {
   nsfw: (m: NsfwSubject) => boolean
+  shelf: ReadonlySet<number>
 }
 
 export const isCompleted = (m: LibraryManga) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED'
@@ -24,6 +26,7 @@ export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga, c
   { key: 'completed', label: t('library.filter.completed'), test: isCompleted },
   // 不看「首页和画廊隐藏」「模糊封面」这些显示开关：只按标记、分类和来源判定，临时显示（Shift + H）时也能筛出来
   { key: 'nsfw', label: 'NSFW', test: (m, ctx) => ctx.nsfw(m) },
+  { key: 'shelved', label: t('library.filter.shelved'), test: (m, ctx) => isShelved(m, ctx.shelf) },
 ]
 
 export { inCategory }
@@ -74,17 +77,19 @@ export function applyView(
     query: string
     scales?: SortContext['scales']
     nsfw: FilterContext['nsfw']
+    /** 搁置分类的 id：分类标签里不算，「搁置」筛选用 */
+    shelf: ReadonlySet<number>
     /** 给了就把这些排到最前（「特别关心置顶」） */
     pinned?: ReadonlyMap<number, number>
   },
 ) {
   const active = FILTERS.filter((f) => opts.filters[f.key] !== 0)
-  const ctx: FilterContext = { nsfw: opts.nsfw }
+  const ctx: FilterContext = { nsfw: opts.nsfw, shelf: opts.shelf }
   const sort = SORTS.find((s) => s.key === opts.sort) ?? SORTS[0]
 
   const out = list.filter(
     (m) =>
-      inCategory(m, opts.category, opts.defaultCategoryId) &&
+      inCategory(m, opts.category, opts.defaultCategoryId ?? 0, opts.shelf) &&
       (opts.sources.length === 0 || (m.source != null && opts.sources.includes(m.source.id))) &&
       active.every((f) => f.test(m, ctx) === (opts.filters[f.key] === 1)) &&
       matchesSearch(m, opts.query),

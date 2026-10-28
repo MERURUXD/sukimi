@@ -10,6 +10,7 @@ import { FavoriteMetas } from '@/features/favorite/queries'
 import { laterKey } from '@/features/later/later'
 import { LaterMetas } from '@/features/later/queries'
 import { useNsfwActions, useNsfwStore } from '@/features/nsfw/useNsfw'
+import { useShelf } from '@/features/shelf/useShelf'
 import { copyTracks, trackCopyPlan } from '@/features/tracking/migrateTracks'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { MotionGlass } from '@/components/glass/Glass'
@@ -95,7 +96,10 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const hasFav = userId !== undefined && metas.some((m) => m.key === favoriteKey(userId, from.id))
 
   const plan = useMemo(() => (info.status === 'ready' ? planMigration(fromChapters, info.chapters) : null), [info, fromChapters])
-  const cats = from.categories.nodes.filter((c) => !c.default).map((c) => c.id)
+  // 搁置分类不算用户的分类：不计入「复制分类」，换源后照样保持搁置
+  const shelf = useShelf().ids
+  const shelved = from.categories.nodes.filter((c) => shelf.has(c.id)).map((c) => c.id)
+  const cats = from.categories.nodes.filter((c) => !c.default && !shelf.has(c.id)).map((c) => c.id)
   const downloaded = fromChapters.filter((c) => c.isDownloaded).map((c) => c.id)
   const readCount = fromChapters.filter((c) => c.isRead).length
 
@@ -118,10 +122,11 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
       }
       go(t('migrate.step.addLib'))
       await client.mutate({ mutation: SetMangaInLibrary, variables: { id: target.id, inLibrary: true } })
-      if (categories && cats.length) {
+      const addCats = [...(categories ? cats : []), ...shelved]
+      if (addCats.length) {
         still()
         go(t('migrate.step.copyCats'))
-        await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: cats } })
+        await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: addCats } })
       }
       const pairs: [string, string][] = []
       if (userId !== undefined) {

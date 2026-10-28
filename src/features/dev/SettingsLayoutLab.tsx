@@ -148,9 +148,9 @@ export function SettingsLayoutLab() {
               categories: {
                 __typename: 'CategoryNodeList',
                 nodes: [
-                  { __typename: 'CategoryType', id: 0, name: '默认', order: 0, default: true },
-                  { __typename: 'CategoryType', id: 1, name: '连载中', order: 1, default: false },
-                  { __typename: 'CategoryType', id: 2, name: '短篇集', order: 2, default: false },
+                  { __typename: 'CategoryType', id: 0, name: '默认', order: 0, default: true, meta: [] },
+                  { __typename: 'CategoryType', id: 1, name: '连载中', order: 1, default: false, meta: [] },
+                  { __typename: 'CategoryType', id: 2, name: '短篇集', order: 2, default: false, meta: [] },
                 ],
               },
             })
@@ -159,9 +159,9 @@ export function SettingsLayoutLab() {
               categories: {
                 __typename: 'CategoryNodeList',
                 nodes: [
-                  { __typename: 'CategoryType', id: 0, name: '默认', order: 0, default: true, includeInUpdate: 'INCLUDE', mangas: { __typename: 'MangaNodeList', totalCount: 4 } },
-                  { __typename: 'CategoryType', id: 1, name: '连载中', order: 1, default: false, includeInUpdate: 'INCLUDE', mangas: { __typename: 'MangaNodeList', totalCount: 6 } },
-                  { __typename: 'CategoryType', id: 2, name: '短篇集', order: 2, default: false, includeInUpdate: 'EXCLUDE', mangas: { __typename: 'MangaNodeList', totalCount: 2 } },
+                  { __typename: 'CategoryType', id: 0, name: '默认', order: 0, default: true, meta: [], includeInUpdate: 'INCLUDE', mangas: { __typename: 'MangaNodeList', totalCount: 4 } },
+                  { __typename: 'CategoryType', id: 1, name: '连载中', order: 1, default: false, meta: [], includeInUpdate: 'INCLUDE', mangas: { __typename: 'MangaNodeList', totalCount: 6 } },
+                  { __typename: 'CategoryType', id: 2, name: '短篇集', order: 2, default: false, meta: [], includeInUpdate: 'EXCLUDE', mangas: { __typename: 'MangaNodeList', totalCount: 2 } },
                 ],
               },
             })

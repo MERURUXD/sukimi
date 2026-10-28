@@ -77,7 +77,7 @@ const pad = (i: number) => String(i + 1).padStart(2, '0')
 /** 无限画布：整个书库铺成一颗可以拖动的球面。固定深色、全屏，不在 AppShell 里。 */
 export function CanvasPage() {
   useForceDark()
-  const { all, full, totals, stats, categories, loading, error, refetch } = useGalleryLibrary()
+  const { all, full, totals, stats, categories, shelf, loading, error, refetch } = useGalleryLibrary()
   const items = useMemo(() => galleryOrder(all), [all])
   const n = items.length
   const mobile = useMobile()
@@ -865,6 +865,7 @@ export function CanvasPage() {
           items={items}
           totals={totals}
           categories={categories}
+          shelf={shelf}
           entry={play}
           closing={play.closing}
           landing={play.landing}

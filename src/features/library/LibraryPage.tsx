@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig, Star, StarOff } from 'lucide-react'
+import { Archive, ArchiveRestore, BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig, Star, StarOff } from 'lucide-react'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
@@ -10,6 +10,8 @@ import { useMobile } from '@/features/gallery/hooks'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
 import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useFavoriteActions, useFavorites } from '@/features/favorite/useFavorites'
+import { isShelved, shelfIds, withoutShelf } from '@/features/shelf/shelf'
+import { useShelfActions } from '@/features/shelf/useShelf'
 import { ContextMenu, useContextMenu } from '@/components/ui/ContextMenu'
 import { useNsfw, useNsfwActions } from '@/features/nsfw/useNsfw'
 import { useLive } from '@/api/live'
@@ -71,6 +73,9 @@ export function LibraryPage() {
   )
   // 每个用户的默认分类 id 不同，不能写死 0
   const defaultCategoryId = catData?.categories.nodes.find((c) => c.default)?.id ?? 0
+  // 搁置是隐藏分类：不出标签、不进分类菜单，只作筛选
+  const shelf = useMemo(() => shelfIds(catData?.categories.nodes), [catData])
+  const userCategories = useMemo(() => withoutShelf(catData?.categories.nodes ?? [], shelf), [catData, shelf])
   // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
   const trackers = data?.trackers.nodes
   const scales = useMemo(() => new Map(trackers?.map((t) => [t.id, t.scores] as const)), [trackers])
@@ -88,8 +93,8 @@ export function LibraryPage() {
   )
   const pinned = view.favoriteFirst && !isFavorite ? favorites.ids : undefined
   const items = useMemo(
-    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, pinned }),
-    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, pinned],
+    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned }),
+    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
@@ -98,17 +103,16 @@ export function LibraryPage() {
   const laterCount = later.items?.length
   const favoriteCount = favorites.map && data ? favoriteList.length : undefined
   const categories = useMemo<SegItem<LibraryTab>[]>(() => {
-    const cats = catData?.categories.nodes ?? []
     const tabs: SegItem<LibraryTab>[] = [{ value: 'all', label: t('library.tab.all'), count: all.length }]
-    for (const c of cats) {
-      const n = all.filter((m) => inCategory(m, c.id, defaultCategoryId)).length
+    for (const c of userCategories) {
+      const n = all.filter((m) => inCategory(m, c.id, defaultCategoryId, shelf)).length
       if (c.default && n === 0) continue
       tabs.push({ value: c.id, label: c.default ? t('library.tab.default') : c.name, count: n })
     }
     tabs.push({ value: 'favorite', label: t('library.tab.favorite'), count: favoriteCount })
     tabs.push({ value: 'later', label: t('library.tab.later'), count: laterCount })
     return tabs
-  }, [catData, all, defaultCategoryId, favoriteCount, laterCount])
+  }, [userCategories, all, defaultCategoryId, shelf, favoriteCount, laterCount])
 
   // 记住的分类已被删除时回到「全部」
   useEffect(() => {
@@ -260,12 +264,23 @@ export function LibraryPage() {
       return (allFavorite ? t('library.bulk.unfavorited', { count: favoritable.length, n: favoritable.length }) : t('library.bulk.favorited', { count: favoritable.length, n: favoritable.length })) + note
     })
 
+  // 和特别关心一样只对书库里的生效；全都已搁置时按钮变成取消
+  const { setShelved } = useShelfActions()
+  const allShelved = favoritable.length > 0 && favoritable.every((m) => isShelved(m, shelf))
+  const toggleShelved = () =>
+    run(allShelved ? t('library.bulk.unshelve') : t('library.bulk.shelve'), async () => {
+      await setShelved(favoritable.map((m) => m.id), !allShelved)
+      const skipped = picked.length - favoritable.length
+      const note = skipped ? t('library.bulk.skipped', { n: skipped }) : ''
+      return (allShelved ? t('library.bulk.unshelved', { count: favoritable.length, n: favoritable.length }) : t('library.bulk.shelved', { count: favoritable.length, n: favoritable.length })) + note
+    })
+
   /* 鼠标右键菜单；触屏长按仍是多选 */
   const ctx = useContextMenu<LibraryManga>()
   const openCtx = ctx.open
   const onMenu = useCallback((m: LibraryManga, x: number, y: number) => openCtx(x, y, m), [openCtx])
 
-  const realCategories = (catData?.categories.nodes ?? []).filter((c) => !c.default)
+  const realCategories = userCategories.filter((c) => !c.default)
   const moveTo = (catId: number, add: boolean) =>
     run(t('library.bulk.changeCategory'), async () => {
       await setCats({ variables: { ids, add: add ? [catId] : [], remove: add ? [] : [catId] } })
@@ -435,6 +450,10 @@ export function LibraryPage() {
         <button type="button" className="bb" disabled={busy || !favoritable.length || !favorites.map} onClick={toggleFavorite}>
           {allFavorite ? <StarOff className="size-5" strokeWidth={1.8} /> : <Star className="size-5" strokeWidth={1.8} />}
           {allFavorite ? t('library.bulk.unfavoriteShort') : t('library.bulk.favoriteShort')}
+        </button>
+        <button type="button" className="bb" disabled={busy || !favoritable.length || !catData} onClick={toggleShelved}>
+          {allShelved ? <ArchiveRestore className="size-5" strokeWidth={1.8} /> : <Archive className="size-5" strokeWidth={1.8} />}
+          {allShelved ? t('library.bulk.unshelveShort') : t('library.bulk.shelveShort')}
         </button>
         <button type="button" className="bb" disabled={busy || !ids.length} onClick={markRead}>
           <BookCheck className="size-5" strokeWidth={1.8} />

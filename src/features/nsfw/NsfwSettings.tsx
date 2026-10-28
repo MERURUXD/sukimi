@@ -4,6 +4,7 @@ import { StaleSessionError } from '@/api/userContext'
 import { toastError } from '@/components/ui/toast'
 import { Categories } from '@/features/library/queries'
 import { Row, Section, Switch } from '@/features/settings/parts'
+import { shelfIds, withoutShelf } from '@/features/shelf/shelf'
 import { useNsfwActions, useNsfwStore } from './useNsfw'
 import { t } from '@/i18n'
 
@@ -45,7 +46,8 @@ function NsfwCategories() {
   const marked = useNsfwStore((s) => s.marks.categories)
   const { setCategory } = useNsfwActions()
   const [busy, setBusy] = useState<number | null>(null)
-  const cats = (data?.categories.nodes ?? []).filter((c) => !c.default)
+  const nodes = data?.categories.nodes ?? []
+  const cats = withoutShelf(nodes, shelfIds(nodes)).filter((c) => !c.default)
   if (!cats.length) return null
   const toggle = async (id: number, on: boolean) => {
     setBusy(id)

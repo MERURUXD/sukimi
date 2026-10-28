@@ -50,7 +50,7 @@ function storyPage(title: string, index: number, total = 6, wide = false) {
   </svg>`)
 }
 
-interface Category { id: number; name: string; order: number; default: boolean }
+interface Category { id: number; name: string; order: number; default: boolean; includeInUpdate?: string; includeInDownload?: string; meta: { key: string; value: string }[] }
 interface DemoChapter {
   id: number; mangaId: number; name: string; chapterNumber: number; sourceOrder: number;
   pageCount: number; lastPageRead: number; lastReadAt: string; fetchedAt: string; uploadDate: string;
@@ -186,8 +186,8 @@ function scaledLibrary(scale: number, now: number, categories: Category[], makeM
 
 /** `?edge=1` 时追加的两个分类：超长名称、没有作品 */
 const EDGE_CATEGORIES: Category[] = [
-  { id: 3, name: tl('misc.demo.catLong'), order: 2, default: false },
-  { id: 4, name: tl('misc.demo.catEmpty'), order: 3, default: false },
+  { id: 3, name: tl('misc.demo.catLong'), order: 2, default: false, meta: [] },
+  { id: 4, name: tl('misc.demo.catEmpty'), order: 3, default: false, meta: [] },
 ]
 
 /**
@@ -277,7 +277,7 @@ function longRead(now: number, categories: Category[], makeManga: MakeManga) {
 
 /** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
 export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0, edge = false, long = false }: { scale?: number; edge?: boolean; long?: boolean } = {}) {
-  const categories: Category[] = [{ id: 1, name: tl('misc.demo.catJourney'), order: 0, default: false }, { id: 2, name: tl('misc.demo.catDaily'), order: 1, default: false }, ...(edge ? EDGE_CATEGORIES : [])]
+  const categories: Category[] = [{ id: 1, name: tl('misc.demo.catJourney'), order: 0, default: false, meta: [] }, { id: 2, name: tl('misc.demo.catDaily'), order: 1, default: false, meta: [] }, ...(edge ? EDGE_CATEGORIES.map((c) => ({ ...c, meta: [] })) : [])]
   /** 各项统计都按章节现算，改了已读、书签后跟着变 */
   const makeManga: MakeManga = (fields, chapters) => {
     const m: DemoManga = {
@@ -488,6 +488,19 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     updateMangas: ({ input }: { input: { ids: number[]; patch: { inLibrary: boolean } } }) => ({ mangas: input.ids.map((id) => { const m = findManga(id); m.inLibrary = input.patch.inLibrary; return m }) }),
     updateMangaCategories: ({ input }: { input: { id: number; patch: Parameters<typeof changeCategories>[1] } }) => ({ manga: changeCategories(input.id, input.patch) }),
     updateMangasCategories: ({ input }: { input: { ids: number[]; patch: Parameters<typeof changeCategories>[1] } }) => ({ mangas: input.ids.map((id) => changeCategories(id, input.patch)) }),
+    // 「搁置」第一次用时建分类、打标记（features/shelf）；放进同一个列表，changeCategories 才认得新 id
+    createCategory: ({ input }: { input: Pick<Category, 'name' | 'includeInUpdate' | 'includeInDownload'> }) => {
+      const category: Category = { ...input, id: Math.max(0, ...categories.map((c) => c.id)) + 1, order: categories.length, default: false, meta: [] }
+      categories.push(category)
+      return { category }
+    },
+    setCategoryMeta: ({ input }: { input: { meta: { categoryId: number; key: string; value: string } } }) => {
+      const { categoryId, key, value } = input.meta
+      const category = categories.find((c) => c.id === categoryId)
+      if (!category) throw new Error(tl('misc.demo.noCategory'))
+      category.meta = [...category.meta.filter((m) => m.key !== key), { key, value }]
+      return { meta: { ...input.meta, category } }
+    },
     // 阅读器按漫画记住的设置存在这里，只在本次演示的内存里
     setMangaMetas: ({ input }: { input: { items: { mangaIds: number[]; metas: { key: string; value: string }[] }[] } }) => {
       const metas = input.items.flatMap((item) => item.mangaIds.flatMap((mangaId) => {
