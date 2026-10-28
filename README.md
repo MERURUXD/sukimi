@@ -2,6 +2,24 @@
 
 为 Suwayomi Server 打造的漫画网页客户端，采用液态玻璃设计，适配桌面与手机。
 
+A liquid-glass web client for Suwayomi Server. The interface is currently available in Simplified Chinese only.
+
+**语言**：界面目前只有简体中文，多语言支持在计划中。
+
+![首页](docs/screenshots/home.png)
+
+| 书库（浅色） | 漫画详情 |
+| --- | --- |
+| ![书库浅色主题](docs/screenshots/library-light.png) | ![漫画详情](docs/screenshots/detail.png) |
+
+截图均来自内置的虚构演示数据（见[无服务端验收](#无服务端验收)）。
+
+## 服务端要求
+
+- **Suwayomi Server 稳定版 v2.4.2366**。多用户功能需要预览版 v2.4.2379 起（见[多用户](#多用户)）。
+- 登录方式（`server.authMode`）设为 `UI_LOGIN`。不支持无登录、Basic Auth 等其他方式。
+- 推荐由服务端以 `CUSTOM` 方式托管本前端，见[部署](#部署)。
+
 ## 功能
 
 - 首页继续阅读、最近更新与最近阅读。
@@ -26,7 +44,7 @@
 
 ## 本地开发
 
-需要 Node.js 24、pnpm 11.22.0 和启用 `UI_LOGIN` 登录方式的 Suwayomi Server。当前项目使用的服务端版本为 v2.4.2366。
+需要 Node.js 24、pnpm 11.22.0 和满足[服务端要求](#服务端要求)的 Suwayomi Server。
 
 1. 运行 `pnpm install --frozen-lockfile` 安装依赖。
 2. 复制 `.env.example` 为 `.env.local`，将 `SUWAYOMI_URL` 设置为服务端地址。
@@ -59,9 +77,21 @@ pnpm build
 
 ## 部署
 
-正式构建输出到 `dist/`。推荐由 Suwayomi Server 以 `CUSTOM` WebUI 托管，保持前端与 `/api` 同源。
+推荐由 Suwayomi Server 以 `CUSTOM` WebUI 托管，前端与 `/api` 同源，无需另配反向代理。
 
-`pnpm deploy:server` 会构建并复制文件到 `.env.local` 中 `SUWAYOMI_DATA` 指定的数据目录下的 `webUI/`。部署前备份数据目录中的 `server.conf` 和现有 `webUI/`，确认 `server.webUIFlavor = CUSTOM` 并获得服务端操作授权；部署后重启服务端才生效。
+### 使用发布的构建
+
+1. 从 [Releases 的 `webui-latest`](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest) 下载 `sukimi-webui.tar`。这是随 `main` 自动更新的滚动预发布；同页的 `sukimi-webui.json` 记有 SHA-256，可用来核对下载是否完整。
+2. 停止服务端，备份服务端数据目录（`server.conf` 所在的目录）里的 `server.conf` 和现有的 `webUI/`。
+3. 清空 `webUI/`，把压缩包直接解压进去。文件在压缩包根目录，解压后 `webUI/index.html` 应直接存在，不要多套一层目录。
+4. 在 `server.conf` 里设置 `server.webUIFlavor = CUSTOM`。不改的话，服务端检查 WebUI 更新时会用官方 WebUI 覆盖回去。
+5. 启动服务端。服务端启动时才读取 `webUI/`，所以每次替换文件后都要重启。
+
+回退：把 `server.webUIFlavor` 改回 `WEBUI` 再重启，服务端会重新使用官方 WebUI；也可以用第 2 步的备份还原。
+
+### 从源码部署
+
+正式构建输出到 `dist/`。`pnpm deploy:server` 会构建并复制文件到 `.env.local` 中 `SUWAYOMI_DATA` 指定的数据目录下的 `webUI/`；第一次部署时，原有的官方 WebUI 会先整个备份到 `webUI-official-<时间>`。部署前备份 `server.conf`，确认 `server.webUIFlavor = CUSTOM` 并获得服务端操作授权。脚本会顺带更新服务端运行中使用的临时副本，通常免重启生效；找不到这份副本时仍需重启。
 
 Windows 本地 Java 安装可先运行 `pnpm restart:server -WhatIf` 预检，再运行 `pnpm restart:server` 重启。脚本核验进程身份、备份配置与前端，并检查启动后的 HTTP 响应；不自动提升权限，备份不包含运行中的数据库。Windows 服务及其他安装方式应使用相应的服务管理工具。
 
