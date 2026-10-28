@@ -137,6 +137,7 @@ type Documents = {
     "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n": typeof types.RegisterUserDocument,
     "\n  mutation CreateShelf($name: String!) {\n    createCategory(input: { name: $name, includeInUpdate: EXCLUDE, includeInDownload: EXCLUDE }) {\n      category {\n        id\n        name\n        order\n        default\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": typeof types.CreateShelfDocument,
     "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n": typeof types.TagShelfDocument,
+    "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n": typeof types.MangaCategoriesDocument,
     "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n": typeof types.MangaCategoryIdsFragmentDoc,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": typeof types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": typeof types.TrackRecordFieldsFragmentDoc,
@@ -285,6 +286,7 @@ const documents: Documents = {
     "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n": types.RegisterUserDocument,
     "\n  mutation CreateShelf($name: String!) {\n    createCategory(input: { name: $name, includeInUpdate: EXCLUDE, includeInDownload: EXCLUDE }) {\n      category {\n        id\n        name\n        order\n        default\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": types.CreateShelfDocument,
     "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n": types.TagShelfDocument,
+    "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n": types.MangaCategoriesDocument,
     "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n": types.MangaCategoryIdsFragmentDoc,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": types.TrackRecordFieldsFragmentDoc,
@@ -816,6 +818,10 @@ export function graphql(source: "\n  mutation CreateShelf($name: String!) {\n   
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n"): (typeof documents)["\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

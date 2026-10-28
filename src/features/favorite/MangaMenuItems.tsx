@@ -1,11 +1,11 @@
-import { useFragment } from '@apollo/client/react'
+import { useFragment, useQuery } from '@apollo/client/react'
 import { Archive, ArchiveRestore, ClockCheck, ClockPlus, ExternalLink, Star } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { StaleSessionError } from '@/api/userContext'
 import { toast, toastError } from '@/components/ui/toast'
 import { useLater, useLaterActions } from '@/features/later/useLater'
-import { MangaCategoryIds } from '@/features/shelf/queries'
+import { MangaCategories, MangaCategoryIds } from '@/features/shelf/queries'
 import { isShelved } from '@/features/shelf/shelf'
 import { useShelf, useShelfActions } from '@/features/shelf/useShelf'
 import { cn } from '@/lib/cn'
@@ -23,8 +23,9 @@ export function MangaMenuItems({ mangaId, inLibrary, onDone }: { mangaId: number
   const { setFavorite } = useFavoriteActions()
   const shelf = useShelf()
   const { setShelved } = useShelfActions()
-  // 分类看缓存：书库、更新、发现页的条目不一定带分类，书库列表取过就有
+  // 分类先看缓存（书库列表取过就有）；发现、更新页直接打开时缓存里没有，菜单打开时补取一次
   const cats = useFragment({ fragment: MangaCategoryIds, from: { __typename: 'MangaType', id: mangaId } })
+  useQuery(MangaCategories, { variables: { id: mangaId }, skip: !inLibrary || cats.complete })
   const [busy, setBusy] = useState(false)
   const laterOn = !!later.map?.has(mangaId)
   const favoriteOn = !!favorites.map?.has(mangaId)

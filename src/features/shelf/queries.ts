@@ -30,6 +30,16 @@ export const TagShelf = graphql(`
   }
 `)
 
+// 发现、更新页的条目不带分类，缓存里没有时菜单按需补取，结果按 MangaType 归一化后 MangaCategoryIds 就能读到
+export const MangaCategories = graphql(`
+  query MangaCategories($id: Int!) {
+    manga(id: $id) {
+      id
+      ...MangaCategoryIds
+    }
+  }
+`)
+
 export const MangaCategoryIds = graphql(`
   fragment MangaCategoryIds on MangaType {
     categories {
