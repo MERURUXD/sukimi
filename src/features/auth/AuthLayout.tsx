@@ -2,6 +2,7 @@ import type { FormEvent, InputHTMLAttributes, ReactNode } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { BrandBunny } from '@/app/BrandMark'
 import { PreviewBadge } from '@/app/PreviewBadge'
+import { LanguageSeg } from '@/components/ui/LanguageSeg'
 import { useApplyAppearance } from '@/design/settings'
 
 /** 登录、注册、找回共用的输入框（放在玻璃里） */
@@ -40,6 +41,8 @@ export function AuthLayout({
             'radial-gradient(40% 50% at 30% 30%, color-mix(in srgb, var(--text) 18%, transparent), transparent), radial-gradient(35% 45% at 72% 70%, color-mix(in srgb, var(--text) 10%, transparent), transparent)',
         }}
       />
+
+      <LanguageSeg glass className="absolute top-4 right-4" />
 
       <form onSubmit={onSubmit} className="flex w-full max-w-[360px] flex-col items-center">
         <BrandBunny className="size-[72px]" />

@@ -24,6 +24,7 @@ import { SourceIcon } from './SourceIcon'
 import { libraryMark } from './libraryMark'
 import { fetchSourceMangas, globalSearchSources, onlineSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
 import { ExtensionUpdateCount, langLabel, MangaInLibrary, Sources, type Source, type SourceManga } from './queries'
+import { t } from '@/i18n'
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
 
@@ -55,7 +56,7 @@ function MangaMenu({ m, align = 'left', children }: {
     'aria-haspopup': 'menu' as const,
   }
   return (
-    <Popover open={menu} onClose={close} trigger={children(open)} align={align} label={`${m.title} 的操作`} rootClassName="min-w-0" className="w-[220px]">
+    <Popover open={menu} onClose={close} trigger={children(open)} align={align} label={t('updates.menuLabel', { title: m.title })} rootClassName="min-w-0" className="w-[220px]">
       <MangaMenuItems mangaId={m.id} inLibrary={inLibrary} onDone={close} />
     </Popover>
   )
@@ -80,7 +81,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
         {inLibrary && (
           <span className="absolute bottom-2 left-2 z-[2] inline-flex h-[26px] items-center gap-1 rounded-full border border-white/20 bg-black/45 px-2.5 text-xs font-bold text-white backdrop-blur-[14px]">
             <BookmarkCheck className="size-3.5" strokeWidth={2.2} />
-            已在书库
+            {t('home.inLibrary')}
           </span>
         )}
       </span>
@@ -138,21 +139,21 @@ export function BrowsePage() {
   return (
     <div className="wrap">
       <PageHeader
-        title="发现"
+        title={t('browse.title')}
         actions={
           // 发现页的主要入口，比历史页的搜索框宽一些
           <form onSubmit={submit} className="min-w-0 flex-[0_1_560px] max-sm:basis-full">
             <Glass flat as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
               <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-              <span className="sr">全局搜索</span>
+              <span className="sr">{t('browse.globalSearch')}</span>
               <input
                 type="search"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="在所有在线源中搜索，回车开始"
+                placeholder={t('browse.searchPlaceholder')}
                 className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
               />
-              <span className="text-[13px] whitespace-nowrap num">{searchSources.length} 个在线源</span>
+              <span className="text-[13px] whitespace-nowrap num">{t('browse.onlineSources', { count: searchSources.length })}</span>
             </Glass>
           </form>
         }
@@ -161,18 +162,18 @@ export function BrowsePage() {
       {q && <GlobalSearch q={q} sources={globalSources} onOpen={(id) => set({ source: id, mode: 'SEARCH' })} />}
 
       <div className="flex flex-wrap items-start gap-7 pb-20">
-        <aside aria-label="漫画源列表" className="max-w-[300px] min-w-0 flex-[1_1_260px] pr-4 pb-2.5 max-md:max-w-none max-md:pr-0">
+        <aside aria-label={t('browse.sourcesAria')} className="max-w-[300px] min-w-0 flex-[1_1_260px] pr-4 pb-2.5 max-md:max-w-none max-md:pr-0">
           <div className="mb-1 flex items-center gap-2 pl-3">
-            <h2 className="m-0 flex-1 text-[22px] font-bold">漫画源</h2>
+            <h2 className="m-0 flex-1 text-[22px] font-bold">{t('browse.sourcesTitle')}</h2>
             <Link to="/browse/extensions" className="rounded-full text-text no-underline">
               <Glass flat as="span" className="gbtn min-h-10 rounded-full">
                 <Puzzle className="size-[18px]" strokeWidth={1.8} />
-                扩展
+                {t('browse.extensions')}
                 {updates > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-solid px-1.5 text-[11px] font-bold text-on-solid num">{updates}</span>}
               </Glass>
             </Link>
           </div>
-          {error && !data && <LoadError prefix="无法读取漫画源" message={error.message} onRetry={() => void refetch()} />}
+          {error && !data && <LoadError prefix={t('browse.loadSourcesFailed')} message={error.message} onRetry={() => void refetch()} />}
           {groups.map(([lang, list]) => (
             <div key={lang}>
               <div className="px-3 pt-3.5 pb-1.5 text-xs font-bold tracking-[.08em] text-muted">{langLabel(lang)}</div>
@@ -191,12 +192,12 @@ export function BrowsePage() {
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 leading-snug font-semibold break-words" title={s.displayName}>{s.displayName}</span>
                     <span className="truncate text-[13px] text-muted">
-                      {[s.supportsLatest ? '支持最新' : null, s.contentWarning === 'NSFW' ? '含成人内容' : s.contentWarning === 'MIXED' ? '部分成人内容' : null]
+                      {[s.supportsLatest ? t('browse.supportsLatest') : null, s.contentWarning === 'NSFW' ? t('browse.adult') : s.contentWarning === 'MIXED' ? t('browse.mixedAdult') : null]
                         .filter(Boolean)
                         .join(' · ') || ' '}
                     </span>
                   </span>
-                  <span className="rounded-md border border-line px-1.5 text-[11px] font-semibold text-muted">{s.lang === 'localsourcelang' ? '本地' : s.lang.toUpperCase()}</span>
+                  <span className="rounded-md border border-line px-1.5 text-[11px] font-semibold text-muted">{s.lang === 'localsourcelang' ? t('browse.lang.localsourcelang') : s.lang.toUpperCase()}</span>
                 </button>
               ))}
             </div>
@@ -240,9 +241,9 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
     onMode('SEARCH')
   }
   const modes = [
-    { value: 'POPULAR' as Mode, label: '热门' },
-    ...(source.supportsLatest ? [{ value: 'LATEST' as Mode, label: '最新' }] : []),
-    ...(q || filters.length > 0 || mode === 'SEARCH' ? [{ value: 'SEARCH' as Mode, label: q ? `搜索「${q}」` : '筛选结果' }] : []),
+    { value: 'POPULAR' as Mode, label: t('browse.mode.popular') },
+    ...(source.supportsLatest ? [{ value: 'LATEST' as Mode, label: t('browse.mode.latest') }] : []),
+    ...(q || filters.length > 0 || mode === 'SEARCH' ? [{ value: 'SEARCH' as Mode, label: q ? t('browse.mode.search', { q }) : t('browse.mode.filtered') }] : []),
   ]
 
   return (
@@ -253,11 +254,11 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
           <h2 id="h-src" className="m-0 text-[22px] font-bold">{source.displayName}</h2>
           <span className="text-xs text-muted">{langLabel(source.lang)}</span>
         </div>
-        <Seg flat label="浏览方式" items={modes} value={mode} onChange={onMode} />
+        <Seg flat label={t('browse.mode.label')} items={modes} value={mode} onChange={onMode} />
         {source.id !== '0' && (
           <Popover
             id={panelId}
-            label="来源筛选"
+            label={t('browse.sourceFilter')}
             fitViewport
             open={panel}
             onClose={closePanel}
@@ -265,7 +266,7 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
             trigger={
               <Glass flat as="button" ref={filterButton} type="button" aria-expanded={panel} aria-controls={panelId} aria-haspopup="dialog" onClick={() => setPanel((value) => !value)} className={cn('gbtn rounded-full [--g-drop:0_0_0_transparent]', (panel || (mode === 'SEARCH' && filters.length > 0)) && 'bg-g-hi')}>
                 <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />
-                来源筛选{mode === 'SEARCH' && filters.length > 0 && <span className="text-xs num">{filters.length}</span>}
+                {t('browse.sourceFilter')}{mode === 'SEARCH' && filters.length > 0 && <span className="text-xs num">{filters.length}</span>}
               </Glass>
             }
           >
@@ -273,15 +274,15 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
           </Popover>
         )}
         {home && (
-          <Glass flat as="a" href={home} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label="打开来源网站" title="打开来源网站">
+          <Glass flat as="a" href={home} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label={t('browse.openSite')} title={t('browse.openSite')}>
             <ExternalLink className="size-[18px]" strokeWidth={1.8} />
           </Glass>
         )}
       </div>
       {mode === 'SEARCH' && filters.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-3 text-sm text-muted">
-          <span>已应用 {filters.length} 项来源筛选</span>
-          <button type="button" className="font-semibold text-text" onClick={() => apply([])}>清除筛选</button>
+          <span>{t('browse.applied', { n: filters.length })}</span>
+          <button type="button" className="font-semibold text-text" onClick={() => apply([])}>{t('browse.clearFilters')}</button>
         </div>
       )}
       <SourceResults key={`${key}|${revision}`} source={source} mode={mode} q={q} filters={filters} />
@@ -322,7 +323,7 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
       })
       if (!mounted.current) return
       const r = data?.fetchSourceManga
-      if (!r) throw new Error('来源没有返回结果，请重试')
+      if (!r) throw new Error(t('browse.noResponse'))
       const seen = new Set(items.map((m) => m.id))
       setBatchFrom(items.length)
       setItems((prev) => [...prev, ...(r?.mangas ?? []).filter((m) => !seen.has(m.id))])
@@ -348,7 +349,7 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
 
   return (
     <>
-      {items.length > 0 && <p className="mb-4 text-xs text-muted">已加载 {items.length} 部</p>}
+      {items.length > 0 && <p className="mb-4 text-xs text-muted">{t('browse.loaded', { n: items.length })}</p>}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-[18px] gap-y-[26px]">
         {items.map((m, i) => (
           <MangaTile key={m.id} m={m} source={source.displayName} rise={i >= batchFrom ? riseStep(i - batchFrom) : undefined} />
@@ -357,14 +358,14 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
       {loading && items.length === 0 && <LibrarySkeleton density="comfy" />}
       {error && (
         <div className="py-8 text-center">
-          <p className="m-0 text-danger">加载失败：{error}</p>
+          <p className="m-0 text-danger">{t('common.withReason', { prefix: t('common.loadFailed'), reason: error })}</p>
           <button type="button" className="gbtn mt-3 bg-accent-soft" onClick={() => void loadMore()}>
-            重试
+            {t('common.retry')}
           </button>
         </div>
       )}
-      {!error && !loading && !hasNext && items.length === 0 && <p className="py-16 text-center text-muted">没有结果</p>}
-      {loading && items.length > 0 && <p className="py-6 text-center text-muted">正在从来源加载…</p>}
+      {!error && !loading && !hasNext && items.length === 0 && <p className="py-16 text-center text-muted">{t('browse.noResults')}</p>}
+      {loading && items.length > 0 && <p className="py-6 text-center text-muted">{t('browse.loadingSource')}</p>}
       {!error && hasNext && <div ref={sentinel} className="h-px" />}
     </>
   )
@@ -388,14 +389,14 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
     <section aria-labelledby="h-gs" className="mb-9">
       <div className="mb-3.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 id="h-gs" className="m-0 text-[22px] font-bold">
-          全局搜索「{q}」
+          {t('browse.multi.title', { q })}
         </h2>
         <span className="text-[13px] text-muted num">
-          已完成 {summary.done} / {summary.total} 个在线源{summary.failed > 0 ? ` · 失败 ${summary.failed}` : ''}
+          {t('browse.multi.progress', { done: summary.done, total: summary.total })}{summary.failed > 0 ? t('browse.multi.failed', { n: summary.failed }) : ''}
         </span>
         {summary.failed > 0 && summary.loading === 0 && (
           <button type="button" className="text-[13px] font-semibold text-text hover:underline" onClick={() => retry()}>
-            重试失败来源
+            {t('browse.multi.retryFailed')}
           </button>
         )}
       </div>
@@ -410,7 +411,7 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
                   <span className="flex-1 truncate font-semibold">{s.displayName}</span>
                   {r?.status !== 'error' && (
                     <span className="text-xs text-muted">
-                      {!r || r.status === 'loading' ? '搜索中…' : r.items.length ? `${r.items.length} 个结果 · 查看全部` : '无结果'}
+                      {!r || r.status === 'loading' ? t('browse.multi.searching') : r.items.length ? t('browse.multi.results', { n: r.items.length }) : t('browse.multi.none')}
                     </span>
                   )}
                 </button>
@@ -419,9 +420,9 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
                     type="button"
                     onClick={() => retry([s.id])}
                     className="flex-none rounded-full px-2.5 py-1 text-xs font-semibold text-danger transition-colors hover:bg-hover"
-                    aria-label={`重试 ${s.displayName}`}
+                    aria-label={t('browse.multi.retryOne', { name: s.displayName })}
                   >
-                    搜索失败 · 重试
+                    {t('browse.multi.failedRetry')}
                   </button>
                 )}
               </div>

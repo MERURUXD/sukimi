@@ -10,6 +10,7 @@ import { toast } from '@/components/ui/toast'
 import { USER_KEYS } from '@/features/auth/userScope'
 import { categoryNsfwKey, isNsfw, mangaNsfwKey, NO_MARKS, nsfwPrefix, nsfwReason, nsfwWrite, parseNsfw, type NsfwMarks, type NsfwSubject } from './nsfw'
 import { NsfwMetas, RemoveNsfwMetas, SetNsfwMetas } from './queries'
+import { t } from '@/i18n'
 
 interface NsfwState {
   /** 首页和画廊不显示 NSFW 作品 */
@@ -54,7 +55,7 @@ function patch(cache: ApolloCache, userId: number, fn: (nodes: readonly Node[]) 
 
 function currentUserId() {
   const id = useAuth.getState().user?.id
-  if (id === undefined) throw new Error('未登录，无法修改 NSFW 标记')
+  if (id === undefined) throw new Error(t('misc.nsfw.notLoggedIn'))
   return id
 }
 
@@ -76,7 +77,7 @@ export function NsfwSync() {
       if (e.key.toLowerCase() !== 'h' || !e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.repeat || typing(e.target)) return
       const s = useNsfwStore.getState()
       s.set({ revealed: !s.revealed })
-      toast(s.revealed ? '已恢复隐藏 NSFW 内容' : '已临时显示 NSFW 内容，刷新页面后恢复')
+      toast(s.revealed ? t('misc.nsfw.hidden') : t('misc.nsfw.revealed'))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

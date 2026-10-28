@@ -48,6 +48,7 @@ import { PERSPECTIVE, poseTransform, screenCenter, tileTransform, type TilePose 
 import { PlayView, type PlayEntry } from './PlayView'
 import { fit } from './titleFit'
 import './gallery.css'
+import { t as tl } from '@/i18n'
 
 /** 详情层：选中的是第几部，从哪一格飞出来 */
 interface Selection {
@@ -805,7 +806,7 @@ export function CanvasPage() {
         {focused && (
           <div aria-live="polite" className="absolute inset-x-5 transition-opacity duration-500 [opacity:var(--hud)] bottom-[max(20px,env(safe-area-inset-bottom))] text-white mix-blend-difference md:inset-x-[52px] md:bottom-[34px]">
             <p className="m-0 mb-2 ml-1 text-xs font-medium tracking-[.3em] num md:text-[15px]">
-              {[`No.${pad(focus)} / ${count(n)}`, focused.author, `${chapterCount(focused)} 话`, status(focused)].filter(Boolean).join('　')}
+              {[`No.${pad(focus)} / ${count(n)}`, focused.author, tl('gallery.chaptersText', { n: chapterCount(focused) }), status(focused)].filter(Boolean).join('　')}
             </p>
             <p key={focus} className="gallery-title-in m-0 -mb-[.14em] line-clamp-3 pb-[.14em] font-cjk leading-[1.02] font-black tracking-[-0.03em] [overflow-wrap:anywhere]" style={{ fontSize: titleSize }}>
               {focused.title}
@@ -816,22 +817,22 @@ export function CanvasPage() {
         <div className={cn('pointer-events-auto absolute top-[max(14px,env(safe-area-inset-top))] left-4 flex items-center gap-4', BACK_SLOT)} onPointerDown={(e) => e.stopPropagation()}>
           <GalleryBack onClick={goHome} className="[opacity:var(--hud)]" />
           <div className="flex flex-col gap-0.5 [opacity:var(--hud)]">
-            <span className="font-cjk text-base font-black md:text-xl">书库画廊</span>
+            <span className="font-cjk text-base font-black md:text-xl">{tl('gallery.name')}</span>
             <span className="text-xs text-muted md:text-[13px]">
-              {count(n)} 部作品<span className="max-md:hidden"> · 拖动、甩动或滚动 · 点左侧「画廊」返回</span>
+              {tl('gallery.worksN', { count: n, n: count(n) })}<span className="max-md:hidden">{tl('gallery.canvas.hint')}</span>
             </span>
           </div>
         </div>
 
         <div className="pointer-events-auto absolute top-[max(14px,env(safe-area-inset-top))] right-4 flex items-center gap-2.5 md:top-5 md:right-7" onPointerDown={(e) => e.stopPropagation()}>
-          <button type="button" onClick={spin} className="solid h-11 min-h-0 gap-2 px-4 text-[15px] [opacity:var(--hud)] md:h-[50px] md:pr-[22px] md:pl-[18px]" aria-label="转一转">
+          <button type="button" onClick={spin} className="solid h-11 min-h-0 gap-2 px-4 text-[15px] [opacity:var(--hud)] md:h-[50px] md:pr-[22px] md:pl-[18px]" aria-label={tl('gallery.canvas.shuffle')}>
             <Shuffle className="size-[18px]" strokeWidth={2} />
-            <span className="max-md:hidden">转一转</span>
+            <span className="max-md:hidden">{tl('gallery.canvas.shuffle')}</span>
           </button>
           <CanvasSearch open={searching} onOpen={setSearching} items={items} onPick={jumpTo} />
           <Glass as="button" type="button" onClick={startPlay} className="gbtn h-[50px] rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--hud)] max-md:hidden">
             <Play className="size-[15px] fill-current" strokeWidth={1.8} />
-            放映
+            {tl('gallery.canvas.slideshow')}
           </Glass>
         </div>
       </div>
@@ -841,17 +842,17 @@ export function CanvasPage() {
           <div className="flex flex-col items-center gap-4">
             {error ? (
               <>
-                <p className="m-0 text-danger">加载失败：{error.message.split('\n')[0]}</p>
+                <p className="m-0 text-danger">{tl('common.withReason', { prefix: tl('common.loadFailed'), reason: error.message.split('\n')[0] })}</p>
                 <button type="button" className="solid" onClick={() => void refetch()}>
-                  重试
+                  {tl('common.retry')}
                 </button>
               </>
             ) : (
-              <p className="m-0 text-muted">{loading ? '正在加载书库…' : full.length ? NSFW_ALL_HIDDEN : '书库是空的，去「发现」页添加漫画吧。'}</p>
+              <p className="m-0 text-muted">{loading ? tl('gallery.loadingLibrary') : full.length ? NSFW_ALL_HIDDEN : tl('gallery.empty')}</p>
             )}
             {!loading && (
               <Link to={GALLERY} className={error ? 'gbtn no-underline' : 'solid no-underline'}>
-                回到画廊
+                {tl('gallery.backToGallery')}
               </Link>
             )}
           </div>
@@ -916,14 +917,14 @@ function CanvasSearch({ open, onOpen, items, onPick }: { open: boolean; onOpen: 
     : []
   return (
     <div className="relative">
-      <Glass as="button" type="button" className="gicon size-11 rounded-full [opacity:var(--hud,1)] md:size-[50px]" aria-label="搜索书库" aria-expanded={open} onClick={() => onOpen(!open)}>
+      <Glass as="button" type="button" className="gicon size-11 rounded-full [opacity:var(--hud,1)] md:size-[50px]" aria-label={tl('gallery.canvas.search')} aria-expanded={open} onClick={() => onOpen(!open)}>
         <Search className="size-[19px]" strokeWidth={1.8} />
       </Glass>
       {open && (
         <Glass dense className="absolute top-[calc(100%+10px)] right-0 z-10 flex [opacity:var(--hud,1)] w-[min(340px,calc(100vw-32px))] flex-col gap-1 rounded-[22px] p-2">
           <label className="flex h-11 items-center gap-2.5 px-3 text-muted">
             <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-            <span className="sr">搜索书库</span>
+            <span className="sr">{tl('gallery.canvas.search')}</span>
             <input
               ref={input}
               type="search"
@@ -933,7 +934,7 @@ function CanvasSearch({ open, onOpen, items, onPick }: { open: boolean; onOpen: 
                 if (e.key === 'Escape') onOpen(false)
                 if (e.key === 'Enter' && hits[0]) onPick(hits[0].i)
               }}
-              placeholder="标题或作者"
+              placeholder={tl('gallery.canvas.searchPlaceholder')}
               className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
             />
           </label>
@@ -945,7 +946,7 @@ function CanvasSearch({ open, onOpen, items, onPick }: { open: boolean; onOpen: 
               <span className="min-w-0 flex-1 truncate text-left">{m.title}</span>
             </button>
           ))}
-          {word && !hits.length && <p className="m-0 px-3 py-2 text-[13px] text-muted">书库里没有符合的作品</p>}
+          {word && !hits.length && <p className="m-0 px-3 py-2 text-[13px] text-muted">{tl('gallery.canvas.noMatch')}</p>}
         </Glass>
       )}
     </div>
@@ -1086,7 +1087,7 @@ function CanvasDetail({
           key={`cover-${sel.index}`}
           to={`/manga/${manga.id}`}
           viewTransition
-          aria-label={`${manga.title}，作品详情`}
+          aria-label={tl('gallery.detailAria', { title: manga.title })}
           className={cn(
             'cv pointer-events-auto flex-none rounded-[18px] shadow-[0_60px_120px_-40px_rgba(0,0,0,.95)]',
             mobile ? 'w-[min(56vw,240px)]' : 'w-[min(420px,calc((100vh-200px)*2/3))]',
@@ -1107,8 +1108,8 @@ function CanvasDetail({
             {manga.title}
           </h2>
           <p className="gallery-up m-0 text-base font-bold md:text-[22px]" style={up(2)}>
-            {manga.author || manga.artist || '佚名'}
-            <span className="font-medium text-white/70">　·　{chapters} 话</span>
+            {manga.author || manga.artist || tl('gallery.unknownAuthor')}
+            <span className="font-medium text-white/70">　·　{tl('gallery.chaptersText', { n: chapters })}</span>
           </p>
           {description && (
             <p className="gallery-up m-0 line-clamp-4 max-w-[520px] text-[15px] leading-[1.8] whitespace-pre-line text-white/80 md:text-[17px]" style={up(3)}>
@@ -1120,13 +1121,13 @@ function CanvasDetail({
             {firstUnread ? (
               <Link to={`/manga/${manga.id}/chapter/${firstUnread}`} viewTransition className="gallery-up solid h-14 px-[30px] text-[17px] no-underline" style={up(4)}>
                 <BookOpen className="size-[19px]" strokeWidth={1.8} />
-                {manga.unreadCount > 0 && Number(manga.lastReadChapter?.lastReadAt) > 0 ? '继续阅读' : '开始阅读'}
+                {manga.unreadCount > 0 && Number(manga.lastReadChapter?.lastReadAt) > 0 ? tl('gallery.continue') : tl('gallery.start')}
               </Link>
             ) : (
-              peek.data && <span className="gallery-up solid h-14 px-[30px] text-[17px] opacity-60" style={up(4)}>已全部读完</span>
+              peek.data && <span className="gallery-up solid h-14 px-[30px] text-[17px] opacity-60" style={up(4)}>{tl('gallery.allRead')}</span>
             )}
             <GlassLink to={`/manga/${manga.id}`} viewTransition className="gallery-up gbtn h-14 rounded-full px-[26px] text-[17px] font-semibold no-underline" style={up(5)}>
-              作品详情
+              {tl('gallery.detail')}
             </GlassLink>
           </div>
         </div>
@@ -1135,7 +1136,7 @@ function CanvasDetail({
       <div className="absolute top-[max(14px,env(safe-area-inset-top))] right-4 flex gap-2.5 md:top-5 md:right-7 [&>*]:transition-opacity [&>*]:duration-300" style={{ '--info': info ? 1 : 0, pointerEvents: info ? undefined : 'none' } as CSSProperties}>
         <Glass as="button" type="button" onClick={onClose} className="gbtn h-11 rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--info)] md:h-[50px]" autoFocus>
           <X className="size-[18px]" strokeWidth={2} />
-          <span className="max-md:sr">回到画布</span>
+          <span className="max-md:sr">{tl('gallery.backToCanvas')}</span>
         </Glass>
       </div>
     </div>

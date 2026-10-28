@@ -1,6 +1,7 @@
 import { Check, ChevronDown, CircleHelp, LoaderCircle, TriangleAlert } from 'lucide-react'
 import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
+import { t } from '@/i18n'
 
 /**
  * 分栏里的一组设置：标题 + 说明，组与组之间只靠留白分开。
@@ -38,10 +39,10 @@ export function Section({
                 type="button"
                 className="gbtn plain min-h-9 w-fit rounded-full px-3.5 text-[13px]"
                 aria-expanded={open}
-                aria-label={`${open ? '收起' : '展开'}${title}`}
+                aria-label={t(open ? 'settings.parts.collapseAria' : 'settings.parts.expandAria', { title })}
                 onClick={() => setOpen((v) => !v)}
               >
-                {open ? '收起' : '展开'}
+                {open ? t('settings.parts.collapse') : t('settings.parts.expand')}
                 <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} strokeWidth={1.8} />
               </button>
             )}
@@ -80,7 +81,7 @@ export function Row({
 }) {
   const [helpOpen, setHelpOpen] = useState(false)
   const helpId = useId()
-  const labelText = typeof label === 'string' ? label : '该项'
+  const labelText = typeof label === 'string' ? label : t('settings.parts.thisItem')
 
   return (
     <div
@@ -97,7 +98,7 @@ export function Row({
               type="button"
               aria-expanded={helpOpen}
               aria-controls={helpId}
-              aria-label={`${labelText}详细说明`}
+              aria-label={t('settings.parts.helpAria', { label: labelText })}
               onClick={() => setHelpOpen((v) => !v)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape' && helpOpen) {
@@ -113,7 +114,7 @@ export function Row({
               <CircleHelp className="size-4" strokeWidth={1.8} />
             </button>
           )}
-          {restart && <span className="rounded-full border border-line px-2 py-px text-[11px] font-semibold text-muted">需重启</span>}
+          {restart && <span className="rounded-full border border-line px-2 py-px text-[11px] font-semibold text-muted">{t('cfg.needRestart')}</span>}
           <StatusBadge status={status} />
         </div>
         {hint && <div className="mt-0.5 max-w-[58ch] text-[13px] leading-snug text-muted">{hint}</div>}
@@ -127,7 +128,7 @@ export function Row({
           <div
             id={helpId}
             role="region"
-            aria-label={`${labelText}详细说明`}
+            aria-label={t('settings.parts.helpAria', { label: labelText })}
             className="mt-1.5 max-w-[58ch] text-[13px] leading-relaxed text-faint"
           >
             {help}
@@ -153,7 +154,7 @@ function StatusBadge({ status }: { status: SaveStatus }) {
     return (
       <span role="status" className="inline-flex items-center gap-1 text-xs font-medium text-muted">
         <LoaderCircle className="size-3.5 animate-spin" aria-hidden />
-        保存中
+        {t('settings.parts.saving')}
       </span>
     )
   }
@@ -161,7 +162,7 @@ function StatusBadge({ status }: { status: SaveStatus }) {
     return (
       <span role="alert" className="inline-flex items-center gap-1 text-xs font-semibold text-danger">
         <TriangleAlert className="size-3.5" strokeWidth={2} aria-hidden />
-        保存失败
+        {t('settings.parts.saveFailed')}
       </span>
     )
   }
@@ -175,7 +176,7 @@ function StatusBadge({ status }: { status: SaveStatus }) {
       )}
     >
       <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
-      已保存
+      {t('settings.parts.saved')}
     </span>
   )
 }

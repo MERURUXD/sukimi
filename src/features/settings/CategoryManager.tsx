@@ -5,6 +5,7 @@ import { graphql } from '@/api/gql'
 import { toast, toastError } from '@/components/ui/toast'
 import { Categories } from '@/features/library/queries'
 import { cn } from '@/lib/cn'
+import { t } from '@/i18n'
 
 const CategoriesFull = graphql(`
   query CategoriesFull {
@@ -88,7 +89,7 @@ export function CategoryManager() {
       await create({ variables: { name: n } })
       setName('')
     } catch (err) {
-      toastError('新建失败', err)
+      toastError(t('cfg.cat.createFailed'), err)
     }
   }
 
@@ -99,7 +100,7 @@ export function CategoryManager() {
       await update({ variables: { id: editing.id, patch: { name: editing.name.trim() } } })
       setEditing(null)
     } catch (err) {
-      toastError('重命名失败', err)
+      toastError(t('cfg.cat.renameFailed'), err)
     }
   }
 
@@ -111,9 +112,9 @@ export function CategoryManager() {
     }
     try {
       await remove({ variables: { id } })
-      toast(`已删除分类「${n}」，其中的漫画回到默认分类`)
+      toast(t('cfg.cat.deleted', { name: n }))
     } catch (err) {
-      toastError('删除失败', err)
+      toastError(t('cfg.cat.deleteFailed'), err)
     }
   }
 
@@ -122,16 +123,16 @@ export function CategoryManager() {
 
   return (
     <div className="flex flex-col gap-1">
-      {cats.length === 0 && <p className="m-0 py-2 text-sm text-muted">还没有分类。没有分类的漫画都在「默认」里。</p>}
+      {cats.length === 0 && <p className="m-0 py-2 text-sm text-muted">{t('cfg.cat.none')}</p>}
       {cats.map((c, i) => (
         <div key={c.id} className="flex items-center gap-2 rounded-2xl py-1.5 pr-1 pl-3 transition-colors hover:bg-hover">
           {editing?.id === c.id ? (
             <form onSubmit={rename} className="flex flex-1 items-center gap-2">
               <input autoFocus className={input} value={editing.name} onChange={(e) => setEditing({ id: c.id, name: e.target.value })} onKeyDown={(e) => e.key === 'Escape' && setEditing(null)} />
-              <button type="submit" className="gicon size-10" aria-label="保存名称">
+              <button type="submit" className="gicon size-10" aria-label={t('cfg.cat.saveName')}>
                 <Check className="size-5" />
               </button>
-              <button type="button" className="gicon size-10" aria-label="取消" onClick={() => setEditing(null)}>
+              <button type="button" className="gicon size-10" aria-label={t('common.cancel')} onClick={() => setEditing(null)}>
                 <X className="size-5" />
               </button>
             </form>
@@ -140,45 +141,45 @@ export function CategoryManager() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{c.name}</span>
                 <span className="text-[13px] text-muted num">
-                  {c.mangas.totalCount} 部{c.includeInUpdate === 'EXCLUDE' && ' · 不参与检查更新'}
+                  {t('cfg.cat.titles', { count: c.mangas.totalCount, n: c.mangas.totalCount })}{c.includeInUpdate === 'EXCLUDE' && t('cfg.cat.excluded')}
                 </span>
               </span>
-              <button type="button" className="gicon size-10" aria-label="上移" disabled={i === 0} onClick={() => void move({ variables: { id: c.id, position: c.order - 1 } })}>
+              <button type="button" className="gicon size-10" aria-label={t('cfg.cat.up')} disabled={i === 0} onClick={() => void move({ variables: { id: c.id, position: c.order - 1 } })}>
                 <ArrowUp className={cn('size-[18px]', i === 0 && 'opacity-30')} />
               </button>
-              <button type="button" className="gicon size-10" aria-label="下移" disabled={i === cats.length - 1} onClick={() => void move({ variables: { id: c.id, position: c.order + 1 } })}>
+              <button type="button" className="gicon size-10" aria-label={t('cfg.cat.down')} disabled={i === cats.length - 1} onClick={() => void move({ variables: { id: c.id, position: c.order + 1 } })}>
                 <ArrowDown className={cn('size-[18px]', i === cats.length - 1 && 'opacity-30')} />
               </button>
               <button
                 type="button"
                 className={cn('gicon size-10', c.includeInUpdate === 'EXCLUDE' && 'text-muted')}
                 aria-pressed={c.includeInUpdate === 'EXCLUDE'}
-                title={c.includeInUpdate === 'EXCLUDE' ? '恢复参与检查更新' : '不参与检查更新'}
+                title={c.includeInUpdate === 'EXCLUDE' ? t('cfg.cat.include') : t('cfg.cat.exclude')}
                 onClick={() => void update({ variables: { id: c.id, patch: { includeInUpdate: c.includeInUpdate === 'EXCLUDE' ? 'INCLUDE' : 'EXCLUDE' } } })}
               >
                 <RefreshCwOff className="size-[18px]" />
               </button>
-              <button type="button" className="gicon size-10" aria-label="重命名" onClick={() => setEditing({ id: c.id, name: c.name })}>
+              <button type="button" className="gicon size-10" aria-label={t('cfg.cat.rename')} onClick={() => setEditing({ id: c.id, name: c.name })}>
                 <Pencil className="size-[18px]" />
               </button>
               <button
                 type="button"
                 className={cn('gbtn min-h-10 px-3', confirmDelete === c.id ? 'text-danger' : '')}
-                aria-label={`删除分类 ${c.name}`}
+                aria-label={t('cfg.cat.deleteAria', { name: c.name })}
                 onClick={() => void del(c.id, c.name)}
               >
                 <Trash2 className="size-[18px]" />
-                {confirmDelete === c.id && '再点确认'}
+                {confirmDelete === c.id && t('cfg.cat.confirmAgain')}
               </button>
             </>
           )}
         </div>
       ))}
       <form onSubmit={add} className="mt-2 flex items-center gap-2">
-        <input className={input} placeholder="新分类名称" value={name} onChange={(e) => setName(e.target.value)} />
+        <input className={input} placeholder={t('cfg.cat.newPlaceholder')} value={name} onChange={(e) => setName(e.target.value)} />
         <button type="submit" className="gbtn plain rounded-full" disabled={!name.trim()}>
           <Plus className="size-[18px]" />
-          新建
+          {t('cfg.cat.create')}
         </button>
       </form>
     </div>

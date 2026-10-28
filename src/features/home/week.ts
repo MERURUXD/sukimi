@@ -1,3 +1,4 @@
+import { t } from '../../i18n/core.ts'
 /*
  * 首页「这一周」：最近 7 天（今天和前 6 天，按本地日历日）按天分组。
  * 只放纯逻辑（Node 测试直接导入），不依赖 React、Apollo 或路径别名。
@@ -5,7 +6,7 @@
 
 export const WEEK_DAYS = 7
 const DAY_MS = 86400000
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 /** 本地日历日的零点 */
 const midnight = (ms: number) => {
@@ -33,7 +34,7 @@ export function weekDays(nowMs: number) {
   const today = midnight(nowMs)
   return Array.from({ length: WEEK_DAYS }, (_, i) => {
     const d = new Date(today - i * DAY_MS + DAY_MS / 2)
-    return { name: i === 0 ? '今天' : i === 1 ? '昨天' : WEEKDAYS[d.getDay()], date: `${d.getMonth() + 1}/${d.getDate()}` }
+    return { name: i === 0 ? t('format.today') : i === 1 ? t('format.yesterday') : t(`format.weekday.${WEEKDAYS[d.getDay()]}`), date: `${d.getMonth() + 1}/${d.getDate()}` }
   })
 }
 
@@ -73,8 +74,8 @@ export function updatesPartial(fetchedAtMs: readonly number[], hasNextPage: bool
 
 /** 窄屏「这一周」日期标签的副标题：区分更新部数与阅读部数，不混加为同一个数字 */
 export function weekTabSub(updates: number, reads: number) {
-  if (updates > 0 && reads > 0) return `${updates} 部更新 · 读 ${reads} 部`
-  if (updates > 0) return `${updates} 部更新`
-  if (reads > 0) return `读了 ${reads} 部`
+  if (updates > 0 && reads > 0) return t('home.week.tabUpdatesAndReads', { updates, reads })
+  if (updates > 0) return t('home.week.tabUpdates', { updates })
+  if (reads > 0) return t('home.week.tabReads', { reads })
   return '—'
 }

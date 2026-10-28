@@ -18,8 +18,9 @@ import { renderPoster } from './posterDraw'
 import { summarize, type ReadingStats } from './stats'
 import { readTaste, tasteHeadline } from './taste'
 import { useReadChapters } from './useReadChapters'
+import { t as tl } from '@/i18n'
 
-const HEADING: Record<PosterKind, string> = { library: '分享书库海报', stats: '分享阅读档案', work: '分享这一部' }
+const HEADING: Record<PosterKind, string> = { library: tl('gallery.poster.heading.library'), stats: tl('gallery.poster.heading.stats'), work: tl('gallery.poster.heading.work') }
 
 const toCover = (m: LibraryManga): PosterCover => ({ url: m.thumbnailUrl ?? null, title: m.title })
 
@@ -146,10 +147,10 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
     setOuts((o) => ({ ...o, [kind]: undefined }))
   }
   const busyText = model
-    ? '正在生成海报…'
+    ? tl('gallery.poster.busy')
     : kind === 'work' || !reads.chapters
-      ? `正在统计阅读记录…${kind !== 'work' && reads.fetched ? `已取 ${count(reads.fetched)} 话` : ''}`
-      : '书库总话数还在统计，统计完就生成。'
+      ? tl('gallery.stats.counting') + (kind !== 'work' && reads.fetched ? tl('gallery.stats.fetched', { count: reads.fetched, n: count(reads.fetched) }) : '')
+      : tl('gallery.poster.totalsPending')
 
   // 系统分享要在点击时直接调用，不能先等出图（Safari 会因为失去用户手势而拒绝），所以图先画好再亮按钮
   const shareable = !!ready && typeof navigator.canShare === 'function' && navigator.canShare({ files: [ready.file] })
@@ -157,7 +158,7 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
   const share = () => {
     if (!ready) return
     navigator.share({ files: [ready.file], title: 'Sukimi' }).catch((e: unknown) => {
-      if ((e as { name?: string } | null)?.name !== 'AbortError') toast('没能打开系统分享，可以先保存图片')
+      if ((e as { name?: string } | null)?.name !== 'AbortError') toast(tl('gallery.poster.shareFailed'))
     })
   }
   const save = () => {
@@ -199,12 +200,12 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
   const preview = (
     <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[#0b0b0d] shadow-[0_0_0_1px_rgba(255,255,255,.08)]">
       {ready ? (
-        <img src={ready.url} alt={`${POSTER_LABEL[kind]}海报预览`} className="absolute inset-0 size-full" draggable={false} />
+        <img src={ready.url} alt={tl('gallery.poster.alt', { kind: POSTER_LABEL[kind] })} className="absolute inset-0 size-full" draggable={false} />
       ) : failed ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 text-center">
-          <span className="text-[15px] leading-relaxed text-muted">{dataError ? '阅读记录没取到，海报没生成出来。' : '海报没生成出来。'}</span>
+          <span className="text-[15px] leading-relaxed text-muted">{dataError ? tl('gallery.poster.dataFailed') : tl('gallery.poster.failed')}</span>
           <button type="button" onClick={retry} className="gbtn bg-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,.14)]">
-            重试
+            {tl('common.retry')}
           </button>
         </div>
       ) : (
@@ -216,37 +217,37 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
     </div>
   )
   const picker = kinds.length > 1 && (
-    <Seg items={kinds.map((k) => ({ value: k, label: POSTER_LABEL[k] }))} value={kind} onChange={(k) => { setPicked(k); if (k !== 'work') setReadsRequested(true); setSaved(null) }} label="海报样式" glass={false} />
+    <Seg items={kinds.map((k) => ({ value: k, label: POSTER_LABEL[k] }))} value={kind} onChange={(k) => { setPicked(k); if (k !== 'work') setReadsRequested(true); setSaved(null) }} label={tl('gallery.poster.styleLabel')} glass={false} />
   )
   const actions = (
     <div className="flex gap-3">
       {shareable && (
         <button type="button" onClick={share} className="solid h-[52px] flex-1 px-4 text-base">
           <Share className="size-[18px]" strokeWidth={2} />
-          分享
+          {tl('gallery.share')}
         </button>
       )}
       <button type="button" onClick={save} disabled={!ready} className={shareable ? 'gbtn h-[52px] flex-1 bg-white/10 text-base shadow-[inset_0_0_0_1px_rgba(255,255,255,.14)] disabled:opacity-40' : 'solid h-[52px] flex-1 px-4 text-base'}>
         <Download className="size-[18px]" strokeWidth={2} />
-        保存图片
+        {tl('gallery.poster.save')}
       </button>
     </div>
   )
-  const note = '在这台设备上生成，不经过服务端；标为 NSFW 的作品不会出现在海报上。'
+  const note = tl('gallery.poster.note')
   const status = saved && (
     <p role="status" className="m-0 text-sm text-muted">
-      已保存 {saved}
+      {tl('gallery.poster.saved', { name: saved })}
     </p>
   )
 
   if (mobile) {
     return (
-      <BottomSheet id="poster-share" label={heading} closeLabel="关闭分享" onClose={onClose}>
+      <BottomSheet id="poster-share" label={heading} closeLabel={tl('gallery.poster.closeLabel')} onClose={onClose}>
         {/* 底部面板最高 520px：预览缩小一点，保存后的提示顶替说明那一行，按钮不用滚动就能看到 */}
         <div className="flex flex-col items-center gap-3 px-2 pt-2 pb-3">
           <div className="w-[min(216px,54vw)]">{preview}</div>
           {picker}
-          {status || <p className="m-0 text-center text-[13px] leading-relaxed text-muted">本机生成，不经过服务端；NSFW 作品不会出现。</p>}
+          {status || <p className="m-0 text-center text-[13px] leading-relaxed text-muted">{tl('gallery.poster.noteShort')}</p>}
           <div className="w-full">{actions}</div>
         </div>
       </BottomSheet>
@@ -260,14 +261,14 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-start justify-between gap-4">
             <h2 className="m-0 mt-1 font-cjk text-[26px] font-bold">{heading}</h2>
-            <button type="button" onClick={onClose} aria-label="关闭分享" className="gicon -mt-1.5 -mr-1.5 bg-white/8">
+            <button type="button" onClick={onClose} aria-label={tl('gallery.poster.closeLabel')} className="gicon -mt-1.5 -mr-1.5 bg-white/8">
               <X className="size-[18px]" strokeWidth={2} />
             </button>
           </div>
-          <p className="m-0 mt-3.5 text-[15px] leading-[1.7] text-muted">1080 × 1350 的图片，{note}</p>
+          <p className="m-0 mt-3.5 text-[15px] leading-[1.7] text-muted">{tl('gallery.poster.size', { note })}</p>
           {picker && (
             <div className="mt-8 flex flex-col items-start gap-2.5">
-              <span className="text-[13px] tracking-[.2em] text-faint">样式</span>
+              <span className="text-[13px] tracking-[.2em] text-faint">{tl('gallery.poster.style')}</span>
               {picker}
             </div>
           )}

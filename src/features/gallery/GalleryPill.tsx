@@ -1,6 +1,7 @@
 import { GlassLink } from '@/components/glass/GlassLink'
 import { enterGalleryFromLibrary, plainClick, prefetchGallery } from './readMorph'
 import './pill.css'
+import { t } from '@/i18n'
 
 /**
  * 书库页头右侧的「画廊」入口。玻璃和链接是同一个元素；
@@ -17,12 +18,12 @@ export function GalleryPill() {
       onPointerEnter={prefetchGallery}
       onFocus={prefetchGallery}
       className="gbtn gallery-pill no-underline max-sm:size-11 max-sm:px-0"
-      aria-label="书库画廊"
-      title="书库画廊"
+      aria-label={t('gallery.name')}
+      title={t('gallery.name')}
     >
       <GalleryIcon />
       <span className="max-sm:hidden" aria-hidden>
-        画廊
+        {t('gallery.short')}
       </span>
     </GlassLink>
   )

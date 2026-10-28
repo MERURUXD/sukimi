@@ -5,6 +5,7 @@ import { useAuth } from '@/api/auth'
 import { captureUser } from '@/api/userContext'
 import { favoriteKey, favoritePrefix, parseFavorites } from './favorite'
 import { FavoriteMetas, RemoveFavorites, SetFavorites } from './queries'
+import { t } from '@/i18n'
 
 type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 
@@ -38,7 +39,7 @@ export function useFavoriteActions() {
     if (!mangaIds.length) return
     const still = captureUser()
     const userId = useAuth.getState().user?.id
-    if (userId === undefined) throw new Error('未登录，无法修改特别关心')
+    if (userId === undefined) throw new Error(t('misc.favorite.notLoggedIn'))
     // 请求期间换了账号：缓存已经是新账号的，不能把上一个账号的写进去
     const mine = () => useAuth.getState().user?.id === userId
     if (on) {

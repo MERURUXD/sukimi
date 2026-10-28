@@ -10,6 +10,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { isDemo, isDevLab } from '@/lib/demo'
 import { fakeSearch, fakeSubject } from './demo'
 import { isFresh, parseSubject, pickMatch, type BgmSubject } from './rating'
+import { t } from '../../i18n/core.ts'
 
 const API = 'https://api.bgm.tv/v0'
 const fake = isDemo || isDevLab
@@ -84,7 +85,7 @@ async function getSubject(id: number) {
   if (fake) return fakeSubject(id)
   const res = await fetch(`${API}/subjects/${id}`, { headers: { accept: 'application/json' } })
   if (res.status === 404) return null
-  if (!res.ok) throw new Error(`Bangumi 返回 ${res.status}`)
+  if (!res.ok) throw new Error(t('bangumi.httpError', { status: res.status }))
   return (await res.json()) as Record<string, unknown>
 }
 
@@ -97,7 +98,7 @@ export async function searchSubjects(keyword: string): Promise<BgmSubject[]> {
         headers: { 'content-type': 'application/json', accept: 'application/json' },
         body: JSON.stringify({ keyword, filter: { type: [1] } }),
       }).then(async (res) => {
-        if (!res.ok) throw new Error(`Bangumi 返回 ${res.status}`)
+        if (!res.ok) throw new Error(t('bangumi.httpError', { status: res.status }))
         return ((await res.json()) as { data?: Record<string, unknown>[] }).data ?? []
       })
   const list = raw.map(parseSubject).filter((s) => s.id)

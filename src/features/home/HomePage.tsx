@@ -44,6 +44,7 @@ import { useWeekTray, WeekSection } from './WeekSection'
 import { useLocalNow } from './useLocalNow'
 import { homeBlockState } from './queryState'
 import { useWeekUpdates } from './useWeekUpdates'
+import { t } from '@/i18n'
 
 /** 按漫画去重：每部漫画只保留最近读的那一话 */
 function byManga(chapters: readonly ReadChapter[]) {
@@ -178,19 +179,19 @@ export function HomePage() {
     favorite: homeSections.favorite && <FavoriteShelf library={library} />,
     updates: homeSections.updates && (updatesState === 'error' && updates.error ? (
       <section aria-labelledby="h-up" className="pt-11">
-        <h2 id="h-up" className="m-0 text-[26px] font-bold">最近更新</h2>
-        <LoadError prefix="无法读取最近更新" message={updates.error.message} onRetry={retryUpdates} />
+        <h2 id="h-up" className="m-0 text-[26px] font-bold">{t('home.section.updates')}</h2>
+        <LoadError prefix={t('home.err.recentUpdates')} message={updates.error.message} onRetry={retryUpdates} />
       </section>
     ) : (
       <>
-        {updatesState === 'stale' && updates.error && <LoadError message="暂时未能刷新，正在显示上次的更新" onRetry={retryUpdates} />}
+        {updatesState === 'stale' && updates.error && <LoadError message={t('home.err.staleUpdates')} onRetry={retryUpdates} />}
         <UpdatesShelf chapters={updateChapters} />
       </>
     )),
-    stale: homeSections.stale && <MangaShelf id="stale" title="好久没看" note={(n) => `${n} 部读到一半，超过两周没打开`}
-      mangas={shelves?.stale} sub={(m) => `上次 ${timeAgo(sec(m.lastReadChapter?.lastReadAt))} · ${m.unreadCount} 话未读`} />,
-    fresh: homeSections.fresh && <MangaShelf id="fresh" title="还没开始读" note={(n) => `书库里有 ${n} 部还没翻开`}
-      mangas={shelves?.fresh} sub={(m) => `共 ${m.unreadCount} 话`} />,
+    stale: homeSections.stale && <MangaShelf id="stale" title={t('home.section.stale')} note={(n) => t('home.shelf.staleNote', { n })}
+      mangas={shelves?.stale} sub={(m) => t('home.shelf.staleSub', { time: timeAgo(sec(m.lastReadChapter?.lastReadAt)), n: m.unreadCount })} />,
+    fresh: homeSections.fresh && <MangaShelf id="fresh" title={t('home.section.fresh')} note={(n) => t('home.shelf.freshNote', { n })}
+      mangas={shelves?.fresh} sub={(m) => t('home.shelf.freshSub', { count: m.unreadCount })} />,
     recent: homeSections.recent && <RecentList items={recent.slice(0, 3)} />,
     later: homeSections.later && <LaterShelf />,
     // 橱窗的数字照常计入 NSFW，封面墙由它自己去掉，所以给完整书库
@@ -210,9 +211,9 @@ export function HomePage() {
         onShuffle={hero.more ? nextHero : undefined}
       />
       <div className="wrap pb-20">
-        {readsState === 'stale' && reads.error && <LoadError message="暂时未能刷新，正在显示上次的阅读记录" onRetry={retryReads} />}
-        {usesLibrary && libState === 'error' && lib.error && <LoadError prefix="无法读取书库" message={lib.error.message} onRetry={retryLibrary} />}
-        {usesLibrary && libState === 'stale' && lib.error && <LoadError message="暂时未能刷新，正在显示上次的书库" onRetry={retryLibrary} />}
+        {readsState === 'stale' && reads.error && <LoadError message={t('home.err.staleReads')} onRetry={retryReads} />}
+        {usesLibrary && libState === 'error' && lib.error && <LoadError prefix={t('home.err.library')} message={lib.error.message} onRetry={retryLibrary} />}
+        {usesLibrary && libState === 'stale' && lib.error && <LoadError message={t('home.err.staleLibrary')} onRetry={retryLibrary} />}
         {homeSectionOrder.map((id) => content[id] && <Slot key={id} id={id}>{content[id]}</Slot>)}
       </div>
     </MotionConfig>
@@ -302,9 +303,9 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
       still()
       const ids = data?.chapters.nodes.map((c) => c.id) ?? []
       if (ids.length) await enqueue({ variables: { ids } })
-      toast(ids.length ? `已将 ${ids.length} 话加入下载队列` : '后续章节都已下载')
+      toast(ids.length ? t('library.bulk.queued', { count: ids.length, n: ids.length }) : t('home.queued'))
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('加入下载队列失败', e)
+      if (!(e instanceof StaleSessionError)) toastError(t('home.queueFailed'), e)
     }
   }
 
@@ -312,15 +313,15 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
     return (
       <section className="relative -mt-[var(--nav-h)] pt-[var(--nav-h)]">
         <div className="wrap flex min-h-[240px] flex-col justify-end gap-4 pb-8 md:min-h-[420px] md:pb-12">
-          <span className="text-xs font-bold tracking-[.14em] text-muted">继续阅读</span>
+          <span className="text-xs font-bold tracking-[.14em] text-muted">{t('home.continue')}</span>
           {error ? (
-            <LoadError className="py-2 text-left" prefix="无法读取最近阅读" message={error.message} onRetry={() => onRetry?.()} />
+            <LoadError className="py-2 text-left" prefix={t('home.err.recentReading')} message={error.message} onRetry={() => onRetry?.()} />
           ) : (
             <>
-              <h1 className="m-0 font-cjk text-[28px] leading-[1.1] font-black md:text-[44px]">{loading ? ' ' : '还没有读过的漫画'}</h1>
+              <h1 className="m-0 font-cjk text-[28px] leading-[1.1] font-black md:text-[44px]">{loading ? ' ' : t('home.nothingRead')}</h1>
               {!loading && (
                 <Link to="/library" className="solid w-fit no-underline">
-                  去书库挑一部
+                  {t('home.pickFromLibrary')}
                 </Link>
               )}
             </>
@@ -368,7 +369,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
   }
 
   return (
-    <section aria-label="继续阅读" className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)] md:min-h-[min(760px,92vh)]" data-mobile-layout={homeMobileLayout} data-desktop-layout={homeDesktopLayout} data-sfw={sfwAttr(m.source?.displayName)}>
+    <section aria-label={t('home.continue')} className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)] md:min-h-[min(760px,92vh)]" data-mobile-layout={homeMobileLayout} data-desktop-layout={homeDesktopLayout} data-sfw={sfwAttr(m.source?.displayName)}>
       {/* 背景：当前漫画封面的大幅模糊，默认缓慢流动、切换时交叉淡入；底边短 2px，避免模糊层取整后漏出亮线 */}
       <div className={cn('absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden', immersive && 'hidden md:block', desktopImmersive && 'md:hidden')} aria-hidden>
         {homeMotionBg && !(immersive && desktopImmersive) ? (
@@ -432,7 +433,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                 to={`/manga/${m.id}`}
                 viewTransition
                 data-hero-art-link
-                aria-label={`查看《${m.title}》详情`}
+                aria-label={t('home.viewDetails', { title: m.title })}
                 className={cn(immersive ? 'cv absolute inset-0 z-0 aspect-auto w-full bg-transparent md:relative md:inset-auto md:z-auto md:aspect-[2/3] md:rounded-[14px] md:shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)]' : 'cv w-[clamp(96px,calc(33svh_-_88px),184px)] rounded-[14px]',
                   'flex-none md:w-[220px] lg:w-[280px]', !immersive && 'shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)]', desktopImmersive && 'md:hidden')}
               >
@@ -444,7 +445,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                   <div aria-hidden className="pointer-events-none absolute -inset-x-4 -top-16 -bottom-2 -z-10 bg-[linear-gradient(180deg,transparent_0,rgba(11,11,13,.95)_56px,rgba(11,11,13,.97)_calc(100%_-_76px),var(--bg)_100%)] sm:-inset-x-8 md:hidden" />
                 )}
                 <div style={delay(0.06)} className={cn('flex w-full min-w-0 flex-col gap-2 md:gap-3.5', rise)}>
-                  <span className={cn('text-xs font-bold tracking-[.14em] text-muted', immersive && 'max-md:text-white/70')}>继续阅读 · {timeAgo(sec(cur.lastReadAt))}</span>
+                  <span className={cn('text-xs font-bold tracking-[.14em] text-muted', immersive && 'max-md:text-white/70')}>{t('home.continueAgo', { time: timeAgo(sec(cur.lastReadAt)) })}</span>
                   <h1 className={cn('m-0 line-clamp-2 font-cjk text-[30px] leading-[1.15] font-black break-words text-balance max-md:[@media(max-height:700px)]:text-[26px] md:text-[46px] md:leading-[1.08] xl:text-[60px]', desktopImmersive && m.title.length > 22 && 'md:line-clamp-none md:text-[32px] lg:text-[40px] xl:text-[44px]')}>{m.title}</h1>
                   {m.author && <span className={cn('truncate text-[13px] text-muted md:hidden', immersive && 'max-md:text-white/70')}>{m.author}</span>}
                   {meta && <span className="hidden text-[15px] text-muted md:block">{meta}</span>}
@@ -453,7 +454,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                 {target && (
                   <div style={delay(0.12)} className={cn('flex w-full max-w-[420px] flex-col gap-2 md:mt-1.5', rise)}>
                     <div className={cn('flex gap-2 text-[13px] md:justify-between md:gap-3', immersive ? 'justify-start' : 'justify-center')}>
-                      <span className="min-w-0 truncate font-semibold">{target.isNext && '接着读 · '}{target.label}</span>
+                      <span className="min-w-0 truncate font-semibold">{target.isNext && t('home.nextUp')}{target.label}</span>
                       <span aria-hidden className={cn('text-muted md:hidden', immersive && 'max-md:text-white/70')}>·</span>
                       <span className={cn('flex-none text-muted num', immersive && 'max-md:text-white/70')}>{target.page}</span>
                     </div>
@@ -466,10 +467,10 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                   {target ? (
                     <Link to={`/manga/${m.id}/chapter/${target.id}`} viewTransition className={cn('solid min-w-0 px-3 text-sm no-underline md:px-6 md:text-base', immersive && 'max-md:ring-1 max-md:ring-white/20')}>
                       <Play className="size-4 fill-current md:size-5" strokeWidth={1.6} />
-                      继续阅读
+                      {t('home.continue')}
                     </Link>
                   ) : (
-                    <span className="solid min-w-0 px-3 text-sm opacity-60 md:px-6 md:text-base">已全部读完</span>
+                    <span className="solid min-w-0 px-3 text-sm opacity-60 md:px-6 md:text-base">{t('home.allRead')}</span>
                   )}
                   <Glass suspendRefract={lensOff}
                     as="a"
@@ -481,21 +482,21 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                       navigate(`/manga/${m.id}`, { viewTransition: true })
                     }}
                   >
-                    <span className="md:hidden">详情</span><span className="hidden md:inline">漫画详情</span>
+                    <span className="md:hidden">{t('home.detailsShort')}</span><span className="hidden md:inline">{t('home.details')}</span>
                   </Glass>
                   {m.inLibrary && (
-                    <Glass suspendRefract={lensOff} as="span" className="gicon rounded-full bg-g-hi" aria-label="已在书库" title="已在书库">
+                    <Glass suspendRefract={lensOff} as="span" className="gicon rounded-full bg-g-hi" aria-label={t('home.inLibrary')} title={t('home.inLibrary')}>
                       <Heart className="size-5 fill-current" strokeWidth={1.8} />
                     </Glass>
                   )}
                   <Can permission="DOWNLOAD_CHAPTERS">
-                    <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full" onClick={downloadRest} aria-label="下载后续章节" title="下载后续章节">
+                    <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full" onClick={downloadRest} aria-label={t('home.downloadRest')} title={t('home.downloadRest')}>
                       <Download className="size-5" strokeWidth={1.8} />
                     </Glass>
                   </Can>
                   {/* 手机的换一批在切换圆点旁边 */}
                   {onShuffle && (
-                    <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full max-md:hidden" onClick={shuffle} aria-label="换一批继续阅读" title="换一批">
+                    <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full max-md:hidden" onClick={shuffle} aria-label={t('home.shuffleContinue')} title={t('home.shuffle')}>
                       <Shuffle className="size-5" strokeWidth={1.8} />
                     </Glass>
                   )}
@@ -507,12 +508,12 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
 
         {items.length > 1 && (
           <div style={delay(0.2)} className={cn('flex items-center justify-center pb-1 md:hidden', rise)}>
-            <div role="group" aria-label="切换继续阅读漫画" className="flex">
+            <div role="group" aria-label={t('home.switchGroup')} className="flex">
               {items.map((c, i) => (
                 <button
                   key={c.manga.id}
                   type="button"
-                  aria-label={`切换到第 ${i + 1} 部：${c.manga.title}`}
+                  aria-label={t('home.switchNth', { n: i + 1, title: c.manga.title })}
                   aria-pressed={i === activeIdx}
                   onClick={() => setIdx(i)}
                   className="flex size-11 flex-none items-center justify-center rounded-full text-text hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
@@ -525,8 +526,8 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
               <button
                 type="button"
                 onClick={shuffle}
-                aria-label="换一批继续阅读"
-                title="换一批"
+                aria-label={t('home.shuffleContinue')}
+                title={t('home.shuffle')}
                 className="flex size-11 flex-none items-center justify-center rounded-full text-muted hover:bg-hover hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
               >
                 <Shuffle className="size-[18px]" strokeWidth={1.8} />
@@ -535,7 +536,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
           </div>
         )}
         {items.length > 1 && (
-          <div role="tablist" aria-label="正在阅读" className="hidden gap-3 pt-1 pb-10 md:grid md:grid-cols-2 xl:grid-cols-4">
+          <div role="tablist" aria-label={t('home.currentlyReading')} className="hidden gap-3 pt-1 pb-10 md:grid md:grid-cols-2 xl:grid-cols-4">
             {items.map((c, i) => {
               const on = c.manga.id === m.id
               const r = resume(c)
@@ -557,8 +558,8 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-[5px]">
                     <span className="truncate text-sm font-semibold md:text-base">{c.manga.title}</span>
-                    <span className="truncate text-[13px] text-muted">{r ? r.label : '已全部读完'}</span>
-                    <span className="truncate text-[13px] text-muted">{r ? r.page : '没有未读章节'}</span>
+                    <span className="truncate text-[13px] text-muted">{r ? r.label : t('home.allRead')}</span>
+                    <span className="truncate text-[13px] text-muted">{r ? r.page : t('home.noUnread')}</span>
                     {pct !== null && (
                       <span className="prog h-[3px]"><i style={{ width: `${pct}%` }} /></span>
                     )}
@@ -601,10 +602,10 @@ function Shelf({ id, title, note, actions, children }: { id: string; title: stri
           {actions}
           {overflow && (
             <>
-              <Glass flat as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label="向左滚动">
+              <Glass flat as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(-1)} aria-label={t('home.scrollLeft')}>
                 <ChevronLeft className="size-5" strokeWidth={1.8} />
               </Glass>
-              <Glass flat as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label="向右滚动">
+              <Glass flat as="button" type="button" className="gicon size-10 rounded-full max-sm:hidden" onClick={() => scroll(1)} aria-label={t('home.scrollRight')}>
                 <ChevronRight className="size-5" strokeWidth={1.8} />
               </Glass>
             </>
@@ -661,9 +662,9 @@ function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: strin
       note={note(mangas.length)}
       actions={
         mangas.length > SHELF_COUNT && (
-          <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={next} aria-label={`换一批${title}`}>
+          <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={next} aria-label={t('home.shuffleShelf', { title })}>
             <Shuffle className="size-[18px]" strokeWidth={1.8} />
-            <span className="max-sm:hidden">换一批</span>
+            <span className="max-sm:hidden">{t('home.shuffle')}</span>
           </Glass>
         )
       }
@@ -687,17 +688,17 @@ function FavoriteShelf({ library }: { library: LibManga[] | undefined }) {
   return (
     <Shelf
       id="favorite"
-      title="特别关心"
-      note={`${items.length} 部有 ${unread} 话没读`}
+      title={t('home.section.favorite')}
+      note={t('home.shelf.favoriteNote', { n: items.length, unread })}
       actions={
-        <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('favorite'); navigate('/library') }} aria-label="查看全部特别关心">
-          全部
+        <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('favorite'); navigate('/library') }} aria-label={t('home.shelf.viewAllFavorite')}>
+          {t('home.shelf.all')}
           <ChevronRight className="size-[18px]" strokeWidth={1.8} />
         </Glass>
       }
     >
       {items.slice(0, SHELF_COUNT).map((m) => (
-        <ShelfItem key={m.id} manga={m} sub={`${timeAgo(sec(m.latestFetchedChapter?.fetchedAt))}更新`} badge={m.unreadCount > 99 ? '99+' : String(m.unreadCount)} />
+        <ShelfItem key={m.id} manga={m} sub={t('home.shelf.updatedAgo', { time: timeAgo(sec(m.latestFetchedChapter?.fetchedAt)) })} badge={m.unreadCount > 99 ? '99+' : String(m.unreadCount)} />
       ))}
     </Shelf>
   )
@@ -715,17 +716,17 @@ function LaterShelf() {
   return (
     <Shelf
       id="later"
-      title="稍后再看"
-      note={`存了 ${items.length} 部，最近加入的在前`}
+      title={t('home.section.later')}
+      note={t('home.shelf.laterNote', { n: items.length })}
       actions={
-        <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('later'); navigate('/library') }} aria-label="查看全部稍后再看">
-          全部
+        <Glass flat as="button" type="button" className="gbtn mr-1 rounded-full" onClick={() => { setCategory('later'); navigate('/library') }} aria-label={t('home.shelf.viewAllLater')}>
+          {t('home.shelf.all')}
           <ChevronRight className="size-[18px]" strokeWidth={1.8} />
         </Glass>
       }
     >
       {items.slice(0, SHELF_COUNT).map((m) => (
-        <ShelfItem key={m.id} manga={m} sub={`${timeAgo(sec(String(m.laterAt)))}加入`} />
+        <ShelfItem key={m.id} manga={m} sub={t('home.shelf.addedAgo', { time: timeAgo(sec(String(m.laterAt))) })} />
       ))}
     </Shelf>
   )
@@ -750,11 +751,11 @@ function UpdatesShelf({ chapters }: { chapters: UpdateChapter[] | undefined }) {
   return (
     <Shelf
       id="up"
-      title="最近更新"
-      note={chapters ? (withNew ? `${withNew} 部漫画有 ${newCount} 话新章节` : '新章节都读过了') : ' '}
+      title={t('home.section.updates')}
+      note={chapters ? (withNew ? t('home.shelf.updatesNote', { n: withNew, chapters: newCount }) : t('home.shelf.updatesAllRead')) : ' '}
       actions={
         <Link to="/updates" className="mr-2 font-semibold text-muted no-underline hover:text-text">
-          查看全部
+          {t('home.shelf.viewAll')}
         </Link>
       }
     >
@@ -773,14 +774,14 @@ function RecentList({ items }: { items: ReadChapter[] }) {
       <div className="mb-[18px] flex items-end justify-between gap-4">
         <div>
           <h2 id="h-rec" className="m-0 text-[26px] font-bold">
-            最近阅读
+            {t('home.section.recent')}
           </h2>
-          <span className="text-sm text-muted">{isDemo ? '演示进度仅在本次会话中保留' : '阅读进度已同步到服务端'}</span>
+          <span className="text-sm text-muted">{isDemo ? t('home.shelf.demoNote') : t('home.shelf.syncedNote')}</span>
         </div>
         <Link to="/history" className="rounded-full text-text no-underline">
           <Glass flat as="span" className="gbtn rounded-full">
             <History className="size-[18px]" strokeWidth={1.8} />
-            全部历史
+            {t('home.shelf.allHistory')}
           </Glass>
         </Link>
       </div>
@@ -804,7 +805,7 @@ function RecentRow({ c }: { c: ReadChapter }) {
   const detail = `/manga/${c.manga.id}`
   return (
     <div data-sfw={sfwAttr(c.manga.source?.displayName)} data-reader-origin className="-mx-2.5 flex items-center gap-[18px] rounded-[18px] p-2.5 transition-colors hover:bg-hover">
-      <Link to={detail} viewTransition {...prefetch} className="cv w-[72px] flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]" aria-label={`${c.manga.title} 详情`}>
+      <Link to={detail} viewTransition {...prefetch} className="cv w-[72px] flex-none rounded-[9px] shadow-[0_10px_24px_rgba(0,0,0,.3)]" aria-label={t('home.shelf.detailsAria', { title: c.manga.title })}>
         <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
       </Link>
       <Link
@@ -818,7 +819,7 @@ function RecentRow({ c }: { c: ReadChapter }) {
           <span className="flex-none text-[13px] text-muted">{timeAgo(sec(c.lastReadAt))}</span>
         </span>
         <span className="truncate text-[13px] text-muted num">
-          {chapterLabel(c)} · {c.isRead ? '已读完' : c.pageCount > 0 ? `${c.lastPageRead + 1} / ${c.pageCount} 页` : `第 ${c.lastPageRead + 1} 页`}
+          {chapterLabel(c)} · {c.isRead ? t('home.shelf.finished') : c.pageCount > 0 ? t('home.shelf.pageOf', { current: c.lastPageRead + 1, total: c.pageCount }) : t('home.shelf.pageN', { page: c.lastPageRead + 1 })}
         </span>
         <span className="prog mt-2 h-[3px] w-full max-w-[220px]">
           <i style={{ width: `${pct}%` }} />

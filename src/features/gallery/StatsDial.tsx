@@ -6,6 +6,8 @@ import { LOAD_CAP, chase, loadTarget } from './loadRing'
 import type { HeatDay, ReadingStats } from './stats'
 import { easeOut, seg, type Pager } from './statsPager'
 import { PAGE } from './useReadChapters'
+import { t as tl } from '@/i18n'
+import { monthName } from './dates'
 
 export type Tip = { kind: 'hour'; h: number } | null
 
@@ -163,7 +165,7 @@ export interface YearRing {
   weekly: boolean
 }
 
-const monthOf = (t: number) => `${new Date(t).getMonth() + 1} 月`
+const monthOf = (t: number) => monthName(new Date(t).getMonth())
 
 /** 时钟外面的一圈：近半年每天（手机每周）一根刻度，从正下方开始顺时针走到现在；最长连续的那一段点亮 */
 const YearRingSvg = memo(function YearRingSvg({ ring, intro }: { ring: YearRing; intro: Intro }) {
@@ -235,7 +237,7 @@ const YearRingSvg = memo(function YearRingSvg({ ring, intro }: { ring: YearRing;
         })}
         {runMid >= 0 && run && (
           <text x={runAt.x} y={runAt.y + 4} fill="#fff" fontSize={weekly ? 14 : 10.5} fontWeight={700} textAnchor="middle">
-            近半年最长连续 {run.len} 天
+            {tl('gallery.stats.longestRun', { count: run.len, n: run.len })}
           </text>
         )}
       </g>
@@ -313,7 +315,7 @@ export const Clock = memo(function Clock({
     <div
       ref={ref}
       role="img"
-      aria-label={stats ? `24 小时阅读时钟：有阅读时间的 ${timed} 话${peak >= 0 ? `，${peak} 点读得最多` : ''}` : '24 小时阅读时钟：正在汇总'}
+      aria-label={stats ? tl('gallery.stats.clockAria', { count: timed, n: timed }) + (peak >= 0 ? tl('gallery.stats.clockPeak', { h: peak }) : '') : tl('gallery.stats.clockLoading')}
       className={cn('flex-none', className ?? 'relative', load && !reduced && 'gallery-clock-in')}
       style={{ width: size, height: size, transformStyle: flat ? undefined : 'preserve-3d' }}
       onMouseLeave={() => onTip(null)}
@@ -388,7 +390,7 @@ export const Clock = memo(function Clock({
             top: c - Math.cos((hourTip * Math.PI) / 12) * (radius + barLen(stats.hours[hourTip]) + 22 * k),
           }}
         >
-          {hourTip} 点 · {stats.hours[hourTip]} 话
+          {tl('gallery.stats.hourTip', { h: hourTip, count: stats.hours[hourTip], n: stats.hours[hourTip] })}
         </span>
       )}
     </div>

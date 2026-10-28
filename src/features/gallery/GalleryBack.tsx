@@ -1,6 +1,7 @@
 import { ChevronLeft } from 'lucide-react'
 import { Glass } from '@/components/glass/Glass'
 import { cn } from '@/lib/cn'
+import { t } from '@/i18n'
 
 /**
  * 桌面上返回键的位置：和全局顶栏左侧标志（TopNav）同一处，水平对齐 .wrap 的内容边，垂直在 --nav-h 里居中。
@@ -15,12 +16,12 @@ export function GalleryBack({ onClick, title, className }: { onClick: () => void
       as="button"
       type="button"
       onClick={onClick}
-      aria-label="返回画廊首页"
+      aria-label={t('gallery.backAria')}
       title={title}
       className={cn('flex items-center rounded-full text-text max-md:size-11 max-md:justify-center max-md:p-0 md:h-[52px] md:gap-1 md:pr-5 md:pl-3.5 md:text-[17px] md:font-bold', className)}
     >
       <ChevronLeft className="size-6" strokeWidth={1.8} />
-      <span className="max-md:hidden">画廊</span>
+      <span className="max-md:hidden">{t('gallery.short')}</span>
     </Glass>
   )
 }

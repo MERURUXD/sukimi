@@ -6,6 +6,7 @@ import { MangaChapters } from '@/features/manga/queries'
 import { FetchTrack, MangaTracks, TrackedMangaIds, Trackers } from './queries'
 import { readProgress } from './tracking'
 import { updateTrackQueued } from './useSaveTrack'
+import { t } from '../../i18n/core.ts'
 
 async function push(client: ApolloClient, mangaId: number, still: () => void) {
   still()
@@ -68,7 +69,7 @@ export async function pullTrackProgress(client: ApolloClient, mangaId: number, s
   const results = await Promise.allSettled(records.map((r) => client.mutate({ mutation: FetchTrack, variables: { recordId: r.id } })))
   still()
   const fresh = results.flatMap((x) => (x.status === 'fulfilled' && x.value.data ? [x.value.data.fetchTrack.trackRecord.lastChapterRead] : []))
-  if (!fresh.length) throw (results.find((x) => x.status === 'rejected') as PromiseRejectedResult | undefined)?.reason ?? new Error('刷新追踪记录失败')
+  if (!fresh.length) throw (results.find((x) => x.status === 'rejected') as PromiseRejectedResult | undefined)?.reason ?? new Error(t('track.refreshRecordFailed'))
   const remote = Math.max(...fresh)
   if (remote <= 0) return 0
   const chapters = await client.query({ query: MangaChapters, variables: { mangaId }, fetchPolicy: 'network-only' })
@@ -87,7 +88,7 @@ export async function syncTrackProgress(client: ApolloClient, mangaId: number, s
   try {
     await pushTrackProgress(client, mangaId, still)
   } catch (e) {
-    if (!(e instanceof StaleSessionError)) toastError('追踪进度同步失败', e)
+    if (!(e instanceof StaleSessionError)) toastError(t('track.syncProgressFailed'), e)
   }
 }
 
@@ -106,6 +107,6 @@ export async function syncTrackProgressMany(client: ApolloClient, mangaIds: read
       await pushTrackProgress(client, id, still)
     }
   } catch (e) {
-    if (!(e instanceof StaleSessionError)) toastError('追踪进度同步失败', e)
+    if (!(e instanceof StaleSessionError)) toastError(t('track.syncProgressFailed'), e)
   }
 }

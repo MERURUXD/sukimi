@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import { toast, toastError } from '@/components/ui/toast'
 import { LoginTrackerOAuth } from './queries'
 import { consumeOAuthNonce, parseOAuthState } from './tracking'
+import { t } from '@/i18n'
 
 /**
  * 追踪网站授权完成后回到这里（地址里带着令牌和 state）。
@@ -19,19 +20,19 @@ export function OAuthCallback() {
     if (once.current) return
     once.current = true
     void (async () => {
-      if (!state || !consumeOAuthNonce(state.nonce)) toast('授权回调缺少追踪服务信息，请重新登录', 'error')
+      if (!state || !consumeOAuthNonce(state.nonce)) toast(t('track.oauthMissing'), 'error')
       else
         try {
           const r = await login({ variables: { trackerId: state.trackerId, callbackUrl: window.location.href } })
-          if (r.data?.loginTrackerOAuth.isLoggedIn) toast(`已登录 ${state.trackerName}`)
-          else toast(`登录 ${state.trackerName} 失败`, 'error')
+          if (r.data?.loginTrackerOAuth.isLoggedIn) toast(t('track.loggedIn', { name: state.trackerName }))
+          else toast(t('track.loginFailed', { name: state.trackerName }), 'error')
         } catch (e) {
-          toastError(`登录 ${state.trackerName} 失败`, e)
+          toastError(t('track.loginFailed', { name: state.trackerName }), e)
         }
       // 替换掉带令牌的地址，不留在历史记录里
       navigate('/settings/tracking', { replace: true })
     })()
   }, [login, navigate, state])
 
-  return <p className="wrap py-24 text-center text-muted">正在登录{state ? ` ${state.trackerName}` : ''}…</p>
+  return <p className="wrap py-24 text-center text-muted">{t('track.loggingIn', { name: state ? ` ${state.trackerName}` : '' })}</p>
 }

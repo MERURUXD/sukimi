@@ -1,4 +1,5 @@
 import { httpUrl } from '../../lib/url.ts'
+import { t } from '../../i18n/core.ts'
 
 /** 和官方网页界面用同一个回调地址：suwayomi.org 的中转页按 state.redirectUrl 跳回来 */
 export const OAUTH_PATH = '/tracker/login/oauth'
@@ -52,17 +53,20 @@ export function consumeOAuthNonce(nonce: string) {
   }
 }
 
-const STATUS: [RegExp, string][] = [
-  [/re-?(read|watch)|repeat/i, '重读'],
-  [/plan/i, '想读'],
-  [/complete/i, '读完'],
-  [/hold|paus/i, '搁置'],
-  [/drop/i, '弃坑'],
-  [/read|current|watch/i, '在读'],
-]
+const STATUS = [
+  [/re-?(read|watch)|repeat/i, 'reread'],
+  [/plan/i, 'plan'],
+  [/complete/i, 'complete'],
+  [/hold|paus/i, 'hold'],
+  [/drop/i, 'drop'],
+  [/read|current|watch/i, 'reading'],
+] as const
 
-/** 追踪服务给的状态名是英文，常见的换成中文，其余照原样 */
-export const statusLabel = (name: string) => STATUS.find(([re]) => re.test(name))?.[1] ?? name
+/** 追踪服务给的状态名是英文，常见的按界面语言换掉，其余照原样 */
+export const statusLabel = (name: string) => {
+  const hit = STATUS.find(([re]) => re.test(name))
+  return hit ? t(`track.status.${hit[1]}`) : name
+}
 
 /** 服务端日期是毫秒（LongString），0 表示没有 */
 export function toDateInput(ms: string | number) {
@@ -103,11 +107,13 @@ export function scoreString(scores: readonly string[], value: number) {
   return scores.find((s) => Number(s) === value) ?? String(value)
 }
 
-const BGM_WORDS = ['', '不忍直视', '很差', '差', '较差', '不过不失', '还行', '推荐', '力荐', '神作', '超神作']
+const BGM_WORDS = ['', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7', 'w8', 'w9', 'w10'] as const
 
 /** Bangumi 十分制的评价词，和网站上一致；其他网站不加 */
-export const scoreWord = (trackerName: string, value: number) =>
-  /bangumi/i.test(trackerName) ? (BGM_WORDS[value] ?? '') : ''
+export const scoreWord = (trackerName: string, value: number) => {
+  const key = BGM_WORDS[value]
+  return key && /bangumi/i.test(trackerName) ? t(`track.words.${key}`) : ''
+}
 
 /** 相邻话数差得太远就断开：至少 10 话，长篇按 20% 放宽，容忍来源里缺几话 */
 const far = (n: number, prev: number) => n - prev > Math.max(10, prev * 0.2)

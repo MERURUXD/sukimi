@@ -22,6 +22,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { planMetaCopy, planMigration } from './migrate'
 import { CopyMigrationMarks, MigrationMarks, MigrationTarget, RemoveMigrationMarks, SetMangaCategories, SetMangaInLibrary, type Chapter, type Manga } from './queries'
+import { t } from '@/i18n'
 
 type Target = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; chapters: { id: number; chapterNumber: number; isRead: boolean; isBookmarked: boolean }[] }
 
@@ -102,7 +103,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     if (!plan) return
     const still = captureUser()
     // 失败提示要说停在哪一步：setStep 是异步的，catch 里读到的 step 还是点击那一刻的值
-    let current = '迁移'
+    let current = t('migrate.step.migrate')
     let trackFailed: string[] = []
     const go = (name: string) => {
       current = name
@@ -111,15 +112,15 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     try {
       // 手动 NSFW 标记跟着漫画 id 走，先带过去，新版本加入书库后才不会露在首页和画廊里
       if (marked) {
-        go('复制 NSFW 标记')
+        go(t('migrate.step.copyNsfw'))
         await copyManga(from.id, target.id)
         still()
       }
-      go('加入书库')
+      go(t('migrate.step.addLib'))
       await client.mutate({ mutation: SetMangaInLibrary, variables: { id: target.id, inLibrary: true } })
       if (categories && cats.length) {
         still()
-        go('复制分类')
+        go(t('migrate.step.copyCats'))
         await client.mutate({ mutation: SetMangaCategories, variables: { id: target.id, add: cats } })
       }
       const pairs: [string, string][] = []
@@ -130,40 +131,40 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
       const marks = planMetaCopy(metas, pairs, keepOld)
       if (marks.set.length) {
         still()
-        go(`复制${[later && hasLater && '稍后再看', fav && hasFav && '特别关心'].filter(Boolean).join('和')}`)
+        go(t('migrate.step.copyWhat', { what: [later && hasLater && t('home.section.later'), fav && hasFav && t('home.section.favorite')].filter(Boolean).join(t('migrate.step.and')) }))
         await client.mutate({ mutation: CopyMigrationMarks, variables: { metas: marks.set } })
       }
       if (tracks && trackCount > 0) {
         still()
-        go('绑定追踪')
+        go(t('migrate.step.bindTrack'))
         // 放在标记已读之前：绑定好以后，下面的进度同步才能推到新漫画的追踪记录。
         // 个别网站绑不上不算迁移失败（旧漫画的绑定还在），做完后一并提示
         trackFailed = (await copyTracks(client, from.id, target.id, still)).failed
       }
       if (read && plan.read.length) {
         still()
-        go('标为已读')
+        go(t('migrate.step.markRead'))
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.read, patch: { isRead: true } } })
         // 新漫画若已绑定追踪，把复制过来的已读进度推过去
         void syncTrackProgress(client, target.id, still)
       }
       if (bookmarks && plan.bookmarked.length) {
         still()
-        go('复制书签')
+        go(t('migrate.step.copyBookmarks'))
         await client.mutate({ mutation: UpdateChapters, variables: { ids: plan.bookmarked, patch: { isBookmarked: true } } })
       }
       if (!keepOld) {
         if (deleteDownloads && downloaded.length) {
           still()
-          go('删除旧的下载')
+          go(t('migrate.step.deleteOldDl'))
           await client.mutate({ mutation: DeleteDownloads, variables: { ids: downloaded } })
         }
         still()
-        go('旧的移出书库')
+        go(t('migrate.step.removeOld'))
         await client.mutate({ mutation: SetMangaInLibrary, variables: { id: from.id, inLibrary: false } })
         if (marks.remove.length) {
           still()
-          go('清理旧的标记')
+          go(t('migrate.step.cleanMarks'))
           await client.mutate({ mutation: RemoveMigrationMarks, variables: { keys: marks.remove } })
         }
       }
@@ -173,28 +174,28 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
       // 书库列表在别的页面，没法就地改；清掉让它下次打开时重新查询（本地快照会先顶上）
       client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'mangas', args: { condition: { inLibrary: true } } })
       client.cache.gc()
-      const done = keepOld ? `已复制到「${target.source.displayName}」` : `已迁移到「${target.source.displayName}」`
-      toast(trackFailed.length ? `${done}，但没能绑定 ${trackFailed.join('、')}，请在新漫画的追踪面板手动绑定` : done)
+      const done = keepOld ? t('migrate.copied', { source: target.source.displayName }) : t('migrate.migrated', { source: target.source.displayName })
+      toast(trackFailed.length ? t('migrate.trackFailed', { done, names: trackFailed.join(t('migrate.namesSep')) }) : done)
       onDone(target.id)
     } catch (e) {
       // 中途换了账号：后面的步骤不再发出，对话框早已随页面卸载，不用提示
       if (e instanceof StaleSessionError) return
-      toastError(`${current}失败`, e)
+      toastError(t('migrate.stepFailed', { step: current }), e)
       setStep(null)
     }
   }
 
   const summary = plan && [
-    read && plan.read.length ? `${plan.read.length} 话标为已读` : null,
-    bookmarks && plan.bookmarked.length ? `${plan.bookmarked.length} 个书签` : null,
-    categories && cats.length ? `${cats.length} 个分类` : null,
-    tracks && trackCount ? `${trackCount} 个追踪` : null,
-    later && hasLater ? '稍后再看' : null,
-    fav && hasFav ? '特别关心' : null,
+    read && plan.read.length ? t('migrate.readN', { n: plan.read.length }) : null,
+    bookmarks && plan.bookmarked.length ? t('migrate.bookmarksN', { n: plan.bookmarked.length }) : null,
+    categories && cats.length ? t('migrate.catsN', { n: cats.length }) : null,
+    tracks && trackCount ? t('migrate.tracksN', { n: trackCount }) : null,
+    later && hasLater ? t('home.section.later') : null,
+    fav && hasFav ? t('home.section.favorite') : null,
   ].filter(Boolean)
 
   return (
-    <Dialog label={`迁移到 ${target.source.displayName}`} onClose={() => { if (!step) onClose() }} closeOnBackdrop={!step}>
+    <Dialog label={t('migrate.dialogLabel', { source: target.source.displayName })} onClose={() => { if (!step) onClose() }} closeOnBackdrop={!step}>
       <MotionGlass
         dense
         {...pop}
@@ -205,54 +206,54 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
             <CoverImg src={target.thumbnailUrl} />
           </span>
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-bold tracking-[.08em] text-muted">迁移到 · {target.source.displayName}</span>
+            <span className="text-xs font-bold tracking-[.08em] text-muted">{t('migrate.toHeading', { source: target.source.displayName })}</span>
             <span className="line-clamp-2 text-lg leading-snug font-bold">{target.title}</span>
             {target.author && <span className="truncate text-sm text-muted">{target.author}</span>}
-            <Link to={`/manga/${target.id}`} className="text-sm font-semibold text-text">查看详情</Link>
+            <Link to={`/manga/${target.id}`} className="text-sm font-semibold text-text">{t('migrate.viewDetails')}</Link>
           </span>
         </div>
 
         <div className="text-sm leading-relaxed text-muted" role="status">
           {info.status === 'loading' && (
-            <span className="inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />正在从来源获取章节…</span>
+            <span className="inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />{t('migrate.fetching')}</span>
           )}
           {info.status === 'error' && (
             <span>
-              获取章节失败：{info.message}
-              <button type="button" className="ml-2 font-semibold text-text" onClick={() => { setInfo({ status: 'loading' }); setAttempt((n) => n + 1) }}>重试</button>
+              {t('migrate.fetchFailed', { reason: info.message })}
+              <button type="button" className="ml-2 font-semibold text-text" onClick={() => { setInfo({ status: 'loading' }); setAttempt((n) => n + 1) }}>{t('common.retry')}</button>
             </span>
           )}
           {info.status === 'ready' && plan && (
             <span>
-              新来源 {info.chapters.length} 话，当前 {fromChapters.length} 话，按话数对上 {plan.matched} 话。
-              {readCount ? ` 当前已读 ${readCount} 话，新来源按同一话数照搬，未读的保持未读。` : ' 当前还没有读过的章节。'}
+              {t('migrate.counts', { to: info.chapters.length, from: fromChapters.length, matched: plan.matched })}
+              {readCount ? t('migrate.readNote', { n: readCount }) : t('migrate.noRead')}
             </span>
           )}
         </div>
 
         <div className="flex flex-col gap-3.5">
-          <Option label="已读进度" hint={plan ? `${plan.read.length} 话` : undefined} on={read} onChange={setRead} />
-          <Option label="书签" hint={plan ? `${plan.bookmarked.length} 个` : undefined} on={bookmarks} onChange={setBookmarks} />
-          <Option label="分类" hint={cats.length ? `${cats.length} 个` : '默认分类'} on={categories} onChange={setCategories} disabled={!cats.length} />
-          {trackCount > 0 && <Option label="追踪" hint={`${trackCount} 个网站，绑定到新来源`} on={tracks} onChange={setTracks} />}
-          {hasLater && <Option label="稍后再看" hint="保留原来的加入时间" on={later} onChange={setLater} />}
-          {hasFav && <Option label="特别关心" on={fav} onChange={setFav} />}
+          <Option label={t('migrate.opt.read')} hint={plan ? t('migrate.opt.readHint', { n: plan.read.length }) : undefined} on={read} onChange={setRead} />
+          <Option label={t('migrate.opt.bookmarks')} hint={plan ? t('migrate.opt.bookmarksHint', { n: plan.bookmarked.length }) : undefined} on={bookmarks} onChange={setBookmarks} />
+          <Option label={t('migrate.opt.categories')} hint={cats.length ? t('migrate.opt.catsHint', { n: cats.length }) : t('migrate.opt.defaultCat')} on={categories} onChange={setCategories} disabled={!cats.length} />
+          {trackCount > 0 && <Option label={t('migrate.opt.tracks')} hint={t('migrate.opt.tracksHint', { n: trackCount })} on={tracks} onChange={setTracks} />}
+          {hasLater && <Option label={t('home.section.later')} hint={t('migrate.opt.laterHint')} on={later} onChange={setLater} />}
+          {hasFav && <Option label={t('home.section.favorite')} on={fav} onChange={setFav} />}
         </div>
 
         <div className="flex flex-col gap-3">
           <Seg
             glass={false}
-            label="旧的这部"
+            label={t('migrate.opt.old')}
             value={keepOld ? 'keep' : 'move'}
             onChange={(v) => setKeepOld(v === 'keep')}
             items={[
-              { value: 'move', label: '移出书库' },
-              { value: 'keep', label: '两部都保留' },
+              { value: 'move', label: t('migrate.opt.move') },
+              { value: 'keep', label: t('migrate.opt.keep') },
             ]}
             className="grid grid-cols-2 [&>button]:justify-center"
           />
           {!keepOld && downloaded.length > 0 && (
-            <Option label="删除旧来源已下载的章节" hint={`${downloaded.length} 话，释放空间`} on={deleteDownloads} onChange={setDeleteDownloads} />
+            <Option label={t('migrate.opt.delDl')} hint={t('migrate.opt.delDlHint', { n: downloaded.length })} on={deleteDownloads} onChange={setDeleteDownloads} />
           )}
         </div>
 
@@ -264,9 +265,9 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
               {step}…
             </span>
           )}
-          <button type="button" className="gbtn rounded-full hover:bg-hover" disabled={!!step} onClick={onClose}>取消</button>
+          <button type="button" className="gbtn rounded-full hover:bg-hover" disabled={!!step} onClick={onClose}>{t('common.cancel')}</button>
           <button type="button" className="solid min-h-11" disabled={!plan || !marksReady || !!step} onClick={() => void run()}>
-            {keepOld ? '复制' : '迁移'}
+            {keepOld ? t('migrate.copy') : t('migrate.go')}
           </button>
         </div>
       </MotionGlass>

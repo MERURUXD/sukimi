@@ -2,6 +2,7 @@ import type { TypedDocumentNode } from '@apollo/client'
 import { print } from 'graphql'
 import { getAccessToken, getSessionEpoch, refreshAccessToken } from './auth'
 import { isDemo, isDevLab } from '@/lib/demo'
+import { t } from '@/i18n'
 
 /** 变量里文件所在位置的占位（实际文件通过 files 传入） */
 export const FILE_SLOT = null as unknown as File
@@ -18,7 +19,7 @@ export async function uploadRequest<R, V extends Record<string, unknown>>(
   files: Record<string, File>,
 ): Promise<R> {
   // 上传不走 Apollo，模拟客户端拦不住；演示和验收页不能把文件传到真实服务端
-  if (isDemo || isDevLab) throw new Error('演示和验收页不上传文件，请退出后登录服务端')
+  if (isDemo || isDevLab) throw new Error(t('misc.api.demoNoUpload'))
   const send = async (token: string | null) => {
     const form = new FormData()
     form.append('operations', JSON.stringify({ query: print(doc), variables }))
@@ -37,10 +38,10 @@ export async function uploadRequest<R, V extends Record<string, unknown>>(
   if (res.status === 401) {
     const token = await refreshAccessToken()
     // 上传期间会话换了：不重放，免得用新会话的令牌上传旧会话选的文件
-    if (epoch !== getSessionEpoch()) throw new Error('会话已更换，上传已取消')
+    if (epoch !== getSessionEpoch()) throw new Error(t('misc.api.uploadCancelled'))
     res = await send(token)
   }
   const json = (await res.json()) as { data?: R; errors?: { message: string }[] }
-  if (json.errors?.length || !json.data) throw new Error(json.errors?.[0]?.message ?? `请求失败（${res.status}）`)
+  if (json.errors?.length || !json.data) throw new Error(json.errors?.[0]?.message ?? t('misc.api.requestFailedStatus', { status: res.status }))
   return json.data
 }

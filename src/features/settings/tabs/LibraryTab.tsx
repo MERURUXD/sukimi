@@ -3,15 +3,16 @@ import { SChoice, SSwitch } from '../fields'
 import { useLibraryView } from '@/features/library/store'
 import { Row, Section, Switch } from '../parts'
 import { RequireSettings, SettingsNotice } from '../gate'
+import { t } from '@/i18n'
 
 const INTERVALS = [
-  { value: 0, label: '关闭' },
-  { value: 6, label: '每 6 小时' },
-  { value: 12, label: '每 12 小时' },
-  { value: 24, label: '每天' },
-  { value: 48, label: '每 2 天' },
-  { value: 72, label: '每 3 天' },
-  { value: 168, label: '每周' },
+  { value: 0, label: t('cfg.lib.off') },
+  { value: 6, label: t('cfg.lib.h6') },
+  { value: 12, label: t('cfg.lib.h12') },
+  { value: 24, label: t('cfg.lib.daily') },
+  { value: 48, label: t('cfg.lib.d2') },
+  { value: 72, label: t('cfg.lib.d3') },
+  { value: 168, label: t('cfg.lib.weekly') },
 ]
 
 export function LibraryTab() {
@@ -20,24 +21,24 @@ export function LibraryTab() {
   return (
     <>
       <SettingsNotice />
-      <Section title="分类" desc="书库按分类分组，一部漫画可归入多个分类。">
+      <Section title={t('cfg.lib.cats')} desc={t('cfg.lib.catsDesc')}>
         <CategoryManager />
       </Section>
 
-      <Section title="稍后再看" desc="稍后再看列表保存在服务端，跨设备同步；以下开关仅保存在当前浏览器。">
-        <Row label="读完后自动移出" hint="把已有章节全部读完后，自动从「稍后再看」移出">
-          <Switch label="读完后自动移出稍后再看" on={laterAutoRemove} onChange={setLaterAutoRemove} />
+      <Section title={t('home.section.later')} desc={t('cfg.lib.laterDesc')}>
+        <Row label={t('cfg.lib.autoRemove')} hint={t('cfg.lib.autoRemoveHint')}>
+          <Switch label={t('cfg.lib.autoRemoveLabel')} on={laterAutoRemove} onChange={setLaterAutoRemove} />
         </Row>
       </Section>
 
-      <Section title="自动检查更新" desc="服务端定时检查书库的新章节；跳过规则仅对当前账号生效。">
+      <Section title={t('cfg.lib.updTitle')} desc={t('cfg.lib.updDesc')}>
         <RequireSettings>
-          <SChoice<number> k="globalUpdateInterval" label="检查频率" options={INTERVALS} hint="所有用户共用" />
+          <SChoice<number> k="globalUpdateInterval" label={t('cfg.lib.freq')} options={INTERVALS} hint={t('cfg.lib.freqHint')} />
         </RequireSettings>
-        <SSwitch k="excludeUnreadChapters" label="跳过有未读章节的漫画" />
-        <SSwitch k="excludeNotStarted" label="跳过还没开始读的漫画" />
-        <SSwitch k="excludeCompleted" label="跳过已完结的漫画" />
-        <SSwitch k="updateMangas" label="同时刷新漫画信息和封面" hint="同时更新简介、作者与封面，会增加检查耗时" />
+        <SSwitch k="excludeUnreadChapters" label={t('cfg.lib.skipUnread')} />
+        <SSwitch k="excludeNotStarted" label={t('cfg.lib.skipNotStarted')} />
+        <SSwitch k="excludeCompleted" label={t('cfg.lib.skipDone')} />
+        <SSwitch k="updateMangas" label={t('cfg.lib.refreshInfo')} hint={t('cfg.lib.refreshInfoHint')} />
       </Section>
     </>
   )

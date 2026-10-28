@@ -8,6 +8,7 @@ import { MODE_ICON } from './ReaderChrome'
 import { DEVICE_LABEL } from './remote'
 import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, deviceKind, useReaderStore, type ReaderSettings } from './settings'
 import { wakeLockSupported } from './wakeLock'
+import { t } from '@/i18n'
 
 function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
@@ -63,16 +64,16 @@ const H = ({ children }: { children: string }) => (
 )
 
 const KEYS: [string, string][] = [
-  ['← →', '分页随方向对调；纵向 ← 上一页、→ 下一页'],
-  ['Space', '下一页 / 向下滚动'],
-  ['[ ]', '上一话 / 下一话'],
-  ['M', '切换阅读模式'],
-  ['Z', '切换缩放适配'],
-  ['D', '切换 LTR / RTL'],
-  ['F', '全屏'],
-  ['B', '添加 / 取消当前页书签（双页时为页码小的一页）'],
-  ['Shift + B', '双页时添加 / 取消页码大的一页书签'],
-  ['Esc', '关闭设置 / 隐藏工具栏'],
+  ['← →', t('reader.panel.keys.arrows')],
+  ['Space', t('reader.panel.keys.space')],
+  ['[ ]', t('reader.panel.keys.chapters')],
+  ['M', t('reader.panel.keys.mode')],
+  ['Z', t('reader.panel.keys.fit')],
+  ['D', t('reader.panel.keys.dir')],
+  ['F', t('reader.panel.keys.fullscreen')],
+  ['B', t('reader.panel.keys.bookmark')],
+  ['Shift + B', t('reader.panel.keys.bookmarkShift')],
+  ['Esc', t('reader.panel.keys.esc')],
 ]
 
 export function SettingsPanel({
@@ -119,7 +120,7 @@ export function SettingsPanel({
       {open && (
         <MotionGlass
           as="aside"
-          aria-label="阅读设置"
+          aria-label={t('reader.chrome.settings')}
           dense
           // 大面板滚动时三通道色散开销高；保留单次折射，停下后恢复用户参数。
           lens={scrolling ? { dispersion: 0 } : undefined}
@@ -132,7 +133,7 @@ export function SettingsPanel({
           className="no-scrollbar absolute top-[84px] right-4 bottom-24 z-10 flex w-[340px] max-w-[calc(100vw-32px)] flex-col gap-[22px] overflow-y-auto overscroll-contain rounded-[26px] px-[18px] pt-[18px] pb-[22px] [&>div]:shrink-0"
         >
           <div>
-            <H>阅读模式</H>
+            <H>{t('reader.panel.mode')}</H>
             <div className="grid grid-cols-2 gap-2">
               {MODES.map((m) => {
                 const Icon = MODE_ICON[m.value]
@@ -158,31 +159,31 @@ export function SettingsPanel({
           </div>
 
           <div>
-            <H>翻页方向</H>
+            <H>{t('reader.panel.dir')}</H>
             <Seg
-              label="翻页方向"
+              label={t('reader.panel.dir')}
               glass={false}
               className="grid w-full grid-cols-2 [&>button]:justify-center"
               items={[
-                { value: 'ltr', label: '从左到右 LTR' },
-                { value: 'rtl', label: '从右到左 RTL' },
+                { value: 'ltr', label: t('reader.panel.ltr') },
+                { value: 'rtl', label: t('reader.panel.rtl') },
               ]}
               value={settings.dir}
               onChange={(dir) => set({ dir })}
             />
             <p className="mt-1.5 mb-0 text-xs text-muted">
               {!paged
-                ? '纵向模式始终自上而下：← 上一页，→ 下一页。'
+                ? t('reader.panel.dirVertical')
                 : settings.dir === 'rtl'
-                  ? '日漫习惯：点击左侧或按 ← 前进到下一页。'
-                  : '美漫 / 国漫习惯：点击右侧或按 → 前进到下一页。'}
+                  ? t('reader.panel.dirRtl')
+                  : t('reader.panel.dirLtr')}
             </p>
           </div>
 
           <div>
-            <H>缩放适配</H>
+            <H>{t('reader.panel.fit')}</H>
             <Seg
-              label="缩放适配"
+              label={t('reader.panel.fit')}
               glass={false}
               className="grid w-full grid-cols-4 [&>button]:justify-center [&>button]:px-1.5"
               items={FITS}
@@ -192,97 +193,97 @@ export function SettingsPanel({
           </div>
 
           <div>
-            <H>翻页与加载</H>
-            <Row label="双页时首页单独显示">
-              <Switch on={settings.offsetFirst} onChange={(offsetFirst) => set({ offsetFirst })} label="双页时首页单独显示" />
+            <H>{t('reader.panel.paging')}</H>
+            <Row label={t('reader.panel.offsetFirst')}>
+              <Switch on={settings.offsetFirst} onChange={(offsetFirst) => set({ offsetFirst })} label={t('reader.panel.offsetFirst')} />
             </Row>
-            <Row label="预加载页数">
+            <Row label={t('reader.panel.preloadCount')}>
               <div className="flex items-center gap-1 rounded-full bg-accent-soft p-[3px]">
-                <button type="button" className="size-9 rounded-full text-lg font-semibold hover:bg-g-hi" onClick={() => set({ preload: Math.max(1, settings.preload - 1) })} aria-label="减少预加载">
+                <button type="button" className="size-9 rounded-full text-lg font-semibold hover:bg-g-hi" onClick={() => set({ preload: Math.max(1, settings.preload - 1) })} aria-label={t('reader.panel.preloadDec')}>
                   −
                 </button>
                 <span className="w-7 text-center font-bold num">{settings.preload}</span>
-                <button type="button" className="size-9 rounded-full text-lg font-semibold hover:bg-g-hi" onClick={() => set({ preload: Math.min(10, settings.preload + 1) })} aria-label="增加预加载">
+                <button type="button" className="size-9 rounded-full text-lg font-semibold hover:bg-g-hi" onClick={() => set({ preload: Math.min(10, settings.preload + 1) })} aria-label={t('reader.panel.preloadInc')}>
                   +
                 </button>
               </div>
             </Row>
-            <Row label="读完自动进入下一话">
-              <Switch on={settings.autoNext} onChange={(autoNext) => set({ autoNext })} label="读完自动进入下一话" />
+            <Row label={t('reader.panel.autoNext')}>
+              <Switch on={settings.autoNext} onChange={(autoNext) => set({ autoNext })} label={t('reader.panel.autoNext')} />
             </Row>
-            <Row label="阅读时屏幕常亮">
-              <Switch on={settings.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label="阅读时屏幕常亮" />
+            <Row label={t('reader.panel.keepAwake')}>
+              <Switch on={settings.keepAwake} onChange={(keepAwake) => set({ keepAwake })} label={t('reader.panel.keepAwake')} />
             </Row>
-            {settings.keepAwake && !wakeLockSupported() && <Hint>当前浏览器不支持，或页面不是通过 HTTPS / localhost 打开的。</Hint>}
-            <Row label="按漫画记住阅读模式">
-              <Switch on={remember} onChange={setRemember} label="按漫画记住阅读模式" />
+            {settings.keepAwake && !wakeLockSupported() && <Hint>{t('reader.panel.keepAwakeUnsupported')}</Hint>}
+            <Row label={t('reader.panel.rememberManga')}>
+              <Switch on={remember} onChange={setRemember} label={t('reader.panel.rememberManga')} />
             </Row>
             {remember && (
               <>
-                <Row label={`${DEVICE_LABEL[deviceKind()]}上单独记住`}>
-                  <Switch on={perDevice} onChange={setPerDevice} label={`${DEVICE_LABEL[deviceKind()]}上单独记住`} />
+                <Row label={t('reader.panel.deviceOnly', { device: DEVICE_LABEL[deviceKind()] })}>
+                  <Switch on={perDevice} onChange={setPerDevice} label={t('reader.panel.deviceOnly', { device: DEVICE_LABEL[deviceKind()] })} />
                 </Row>
-                <Hint>开启后，在这台{DEVICE_LABEL[deviceKind()]}上改的模式、方向和缩放只对{DEVICE_LABEL[deviceKind()]}生效；没改过的漫画沿用通用设置。</Hint>
+                <Hint>{t('reader.panel.deviceHint', { device: DEVICE_LABEL[deviceKind()] })}</Hint>
               </>
             )}
           </div>
 
           <div>
-            <H>页面处理</H>
-            <Row label="自动裁掉白边">
-              <Switch on={settings.crop} onChange={(crop) => set({ crop })} label="自动裁掉白边" />
+            <H>{t('reader.panel.processing')}</H>
+            <Row label={t('reader.panel.crop')}>
+              <Switch on={settings.crop} onChange={(crop) => set({ crop })} label={t('reader.panel.crop')} />
             </Row>
-            <Hint>裁掉页面四周的白边或黑边；Webtoon 模式不裁。</Hint>
-            <Row label="宽页拆成两半">
-              <Switch on={settings.split} onChange={(split) => set({ split })} label="宽页拆成两半" />
+            <Hint>{t('reader.panel.cropHint')}</Hint>
+            <Row label={t('reader.panel.split')}>
+              <Switch on={settings.split} onChange={(split) => set({ split })} label={t('reader.panel.split')} />
             </Row>
-            <Hint>单页与纵向模式下，跨页大图按阅读方向分两次显示。</Hint>
+            <Hint>{t('reader.panel.splitHint')}</Hint>
           </div>
 
           <div>
             <div className="flex items-center justify-between">
-              <H>图像滤镜</H>
+              <H>{t('reader.panel.filters')}</H>
               {filtered && (
                 <button
                   type="button"
                   className="mb-2 text-xs text-muted hover:text-text"
                   onClick={() => set({ brightness: DEFAULTS.brightness, warmth: DEFAULTS.warmth, grayscale: DEFAULTS.grayscale, invert: DEFAULTS.invert })}
                 >
-                  恢复默认
+                  {t('reader.panel.reset')}
                 </button>
               )}
             </div>
-            <Slider label="亮度" value={settings.brightness} min={30} max={100} onChange={(brightness) => set({ brightness })} />
-            <Slider label="暖色" value={settings.warmth} min={0} max={60} onChange={(warmth) => set({ warmth })} />
-            <Row label="灰度">
-              <Switch on={settings.grayscale} onChange={(grayscale) => set({ grayscale })} label="灰度" />
+            <Slider label={t('reader.panel.brightness')} value={settings.brightness} min={30} max={100} onChange={(brightness) => set({ brightness })} />
+            <Slider label={t('reader.panel.warmth')} value={settings.warmth} min={0} max={60} onChange={(warmth) => set({ warmth })} />
+            <Row label={t('reader.panel.grayscale')}>
+              <Switch on={settings.grayscale} onChange={(grayscale) => set({ grayscale })} label={t('reader.panel.grayscale')} />
             </Row>
-            <Row label="反色">
-              <Switch on={settings.invert} onChange={(invert) => set({ invert })} label="反色" />
+            <Row label={t('reader.panel.invert')}>
+              <Switch on={settings.invert} onChange={(invert) => set({ invert })} label={t('reader.panel.invert')} />
             </Row>
           </div>
 
           {bookmarks && (
             <div>
-              <H>本话书签页</H>
+              <H>{t('reader.panel.bookmarks')}</H>
               {bookmarks.length ? (
                 <div className="flex flex-wrap gap-2">
                   {bookmarks.map((p) => (
                     <button key={p} type="button" className="gbtn min-h-9 rounded-full px-3.5 text-[13px] num" onClick={() => onJump?.(p)}>
-                      第 {p + 1} 页
+                      {t('reader.chrome.page', { n: p + 1 })}
                     </button>
                   ))}
                 </div>
               ) : (
-                <Hint>点击工具栏的书签按钮或按 B，为当前页添加书签。</Hint>
+                <Hint>{t('reader.panel.bookmarksHint')}</Hint>
               )}
             </div>
           )}
 
           <div>
-            <H>点击分区</H>
+            <H>{t('reader.panel.tapZones')}</H>
             <Seg
-              label="点击分区"
+              label={t('reader.panel.tapZones')}
               glass={false}
               className="grid w-full grid-cols-4 [&>button]:justify-center [&>button]:px-1.5"
               items={TAP_ZONES}
@@ -293,14 +294,14 @@ export function SettingsPanel({
           </div>
 
           <div>
-            <H>背景</H>
+            <H>{t('reader.panel.background')}</H>
             <div className="flex gap-2.5">
               {BGS.map((b) => (
                 <button
                   key={b.value}
                   type="button"
                   onClick={() => set({ bg: b.value })}
-                  aria-label={`${b.label}背景`}
+                  aria-label={t('reader.panel.bgAria', { label: b.label })}
                   title={b.label}
                   aria-pressed={settings.bg === b.value}
                   className={cn(
@@ -319,7 +320,7 @@ export function SettingsPanel({
           </div>
 
           <div>
-            <H>键盘快捷键</H>
+            <H>{t('reader.panel.shortcuts')}</H>
             <div className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-2 text-[13px]">
               {KEYS.map(([k, d]) => (
                 <div key={k} className="contents">

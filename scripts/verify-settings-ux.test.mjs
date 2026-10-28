@@ -24,6 +24,7 @@ function glassFixture(theme = 'light', saved) {
     exports,
     require: name => {
       if (name === '@/lib/demo') return { preferenceKey: key => `${key}.demo` }
+      if (name === '@/i18n') return { t: key => key }
       if (name === 'zustand/middleware') return {
         ...middleware,
         persist: (config, options) => middleware.persist(config, { ...options, storage: middleware.createJSONStorage(() => storage) }),

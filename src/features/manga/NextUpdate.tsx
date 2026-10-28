@@ -10,6 +10,7 @@ import { daysBetween, intervalLabel, predict, regularLabel, shortText, type Pred
 import { cn } from '@/lib/cn'
 import { ms, sec } from '@/lib/format'
 import type { Chapter, Manga } from './queries'
+import { t } from '@/i18n'
 
 export type NextPrediction = Extract<Prediction, { kind: 'next' }>
 
@@ -33,7 +34,7 @@ export function NextUpdate({ p, className, style }: { p: NextPrediction; classNa
     q.addEventListener('change', update)
     return () => q.removeEventListener('change', update)
   }, [])
-  const label = '更新节奏'
+  const label = t('manga.next.pace')
   const button = (
     <button
       type="button"
@@ -82,7 +83,7 @@ function Rhythm({ p, titled }: { p: NextPrediction; titled: boolean }) {
   return (
     <div className="text-sm">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        {titled && <span className="font-semibold">更新节奏</span>}
+        {titled && <span className="font-semibold">{t('manga.next.pace')}</span>}
         <span className="text-xs text-muted">{intervalLabel(p.interval)} · {regularLabel(p)}</span>
       </div>
       <svg viewBox={`0 0 ${W} 20`} className="block w-full overflow-visible text-text" aria-hidden>
@@ -94,23 +95,23 @@ function Rhythm({ p, titled }: { p: NextPrediction; titled: boolean }) {
       {/* 日期放在 SVG 外：整体缩放时字号不变，两端也不会和轴上的点互相压住 */}
       <div className="mt-1.5 flex justify-between text-xs text-muted">
         <span>{md(days[0])}</span>
-        <span className="text-text">{p.late > 0 ? '应在' : '预计'} {md(p.next)}</span>
+        <span className="text-text">{p.late > 0 ? t('manga.next.due') : t('manga.next.expected')} {md(p.next)}</span>
       </div>
       <div className="mt-3.5 flex gap-6">
         <div>
-          <div className="text-xs text-muted">最近一次</div>
-          <div className="font-semibold">{md(days[days.length - 1])}{p.late > 0 && <span className="ml-1.5 text-xs font-normal text-muted">晚了 {p.late} 天</span>}</div>
+          <div className="text-xs text-muted">{t('manga.next.latest')}</div>
+          <div className="font-semibold">{md(days[days.length - 1])}{p.late > 0 && <span className="ml-1.5 text-xs font-normal text-muted">{t('manga.next.late', { n: p.late })}</span>}</div>
         </div>
         {gaps.length > 0 && (
           <div>
-            <div className="text-xs text-muted">近 {gaps.length} 次间隔</div>
-            <div className="font-semibold">{onTime} 次准时</div>
+            <div className="text-xs text-muted">{t('manga.next.lastGaps', { n: gaps.length })}</div>
+            <div className="font-semibold">{t('manga.next.onTime', { n: onTime })}</div>
           </div>
         )}
       </div>
       <div className="mt-3.5 flex items-baseline justify-between gap-3 text-xs leading-relaxed">
-        <span className="text-muted">{p.approx ? '来源没给发布日期，按服务端抓到的时间推算，仅供参考。' : '按最近几话的发布日期推算，仅供参考。'}</span>
-        <Link to="/updates?view=calendar" className="flex-none whitespace-nowrap font-semibold text-text no-underline hover:underline">日历 ›</Link>
+        <span className="text-muted">{p.approx ? t('manga.next.approxNote') : t('manga.next.basedNote')}</span>
+        <Link to="/updates?view=calendar" className="flex-none whitespace-nowrap font-semibold text-text no-underline hover:underline">{t('manga.next.calendar')}</Link>
       </div>
     </div>
   )

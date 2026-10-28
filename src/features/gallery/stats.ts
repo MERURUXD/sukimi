@@ -7,6 +7,7 @@
  */
 import { isVisible } from '../history/history.ts'
 import { count, sec } from '../../lib/format.ts'
+import { locale, t } from '../../i18n/core.ts'
 
 export interface StatChapter {
   mangaId: number
@@ -233,7 +234,7 @@ export function pageGrowth(days: readonly HeatDay[], total: number, n: number) {
 }
 
 /** 3.1 万页；不到一万照常写 */
-export const pagesText = (n: number) => (n >= 10000 ? { v: (n / 10000).toFixed(1).replace(/\.0$/, ''), u: '万页' } : { v: count(n), u: '页' })
+export const pagesText = (n: number) => (n >= 10000 ? { v: (n / (locale === 'en' ? 1000 : 10000)).toFixed(1).replace(/\.0$/, ''), u: t('gallery.kpi.pagesBig') } : { v: count(n), u: t('gallery.unit.page', { count: n }) })
 
 export interface KpiBar {
   v: number
@@ -270,18 +271,18 @@ export function kpiData(s: ReadingStats, works: number, run: ReturnType<typeof b
         num: s.total ? frac * 100 : null,
         text: s.total ? `${Math.round(frac * 100)}` : '—',
         unit: '%',
-        caption: `已读 · ${count(s.read)} / ${s.total == null ? '—' : count(s.total)} 话`,
+        caption: t('gallery.kpi.readCaption', { read: count(s.read), total: s.total == null ? '—' : count(s.total) }),
         bars: ratio(frac),
-        label: `书库已读 ${Math.round(frac * 100)}%`,
+        label: t('gallery.kpi.readLabel', { pct: Math.round(frac * 100) }),
       },
       {
         key: 'caught',
         num: s.caughtUp,
         text: `${s.caughtUp}`,
         unit: ` / ${works}`,
-        caption: '部已追平',
+        caption: t('gallery.kpi.caughtCaption'),
         bars: ratio(works ? s.caughtUp / works : 0),
-        label: `已追平 ${s.caughtUp} / ${works} 部`,
+        label: t('gallery.kpi.caughtLabel', { n: s.caughtUp, total: works }),
       },
     ],
     rhythm: [
@@ -289,19 +290,19 @@ export function kpiData(s: ReadingStats, works: number, run: ReturnType<typeof b
         key: 'days',
         num: s.activeDays,
         text: `${s.activeDays}`,
-        unit: '天',
-        caption: '近半年有阅读 · 按周',
+        unit: t('gallery.unit.day', { count: s.activeDays }),
+        caption: t('gallery.kpi.daysCaption'),
         bars: weekActive(s.days).map((v, w) => ({ v, on: v > 0, lit: !!runWeeks && v > 0 && w >= runWeeks[0] && w <= runWeeks[1] })),
-        label: `近半年有 ${s.activeDays} 天阅读记录`,
+        label: t('gallery.kpi.daysLabel', { count: s.activeDays, n: s.activeDays }),
       },
       {
         key: 'pages',
         num: null,
         text: pg.v,
         unit: pg.u,
-        caption: '约翻过 · 近半年累计',
+        caption: t('gallery.kpi.pagesCaption'),
         bars: growth.map((v, i) => ({ v: v - base, on: true, lit: i === growth.length - 1 })),
-        label: `约翻过 ${count(s.pages)} 页`,
+        label: t('gallery.kpi.pagesLabel', { count: s.pages, n: count(s.pages) }),
       },
     ],
   }

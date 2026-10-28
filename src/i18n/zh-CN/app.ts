@@ -1,0 +1,51 @@
+/** 外壳：导航、路由兜底、更新提示、外观快捷菜单 */
+export default {
+  nav: {
+    main: '主导航',
+    home: '首页',
+    library: '书库',
+    history: '历史',
+    updates: '更新',
+    browse: '发现',
+    settings: '设置',
+    back: '返回',
+    brandHome: 'Sukimi 首页',
+    downloadQueue: '下载队列',
+    downloadQueueState: '下载队列：{{state}}，{{count}} 话',
+    downloading: '正在下载',
+    paused: '已暂停',
+    updatesWithQueue: '更新，下载队列 {{count}} 话',
+  },
+  shell: {
+    serverDown: '连不上 Suwayomi 服务端',
+    serverDownHint: '确认服务端已启动后重试。',
+    skipToContent: '跳到内容',
+  },
+  route: {
+    opening: '正在打开…',
+    errorTitle: '页面出错了',
+    reload: '刷新',
+    goHome: '回首页',
+  },
+  update: {
+    ready: '新版本已就绪',
+    readyHint: '切换页面时会自动更新',
+    later: '稍后',
+    now: '更新',
+    updating: '更新中…',
+  },
+  themeToggle: {
+    galleryDark: '书库画廊固定深色，离开画廊后换成{{theme}}',
+    switchTo: '切换到{{theme}}主题',
+    switchToShort: '切换到{{theme}}',
+  },
+  appearanceMenu: {
+    title: '外观设置',
+    theme: '主题',
+    glass: '玻璃',
+    allSettings: '全部设置',
+    signOut: '退出登录',
+    signOutAsk: '退出登录？',
+    signOutOk: '退出',
+  },
+}

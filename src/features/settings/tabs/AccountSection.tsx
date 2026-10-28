@@ -8,6 +8,7 @@ import { confirm } from '@/components/ui/Confirm'
 import { toast, toastError } from '@/components/ui/toast'
 import { ROLE_LABEL } from '@/features/auth/permissions'
 import { Row, Section, TextInput } from '../parts'
+import { t } from '@/i18n'
 
 const SetPassword = graphql(`
   mutation SetPassword($input: SetPasswordInput!) {
@@ -39,19 +40,19 @@ function ChangePassword() {
       await save({ variables: { input: { oldPassword, newPassword } } })
       still()
       // 改密码会让这个账号在所有设备上登出，包括这一台
-      toast('密码已修改，请用新密码重新登录')
+      toast(t('cfg.account.changed'))
       signOut()
     } catch (err) {
-      if (!(err instanceof StaleSessionError)) toastError('修改密码失败', err)
+      if (!(err instanceof StaleSessionError)) toastError(t('cfg.account.changeFailed'), err)
     }
   }
 
   if (!open) {
     return (
-      <Row label="修改密码" hint="修改后这个账号在所有设备上都会退出登录">
+      <Row label={t('cfg.account.changePw')} hint={t('cfg.account.changePwHint')}>
         <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(true)}>
           <KeyRound className="size-[18px]" strokeWidth={1.8} />
-          修改密码
+          {t('cfg.account.changePw')}
         </button>
       </Row>
     )
@@ -59,19 +60,19 @@ function ChangePassword() {
 
   return (
     <form onSubmit={submit} className="flex max-w-[360px] flex-col gap-3">
-      <div className="font-semibold">修改密码</div>
-      <TextInput type="password" placeholder="当前密码" autoComplete="current-password" value={oldPassword} onChange={(e) => setOld(e.target.value)} />
-      <TextInput type="password" placeholder="新密码" autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} />
-      <TextInput type="password" placeholder="确认新密码" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+      <div className="font-semibold">{t('cfg.account.changePw')}</div>
+      <TextInput type="password" placeholder={t('cfg.account.oldPw')} autoComplete="current-password" value={oldPassword} onChange={(e) => setOld(e.target.value)} />
+      <TextInput type="password" placeholder={t('cfg.account.newPw')} autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} />
+      <TextInput type="password" placeholder={t('cfg.account.againPw')} autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
       <p role="alert" className="m-0 min-h-[18px] text-[13px] text-danger">
-        {mismatch ? '两次输入的新密码不一致' : newPassword && newPassword === oldPassword ? '新密码不能和当前密码相同' : ''}
+        {mismatch ? t('cfg.account.mismatch') : newPassword && newPassword === oldPassword ? t('cfg.account.same') : ''}
       </p>
       <div className="flex gap-2">
         <button className="solid" disabled={!ready || loading}>
-          {loading ? '正在修改…' : '确认修改'}
+          {loading ? t('cfg.account.changing') : t('cfg.account.confirmChange')}
         </button>
         <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(false)}>
-          取消
+          {t('common.cancel')}
         </button>
       </div>
     </form>
@@ -85,29 +86,29 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
   const multi = !!user && !user.legacy
 
   return (
-    <Section title="账号">
+    <Section title={t('cfg.account.title')}>
       {multi && (
-        <Row label="当前用户" hint={user.roles.map((r) => ROLE_LABEL[r]).join('、') || undefined}>
+        <Row label={t('cfg.account.currentUser')} hint={user.roles.map((r) => ROLE_LABEL[r]).join(t('cfg.sep')) || undefined}>
           <span className="text-muted">{user.username}</span>
         </Row>
       )}
       {multi &&
         (user.id === BUILTIN_ADMIN_ID ? (
-          <Row label="修改密码" hint="内置管理员的密码请在服务端配置里修改" />
+          <Row label={t('cfg.account.changePw')} hint={t('cfg.account.builtinPw')} />
         ) : (
           <ChangePassword />
         ))}
       {!hideSignOut && (
-        <Row label="退出登录" hint="清除当前浏览器的登录状态与本地书库缓存">
+        <Row label={t('cfg.account.signOut')} hint={t('cfg.account.signOutHint')}>
           <button
             type="button"
             className="gbtn plain rounded-full"
             onClick={async () => {
-              if (await confirm({ title: '退出登录？', ok: '退出', local: true })) signOut()
+              if (await confirm({ title: t('cfg.account.signOutTitle'), ok: t('cfg.account.signOutOk'), local: true })) signOut()
             }}
           >
             <LogOut className="size-[18px]" strokeWidth={1.8} />
-            退出登录
+            {t('cfg.account.signOut')}
           </button>
         </Row>
       )}

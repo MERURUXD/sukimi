@@ -3,6 +3,7 @@
  * 这里只放纯逻辑（Node 测试直接导入），不依赖 React、Apollo 或路径别名。
  */
 import type { Fit, ReadDir, ReadMode, ReaderSettings } from './settings'
+import { t } from '../../i18n/core.ts'
 
 /** 元数据键前缀；清除时按前缀整批删除 */
 export const READER_META_PREFIX = 'sukimi.reader.'
@@ -29,7 +30,7 @@ export interface Meta {
  * 同类设备（例如两台手机）共用；没写过的键沿用不带设备类型的通用值。
  */
 export type DeviceKind = 'phone' | 'tablet' | 'desktop'
-export const DEVICE_LABEL: Record<DeviceKind, string> = { phone: '手机', tablet: '平板', desktop: '电脑' }
+export const DEVICE_LABEL: Record<DeviceKind, string> = { phone: t('reader.device.phone'), tablet: t('reader.device.tablet'), desktop: t('reader.device.desktop') }
 
 /** 粗指针（触屏）里短边不到 600 的算手机，其余触屏算平板；精确指针一律算电脑 */
 export function classifyDevice({ coarse, shortSide }: { coarse: boolean; shortSide: number }): DeviceKind {

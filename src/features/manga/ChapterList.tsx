@@ -37,6 +37,7 @@ import { useAuth, useCan } from '@/api/auth'
 import { captureUser } from '@/api/userContext'
 import { useChapterView, type ChapterFilter } from './store'
 import { mangaIntro, mangaIntroDelay } from './intro'
+import { t } from '@/i18n'
 export interface QueueItem {
   progress: number
   state: 'QUEUED' | 'DOWNLOADING' | 'FINISHED' | 'ERROR'
@@ -57,7 +58,7 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
           const msg = await fn(...a)
           if (msg) toast(msg)
         } catch (e) {
-          toastError(`${label}失败`, e)
+          toastError(t('library.actionFailed', { label }), e)
         }
       }
     const patch = (ids: number[], p: { isRead?: boolean; isBookmarked?: boolean; lastPageRead?: number }) =>
@@ -70,21 +71,21 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
           // 标为未读时同时清掉页码，避免「继续阅读」停在最后一页
           await patch(ids, isRead ? { isRead } : { isRead, lastPageRead: 0 })
           if (isRead) onMarkedRead?.(still)
-          if (ids.length > 1) toast(`已将 ${ids.length} 话标为${isRead ? '已读' : '未读'}`)
+          if (ids.length > 1) toast(isRead ? t('library.bulk.markedRead', { count: ids.length, n: ids.length }) : t('manga.chapters.markedUnread', { n: ids.length }))
         } catch (e) {
-          toastError(isRead ? '标为已读失败' : '标为未读失败', e)
+          toastError(isRead ? t('manga.chapters.markReadFailed') : t('manga.chapters.markUnreadFailed'), e)
         }
       },
       setBookmarked: async (ids: number[], isBookmarked: boolean) => {
         try {
           await patch(ids, { isBookmarked })
-          if (ids.length > 1) toast(isBookmarked ? `已为 ${ids.length} 话添加书签` : `已取消 ${ids.length} 话的书签`)
+          if (ids.length > 1) toast(isBookmarked ? t('manga.chapters.bookmarked', { n: ids.length }) : t('manga.chapters.unbookmarked', { n: ids.length }))
         } catch (e) {
-          toastError(isBookmarked ? '添加书签失败' : '取消书签失败', e)
+          toastError(isBookmarked ? t('manga.chapters.bookmarkFailed') : t('manga.chapters.unbookmarkFailed'), e)
         }
       },
       /** 选中章节（含）之前的全部标为已读 */
-      markPreviousRead: wrap('标为已读', async (ids: number[]) => {
+      markPreviousRead: wrap(t('library.bulk.markRead'), async (ids: number[]) => {
         const max = Math.max(...all.filter((c) => ids.includes(c.id)).map((c) => c.sourceOrder))
         const targets = all.filter((c) => c.sourceOrder <= max && !c.isRead).map((c) => c.id)
         if (targets.length) {
@@ -92,21 +93,21 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
           await patch(targets, { isRead: true })
           onMarkedRead?.(still)
         }
-        return `已将 ${targets.length} 话标为已读`
+        return t('library.bulk.markedRead', { count: targets.length, n: targets.length })
       }),
-      download: wrap('下载', async (ids: number[]) => {
+      download: wrap(t('manga.chapters.download'), async (ids: number[]) => {
         const targets = all.filter((c) => ids.includes(c.id) && !c.isDownloaded).map((c) => c.id)
-        if (!targets.length) return '选中的章节都已下载'
+        if (!targets.length) return t('manga.chapters.allDownloaded')
         await enqueue({ variables: { ids: targets } })
         onDownloadQueued()
-        return `已将 ${targets.length} 话加入下载队列`
+        return t('library.bulk.queued', { count: targets.length, n: targets.length })
       }),
-      deleteDownloads: wrap('删除下载', async (ids: number[]) => {
+      deleteDownloads: wrap(t('manga.chapters.deleteDownloads'), async (ids: number[]) => {
         const targets = all.filter((c) => ids.includes(c.id) && c.isDownloaded).map((c) => c.id)
-        if (!targets.length) return '选中的章节未下载'
+        if (!targets.length) return t('manga.chapters.notDownloaded')
         await remove({ variables: { ids: targets } })
         onDownloadsDeleted()
-        return `已删除 ${targets.length} 话的下载`
+        return t('manga.chapters.deletedDownloads', { n: targets.length })
       }),
     }
   }, [all, update, enqueue, remove, onDownloadQueued, onDownloadsDeleted, onMarkedRead])
@@ -115,10 +116,10 @@ export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () 
 type Actions = ReturnType<typeof useChapterActions>
 
 const FILTERS: { value: ChapterFilter; label: string; test: (c: Chapter) => boolean }[] = [
-  { value: 'all', label: '全部', test: () => true },
-  { value: 'unread', label: '未读', test: (c) => !c.isRead },
-  { value: 'downloaded', label: '已下载', test: (c) => c.isDownloaded },
-  { value: 'bookmarked', label: '书签', test: (c) => c.isBookmarked },
+  { value: 'all', label: t('manga.chapters.filterAll'), test: () => true },
+  { value: 'unread', label: t('manga.chapters.filterUnread'), test: (c) => !c.isRead },
+  { value: 'downloaded', label: t('manga.chapters.filterDownloaded'), test: (c) => c.isDownloaded },
+  { value: 'bookmarked', label: t('manga.chapters.filterBookmarked'), test: (c) => c.isBookmarked },
 ]
 
 export function ChapterList({
@@ -211,22 +212,22 @@ export function ChapterList({
       <div className="flex flex-wrap items-center gap-2.5 pt-2 pb-[18px]">
         <div style={mangaIntroDelay(mangaIntro.chapterTitle)} className={cn('flex flex-auto items-baseline gap-3', intro && 'rise')}>
           <h2 id="h-ch" className="m-0 text-[28px] font-bold">
-            章节
+            {t('manga.chapters.title')}
           </h2>
           <span className="text-muted num">
-            {chapters.length} 话 · {unread} 话未读
+            {t('manga.chapters.stat', { n: chapters.length, unread })}
           </span>
         </div>
         <div style={mangaIntroDelay(mangaIntro.chapterTools)} className="flex items-center gap-2.5 max-sm:w-full">
           {/* 背后还有没淡完的封面氛围光（见 MangaBackdrop），和顶部按钮一样只关透镜 */}
           <Seg suspendRefract
-            label="章节筛选"
+            label={t('manga.chapters.filterLabel')}
             items={FILTERS.map((f) => ({ value: f.value, label: f.label, count: f.value === 'all' ? undefined : counts[f.value] }))}
             value={filter}
             onChange={setFilter}
             className={cn('max-sm:min-w-0 max-sm:flex-1', intro && 'rise')}
           />
-          <Glass suspendRefract as="button" type="button" style={mangaIntroDelay(mangaIntro.chapterTools)} className={cn('gicon size-10 rounded-full', intro && 'rise')} onClick={toggleOrder} aria-label={desc ? '切换为最早在上' : '切换为最新在上'} title={desc ? '最新在上' : '最早在上'}>
+          <Glass suspendRefract as="button" type="button" style={mangaIntroDelay(mangaIntro.chapterTools)} className={cn('gicon size-10 rounded-full', intro && 'rise')} onClick={toggleOrder} aria-label={desc ? t('manga.chapters.toOldestFirst') : t('manga.chapters.toNewestFirst')} title={desc ? t('manga.chapters.newestFirst') : t('manga.chapters.oldestFirst')}>
             <ArrowDownUp className="size-[18px]" strokeWidth={1.8} />
           </Glass>
           <Glass suspendRefract as="button"
@@ -235,15 +236,15 @@ export function ChapterList({
               className={cn('rounded-full', 'gicon size-10', selecting && 'bg-g-hi', intro && 'rise')}
               onClick={() => (selecting ? exitSelect() : setSelecting(true))}
               aria-pressed={selecting}
-              aria-label="多选章节"
-              title="多选章节"
+              aria-label={t('manga.chapters.select')}
+              title={t('manga.chapters.select')}
             >
             <ListChecks className="size-[18px]" strokeWidth={1.8} />
           </Glass>
         </div>
       </div>
 
-      {visible.length === 0 && <p style={mangaIntroDelay(mangaIntro.chapterRow)} className={cn('py-16 text-center text-muted', intro && 'rise')}>{chapters.length ? '没有符合筛选的章节' : '还没有章节'}</p>}
+      {visible.length === 0 && <p style={mangaIntroDelay(mangaIntro.chapterRow)} className={cn('py-16 text-center text-muted', intro && 'rise')}>{chapters.length ? t('manga.chapters.emptyFiltered') : t('manga.chapters.empty')}</p>}
 
       {/* 只在「最新在上」且看全部时出现，排在列表外面，不参与虚拟列表、多选和筛选计数；筛选后预测不属于筛选结果 */}
       {prediction && desc && filter === 'all' && !selecting && (
@@ -252,7 +253,7 @@ export function ChapterList({
         </div>
       )}
 
-      <div ref={box} role="list" aria-label="章节列表" className="relative" style={{ height: v.getTotalSize() }}>
+      <div ref={box} role="list" aria-label={t('manga.chapters.listAria')} className="relative" style={{ height: v.getTotalSize() }}>
         {v.getVirtualItems().map((r, i) => {
           const row = visible.slice(r.index * cols, r.index * cols + cols)
           return (
@@ -287,36 +288,36 @@ export function ChapterList({
       <BatchBar
         open={selecting}
         count={sel.selected.size}
-        unit="话"
+        unit={t('manga.chapters.unit')}
         onSelectAll={sel.selectAll}
-        selectAllLabel={filter === 'all' ? '全选' : '全选当前筛选'}
+        selectAllLabel={filter === 'all' ? t('common.selectAll') : t('manga.chapters.selectAllFiltered')}
         onCancel={exitSelect}
       >
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.setRead(ids, true)}>
           <BookCheck className="size-5" strokeWidth={1.8} />
-          已读
+          {t('manga.chapters.markRead')}
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.setRead(ids, false)}>
           <BookOpen className="size-5" strokeWidth={1.8} />
-          未读
+          {t('manga.chapters.markUnread')}
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.markPreviousRead(ids)}>
           <CheckCheck className="size-5" strokeWidth={1.8} />
-          此前全部标为已读
+          {t('manga.chapters.markPreviousRead')}
         </button>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.setBookmarked(ids, !allBookmarked)}>
           {allBookmarked ? <BookmarkMinus className="size-5" strokeWidth={1.8} /> : <Bookmark className="size-5" strokeWidth={1.8} />}
-          {allBookmarked ? '取消书签' : '添加书签'}
+          {allBookmarked ? t('manga.chapters.removeBookmark') : t('manga.chapters.addBookmark')}
         </button>
         <Can permission="DOWNLOAD_CHAPTERS">
           <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.download(ids)}>
             <Download className="size-5" strokeWidth={1.8} />
-            下载
+            {t('manga.chapters.download')}
           </button>
         </Can>
         <button type="button" className="bb" disabled={!ids.length} onClick={() => actions.deleteDownloads(ids)}>
           <Trash2 className="size-5" strokeWidth={1.8} />
-          删除下载
+          {t('manga.chapters.deleteDownloads')}
         </button>
       </BatchBar>
     </section>
@@ -326,8 +327,8 @@ export function ChapterList({
 /** 预计的下一话：和章节行同样的排版，半透明、不能点；话数按现有最大话数加一，凑不出整数时只写「下一话」 */
 function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; chapters: readonly Chapter[]; fill: boolean; introDelay?: number }) {
   const next = nextChapterNumber(chapters)
-  const name = next === null ? '下一话' : `第 ${next} 话`
-  const when = p.late > 0 ? `晚了 ${p.late} 天` : `约 ${formatFullDate(p.next)}`
+  const name = next === null ? t('manga.next.nextChapter') : t('format.chapterNo', { n: next })
+  const when = p.late > 0 ? t('manga.next.late', { n: p.late }) : t('manga.next.around', { date: formatFullDate(p.next) })
   return (
     <div
       style={introDelay === undefined ? undefined : mangaIntroDelay(introDelay)}
@@ -336,14 +337,14 @@ function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; ch
         fill ? 'grid-cols-[20px_minmax(0,1fr)_104px_72px_44px]' : 'grid-cols-[20px_minmax(0,20rem)_104px_72px_44px]',
         introDelay !== undefined && 'rise',
       )}
-      aria-label={`预计的下一话：${shortText(p)}`}
+      aria-label={t('manga.next.aria', { text: shortText(p) })}
     >
       <span className="flex items-center justify-center" aria-hidden>
         <CalendarClock className="size-4" strokeWidth={1.8} />
       </span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-[15px] font-medium">{name}</span>
-        <span className="truncate text-[13px]">预计 · {intervalLabel(p.interval)}更新 · {regularLabel(p)}</span>
+        <span className="truncate text-[13px]">{t('manga.next.expect', { interval: intervalLabel(p.interval), regular: regularLabel(p) })}</span>
       </span>
       <span className="text-[13px] num max-sm:hidden">{when}</span>
       <span className="text-[13px] num sm:hidden">{when}</span>
@@ -387,7 +388,7 @@ const ChapterRow = memo(function ChapterRow({
   const userId = useAuth((s) => s.user?.id)
   const marks = parsePageBookmarks(c.meta, userId)
   const sub = inProgress
-    ? `继续阅读 · 第 ${c.lastPageRead + 1}${c.pageCount > 0 ? ` / ${c.pageCount}` : ''} 页`
+    ? t('manga.row.continue', { page: c.lastPageRead + 1, of: c.pageCount > 0 ? ` / ${c.pageCount}` : '' })
     : (c.scanlator ?? '')
 
   return (
@@ -406,7 +407,7 @@ const ChapterRow = memo(function ChapterRow({
         introDelay !== undefined && 'rise',
       )}
     >
-      <span className="flex items-center justify-center text-accent" aria-label={c.isRead ? undefined : '未读'}>
+      <span className="flex items-center justify-center text-accent" aria-label={c.isRead ? undefined : t('manga.row.unread')}>
         {selected ? <Check className="size-5" strokeWidth={2.6} /> : !c.isRead && <span className="size-2 rounded-full bg-accent" />}
       </span>
 
@@ -434,14 +435,14 @@ const ChapterRow = memo(function ChapterRow({
         )}
         {/* 页面书签：点页码直接打开到那一页；叠在整行链接上面才能点到 */}
         {marks.length > 0 && !selecting && (
-          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-[13px] text-muted" aria-label="页面书签">
+          <span className="relative z-[1] mt-1 flex min-w-0 items-center gap-x-2 text-[13px] text-muted" aria-label={t('manga.row.pageBookmarks')}>
             <Bookmark className="size-3 flex-none" strokeWidth={2} aria-hidden />
             {marks.slice(0, 4).map((p) => (
               <Link key={p} to={`/manga/${mangaId}/chapter/${c.id}?page=${p + 1}`} state={FROM_DETAIL} viewTransition className="text-muted no-underline num hover:text-text">
-                第 {p + 1} 页
+                {t('manga.row.pageN', { n: p + 1 })}
               </Link>
             ))}
-            {marks.length > 4 && <span className="whitespace-nowrap">等 {marks.length} 页</span>}
+            {marks.length > 4 && <span className="whitespace-nowrap">{t('manga.row.morePages', { n: marks.length })}</span>}
           </span>
         )}
       </span>
@@ -449,18 +450,18 @@ const ChapterRow = memo(function ChapterRow({
       <span className="text-[13px] text-muted num max-sm:hidden">{formatFullDate(ms(c.uploadDate))}</span>
 
       <span className="relative z-[1] flex items-center justify-end gap-1.5 text-muted">
-        {c.isBookmarked && <Bookmark className="size-[18px] fill-current text-text" strokeWidth={1.8} aria-label="书签" />}
+        {c.isBookmarked && <Bookmark className="size-[18px] fill-current text-text" strokeWidth={1.8} aria-label={t('manga.row.bookmark')} />}
         {queued ? (
           <ProgressRing value={queued.progress} error={queued.state === 'ERROR'} />
         ) : c.isDownloaded ? (
-          <CircleCheck className="size-[18px]" strokeWidth={1.8} aria-label="已下载" />
+          <CircleCheck className="size-[18px]" strokeWidth={1.8} aria-label={t('manga.row.downloaded')} />
         ) : (
           !selecting && canDownload && (
             <button
               type="button"
               className="gicon size-9 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
               onClick={() => actions.download([c.id])}
-              aria-label={`下载 ${c.name}`}
+              aria-label={t('manga.row.downloadAria', { name: c.name })}
             >
               <Download className="size-[18px]" strokeWidth={1.8} />
             </button>
@@ -473,14 +474,14 @@ const ChapterRow = memo(function ChapterRow({
           <Popover
             open={menu}
             onClose={() => setMenu(false)}
-            label={`更多操作：${c.name}`}
+            label={t('manga.row.moreActions', { name: c.name })}
             className="w-[220px] p-2"
             trigger={
               <button
                 type="button"
                 className={cn('gicon size-10 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100', menu && 'opacity-100')}
                 onClick={() => setMenu((v) => !v)}
-                aria-label={`更多操作：${c.name}`}
+                aria-label={t('manga.row.moreActions', { name: c.name })}
                 aria-expanded={menu}
               >
                 <MoreHorizontal className="size-5" strokeWidth={1.8} />
@@ -488,22 +489,22 @@ const ChapterRow = memo(function ChapterRow({
             }
           >
             <MenuItem icon={c.isRead ? BookOpen : BookCheck} onClick={() => (setMenu(false), actions.setRead([c.id], !c.isRead))}>
-              {c.isRead ? '标为未读' : '标为已读'}
+              {c.isRead ? t('manga.chapters.markAsUnread') : t('manga.chapters.markAsRead')}
             </MenuItem>
             <MenuItem icon={c.isBookmarked ? BookmarkMinus : Bookmark} onClick={() => (setMenu(false), actions.setBookmarked([c.id], !c.isBookmarked))}>
-              {c.isBookmarked ? '取消书签' : '添加书签'}
+              {c.isBookmarked ? t('manga.chapters.removeBookmark') : t('manga.chapters.addBookmark')}
             </MenuItem>
             <MenuItem icon={CheckCheck} onClick={() => (setMenu(false), actions.markPreviousRead([c.id]))}>
-              此前全部标为已读
+              {t('manga.chapters.markPreviousRead')}
             </MenuItem>
             {c.isDownloaded ? (
               <MenuItem icon={Trash2} onClick={() => (setMenu(false), actions.deleteDownloads([c.id]))}>
-                删除下载
+                {t('manga.chapters.deleteDownloads')}
               </MenuItem>
             ) : (
               canDownload && (
                 <MenuItem icon={Download} onClick={() => (setMenu(false), actions.download([c.id]))} disabled={!!queued}>
-                  下载
+                  {t('manga.chapters.download')}
                 </MenuItem>
               )
             )}
@@ -537,7 +538,7 @@ function ProgressRing({ value, error }: { value: number; error: boolean }) {
   const r = 7
   const len = 2 * Math.PI * r
   return (
-    <svg viewBox="0 0 18 18" className={cn('size-[18px] -rotate-90', error && 'text-danger')} aria-label={error ? '下载出错' : `下载中 ${Math.round(value * 100)}%`}>
+    <svg viewBox="0 0 18 18" className={cn('size-[18px] -rotate-90', error && 'text-danger')} aria-label={error ? t('manga.row.downloadError') : t('manga.row.downloading', { pct: Math.round(value * 100) })}>
       <circle cx="9" cy="9" r={r} fill="none" stroke="var(--track)" strokeWidth="2" />
       <circle cx="9" cy="9" r={r} fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray={len} strokeDashoffset={len * (1 - value)} strokeLinecap="round" className="transition-[stroke-dashoffset] duration-500" />
     </svg>

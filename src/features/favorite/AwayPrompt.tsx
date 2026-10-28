@@ -16,6 +16,7 @@ import { useNsfw } from '@/features/nsfw/useNsfw'
 import { isDemo, isDevLab } from '@/lib/demo'
 import { AWAY_MIN_SEC, awayUpdates } from './favorite'
 import { useFavorites } from './useFavorites'
+import { t as tl } from '@/i18n'
 
 /** 这台设备上次离开（关掉或切走标签页）的时间，秒；只是本机的便利功能，存不了就不提示 */
 const LEFT_KEY = 'suwayomi-web.leftAt'
@@ -139,10 +140,10 @@ export function AwayPrompt() {
           >
             <button type="button" className="flex min-h-10 min-w-0 items-center gap-2.5 rounded-full border-0 bg-transparent py-1 pr-2 pl-3 text-left text-[14px] font-semibold text-text" onClick={go}>
               <Star className="size-[18px] flex-none fill-current" strokeWidth={1.8} />
-              <span className="min-w-0 truncate">离开期间 {shown} 部特别关心更新了</span>
+              <span className="min-w-0 truncate">{tl('misc.favorite.away', { count: shown })}</span>
               <ChevronRight className="size-[18px] flex-none text-muted" strokeWidth={1.8} />
             </button>
-            <button type="button" className="gicon size-10 flex-none rounded-full text-muted hover:text-text" onClick={() => setShown(null)} aria-label="关闭提示">
+            <button type="button" className="gicon size-10 flex-none rounded-full text-muted hover:text-text" onClick={() => setShown(null)} aria-label={tl('misc.favorite.closeAria')}>
               <X className="size-[18px]" strokeWidth={1.8} />
             </button>
           </MotionGlass>

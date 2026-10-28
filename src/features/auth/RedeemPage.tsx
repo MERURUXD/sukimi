@@ -3,6 +3,7 @@ import { Link, Navigate, useSearchParams } from 'react-router'
 import { redeemRecoveryCode, redeemRegistrationCode, useAuth } from '@/api/auth'
 import { errorText } from '@/lib/errorText'
 import { AuthInput, AuthLayout } from './AuthLayout'
+import { t } from '@/i18n'
 
 /** 注册与找回共用：输入码（可由 ?code= 预填）、用户名（仅注册）和密码，兑换成功后直接登录 */
 function RedeemForm({ mode }: { mode: 'register' | 'recover' }) {
@@ -30,7 +31,7 @@ function RedeemForm({ mode }: { mode: 'register' | 'recover' }) {
       if (register) await redeemRegistrationCode(code.trim(), username.trim(), password)
       else await redeemRecoveryCode(code.trim(), password)
     } catch (err) {
-      setError(`${register ? '注册' : '重置密码'}失败：${errorText(err)}`)
+      setError(t(register ? 'auth.redeem.registerFailed' : 'auth.redeem.recoverFailed', { reason: errorText(err) }))
     } finally {
       setBusy(false)
     }
@@ -38,31 +39,31 @@ function RedeemForm({ mode }: { mode: 'register' | 'recover' }) {
 
   return (
     <AuthLayout
-      title={register ? '注册账号' : '找回密码'}
-      subtitle={register ? '输入管理员发给你的注册码' : '输入管理员发给你的找回码，设置新密码'}
+      title={register ? t('auth.redeem.registerTitle') : t('auth.redeem.recoverTitle')}
+      subtitle={register ? t('auth.redeem.registerSub') : t('auth.redeem.recoverSub')}
       onSubmit={submit}
     >
       <div className="mt-8 flex w-full flex-col gap-3">
         <AuthInput
-          placeholder={register ? '注册码' : '找回码'}
+          placeholder={register ? t('auth.redeem.registerCode') : t('auth.redeem.recoverCode')}
           autoComplete="off"
           autoFocus={!code}
           value={code}
           onChange={(e) => setCode(e.target.value)}
         />
         {register && (
-          <AuthInput placeholder="用户名" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <AuthInput placeholder={t('auth.login.username')} autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
         )}
         <AuthInput
           type="password"
-          placeholder={register ? '密码' : '新密码'}
+          placeholder={register ? t('auth.login.password') : t('auth.redeem.newPassword')}
           autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
         <AuthInput
           type="password"
-          placeholder="确认密码"
+          placeholder={t('auth.redeem.confirmPassword')}
           autoComplete="new-password"
           value={again}
           onChange={(e) => setAgain(e.target.value)}
@@ -70,14 +71,14 @@ function RedeemForm({ mode }: { mode: 'register' | 'recover' }) {
       </div>
 
       <p role="alert" className="mt-3 mb-0 min-h-[21px] text-danger">
-        {mismatch ? '两次输入的密码不一致' : error}
+        {mismatch ? t('auth.redeem.mismatch') : error}
       </p>
 
       <button className="solid mt-3 w-full" disabled={busy || !ready}>
-        {busy ? '请稍候…' : register ? '注册并登录' : '设置新密码并登录'}
+        {busy ? t('auth.redeem.wait') : register ? t('auth.redeem.registerGo') : t('auth.redeem.recoverGo')}
       </button>
       <Link to="/login" className="mt-4 text-muted no-underline hover:text-text">
-        返回登录
+        {t('auth.redeem.backToLogin')}
       </Link>
     </AuthLayout>
   )

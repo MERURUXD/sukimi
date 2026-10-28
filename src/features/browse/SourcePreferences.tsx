@@ -7,6 +7,7 @@ import { toastError } from '@/components/ui/toast'
 import { Row, Select, Switch, TextInput } from '@/features/settings/parts'
 import { cn } from '@/lib/cn'
 import { langLabel, SourcePreferences, UpdateSourcePreference } from './queries'
+import { t } from '@/i18n'
 
 export type PreferenceSource = { id: string; displayName: string; lang: string }
 
@@ -42,10 +43,10 @@ export function SourcePreferencesDialog({ title, sources, onClose }: { title: st
   const shared = useSharedServer()
   const options = sources.map((s) => ({ value: s.id, label: `${s.displayName} · ${langLabel(s.lang)}` }))
   return (
-    <BottomSheet id="source-preferences" label={`${title} 设置`} closeLabel="关闭扩展设置" onClose={onClose}>
+    <BottomSheet id="source-preferences" label={t('browse.prefs.title', { title })} closeLabel={t('browse.prefs.close')} onClose={onClose}>
       <div className="flex flex-col gap-5 px-3 pt-3 pb-4">
-        {shared && <p className="m-0 text-xs text-muted">这里的设置保存在服务端，对所有用户生效。</p>}
-        {sources.length > 1 && <Select value={sourceId} options={options} onChange={setSourceId} label="选择来源" />}
+        {shared && <p className="m-0 text-xs text-muted">{t('browse.prefs.shared')}</p>}
+        {sources.length > 1 && <Select value={sourceId} options={options} onChange={setSourceId} label={t('browse.prefs.pickSource')} />}
         <PreferenceList key={sourceId} sourceId={sourceId} />
       </div>
     </BottomSheet>
@@ -63,7 +64,7 @@ function PreferenceList({ sourceId }: { sourceId: string }) {
     try {
       await update({ variables: { source: sourceId, change: changeOf(p, position, v) } })
     } catch (e) {
-      toastError('保存失败', e)
+      toastError(t('browse.prefs.saveFailed'), e)
     } finally {
       setPending((s) => Object.fromEntries(Object.entries(s).filter(([k]) => Number(k) !== position)))
     }
@@ -72,16 +73,16 @@ function PreferenceList({ sourceId }: { sourceId: string }) {
   if (error && !data) {
     return (
       <p className="m-0 text-sm text-muted" role="alert">
-        无法读取扩展设置：{error.message.split('\n')[0]}
-        <button type="button" className="ml-3 font-semibold text-text" onClick={() => void refetch()}>重试</button>
+        {t('browse.prefs.loadFailed', { reason: error.message.split('\n')[0] })}
+        <button type="button" className="ml-3 font-semibold text-text" onClick={() => void refetch()}>{t('common.retry')}</button>
       </p>
     )
   }
-  if (!data) return <p className="m-0 text-sm text-muted" role="status">{loading ? '正在读取设置…' : ''}</p>
+  if (!data) return <p className="m-0 text-sm text-muted" role="status">{loading ? t('browse.prefs.reading') : ''}</p>
 
   // position 是在完整列表里的序号，隐藏的项也占位，不能先过滤再编号
   const rows = data.source.preferences.map((p, position) => ({ p, position })).filter(({ p }) => p.visible)
-  if (rows.length === 0) return <p className="m-0 text-sm text-muted">这个来源没有可调整的设置。</p>
+  if (rows.length === 0) return <p className="m-0 text-sm text-muted">{t('browse.prefs.none')}</p>
 
   return (
     <div className="flex flex-col gap-5">
@@ -96,7 +97,7 @@ function PreferenceList({ sourceId }: { sourceId: string }) {
 const summary = (text: string | null | undefined, shown: string) => text?.replace(/%s/g, shown) || undefined
 
 function PreferenceRow({ p, value, onChange }: { p: Preference; value: Value | null | undefined; onChange: (v: Value) => void }) {
-  const label = p.title || p.key || '未命名设置'
+  const label = p.title || p.key || t('browse.prefs.untitled')
   const off = !p.enabled
 
   if (p.__typename === 'CheckBoxPreference' || p.__typename === 'SwitchPreference') {
@@ -111,7 +112,7 @@ function PreferenceRow({ p, value, onChange }: { p: Preference; value: Value | n
     // 值不在列表里（扩展改版后留下的旧值）也要能显示出来
     const current = typeof value === 'string' ? value : ''
     const shown = choices.find((c) => c.value === current)?.label ?? current
-    const opts = choices.some((c) => c.value === current) ? choices : [...choices, { value: current, label: current || '未选择' }]
+    const opts = choices.some((c) => c.value === current) ? choices : [...choices, { value: current, label: current || t('browse.prefs.unselected') }]
     return (
       <Row label={label} hint={summary(p.summary, shown)}>
         <Select value={current} options={opts} onChange={onChange} label={label} className={cn('min-w-40', off && 'pointer-events-none opacity-50')} />

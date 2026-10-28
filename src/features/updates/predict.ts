@@ -1,3 +1,4 @@
+import { t } from '../../i18n/core.ts'
 /*
  * 按最近几话的发布时间推算下一话大概什么时候出。服务端没有「预计更新」字段，只能在前端算。
  * 纯函数，不依赖路径别名，scripts/verify-update-predict.test.mjs 直接导入。
@@ -148,19 +149,26 @@ export function occurrences(p: Extract<Prediction, { kind: 'next' }>, from: numb
 
 /* ───────── 文案 ───────── */
 
-const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const WEEK = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const
+
+/** 周几的短名（「周三」「Wed」） */
+export function weekdayName(i: number) {
+  return t(`format.weekday.${WEEK[i]}`)
+}
 
 export function intervalLabel(n: number) {
-  if (n === 1) return '每天'
-  if (n === 7) return '每周'
-  if (n === 14) return '每两周'
-  if (n >= 28 && n <= 31) return '约每月'
-  return `每 ${n} 天`
+  if (n === 1) return t('updates.predict.interval.daily')
+  if (n === 7) return t('updates.predict.interval.weekly')
+  if (n === 14) return t('updates.predict.interval.biweekly')
+  if (n >= 28 && n <= 31) return t('updates.predict.interval.monthly')
+  return t('updates.predict.interval.days', { n })
 }
 
 export function regularLabel(p: Extract<Prediction, { kind: 'next' }>) {
-  if (p.approx) return '仅供参考'
-  return p.regular === 'high' ? '很准' : p.regular === 'mid' ? '偶尔会晚' : '不太规律'
+  if (p.approx) return t('updates.predict.regular.approx')
+  return t(`updates.predict.regular.${p.regular}`)
 }
 
 export function clockLabel(minute: number) {
@@ -170,19 +178,23 @@ export function clockLabel(minute: number) {
 /** 「今天」「明天」「周三 10/21」；不太规律且间隔较长时只说到上中下旬 */
 export function dayText(p: Extract<Prediction, { kind: 'next' }>, now = Date.now()) {
   const d = new Date(p.next)
-  if (p.regular === 'low' && p.interval >= 20) return `约 ${d.getMonth() + 1} 月${d.getDate() <= 10 ? '上' : d.getDate() <= 20 ? '中' : '下'}旬`
+  if (p.regular === 'low' && p.interval >= 20) {
+    const m = d.getMonth() + 1
+    const part = t(`updates.predict.day.part.${d.getDate() <= 10 ? 'early' : d.getDate() <= 20 ? 'mid' : 'late'}`)
+    return t('updates.predict.day.approxPart', { part, month: t(`updates.predict.day.months.${MONTHS[m - 1]}`) })
+  }
   const diff = daysBetween(startOfDay(now), p.next)
   const md = `${d.getMonth() + 1}/${d.getDate()}`
-  if (p.regular === 'low') return `约 ${md} 前后`
-  return diff === 0 ? '今天' : diff === 1 ? '明天' : `${WEEK[d.getDay()]} ${md}`
+  if (p.regular === 'low') return t('updates.predict.day.approxDay', { md })
+  return diff === 0 ? t('updates.predict.day.today') : diff === 1 ? t('updates.predict.day.tomorrow') : t('updates.predict.day.dated', { weekday: weekdayName(d.getDay()), md })
 }
 
 /** 详情页元信息里那一小段：「预计周三 10/21 更新」「晚了 3 天」 */
 export function shortText(p: Extract<Prediction, { kind: 'next' }>, now = Date.now()) {
-  if (p.late > 0) return `晚了 ${p.late} 天`
+  if (p.late > 0) return t('manga.next.late', { n: p.late })
   const day = dayText(p, now)
   const time = p.minute !== undefined && p.regular !== 'low' && daysBetween(startOfDay(now), p.next) <= 1 ? ` ${clockLabel(p.minute)}` : ''
-  const text = day.startsWith('约') ? day : `预计${day}${time}`
+  const text = p.regular === 'low' ? t('updates.predict.short.approx', { day }) : t('updates.predict.short.expected', { day, time })
   // 以数字结尾时空一格，免得「10/21更新」挤在一起
-  return /\d$/.test(text) ? `${text} 更新` : `${text}更新`
+  return t(/\d$/.test(text) ? 'updates.predict.short.suffixNum' : 'updates.predict.short.suffix', { text })
 }

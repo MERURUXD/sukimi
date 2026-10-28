@@ -14,6 +14,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { migrationSources } from './migrate'
 import { MangaChapters, MangaDetail } from './queries'
 import { MigrateDialog } from './MigrateDialog'
+import { t } from '@/i18n'
 
 /** 搜过的关键词结果留在内存里，看完候选的详情返回时不用重新搜 */
 const searched = new Map<string, SearchResults>()
@@ -69,8 +70,8 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
 
   return (
     <div className="wrap pt-8 pb-20">
-      <h1 className="m-0 font-cjk text-[32px] font-black sm:text-[40px]">换源迁移</h1>
-      <p className="mt-2 mb-7 max-w-[60ch] text-[15px] text-muted">在其他来源里找到同一部漫画，把已读进度、书签、分类、追踪绑定和稍后再看、特别关心搬过去。</p>
+      <h1 className="m-0 font-cjk text-[32px] font-black sm:text-[40px]">{t('migrate.page.title')}</h1>
+      <p className="mt-2 mb-7 max-w-[60ch] text-[15px] text-muted">{t('migrate.page.intro')}</p>
 
       {manga && (
         <div className="mb-8 flex items-center gap-4" data-sfw={sfwAttr(manga.source?.displayName)}>
@@ -78,10 +79,10 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
             <CoverImg src={manga.thumbnailUrl} />
           </span>
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-bold tracking-[.08em] text-muted">当前</span>
+            <span className="text-xs font-bold tracking-[.08em] text-muted">{t('migrate.page.current')}</span>
             <span className="truncate text-lg font-bold">{manga.title}</span>
             <span className="text-sm text-muted">
-              {[manga.source?.displayName, chapters ? `${chapters.length} 话 · 已读 ${read} 话` : null].filter(Boolean).join(' · ')}
+              {[manga.source?.displayName, chapters ? t('migrate.page.currentSub', { n: chapters.length, read }) : null].filter(Boolean).join(' · ')}
             </span>
           </span>
         </div>
@@ -91,30 +92,30 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
         <form onSubmit={submit} className="min-w-0 flex-[1_1_360px]">
           <Glass flat as="label" className="flex h-12 items-center gap-2.5 rounded-full px-[18px] text-muted">
             <Search className="size-5 flex-none" strokeWidth={1.8} />
-            <span className="sr">搜索候选</span>
+            <span className="sr">{t('migrate.page.searchLabel')}</span>
             <input
               type="search"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="用标题在其他来源里搜索，回车开始"
+              placeholder={t('migrate.page.placeholder')}
               className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
             />
           </Glass>
         </form>
         {sameLang.length > 0 && (
           <Seg flat
-            label="搜索范围"
+            label={t('migrate.page.scope')}
             value={effectiveScope}
             onChange={setScope}
             items={[
-              { value: 'lang', label: '同语言来源', count: sameLang.length },
-              { value: 'all', label: '全部来源', count: everySource.length },
+              { value: 'lang', label: t('migrate.page.sameLang'), count: sameLang.length },
+              { value: 'all', label: t('migrate.page.all'), count: everySource.length },
             ]}
           />
         )}
       </div>
 
-      {all && sources.length === 0 && <p className="py-12 text-center text-muted">没有其他可以搜索的来源，先到发现页安装扩展。</p>}
+      {all && sources.length === 0 && <p className="py-12 text-center text-muted">{t('migrate.page.noSources')}</p>}
 
       {withHits.map((s) => (
         <section key={s.id} aria-label={s.displayName} className="mb-8">
@@ -134,14 +135,14 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
 
       {q && (
         <p className="text-sm leading-relaxed text-muted" role="status">
-          {pending.length > 0 && <span className="mr-3 inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />还在搜索 {pending.length} 个来源</span>}
-          {empty.length > 0 && <span className="mr-3">没有结果：{empty.map((s) => s.displayName).join('、')}</span>}
+          {pending.length > 0 && <span className="mr-3 inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />{t('migrate.page.pending', { n: pending.length })}</span>}
+          {empty.length > 0 && <span className="mr-3">{t('migrate.page.empty', { names: empty.map((s) => s.displayName).join(t('migrate.namesSep')) })}</span>}
           {failed.length > 0 && (
             <span>
-              搜索失败：{failed.map((s) => s.displayName).join('、')}
+              {t('migrate.page.failed', { names: failed.map((s) => s.displayName).join(t('migrate.namesSep')) })}
               {pending.length === 0 && (
                 <button type="button" className="ml-2 font-semibold text-text hover:underline" onClick={() => retry()}>
-                  重试失败来源
+                  {t('browse.multi.retryFailed')}
                 </button>
               )}
             </span>
@@ -166,7 +167,7 @@ function CandidateTile({ m, source, onPick }: { m: SourceManga; source: Source; 
         {m.inLibrary && (
           <span className="absolute bottom-2 left-2 z-[2] inline-flex h-6 items-center gap-1 rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-[14px]">
             <BookmarkCheck className="size-3.5" strokeWidth={2.2} />
-            已在书库
+            {t('home.inLibrary')}
           </span>
         )}
       </span>

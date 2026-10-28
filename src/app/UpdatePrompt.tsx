@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { entryScript } from '@/lib/appVersion'
+import { t } from '@/i18n'
 
 /** 服务端上新入口地址；dismissed 记住用户按过「稍后」的那一版，再部署一次才重新提示 */
 const useAppUpdate = create<{ next?: string; dismissed?: string }>(() => ({}))
@@ -122,15 +123,15 @@ export function UpdatePrompt() {
               <Sparkles className="size-[18px]" strokeWidth={2} />
             </span>
             <span className="min-w-0 flex-1 leading-tight">
-              <span className="block text-[14px] font-semibold">新版本已就绪</span>
-              <span className="mt-1 block text-[12px] text-muted">切换页面时会自动更新</span>
+              <span className="block text-[14px] font-semibold">{t('app.update.ready')}</span>
+              <span className="mt-1 block text-[12px] text-muted">{t('app.update.readyHint')}</span>
             </span>
             <button
               type="button"
               className="h-9 shrink-0 rounded-full px-3 text-[13px] font-semibold text-muted transition-colors hover:text-text"
               onClick={() => useAppUpdate.setState({ dismissed: next })}
             >
-              稍后
+              {t('app.update.later')}
             </button>
             <button
               type="button"
@@ -141,7 +142,7 @@ export function UpdatePrompt() {
                 applyUpdate()
               }}
             >
-              {reloading ? '更新中…' : '更新'}
+              {reloading ? t('app.update.updating') : t('app.update.now')}
             </button>
           </MotionGlass>
         )}

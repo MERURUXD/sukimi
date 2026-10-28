@@ -11,6 +11,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
 import { Row, Section, Switch } from '../parts'
 import { RequireSettings, SettingsNotice } from '../gate'
+import { t as tl } from '@/i18n'
 
 const CreateBackup = graphql(`
   mutation CreateBackup {
@@ -53,14 +54,14 @@ const RestoreStatus = graphql(`
 `)
 
 const STATE: Record<BackupRestoreState, string> = {
-  IDLE: '准备中',
-  RESTORING_CATEGORIES: '正在恢复分类',
-  RESTORING_MANGA: '正在恢复漫画',
-  RESTORING_META: '正在恢复附加数据',
-  RESTORING_SETTINGS: '正在恢复设置',
-  RESTORING_USER_SETTINGS: '正在恢复个人设置',
-  SUCCESS: '恢复完成',
-  FAILURE: '恢复失败',
+  IDLE: tl('cfg.backup.state.IDLE'),
+  RESTORING_CATEGORIES: tl('cfg.backup.state.RESTORING_CATEGORIES'),
+  RESTORING_MANGA: tl('cfg.backup.state.RESTORING_MANGA'),
+  RESTORING_META: tl('cfg.backup.state.RESTORING_META'),
+  RESTORING_SETTINGS: tl('cfg.backup.state.RESTORING_SETTINGS'),
+  RESTORING_USER_SETTINGS: tl('cfg.backup.state.RESTORING_USER_SETTINGS'),
+  SUCCESS: tl('cfg.backup.state.SUCCESS'),
+  FAILURE: tl('cfg.backup.state.FAILURE'),
 }
 
 /** 备份里的设置默认不恢复：它们会直接覆盖服务端设置（含换界面的 webUIFlavor）和当前账号的个人设置 */
@@ -77,11 +78,11 @@ function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => 
     <div className="mt-3 flex flex-col gap-3">
       <label className="flex items-start justify-between gap-4">
         <span>
-          同时恢复服务端设置
-          <span className="block text-[13px] text-muted">会用备份里的值覆盖当前服务端设置，包括使用的网页界面；旧备份可能让下次重启后不再显示 Sukimi。</span>
+          {tl('cfg.backup.serverRestore')}
+          <span className="block text-[13px] text-muted">{tl('cfg.backup.serverRestoreHint')}</span>
         </span>
         <Switch
-          label="同时恢复服务端设置"
+          label={tl('cfg.backup.serverRestore')}
           on={server}
           onChange={(v) => {
             onServer(v)
@@ -91,11 +92,11 @@ function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => 
       </label>
       <label className="flex items-start justify-between gap-4">
         <span>
-          同时恢复我的个人设置
-          <span className="block text-[13px] text-muted">会覆盖当前账号的 OPDS、同步、自动下载等设置。</span>
+          {tl('cfg.backup.userRestore')}
+          <span className="block text-[13px] text-muted">{tl('cfg.backup.userRestoreHint')}</span>
         </span>
         <Switch
-          label="同时恢复我的个人设置"
+          label={tl('cfg.backup.userRestore')}
           on={user}
           onChange={(v) => {
             onUser(v)
@@ -116,29 +117,29 @@ export function BackupTab() {
       <ManualBackup />
 
       <RequireSettings>
-        <Section title="自动备份" desc="服务端定时生成备份并清理过期文件，所有用户共用。">
-          <SNumber k="backupInterval" label="备份间隔" unit="天" min={0} hint="0 为关闭自动备份" />
-          <SText k="backupTime" label="备份时间" type="time" width="w-[140px]" hint="按服务端所在时区的时间执行" />
-          <SNumber k="backupTTL" label="保留时间" unit="天" min={0} hint="自动删除超过该天数的备份，0 为永久保留" />
-          <SText k="backupPath" label="备份目录" placeholder="默认" hint="服务端本地路径；留空使用数据目录下的 backups" stack />
+        <Section title={tl('cfg.backup.autoTitle')} desc={tl('cfg.backup.autoDesc')}>
+          <SNumber k="backupInterval" label={tl('cfg.backup.interval')} unit={tl('cfg.backup.days')} min={0} hint={tl('cfg.backup.intervalHint')} />
+          <SText k="backupTime" label={tl('cfg.backup.time')} type="time" width="w-[140px]" hint={tl('cfg.backup.timeHint')} />
+          <SNumber k="backupTTL" label={tl('cfg.backup.ttl')} unit={tl('cfg.backup.days')} min={0} hint={tl('cfg.backup.ttlHint')} />
+          <SText k="backupPath" label={tl('cfg.backup.path')} placeholder={tl('cfg.default')} hint={tl('cfg.backup.pathHint')} stack />
         </Section>
       </RequireSettings>
 
       <RequireSettings>
-        <Section fold title="自动备份包含" desc="选择自动备份写入的内容，默认全部开启。">
-          <SSwitch k="autoBackupIncludeManga" label="漫画" />
-          <SSwitch k="autoBackupIncludeCategories" label="分类" />
-          <SSwitch k="autoBackupIncludeChapters" label="章节与阅读进度" />
-          <SSwitch k="autoBackupIncludeHistory" label="阅读历史" />
-          <SSwitch k="autoBackupIncludeTracking" label="追踪" />
-          <SSwitch k="autoBackupIncludeClientData" label="客户端数据" hint="各前端保存在服务端的偏好" />
-          <SSwitch k="autoBackupIncludeServerSettings" label="服务端设置" />
+        <Section fold title={tl('cfg.backup.inclTitle')} desc={tl('cfg.backup.inclDesc')}>
+          <SSwitch k="autoBackupIncludeManga" label={tl('cfg.backup.manga')} />
+          <SSwitch k="autoBackupIncludeCategories" label={tl('cfg.backup.categories')} />
+          <SSwitch k="autoBackupIncludeChapters" label={tl('cfg.backup.chapters')} />
+          <SSwitch k="autoBackupIncludeHistory" label={tl('cfg.backup.history')} />
+          <SSwitch k="autoBackupIncludeTracking" label={tl('cfg.backup.tracking')} />
+          <SSwitch k="autoBackupIncludeClientData" label={tl('cfg.backup.clientData')} hint={tl('cfg.backup.clientDataHint')} />
+          <SSwitch k="autoBackupIncludeServerSettings" label={tl('cfg.backup.serverSettings')} />
           {multi && (
             <SSwitch
               k="autoBackupIncludeUserSettings"
-              label="各账号的个人设置"
-              hint="OPDS、同步、自动下载等各账号独立配置"
-              help="不勾选时，恢复备份后各账号的个人设置会回到默认值。"
+              label={tl('cfg.backup.userSettings')}
+              hint={tl('cfg.backup.userSettingsHint')}
+              help={tl('cfg.backup.userSettingsHelp')}
             />
           )}
         </Section>
@@ -157,15 +158,15 @@ function ManualBackup() {
     try {
       const r = await create()
       const url = r.data?.createBackup.url
-      if (!url) throw new Error('服务端没有返回备份地址')
+      if (!url) throw new Error(tl('cfg.backup.noUrl'))
       // 同源地址，带着登录 Cookie 直接下载
       const a = document.createElement('a')
       a.href = url
       a.download = ''
       a.click()
-      toast('备份已生成，正在下载')
+      toast(tl('cfg.backup.created'))
     } catch (e) {
-      toastError('备份失败', e)
+      toastError(tl('cfg.backup.failed'), e)
     }
   }
 
@@ -178,25 +179,25 @@ function ManualBackup() {
       still()
       const { missingSources, missingTrackers } = v.validateBackup
       const ok = await confirm({
-        title: `从「${file.name}」恢复？`,
+        title: tl('cfg.backup.restoreTitle', { name: file.name }),
         body: (
           <>
-            <p className="m-0">备份里的漫画、分类、章节进度会合并进当前书库，已有的不会被删除。恢复过程中可以继续使用。</p>
-            <p className="mb-0">服务端设置和个人设置默认保持现状，不会被备份里的值覆盖。</p>
+            <p className="m-0">{tl('cfg.backup.restoreBody1')}</p>
+            <p className="mb-0">{tl('cfg.backup.restoreBody2')}</p>
             {missingSources.length > 0 && (
               <p className="mb-0">
-                缺少 {missingSources.length} 个来源的扩展，这些漫画能恢复，但要装上扩展才能阅读：
-                {missingSources.map((s) => s.name).join('、')}
+                {tl('cfg.backup.missingSources', { count: missingSources.length, n: missingSources.length })}
+                {missingSources.map((s) => s.name).join(tl('cfg.sep'))}
               </p>
             )}
-            {missingTrackers.length > 0 && <p className="mb-0">未登录的追踪服务：{missingTrackers.map((t) => t.name).join('、')}</p>}
+            {missingTrackers.length > 0 && <p className="mb-0">{tl('cfg.backup.missingTrackers', { names: missingTrackers.map((t) => t.name).join(tl('cfg.sep')) })}</p>}
             <RestoreOptionsPicker
               onServer={(v) => (opts.serverSettings = v)}
               onUser={(v) => (opts.userSettings = v)}
             />
           </>
         ),
-        ok: '开始恢复',
+        ok: tl('cfg.backup.restoreOk'),
         danger: true,
       })
       if (!ok) return
@@ -208,7 +209,7 @@ function ManualBackup() {
       )
       setRestore({ id: r.restoreBackup.id, state: 'IDLE', done: 0, total: 0 })
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('恢复失败', e)
+      if (!(e instanceof StaleSessionError)) toastError(tl('cfg.backup.restoreFailed'), e)
     }
   }
 
@@ -224,10 +225,10 @@ function ManualBackup() {
         if (!s) return
         setRestore({ id, state: s.state, done: s.mangaProgress, total: s.totalManga })
         if (s.state === 'SUCCESS') {
-          toast('备份恢复完成')
+          toast(tl('cfg.backup.restored'))
           void client.refetchQueries({ include: 'active' })
         }
-        if (s.state === 'FAILURE') toast('备份恢复失败，详情见服务端日志', 'error')
+        if (s.state === 'FAILURE') toast(tl('cfg.backup.restoreLogs'), 'error')
       } catch {
         /* 下一次再试 */
       }
@@ -236,17 +237,17 @@ function ManualBackup() {
   }, [id, finished, client])
 
   return (
-    <Section title="备份与恢复" desc="备份文件（.tachibk）与 Tachiyomi / Mihon 通用。">
-      <Row label="立即备份" hint="包含书库、分类、阅读进度、历史、追踪和设置，生成后自动下载">
+    <Section title={tl('cfg.backup.title')} desc={tl('cfg.backup.desc')}>
+      <Row label={tl('cfg.backup.now')} hint={tl('cfg.backup.nowHint')}>
         <button type="button" className="solid min-h-11" onClick={() => void backupNow()} disabled={creating}>
           <DatabaseBackup className="size-[18px]" strokeWidth={2} />
-          {creating ? '正在生成…' : '备份并下载'}
+          {creating ? tl('cfg.backup.creating') : tl('cfg.backup.createBtn')}
         </button>
       </Row>
-      <Row label="从文件恢复" hint="先检查备份里缺哪些扩展，确认后再开始">
+      <Row label={tl('cfg.backup.fromFile')} hint={tl('cfg.backup.fromFileHint')}>
         <button type="button" className="gbtn plain rounded-full" onClick={() => fileRef.current?.click()} disabled={!!restore && !finished}>
           <Upload className="size-[18px]" strokeWidth={1.8} />
-          选择备份文件
+          {tl('cfg.backup.pick')}
         </button>
         <input
           ref={fileRef}
@@ -266,7 +267,7 @@ function ManualBackup() {
             <span className="font-semibold">{STATE[restore.state]}</span>
             {restore.total > 0 && (
               <span className="text-muted num">
-                {restore.done} / {restore.total} 部
+                {tl('cfg.backup.progress', { done: restore.done, total: restore.total })}
               </span>
             )}
           </div>

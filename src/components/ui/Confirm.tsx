@@ -6,6 +6,7 @@ import { resetOnUserContext } from '@/api/userContext'
 import { writesSharedServer } from '@/lib/channel'
 import { cn } from '@/lib/cn'
 import { Dialog, usePopMotion } from './Dialog'
+import { t } from '@/i18n'
 
 interface Ask {
   id: number
@@ -75,7 +76,7 @@ export function ConfirmHost() {
             )}
             <div className="mt-2 flex justify-end gap-2.5">
               <button ref={cancelRef} type="button" className="gbtn rounded-full hover:bg-hover" onClick={() => done(false)}>
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 ref={okRef}
@@ -83,7 +84,7 @@ export function ConfirmHost() {
                 className={cn('solid min-h-11', ask.danger && 'bg-danger! text-white!')}
                 onClick={() => done(true)}
               >
-                {ask.ok ?? '确定'}
+                {ask.ok ?? t('common.ok')}
               </button>
             </div>
           </MotionGlass>

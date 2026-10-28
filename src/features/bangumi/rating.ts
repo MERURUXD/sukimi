@@ -1,3 +1,4 @@
+import { locale } from '../../i18n/core.ts'
 /*
  * Bangumi 站内评分：公开接口 api.bgm.tv 的条目数据换成界面用的形状，以及按标题挑条目、缓存过期判断。
  * 这里只放纯逻辑，不发请求、不碰存储，测试直接引用
@@ -59,7 +60,11 @@ export const CACHE_MS = 24 * 60 * 60 * 1000
 export const isFresh = (at: number, now: number) => at > 0 && now - at >= 0 && now - at < CACHE_MS
 
 /** 人数缩写：一万以上写成「1.2万」，以下照原样加千分位 */
-export const shortCount = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(1).replace(/\.0$/, '')}万` : n.toLocaleString('en-US'))
+export const shortCount = (n: number) => {
+  // 中文按「万」，英文按「k」
+  if (locale === 'en') return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n)
+  return n >= 10000 ? `${(n / 10000).toFixed(1).replace(/\.0$/, '')}万` : n.toLocaleString('en-US')
+}
 
 /** 条目网页地址 */
 export const subjectUrl = (id: number) => `https://bgm.tv/subject/${id}`

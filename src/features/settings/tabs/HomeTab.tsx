@@ -4,16 +4,17 @@ import { Seg } from '@/components/ui/Seg'
 import { useAppearance } from '@/design/settings'
 import { HOME_SECTION_LABELS, HOME_SECTION_ORDER, moveHomeSection, type HomeSection } from '@/features/home/preferences'
 import { Row, Section, Switch } from '../parts'
+import { t } from '@/i18n'
 
 const HINTS: Record<HomeSection, string> = {
-  week: '近 7 天的特别关心、更新与阅读记录',
-  favorite: '设为特别关心且有未读新章节的漫画',
-  updates: '书库中最近有新章节的漫画',
-  stale: '读到一半、超过两周未打开的漫画',
-  fresh: '已加入书库但尚未开始阅读的漫画',
-  recent: '最近读过的三部漫画与进度',
-  gallery: '通往书库画廊的封面橱窗入口',
-  later: '标记为稍后再看的漫画',
+  week: t('cfg.home.hint.week'),
+  favorite: t('cfg.home.hint.favorite'),
+  updates: t('cfg.home.hint.updates'),
+  stale: t('cfg.home.hint.stale'),
+  fresh: t('cfg.home.hint.fresh'),
+  recent: t('cfg.home.hint.recent'),
+  gallery: t('cfg.home.hint.gallery'),
+  later: t('cfg.home.hint.later'),
 }
 
 function MobileLayoutHelp() {
@@ -23,13 +24,13 @@ function MobileLayoutHelp() {
         <div className="flex h-12 items-center justify-center rounded-lg bg-accent-soft">
           <span className="h-9 w-6 rounded bg-track" />
         </div>
-        <b className="text-text">居中海报</b>
-        <span>保留完整竖版封面比例，背景作柔和模糊衬底。</span>
+        <b className="text-text">{t('cfg.home.poster')}</b>
+        <span>{t('cfg.home.posterDesc')}</span>
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="h-12 w-full rounded-lg bg-track" />
-        <b className="text-text">全幅封面</b>
-        <span>封面铺满首屏顶部，底部渐隐衔接标题与按钮。</span>
+        <b className="text-text">{t('cfg.home.cover')}</b>
+        <span>{t('cfg.home.coverDesc')}</span>
       </div>
     </div>
   )
@@ -44,13 +45,13 @@ function DesktopLayoutHelp() {
           <span className="h-9 w-6 rounded bg-track" />
           <span className="h-8 w-5 rotate-6 rounded bg-track opacity-60" />
         </div>
-        <b className="text-text">舞台</b>
-        <span>将常读的几部排成扇形封面组，支持左右切换，保留完整封面。</span>
+        <b className="text-text">{t('cfg.home.stage')}</b>
+        <span>{t('cfg.home.stageDesc')}</span>
       </div>
       <div className="flex flex-col gap-1.5">
         <div className="h-12 w-full rounded-lg bg-track" />
-        <b className="text-text">全幅封面</b>
-        <span>将单部作品封面横向铺满顶部背景，会裁切上下画面。</span>
+        <b className="text-text">{t('cfg.home.cover')}</b>
+        <span>{t('cfg.home.coverDesc2')}</span>
       </div>
     </div>
   )
@@ -73,33 +74,33 @@ export function HomeTab() {
   const move = (id: HomeSection, direction: -1 | 1) => {
     const order = moveHomeSection(homeSectionOrder, id, direction)
     setHomeSectionOrder(order)
-    setNotice(`${HOME_SECTION_LABELS[id]}已移至第 ${order.indexOf(id) + 1} 位`)
+    setNotice(t('cfg.home.moved', { label: HOME_SECTION_LABELS[id], n: order.indexOf(id) + 1 }))
   }
 
   return (
     <>
-      <Section title="首页布局" desc="手机与桌面分别设置，仅保存在当前浏览器。">
-        <Row label="手机首页布局" hint="居中海报保留完整封面；全幅封面铺满首屏" help={<MobileLayoutHelp />}>
+      <Section title={t('cfg.home.layout')} desc={t('cfg.home.layoutDesc')}>
+        <Row label={t('cfg.home.mobileLayout')} hint={t('cfg.home.mobileLayoutHint')} help={<MobileLayoutHelp />}>
           <Seg
             glass={false}
-            label="手机首页布局"
+            label={t('cfg.home.mobileLayout')}
             className="max-md:[&_button]:min-h-11"
             items={[
-              { value: 'poster', label: '居中海报' },
-              { value: 'cover', label: '全幅封面' },
+              { value: 'poster', label: t('cfg.home.poster') },
+              { value: 'cover', label: t('cfg.home.cover') },
             ]}
             value={homeMobileLayout}
             onChange={setHomeMobileLayout}
           />
         </Row>
-        <Row label="桌面首页布局" hint="舞台将常读漫画排成扇形封面组；全幅封面铺满背景" help={<DesktopLayoutHelp />}>
+        <Row label={t('cfg.home.desktopLayout')} hint={t('cfg.home.desktopLayoutHint')} help={<DesktopLayoutHelp />}>
           <Seg
             glass={false}
-            label="桌面首页布局"
+            label={t('cfg.home.desktopLayout')}
             className="max-md:[&_button]:min-h-11"
             items={[
-              { value: 'poster', label: '舞台' },
-              { value: 'cover', label: '全幅封面' },
+              { value: 'poster', label: t('cfg.home.stage') },
+              { value: 'cover', label: t('cfg.home.cover') },
             ]}
             value={homeDesktopLayout}
             onChange={setHomeDesktopLayout}
@@ -108,23 +109,23 @@ export function HomeTab() {
       </Section>
 
       <Section
-        title="首页内容"
-        desc="「继续阅读」固定在顶部，其余模块按以下顺序显示（手机与桌面共用，无内容时自动隐藏）。"
+        title={t('cfg.home.content')}
+        desc={t('cfg.home.contentDesc')}
         action={
           <button
             type="button"
             className="gbtn plain min-h-9 w-fit rounded-full px-3.5 text-[13px]"
             onClick={() => {
               setHomeSectionOrder(HOME_SECTION_ORDER)
-              setNotice('已恢复默认顺序')
+              setNotice(t('cfg.home.resetDone'))
             }}
           >
             <RotateCcw className="size-4" strokeWidth={1.8} />
-            恢复默认顺序
+            {t('cfg.home.reset')}
           </button>
         }
       >
-        <ol aria-label="首页模块显示顺序" className="m-0 flex list-none flex-col gap-3 p-0">
+        <ol aria-label={t('cfg.home.orderAria')} className="m-0 flex list-none flex-col gap-3 p-0">
           {homeSectionOrder.map((id, i) => (
             <li key={id} data-home-setting={id} className="flex min-h-11 items-center justify-between gap-3 py-0.5">
               <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
@@ -141,7 +142,7 @@ export function HomeTab() {
                   <button
                     type="button"
                     disabled={i === 0}
-                    aria-label={`上移${HOME_SECTION_LABELS[id]}`}
+                    aria-label={t('cfg.home.upAria', { label: HOME_SECTION_LABELS[id] })}
                     onClick={() => move(id, -1)}
                     className="gicon plain size-10 rounded-full disabled:opacity-25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
                   >
@@ -150,7 +151,7 @@ export function HomeTab() {
                   <button
                     type="button"
                     disabled={i === homeSectionOrder.length - 1}
-                    aria-label={`下移${HOME_SECTION_LABELS[id]}`}
+                    aria-label={t('cfg.home.downAria', { label: HOME_SECTION_LABELS[id] })}
                     onClick={() => move(id, 1)}
                     className="gicon plain size-10 rounded-full disabled:opacity-25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
                   >
@@ -158,9 +159,9 @@ export function HomeTab() {
                   </button>
                 </div>
                 {id === 'gallery' ? (
-                  <Switch label="首页画廊橱窗" on={homeGallery} onChange={setHomeGallery} />
+                  <Switch label={t('cfg.home.galleryWindow')} on={homeGallery} onChange={setHomeGallery} />
                 ) : (
-                  <Switch label={`首页${HOME_SECTION_LABELS[id]}`} on={homeSections[id]} onChange={(on) => setHomeSection(id, on)} />
+                  <Switch label={t('cfg.home.show', { label: HOME_SECTION_LABELS[id] })} on={homeSections[id]} onChange={(on) => setHomeSection(id, on)} />
                 )}
               </div>
             </li>

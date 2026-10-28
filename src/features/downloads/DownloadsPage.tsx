@@ -14,15 +14,16 @@ import { cn } from '@/lib/cn'
 import { chapterLabel, count } from '@/lib/format'
 import { dropTarget, failed, groupByManga, moveGroup } from './downloads'
 import { ClearDownloads, DequeueDownloads, ReorderDownload, ReorderDownloads, RequeueDownloads } from './queries'
+import { t } from '@/i18n'
 
 type View = 'order' | 'manga'
 
 const stateText = (d: DownloadItem) => {
   if (d.state === 'DOWNLOADING')
-    return d.chapter.pageCount > 0 ? `${Math.round(d.progress * d.chapter.pageCount)} / ${d.chapter.pageCount} 页` : `${Math.round(d.progress * 100)}%`
-  if (d.state === 'ERROR') return `出错${d.tries > 0 ? `（已尝试 ${d.tries} 次）` : ''}`
-  if (d.state === 'FINISHED') return '完成'
-  return '排队中'
+    return d.chapter.pageCount > 0 ? t('downloads.pages', { done: Math.round(d.progress * d.chapter.pageCount), total: d.chapter.pageCount }) : `${Math.round(d.progress * 100)}%`
+  if (d.state === 'ERROR') return d.tries > 0 ? t('downloads.stateErrorTries', { n: d.tries }) : t('downloads.stateError')
+  if (d.state === 'FINISHED') return t('downloads.stateDone')
+  return t('downloads.stateQueued')
 }
 
 /** 下载队列：实时状态来自全局订阅（api/live.ts），这里只负责展示和操作 */
@@ -49,7 +50,7 @@ export function DownloadsPage() {
       const r = running ? (await stop()).data?.stopDownloader : (await start()).data?.startDownloader
       if (r) useLive.setState({ downloader: r.downloadStatus.state })
     } catch (e) {
-      toastError(running ? '暂停下载失败' : '继续下载失败', e)
+      toastError(running ? t('downloads.pauseFailed') : t('downloads.resumeFailed'), e)
     }
   }
 
@@ -58,7 +59,7 @@ export function DownloadsPage() {
       const { data } = await dequeue({ variables: { ids } })
       setDownloadStatus(data?.dequeueChapterDownloads?.downloadStatus)
     } catch (e) {
-      toastError('移出失败', e)
+      toastError(t('downloads.removeFailed'), e)
     }
   }
 
@@ -69,19 +70,19 @@ export function DownloadsPage() {
       await dequeue({ variables: { ids } })
       const { data } = await requeue({ variables: { ids } })
       setDownloadStatus(data?.enqueueChapterDownloads?.downloadStatus)
-      toast(`已重新加入 ${ids.length} 话`)
+      toast(t('downloads.requeued', { n: ids.length }))
     } catch (e) {
-      toastError('重试失败', e)
+      toastError(t('downloads.retryFailed'), e)
     }
   }
 
   const clearAll = async () => {
     const ok = await confirm({
-      title: shared ? '清空所有账号的下载队列？' : '清空下载队列？',
+      title: shared ? t('downloads.clearTitleShared') : t('downloads.clearTitle'),
       body: shared
-        ? `队列由服务端上的所有账号共用，其他人加入的章节也会一起移出，共 ${queue.length} 话。已经下载完的章节不受影响。`
-        : `队列里的 ${queue.length} 话都会移出，已经下载完的章节不受影响。`,
-      ok: '清空',
+        ? t('downloads.clearBodyShared', { n: queue.length })
+        : t('downloads.clearBody', { n: queue.length }),
+      ok: t('downloads.clearOk'),
       danger: true,
     })
     if (!ok) return
@@ -89,7 +90,7 @@ export function DownloadsPage() {
       const { data } = await clear()
       setDownloadStatus(data?.clearDownloader?.downloadStatus)
     } catch (e) {
-      toastError('清空失败', e)
+      toastError(t('downloads.clearFailed'), e)
     }
   }
 
@@ -98,7 +99,7 @@ export function DownloadsPage() {
       const { data } = await reorderOne({ variables: { id, to } })
       setDownloadStatus(data?.reorderChapterDownload?.downloadStatus)
     } catch (e) {
-      toastError('调整顺序失败', e)
+      toastError(t('downloads.reorderFailed'), e)
     }
   }
 
@@ -107,26 +108,26 @@ export function DownloadsPage() {
       const { data } = await reorderMany({ variables: { reorders: moveGroup(queue, items.map((d) => d.chapter.id), where) } })
       setDownloadStatus(data?.reorderChapterDownloads?.downloadStatus)
     } catch (e) {
-      toastError('调整顺序失败', e)
+      toastError(t('downloads.reorderFailed'), e)
     }
   }
 
   const status = queue.length
-    ? `${running ? '正在下载' : '已暂停'} · ${count(queue.length)} 话，来自 ${mangas.length} 部漫画${errors.length ? ` · ${errors.length} 话出错` : ''}`
-    : '队列是空的'
+    ? t('downloads.summary', { state: running ? t('downloads.running') : t('downloads.paused'), chapters: count(queue.length), mangas: mangas.length }) + (errors.length ? t('downloads.summaryErrors', { n: errors.length }) : '')
+    : t('downloads.empty')
 
   return (
     <div className="wrap pb-20">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4 pt-9 pb-8">
         <div className="min-w-0 flex-auto">
-          <h1 className="m-0 font-cjk text-[40px] font-black">下载队列</h1>
+          <h1 className="m-0 font-cjk text-[40px] font-black">{t('downloads.title')}</h1>
           <span className="text-sm text-muted" role="status">
             {status}
-            {!connected && ' · 实时连接断开，正在重连…'}
+            {!connected && t('downloads.disconnected')}
           </span>
           {shared && (
             <p className="mt-1 mb-0 text-[13px] text-faint">
-              下载队列由服务端上的所有账号共用：开始、暂停、调整顺序和移出都会影响其他人。
+              {t('downloads.sharedNote')}
             </p>
           )}
         </div>
@@ -134,29 +135,29 @@ export function DownloadsPage() {
           {errors.length > 0 && (
             <Glass flat as="button" type="button" className="gbtn rounded-full" onClick={() => void retry()}>
               <RotateCcw className="size-[18px]" strokeWidth={1.8} />
-              重试<span className="max-sm:hidden">失败项</span>
+              {t('downloads.retry')}<span className="max-sm:hidden">{t('downloads.retryItems')}</span>
             </Glass>
           )}
           {queue.length > 0 && (
-            <Glass flat as="button" type="button" className="gbtn rounded-full hover:text-danger" title={shared ? '移出所有账号排队的章节' : undefined} onClick={() => void clearAll()}>
+            <Glass flat as="button" type="button" className="gbtn rounded-full hover:text-danger" title={shared ? t('downloads.clearAllTitle') : undefined} onClick={() => void clearAll()}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />
-              清空
+              {t('downloads.clear')}
             </Glass>
           )}
           <button
             type="button"
             className="solid min-h-11"
-            title={shared ? (running ? '所有账号的下载都会暂停' : '会开始下载所有账号排队的章节') : undefined}
+            title={shared ? (running ? t('downloads.pauseAllTitle') : t('downloads.startAllTitle')) : undefined}
             onClick={() => void toggle()}
           >
             {running ? <Pause className="size-[18px]" strokeWidth={1.8} /> : <Play className="size-[18px] fill-current" strokeWidth={1.6} />}
             {running ? (
               <span>
-                <span className="max-sm:hidden">全部</span>暂停
+                <span className="max-sm:hidden">{t('downloads.pauseAll')}</span><span className="sm:hidden">{t('downloads.pause')}</span>
               </span>
             ) : (
               <span>
-                开始<span className="max-sm:hidden">下载</span>
+                <span className="max-sm:hidden">{t('downloads.startAll')}</span><span className="sm:hidden">{t('downloads.start')}</span>
               </span>
             )}
           </button>
@@ -165,19 +166,19 @@ export function DownloadsPage() {
 
       {queue.length === 0 ? (
         <p className="py-16 text-center text-muted">
-          没有排队的章节。可以在
-          <Link to="/updates" className="mx-1 font-semibold text-text">更新</Link>
-          或漫画详情页里下载。
+          {t('downloads.noQueueBefore')}
+          <Link to="/updates" className="mx-1 font-semibold text-text">{t('downloads.noQueueLink')}</Link>
+          {t('downloads.noQueueAfter')}
         </p>
       ) : (
         <>
           <Seg flat
-            label="显示方式"
+            label={t('downloads.viewLabel')}
             value={view}
             onChange={setView}
             items={[
-              { value: 'order', label: '按顺序' },
-              { value: 'manga', label: '按漫画', count: mangas.length },
+              { value: 'order', label: t('downloads.byOrder') },
+              { value: 'manga', label: t('downloads.byManga'), count: mangas.length },
             ]}
             className="mb-6"
           />
@@ -262,7 +263,7 @@ function OrderRow({ d, onDrop, onNudge, onRemove }: { d: DownloadItem; onDrop: (
     >
       <button
         type="button"
-        aria-label={`拖动或用上下键调整顺序：${label}`}
+        aria-label={t('downloads.dragAria', { label })}
         onPointerDown={(e) => controls.start(e)}
         onKeyDown={keys}
         className="gicon size-10 flex-none cursor-grab touch-none text-faint hover:text-text active:cursor-grabbing"
@@ -270,7 +271,7 @@ function OrderRow({ d, onDrop, onNudge, onRemove }: { d: DownloadItem; onDrop: (
         <GripVertical className="size-[18px]" />
       </button>
       <Item d={d} />
-      <button type="button" className="gicon size-10 flex-none text-muted hover:text-danger" aria-label={`移出队列：${label}`} onClick={onRemove}>
+      <button type="button" className="gicon size-10 flex-none text-muted hover:text-danger" aria-label={t('downloads.removeAria', { label })} onClick={onRemove}>
         <X className="size-[18px]" />
       </button>
     </Reorder.Item>
@@ -320,15 +321,15 @@ function MangaGroup({ items, isFirst, isLast, onMove, onRemove }: {
         </Link>
         <span className="flex min-w-0 flex-1 flex-col">
           <Link to={`/manga/${m.id}`} className="truncate font-bold text-text no-underline">{m.title}</Link>
-          <span className="text-xs text-muted">{items.length} 话</span>
+          <span className="text-xs text-muted">{t('downloads.chaptersN', { count: items.length })}</span>
         </span>
-        <button type="button" className="gicon size-10 text-muted hover:text-text disabled:opacity-30" disabled={isFirst} aria-label={`把 ${m.title} 移到最前`} title="移到最前" onClick={() => onMove('top')}>
+        <button type="button" className="gicon size-10 text-muted hover:text-text disabled:opacity-30" disabled={isFirst} aria-label={t('downloads.moveTopAria', { title: m.title })} title={t('downloads.moveTop')} onClick={() => onMove('top')}>
           <ArrowUpToLine className="size-[18px]" strokeWidth={1.8} />
         </button>
-        <button type="button" className="gicon size-10 text-muted hover:text-text disabled:opacity-30" disabled={isLast} aria-label={`把 ${m.title} 移到最后`} title="移到最后" onClick={() => onMove('bottom')}>
+        <button type="button" className="gicon size-10 text-muted hover:text-text disabled:opacity-30" disabled={isLast} aria-label={t('downloads.moveBottomAria', { title: m.title })} title={t('downloads.moveBottom')} onClick={() => onMove('bottom')}>
           <ArrowDownToLine className="size-[18px]" strokeWidth={1.8} />
         </button>
-        <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={`把 ${m.title} 全部移出队列`} title="全部移出" onClick={() => onRemove(items.map((d) => d.chapter.id))}>
+        <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={t('downloads.removeAllAria', { title: m.title })} title={t('downloads.removeAll')} onClick={() => onRemove(items.map((d) => d.chapter.id))}>
           <X className="size-[18px]" />
         </button>
       </div>
@@ -336,7 +337,7 @@ function MangaGroup({ items, isFirst, isLast, onMove, onRemove }: {
         {items.map((d) => (
           <div key={d.chapter.id} className="-mx-2 flex items-center gap-3 rounded-2xl px-2 py-1.5 hover:bg-hover">
             <Item d={d} compact />
-            <button type="button" className="gicon size-9 flex-none text-muted hover:text-danger" aria-label={`移出队列：${chapterLabel(d.chapter)}`} onClick={() => onRemove([d.chapter.id])}>
+            <button type="button" className="gicon size-9 flex-none text-muted hover:text-danger" aria-label={t('downloads.removeAria', { label: chapterLabel(d.chapter) })} onClick={() => onRemove([d.chapter.id])}>
               <X className="size-4" />
             </button>
           </div>

@@ -7,6 +7,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { timeAgo } from '@/lib/format'
 import { SChoice, SDuration, SNumber, SSecret, SSwitch, SText } from '../fields'
 import { Row, Section, TextInput } from '../parts'
+import { t } from '@/i18n'
 
 const LastSync = graphql(`
   query LastSync {
@@ -63,21 +64,21 @@ const LogoutKoSync = graphql(`
 `)
 
 const SYNC_STATE: Record<SyncState, string> = {
-  STARTED: '已开始',
-  CREATING_BACKUP: '正在打包本地数据',
-  DOWNLOADING: '正在下载远端数据',
-  MERGING: '正在合并',
-  UPLOADING: '正在上传',
-  RESTORING: '正在写入',
-  SUCCESS: '成功',
-  ERROR: '失败',
+  STARTED: t('cfg.sync.state.STARTED'),
+  CREATING_BACKUP: t('cfg.sync.state.CREATING_BACKUP'),
+  DOWNLOADING: t('cfg.sync.state.DOWNLOADING'),
+  MERGING: t('cfg.sync.state.MERGING'),
+  UPLOADING: t('cfg.sync.state.UPLOADING'),
+  RESTORING: t('cfg.sync.state.RESTORING'),
+  SUCCESS: t('cfg.sync.state.SUCCESS'),
+  ERROR: t('cfg.sync.state.ERROR'),
 }
 
 const STRATEGIES: { value: KoreaderSyncConflictStrategy; label: string }[] = [
-  { value: 'PROMPT', label: '询问' },
-  { value: 'KEEP_LOCAL', label: '保留本地进度' },
-  { value: 'KEEP_REMOTE', label: '使用 KOReader 进度' },
-  { value: 'DISABLED', label: '不处理' },
+  { value: 'PROMPT', label: t('cfg.sync.strategy.PROMPT') },
+  { value: 'KEEP_LOCAL', label: t('cfg.sync.strategy.KEEP_LOCAL') },
+  { value: 'KEEP_REMOTE', label: t('cfg.sync.strategy.KEEP_REMOTE') },
+  { value: 'DISABLED', label: t('cfg.sync.strategy.DISABLED') },
 ]
 
 export function SyncTab() {
@@ -98,39 +99,39 @@ function SyncYomiSection() {
     try {
       const r = await start()
       const result = r.data?.startSync.result
-      toast(result === 'SUCCESS' ? '已开始同步' : result === 'SYNC_IN_PROGRESS' ? '正在同步中' : '同步没有开启')
+      toast(result === 'SUCCESS' ? t('cfg.sync.started') : result === 'SYNC_IN_PROGRESS' ? t('cfg.sync.inProgress') : t('cfg.sync.notEnabled'))
       setTimeout(() => void last.refetch(), 3000)
     } catch (e) {
-      toastError('同步失败', e)
+      toastError(t('cfg.sync.failed'), e)
     }
   }
 
   return (
     <Section
       title="SyncYomi"
-      desc="通过自建 SyncYomi 服务与 Mihon 等设备同步书库和阅读进度，仅对当前账号生效。"
+      desc={t('cfg.sync.desc')}
       action={
         <button type="button" className="gbtn plain min-h-9 rounded-full px-3.5 text-[13px]" onClick={() => void syncNow()} disabled={loading}>
           <RefreshCw className="size-4" strokeWidth={1.8} />
-          立即同步
+          {t('cfg.sync.now')}
         </button>
       }
     >
       {s && (
         <p className="m-0 text-[13px] text-muted">
-          上次同步：{SYNC_STATE[s.state]} · {timeAgo(Number(s.endDate ?? s.startDate))}
+          {t('cfg.sync.last', { state: SYNC_STATE[s.state], time: timeAgo(Number(s.endDate ?? s.startDate)) })}
           {s.errorMessage && ` · ${s.errorMessage}`}
         </p>
       )}
-      <SSwitch k="syncYomiEnabled" label="启用 SyncYomi" />
-      <SText k="syncYomiHost" label="服务地址" placeholder="https://" width="w-[280px]" />
+      <SSwitch k="syncYomiEnabled" label={t('cfg.sync.enable')} />
+      <SText k="syncYomiHost" label={t('cfg.sync.host')} placeholder="https://" width="w-[280px]" />
       <SSecret k="syncYomiApiKey" label="API Key" />
-      <SDuration k="syncInterval" label="自动同步间隔" unit="min" hint="0 为仅手动同步" />
-      <SSwitch k="syncDataManga" label="同步漫画" />
-      <SSwitch k="syncDataChapters" label="同步章节与进度" />
-      <SSwitch k="syncDataHistory" label="同步阅读历史" />
-      <SSwitch k="syncDataCategories" label="同步分类" />
-      <SSwitch k="syncDataTracking" label="同步追踪" />
+      <SDuration k="syncInterval" label={t('cfg.sync.interval')} unit="min" hint={t('cfg.sync.intervalHint')} />
+      <SSwitch k="syncDataManga" label={t('cfg.sync.dataManga')} />
+      <SSwitch k="syncDataChapters" label={t('cfg.sync.dataChapters')} />
+      <SSwitch k="syncDataHistory" label={t('cfg.sync.dataHistory')} />
+      <SSwitch k="syncDataCategories" label={t('cfg.sync.dataCategories')} />
+      <SSwitch k="syncDataTracking" label={t('cfg.sync.dataTracking')} />
     </Section>
   )
 }
@@ -149,65 +150,65 @@ function KoReaderSection() {
       const res = r.data?.connectKoSyncAccount
       if (res?.status.isLoggedIn) {
         setForm({ serverAddress: '', username: '', password: '' })
-        toast('已连接 KOReader 同步')
-      } else toast(res?.message ?? '连接失败', 'error')
+        toast(t('cfg.sync.koConnected'))
+      } else toast(res?.message ?? t('cfg.sync.koFailed'), 'error')
     } catch (err) {
-      toastError('连接失败', err)
+      toastError(t('cfg.sync.koFailed'), err)
     }
   }
 
   return (
-    <Section title="KOReader 同步" desc="与电子书阅读器 KOReader 同步阅读进度，仅对当前账号生效。">
+    <Section title={t('cfg.sync.koTitle')} desc={t('cfg.sync.koDesc')}>
       {st?.isLoggedIn ? (
-        <Row label={`已连接：${st.username ?? ''}`} hint={st.serverAddress ?? undefined}>
-          <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError('断开失败', e))}>
-            断开
+        <Row label={t('cfg.sync.koConnectedAs', { name: st.username ?? '' })} hint={st.serverAddress ?? undefined}>
+          <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError(t('cfg.sync.koDisconnectFailed'), e))}>
+            {t('cfg.sync.koDisconnect')}
           </button>
         </Row>
       ) : (
         <form onSubmit={submit} className="flex flex-col gap-2.5">
           <TextInput
-            placeholder="同步服务地址，例如 https://sync.koreader.rocks"
+            placeholder={t('cfg.sync.koServerPh')}
             value={form.serverAddress}
             onChange={(e) => setForm({ ...form, serverAddress: e.target.value })}
-            aria-label="同步服务地址"
+            aria-label={t('cfg.sync.koServerAria')}
           />
           <div className="flex flex-wrap gap-2.5">
             <TextInput
-              placeholder="用户名"
+              placeholder={t('cfg.username')}
               autoComplete="off"
               value={form.username}
               onChange={(e) => setForm({ ...form, username: e.target.value })}
               className="flex-[1_1_180px]"
-              aria-label="KOReader 用户名"
+              aria-label={t('cfg.sync.koUserAria')}
             />
             <TextInput
               type="password"
-              placeholder="密码"
+              placeholder={t('cfg.password')}
               autoComplete="new-password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               className="flex-[1_1_180px]"
-              aria-label="KOReader 密码"
+              aria-label={t('cfg.sync.koPwAria')}
             />
             <button type="submit" className="solid min-h-11" disabled={connecting || !form.serverAddress || !form.username || !form.password}>
-              连接
+              {t('cfg.sync.koConnect')}
             </button>
           </div>
         </form>
       )}
       <SChoice
         k="koreaderSyncChecksumMethod"
-        label="文档识别方式"
-        hint="KOReader 判断同一话的依据"
+        label={t('cfg.sync.docId')}
+        hint={t('cfg.sync.docIdHint')}
         options={[
-          { value: 'BINARY', label: '文件内容' },
-          { value: 'FILENAME', label: '文件名' },
+          { value: 'BINARY', label: t('cfg.sync.binary') },
+          { value: 'FILENAME', label: t('cfg.sync.filename') },
         ]}
       />
-      <SChoice<KoreaderSyncConflictStrategy> k="koreaderSyncStrategyForward" label="KOReader 进度更新时" options={STRATEGIES} />
-      <SChoice<KoreaderSyncConflictStrategy> k="koreaderSyncStrategyBackward" label="KOReader 进度更旧时" options={STRATEGIES} />
-      <SNumber k="koreaderSyncPercentageTolerance" label="进度差异容忍度" integer={false} min={0} max={1} hint="两端进度差小于该比例（0–1）时视为一致" />
+      <SChoice<KoreaderSyncConflictStrategy> k="koreaderSyncStrategyForward" label={t('cfg.sync.forward')} options={STRATEGIES} />
+      <SChoice<KoreaderSyncConflictStrategy> k="koreaderSyncStrategyBackward" label={t('cfg.sync.backward')} options={STRATEGIES} />
+      <SNumber k="koreaderSyncPercentageTolerance" label={t('cfg.sync.tolerance')} integer={false} min={0} max={1} hint={t('cfg.sync.toleranceHint')} />
     </Section>
   )
 }
