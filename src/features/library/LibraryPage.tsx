@@ -38,6 +38,7 @@ import {
   UpdateLibrary,
 } from './queries'
 import { useLibraryView, type LibraryTab } from './store'
+import { t } from '@/i18n'
 
 export function LibraryPage() {
   const lib = useQuery(LibraryMangas)
@@ -98,14 +99,14 @@ export function LibraryPage() {
   const favoriteCount = favorites.map && data ? favoriteList.length : undefined
   const categories = useMemo<SegItem<LibraryTab>[]>(() => {
     const cats = catData?.categories.nodes ?? []
-    const tabs: SegItem<LibraryTab>[] = [{ value: 'all', label: '全部', count: all.length }]
+    const tabs: SegItem<LibraryTab>[] = [{ value: 'all', label: t('library.tab.all'), count: all.length }]
     for (const c of cats) {
       const n = all.filter((m) => inCategory(m, c.id, defaultCategoryId)).length
       if (c.default && n === 0) continue
-      tabs.push({ value: c.id, label: c.default ? '默认' : c.name, count: n })
+      tabs.push({ value: c.id, label: c.default ? t('library.tab.default') : c.name, count: n })
     }
-    tabs.push({ value: 'favorite', label: '特别关心', count: favoriteCount })
-    tabs.push({ value: 'later', label: '稍后再看', count: laterCount })
+    tabs.push({ value: 'favorite', label: t('library.tab.favorite'), count: favoriteCount })
+    tabs.push({ value: 'later', label: t('library.tab.later'), count: laterCount })
     return tabs
   }, [catData, all, defaultCategoryId, favoriteCount, laterCount])
 
@@ -155,9 +156,9 @@ export function LibraryPage() {
       // 「稍后再看」里有不在书库的漫画，检查更新时按整个书库算
       const cat = typeof view.category === 'number' ? [view.category] : undefined
       await startUpdate({ variables: { categories: cat } })
-      toast('开始检查书库更新')
+      toast(t('library.checkStarted'))
     } catch (e) {
-      toastError('无法开始检查', e)
+      toastError(t('library.checkFailed'), e)
     }
   }
 
@@ -190,14 +191,14 @@ export function LibraryPage() {
       const msg = await fn()
       toast(msg || label)
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError(`${label}失败`, e)
+      if (!(e instanceof StaleSessionError)) toastError(t('library.actionFailed', { label }), e)
     } finally {
       setBusy(false)
     }
   }
 
   const markRead = () =>
-    run('标为已读', async () => {
+    run(t('library.bulk.markRead'), async () => {
       const still = captureUser()
       const cids = await chapterIds({ isRead: { equalTo: false } })
       if (cids.length) {
@@ -206,14 +207,14 @@ export function LibraryPage() {
         // 标为已读的返回里没有最后阅读时间，重取一次「稍后再看」，读完的才会当场移出
         void client.refetchQueries({ include: ['LaterMangas'] })
       }
-      return `已将 ${count(cids.length)} 话标为已读`
+      return t('library.bulk.markedRead', { count: cids.length, n: count(cids.length) })
     })
 
   const downloadUnread = () =>
-    run('加入下载队列', async () => {
+    run(t('library.bulk.queue'), async () => {
       const cids = await chapterIds({ isRead: { equalTo: false }, isDownloaded: { equalTo: false } })
       if (cids.length) await enqueue({ variables: { ids: cids } })
-      return cids.length ? `已将 ${count(cids.length)} 话加入下载队列` : '没有需要下载的未读章节'
+      return cids.length ? t('library.bulk.queued', { count: cids.length, n: count(cids.length) }) : t('library.bulk.noneToDownload')
     })
 
   const removeFromLibrary = () => {
@@ -223,28 +224,28 @@ export function LibraryPage() {
       return
     }
     setConfirmRemove(false)
-    void run('移出书库', async () => {
+    void run(t('library.bulk.removeLibrary'), async () => {
       await setInLibrary({ variables: { ids, inLibrary: false } })
       await refetch()
       exitSelect()
-      return `已将 ${ids.length} 部移出书库`
+      return t('library.bulk.removedLibrary', { count: ids.length, n: ids.length })
     })
   }
 
   const removeFromLater = () =>
-    run('移出稍后再看', async () => {
+    run(t('library.bulk.removeLater'), async () => {
       await removeLater(ids)
       exitSelect()
-      return `已将 ${ids.length} 部移出稍后再看`
+      return t('library.bulk.removedLater', { count: ids.length, n: ids.length })
     })
 
   // 和其他批量操作一样按全部已选算（筛选或搜索后看不见的也算）；都已是 NSFW 时按钮变成取消
   const picked = base.filter((m) => sel.selected.has(m.id))
   const allNsfw = picked.length > 0 && picked.every(nsfw.test)
   const toggleNsfw = () =>
-    run(allNsfw ? '取消 NSFW 标记' : '标为 NSFW', async () => {
+    run(allNsfw ? t('library.bulk.unmarkNsfw') : t('library.bulk.markNsfw'), async () => {
       await setNsfw(picked, !allNsfw)
-      return allNsfw ? `已取消 ${picked.length} 部的 NSFW 标记` : `已将 ${picked.length} 部标为 NSFW，首页和画廊不再显示`
+      return allNsfw ? t('library.bulk.unmarkedNsfw', { count: picked.length, n: picked.length }) : t('library.bulk.markedNsfw', { count: picked.length, n: picked.length })
     })
 
   // 「稍后再看」里可能有不在书库的，只对书库里的那些设特别关心
@@ -252,11 +253,11 @@ export function LibraryPage() {
   const favoritable = picked.filter((m) => libraryIds.has(m.id))
   const allFavorite = favoritable.length > 0 && favoritable.every((m) => favorites.ids.has(m.id))
   const toggleFavorite = () =>
-    run(allFavorite ? '取消特别关心' : '设为特别关心', async () => {
+    run(allFavorite ? t('library.bulk.unfavorite') : t('library.bulk.favorite'), async () => {
       await setFavorite(favoritable.map((m) => m.id), !allFavorite)
       const skipped = picked.length - favoritable.length
-      const note = skipped ? `，${skipped} 部不在书库，已跳过` : ''
-      return (allFavorite ? `已取消 ${favoritable.length} 部的特别关心` : `已将 ${favoritable.length} 部设为特别关心`) + note
+      const note = skipped ? t('library.bulk.skipped', { n: skipped }) : ''
+      return (allFavorite ? t('library.bulk.unfavorited', { count: favoritable.length, n: favoritable.length }) : t('library.bulk.favorited', { count: favoritable.length, n: favoritable.length })) + note
     })
 
   /* 鼠标右键菜单；触屏长按仍是多选 */
@@ -266,7 +267,7 @@ export function LibraryPage() {
 
   const realCategories = (catData?.categories.nodes ?? []).filter((c) => !c.default)
   const moveTo = (catId: number, add: boolean) =>
-    run('修改分类', async () => {
+    run(t('library.bulk.changeCategory'), async () => {
       await setCats({ variables: { ids, add: add ? [catId] : [], remove: add ? [] : [catId] } })
     })
 
@@ -285,12 +286,12 @@ export function LibraryPage() {
       <div className="wrap">
         {/* 画廊入口是「去另一个页面」，放在标题这一行的右侧（44px 高，和 h1 的一行对齐），不混进下面对列表做操作的工具栏 */}
         <PageHeader
-          title="书库"
+          title={t('library.title')}
           sub={data && <>
-            {count(all.length)} 部 · 未读 {count(unreadTotal)} 话 · 已下载 {count(dlTotal)} 话
-            {items.length !== all.length && ` · 当前显示 ${count(items.length)} 部`}，按{sortLabel}
+            {t('library.stats', { total: count(all.length), unread: count(unreadTotal), downloaded: count(dlTotal) })}
+            {items.length !== all.length && t('library.showing', { n: count(items.length) })}{t('library.sortedBy', { sort: sortLabel })}
             {view.desc ? ' ↓' : ' ↑'}
-            {syncing && ' · 正在同步…'}
+            {syncing && t('library.syncing')}
           </>}
           actions={<div className="flex-none self-start"><GalleryPill /></div>}
         />
@@ -312,21 +313,21 @@ export function LibraryPage() {
           {favorites.map && data && items.length === 0 && (
             <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted">
               <p className="m-0">
-                {favoriteList.length === 0 ? '还没有特别关心的漫画。在漫画详情页点星标，或右键封面设置；手机上长按封面多选后设置。' : '没有符合筛选条件的漫画。'}
+                {favoriteList.length === 0 ? t('library.empty.favorite') : t('library.empty.noMatch')}
               </p>
               {favoriteList.length === 0 ? (
                 all.length > 0 ? (
                   <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
-                    查看全部书库
+                    {t('library.empty.viewAll')}
                   </Glass>
                 ) : (
                   <Link to="/browse" className="rounded-full text-text no-underline">
-                    <Glass flat as="span" className="gbtn rounded-full">前往发现</Glass>
+                    <Glass flat as="span" className="gbtn rounded-full">{t('library.empty.goBrowse')}</Glass>
                   </Link>
                 )
               ) : hasFilter && (
                 <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
-                  清除筛选条件
+                  {t('library.empty.clearFilters')}
                 </Glass>
               )}
             </div>
@@ -337,15 +338,15 @@ export function LibraryPage() {
           {later.items && items.length === 0 && (
             <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted">
               <p className="m-0">
-                {later.items.length === 0 ? '还没有稍后再看的漫画。在漫画详情页点时钟按钮，或在「发现」页长按、右键封面加入。' : '没有符合筛选条件的漫画。'}
+                {later.items.length === 0 ? t('library.empty.later') : t('library.empty.noMatch')}
               </p>
               {later.items.length === 0 ? (
                 <Link to="/browse" className="rounded-full text-text no-underline">
-                  <Glass flat as="span" className="gbtn rounded-full">前往发现</Glass>
+                  <Glass flat as="span" className="gbtn rounded-full">{t('library.empty.goBrowse')}</Glass>
                 </Link>
               ) : hasFilter && (
                 <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
-                  清除筛选条件
+                  {t('library.empty.clearFilters')}
                 </Glass>
               )}
             </div>
@@ -356,19 +357,19 @@ export function LibraryPage() {
           {data && items.length === 0 && (
             <div className="flex flex-col items-center gap-3 px-6 py-20 text-center text-muted">
               <p className="m-0">
-                {all.length === 0 ? '书库是空的，去「发现」页添加漫画吧。' : !hasFilter && typeof view.category === 'number' ? '这个分类下还没有漫画。' : '没有符合筛选条件的漫画。'}
+                {all.length === 0 ? t('library.empty.library') : !hasFilter && typeof view.category === 'number' ? t('library.empty.category') : t('library.empty.noMatch')}
               </p>
               {all.length === 0 ? (
                 <Link to="/browse" className="rounded-full text-text no-underline">
-                  <Glass flat as="span" className="gbtn rounded-full">前往发现</Glass>
+                  <Glass flat as="span" className="gbtn rounded-full">{t('library.empty.goBrowse')}</Glass>
                 </Link>
               ) : hasFilter ? (
                 <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={clearAllFilters}>
-                  清除筛选条件
+                  {t('library.empty.clearFilters')}
                 </Glass>
               ) : typeof view.category === 'number' && (
                 <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => view.setCategory('all')}>
-                  查看全部书库
+                  {t('library.empty.viewAll')}
                 </Glass>
               )}
             </div>
@@ -398,9 +399,9 @@ export function LibraryPage() {
       <BatchBar
         open={selecting}
         count={sel.selected.size}
-        unit="部"
+        unit={t('library.bulk.unit')}
         onSelectAll={sel.selectAll}
-        selectAllLabel={`全选当前 ${count(items.length)} 部`}
+        selectAllLabel={t('library.bulk.selectAllShown', { n: count(items.length) })}
         onCancel={exitSelect}
       >
         {!isLater && <Popover
@@ -408,17 +409,17 @@ export function LibraryPage() {
           onClose={() => setCatPop(false)}
           side="top"
           align="left"
-          label="移动到分类"
+          label={t('library.bulk.moveToCategory')}
           className="w-[240px]"
           trigger={
             <button type="button" className="bb" disabled={busy || !ids.length} onClick={() => setCatPop((v) => !v)}>
               <FolderInput className="size-5" strokeWidth={1.8} />
-              分类
+              {t('library.bulk.category')}
             </button>
           }
         >
           {realCategories.length === 0 ? (
-            <p className="m-0 px-2 py-1 text-[13px] text-muted">还没有分类。可在「设置 → 书库」中管理分类。</p>
+            <p className="m-0 px-2 py-1 text-[13px] text-muted">{t('library.bulk.noCategories')}</p>
           ) : (
             realCategories.map((c) => {
               const inAll = ids.length > 0 && ids.every((id) => all.find((m) => m.id === id)?.categories.nodes.some((x) => x.id === c.id))
@@ -433,26 +434,26 @@ export function LibraryPage() {
         </Popover>}
         <button type="button" className="bb" disabled={busy || !favoritable.length || !favorites.map} onClick={toggleFavorite}>
           {allFavorite ? <StarOff className="size-5" strokeWidth={1.8} /> : <Star className="size-5" strokeWidth={1.8} />}
-          {allFavorite ? '取消特别关心' : '特别关心'}
+          {allFavorite ? t('library.bulk.unfavoriteShort') : t('library.bulk.favoriteShort')}
         </button>
         <button type="button" className="bb" disabled={busy || !ids.length} onClick={markRead}>
           <BookCheck className="size-5" strokeWidth={1.8} />
-          全部已读
+          {t('library.bulk.allRead')}
         </button>
         <button type="button" className="bb" disabled={busy || !ids.length} onClick={toggleNsfw}>
           {allNsfw ? <Eye className="size-5" strokeWidth={1.8} /> : <EyeOff className="size-5" strokeWidth={1.8} />}
-          {allNsfw ? '取消 NSFW' : '标为 NSFW'}
+          {allNsfw ? t('library.bulk.unmarkNsfwShort') : t('library.bulk.markNsfw')}
         </button>
         <Can permission="DOWNLOAD_CHAPTERS">
           <button type="button" className="bb" disabled={busy || !ids.length} onClick={downloadUnread}>
             <Download className="size-5" strokeWidth={1.8} />
-            下载未读
+            {t('library.bulk.downloadUnread')}
           </button>
         </Can>
         {isLater ? (
           <button type="button" className="bb" disabled={busy || !ids.length} onClick={removeFromLater}>
             <ClockFading className="size-5" strokeWidth={1.8} />
-            移出稍后再看
+            {t('library.bulk.removeLater')}
           </button>
         ) : <button
           type="button"
@@ -461,11 +462,11 @@ export function LibraryPage() {
           onClick={removeFromLibrary}
         >
           <LibraryBig className="size-5" strokeWidth={1.8} />
-          {confirmRemove ? '再点确认' : '移出书库'}
+          {confirmRemove ? t('library.bulk.confirmRemove') : t('library.bulk.removeLibrary')}
         </button>}
       </BatchBar>
 
-      <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? `${ctx.menu.target.title} 的操作` : '操作'}>
+      <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? t('library.bulk.menuLabel', { title: ctx.menu.target.title }) : t('library.bulk.menuFallback')}>
         {ctx.menu && <MangaMenuItems mangaId={ctx.menu.target.id} inLibrary={libraryIds.has(ctx.menu.target.id)} onDone={ctx.close} />}
       </ContextMenu>
     </>

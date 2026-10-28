@@ -19,6 +19,7 @@ import { Stars } from './Stars'
 import { TrackDialog } from './TrackPanel'
 import { isRated, scoreString, scoreValue, scoreWord, starScale, statusLabel } from './tracking'
 import { useSaveTrack } from './useSaveTrack'
+import { t as tl } from '@/i18n'
 
 const WIDE = '(min-width: 1280px)'
 
@@ -71,10 +72,10 @@ export function TrackSummary({ mangaId, title, inLibrary = true, placement, dela
           await bindBgmSubject(client, mangaId, canBind.id, subject, still)
           await client.refetchQueries({ include: [MangaTracks] })
           still()
-          toast(`已绑定到 ${canBind.name}`)
+          toast(tl('track.boundTo', { name: canBind.name }))
           return true
         } catch (err) {
-          if (!(err instanceof StaleSessionError)) toastError('绑定失败', err)
+          if (!(err instanceof StaleSessionError)) toastError(tl('track.bindFailed'), err)
           return false
         }
       }
@@ -88,7 +89,7 @@ export function TrackSummary({ mangaId, title, inLibrary = true, placement, dela
   }
 
   return (
-    <section aria-label={inLibrary ? '追踪' : 'Bangumi 站内评分'} style={style} className={cn('flex flex-col', wide ? 'gap-9' : 'gap-1', className)}>
+    <section aria-label={inLibrary ? tl('track.title') : tl('bangumi.title')} style={style} className={cn('flex flex-col', wide ? 'gap-9' : 'gap-1', className)}>
       {rows.map(({ t, r }, i) =>
         wide ? (
           <TrackPanel key={r.id} t={t} r={r} onDetail={openDialog} delay={at(i * 4)} />
@@ -103,7 +104,7 @@ export function TrackSummary({ mangaId, title, inLibrary = true, placement, dela
       {inLibrary && !rows.length && unbound.length > 0 && (
         <button type="button" style={rise(at(5)).style} className={cn('-ml-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-full px-1 text-[13px] font-semibold text-muted transition-colors hover:text-text', rise(at(5)).className)} onClick={(e) => openDialog(e.currentTarget)}>
           <ListChecks className="size-4" strokeWidth={1.8} />
-          追踪到 {unbound.map((t) => t.name).join(' / ')}
+          {tl('track.trackTo', { names: unbound.map((t) => t.name).join(' / ') })}
           <ChevronRight className="size-4" />
         </button>
       )}
@@ -131,11 +132,11 @@ function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el:
     <button
       type="button"
       onClick={(e) => onOpen(e.currentTarget)}
-      aria-label={`${t.name} 追踪：${status ? statusLabel(status.name) : '未设置'}，读到第 ${chapterNo(r.lastChapterRead)} 话，${rated ? `评分 ${r.displayScore}` : '未评分'}。打开追踪设置`}
+      aria-label={tl('track.rowAria', { name: t.name, status: status ? statusLabel(status.name) : tl('track.notSet'), n: chapterNo(r.lastChapterRead), rating: rated ? tl('track.ratingN', { score: r.displayScore }) : tl('track.unrated') })}
       className="-mx-2 grid grid-cols-3 items-start rounded-2xl px-2 py-2.5 transition-colors hover:bg-hover active:bg-hover"
     >
       <span className={cell}>
-        <span className={caption}>状态</span>
+        <span className={caption}>{tl('track.state')}</span>
         <span className={value}>{status ? statusLabel(status.name) : '—'}</span>
         <span className={cn(sub, 'inline-flex items-center gap-1')}>
           <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={12} />
@@ -143,14 +144,14 @@ function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el:
         </span>
       </span>
       <span className={cell}>
-        <span className={caption}>进度</span>
+        <span className={caption}>{tl('track.progress')}</span>
         <span className={value}>{chapterNo(r.lastChapterRead)}</span>
-        <span className={sub}>{r.totalChapters > 0 ? `共 ${r.totalChapters} 话` : '话'}</span>
+        <span className={sub}>{r.totalChapters > 0 ? tl('track.totalN', { n: r.totalChapters }) : tl('track.unit')}</span>
       </span>
       <span className={cell}>
-        <span className={caption}>评分</span>
+        <span className={caption}>{tl('track.rating')}</span>
         <span className={value}>{rated ? r.displayScore : '—'}</span>
-        {rated && scale && score > 0 ? <MiniStars value={score} max={scale} /> : <span className={sub}>{rated ? word || '已评分' : '未评分'}</span>}
+        {rated && scale && score > 0 ? <MiniStars value={score} max={scale} /> : <span className={sub}>{rated ? word || tl('track.rated') : tl('track.unrated')}</span>}
       </span>
     </button>
   )
@@ -206,10 +207,10 @@ function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onD
           </span>
         </div>
         <span {...row(1, 'text-sm text-muted num')}>
-          {[status ? statusLabel(status.name) : null, `读到 ${chapterNo(read)} 话`, isRated(r.displayScore, t.scores) ? `评分 ${r.displayScore}` : null].filter(Boolean).join(' · ')}
+          {[status ? statusLabel(status.name) : null, tl('track.readN', { n: chapterNo(read) }), isRated(r.displayScore, t.scores) ? tl('track.ratingN', { score: r.displayScore }) : null].filter(Boolean).join(' · ')}
         </span>
         <Link to="/settings/tracking" {...row(2, 'text-[13px] font-semibold text-danger')}>
-          {t.isTokenExpired ? '登录已过期' : '已退出登录'}，去设置里重新登录后才能修改和同步
+          {tl('track.reloginNote', { state: t.isTokenExpired ? tl('track.expired') : tl('track.loggedOut') })}
         </Link>
         {/* 站内评分查的是公开接口，和追踪登录无关，照常显示 */}
         {isBgm(t) && subjectId(r) > 0 && <div {...row(3, 'w-full')}><BgmBlock id={subjectId(r)} mine={starScale(t.scores) === 10 ? scoreValue(r.displayScore) : 0} delay={bgmDelay} /></div>}
@@ -230,19 +231,19 @@ function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onD
           <span className="truncate text-[13px] text-muted">{r.title}</span>
         </span>
         <button type="button" className="-mr-1 inline-flex min-h-9 flex-none items-center rounded-full pl-2 text-[13px] font-semibold text-muted transition-colors hover:text-text" onClick={(e) => onDetail(e.currentTarget)}>
-          详细设置
+          {tl('track.detail')}
           <ChevronRight className="size-4" />
         </button>
       </div>
 
       <div {...row(1, 'flex items-center gap-3')}>
-        <button type="button" className="gicon size-10 disabled:opacity-40" aria-label="少一话" disabled={read <= 0} onClick={() => step(-1)}>
+        <button type="button" className="gicon size-10 disabled:opacity-40" aria-label={tl('track.less')} disabled={read <= 0} onClick={() => step(-1)}>
           <Minus className="size-4" />
         </button>
         <span className="min-w-[7.5em] text-center text-sm text-muted num" aria-live="polite">
-          读到 <b className="text-[19px] font-bold text-text">{chapterNo(read)}</b> / {total > 0 ? total : '?'} 话
+          {tl('track.readTo')} <b className="text-[19px] font-bold text-text">{chapterNo(read)}</b> {tl('track.ofTotal', { total: total > 0 ? total : '?' })}
         </span>
-        <button type="button" className="gicon size-10 disabled:opacity-40" aria-label="多一话" disabled={total > 0 && read >= total} onClick={() => step(1)}>
+        <button type="button" className="gicon size-10 disabled:opacity-40" aria-label={tl('track.more')} disabled={total > 0 && read >= total} onClick={() => step(1)}>
           <Plus className="size-4" />
         </button>
       </div>
@@ -254,9 +255,9 @@ function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onD
       ) : t.scores.length > 0 ? (
         <span {...row(2)}>
           <Select
-            label="评分"
+            label={tl('track.rating')}
             value={r.displayScore}
-            options={(t.scores.includes(r.displayScore) ? t.scores : [r.displayScore, ...t.scores]).map((s) => ({ value: s, label: s || '未评分' }))}
+            options={(t.scores.includes(r.displayScore) ? t.scores : [r.displayScore, ...t.scores]).map((s) => ({ value: s, label: s || tl('track.unrated') }))}
             onChange={(s) => save({ scoreString: s })}
             className="w-[120px]"
           />

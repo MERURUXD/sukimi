@@ -5,6 +5,7 @@ import { toastError } from '@/components/ui/toast'
 import { syncTrackProgress } from '@/features/tracking/sync'
 import { progressAt, progressOnLeave, progressVariables, type Progress } from './progress'
 import { SaveProgress } from './queries'
+import { t } from '@/i18n'
 
 type Chapter = { id: number; sourceOrder: number; lastPageRead: number; isRead: boolean }
 type Pending = Progress & { still: () => void; pin?: boolean }
@@ -100,7 +101,7 @@ export function useProgressSync(mangaId: number, chapter: Chapter, page: number,
         }
       })
       .catch((e) => {
-        if (my === latest.current) toastError('进度同步失败', e)
+        if (my === latest.current) toastError(t('reader.progressSyncFailed'), e)
       })
       .finally(() => {
         inflight.current--

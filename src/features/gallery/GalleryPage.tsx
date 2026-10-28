@@ -17,6 +17,7 @@ import { PosterShare } from './PosterShare'
 import { galleryOrder, isCompleted, NSFW_ALL_HIDDEN, useGalleryLibrary, useMobile, useReducedMotionPref } from './hooks'
 import { afterViewTransition, armLibraryFade, armWindowBack, canvasBackForEntry, finishCanvasBack, libraryCoversForEntry, libraryCoversForReturn, setLibraryExit, windowEntryForEntry, withoutHiddenCovers } from './readMorph'
 import './gallery.css'
+import { t as tl } from '@/i18n'
 
 type FilterValue = 'all' | 'done' | number
 
@@ -89,14 +90,14 @@ export function GalleryPage() {
   const filter = parseFilter(params.get('f'))
   const defaultId = categories.find((c) => c.default)?.id ?? 0
   const tabs = useMemo<SegItem<FilterValue>[]>(() => {
-    const out: SegItem<FilterValue>[] = [{ value: 'all', label: '全部', count: all.length }]
+    const out: SegItem<FilterValue>[] = [{ value: 'all', label: tl('gallery.all'), count: all.length }]
     for (const c of categories) {
       const n = all.filter((m) => inCategory(m, c.id, defaultId)).length
       if (c.default && n === 0) continue
-      out.push({ value: c.id, label: c.default ? '默认' : c.name, count: n })
+      out.push({ value: c.id, label: c.default ? tl('gallery.default') : c.name, count: n })
     }
     const done = all.filter(isCompleted).length
-    if (done) out.push({ value: 'done', label: '已完结', count: done })
+    if (done) out.push({ value: 'done', label: tl('gallery.completed'), count: done })
     return out
   }, [all, categories, defaultId])
   // 网址里的分类已不存在时按「全部」显示
@@ -187,14 +188,14 @@ export function GalleryPage() {
 
   return (
     <>
-      <section ref={hero} aria-label="书库画廊" className={cn(HERO_BOX, 'isolate -mt-[var(--nav-h)] overflow-hidden')} onClickCapture={enterCanvas}>
+      <section ref={hero} aria-label={tl('gallery.name')} className={cn(HERO_BOX, 'isolate -mt-[var(--nav-h)] overflow-hidden')} onClickCapture={enterCanvas}>
         {!empty && (sharedWall
           ? <WindowWall kind="gallery" items={ordered} mobile={mobile} shade={HERO_VIGNETTE[mobile ? 'mobile' : 'desktop']} className="-z-20" />
           : <HeroWall items={ordered} mobile={mobile} entry={entry} className="-z-20" />)}
         {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
         {!sharedWall && <div aria-hidden data-hero-ui data-hero-fade className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />}
 
-        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? '返回首页' : '返回书库'} onShare={() => setSharing(true)} />
+        <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? tl('gallery.backHome') : tl('gallery.backLibrary')} onShare={() => setSharing(true)} />
       </section>
       <PosterShare open={sharing} initial="library" onClose={() => setSharing(false)} />
 
@@ -203,21 +204,21 @@ export function GalleryPage() {
         <section ref={grid} id="all" aria-labelledby="gallery-all" className="wrap min-h-svh pt-[calc(var(--nav-h)+24px)] pb-28 md:pt-[calc(var(--nav-h)+64px)]">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 md:mb-10">
             {mobile ? (
-              <h2 id="gallery-all" className="sr">全部作品</h2>
+              <h2 id="gallery-all" className="sr">{tl('gallery.allWorks')}</h2>
             ) : (
               <div className="flex flex-col gap-2">
                 <h2 id="gallery-all" className="m-0 font-cjk text-[40px] leading-[1.1] font-black tracking-[-0.01em]">
-                  全部作品 <span className="font-sans font-medium text-muted num">{count(items.length)}</span>
+                  {tl('gallery.allWorks')} <span className="font-sans font-medium text-muted num">{count(items.length)}</span>
                 </h2>
-                <p className="m-0 text-[15px] text-muted">按加入时间排列，新加入的在前。</p>
+                <p className="m-0 text-[15px] text-muted">{tl('gallery.sortNote')}</p>
               </div>
             )}
-            {tabs.length > 1 && <Seg label="筛选" items={tabs} value={active} onChange={pick} className="max-md:w-full" />}
+            {tabs.length > 1 && <Seg label={tl('gallery.filter')} items={tabs} value={active} onChange={pick} className="max-md:w-full" />}
           </div>
 
           {loading && <LibrarySkeleton density={mobile ? 'compact' : 'comfy'} />}
           {error && <LoadError message={error.message} onRetry={() => void refetch()} />}
-          {empty && <p className="px-6 py-20 text-center text-muted">{allHidden ? NSFW_ALL_HIDDEN : '书库是空的，去「发现」页添加漫画吧。'}</p>}
+          {empty && <p className="px-6 py-20 text-center text-muted">{allHidden ? NSFW_ALL_HIDDEN : tl('gallery.empty')}</p>}
           <LibraryGrid
             items={items}
             intro={intro}

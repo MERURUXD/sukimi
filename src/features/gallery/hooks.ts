@@ -6,6 +6,7 @@ import { Categories, LibraryMangas, type LibraryManga } from '@/features/library
 import { useNsfw } from '@/features/nsfw/useNsfw'
 import { useLanded } from './readMorph'
 import { useChapterTotals } from './useChapterTotals'
+import { t } from '@/i18n'
 
 export function useMedia(query: string) {
   return useSyncExternalStore(
@@ -24,7 +25,7 @@ export const useReducedMotionPref = () => useMedia('(prefers-reduced-motion: red
 export { isCompleted }
 
 /** 书库有作品、但全被 NSFW 隐藏时的提示，不能沿用空书库的文案 */
-export const NSFW_ALL_HIDDEN = '书库里的作品都标为了 NSFW，已隐藏。可以在「设置 → 外观 → 隐私」里调整，或按 Shift + H 临时显示。'
+export const NSFW_ALL_HIDDEN = t('gallery.nsfwAllHidden')
 
 /**
  * 已读话数：总话数减未读，不用把读过的章节全取下来；和阅读档案的「已读」口径相同（isRead 的章节数）。

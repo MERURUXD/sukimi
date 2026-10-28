@@ -7,6 +7,7 @@ import { Placeholder } from './Placeholder'
 import { RouteError, RoutePending } from './RouteError'
 import { isDemo } from '@/lib/demo'
 import { DemoGate, DemoUnavailable } from '@/features/demo/DemoGate'
+import { t } from '@/i18n'
 
 /*
  * 首页、书库、详情是最常用的路径（也是封面飞入飞回动画的两端），打进主包；
@@ -99,7 +100,7 @@ export const appRoutes = [
           ...(import.meta.env.DEV
             ? [{ path: 'dev/glass', ...page(() => import('@/features/dev/GlassLab'), 'GlassLab') }]
             : []),
-          { path: '*', element: <Placeholder title="页面不存在" /> },
+          { path: '*', element: <Placeholder title={t('misc.placeholder.notFound')} /> },
         ],
       },
     ],

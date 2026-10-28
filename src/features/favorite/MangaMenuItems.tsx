@@ -6,6 +6,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { useLater, useLaterActions } from '@/features/later/useLater'
 import { cn } from '@/lib/cn'
 import { useFavoriteActions, useFavorites } from './useFavorites'
+import { t } from '@/i18n'
 
 /**
  * 封面右键 / 长按菜单里的选项（发现、书库、更新页共用）；只在菜单打开时挂载，格子不必各自查列表。
@@ -27,7 +28,7 @@ export function MangaMenuItems({ mangaId, inLibrary, onDone }: { mangaId: number
       toast(done)
       onDone()
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('操作失败', e)
+      if (!(e instanceof StaleSessionError)) toastError(t('misc.menu.failed'), e)
     } finally {
       setBusy(false)
     }
@@ -37,19 +38,19 @@ export function MangaMenuItems({ mangaId, inLibrary, onDone }: { mangaId: number
   return <>
     {inLibrary && (
       <button type="button" role="menuitemcheckbox" aria-checked={favoriteOn} className="opt" disabled={busy || !favorites.map}
-        onClick={() => run(() => setFavorite([mangaId], !favoriteOn), favoriteOn ? '已取消特别关心' : '已设为特别关心')}>
+        onClick={() => run(() => setFavorite([mangaId], !favoriteOn), favoriteOn ? t('misc.favorite.off') : t('misc.favorite.on'))}>
         <Star className={cn('size-5', favoriteOn && 'fill-current')} strokeWidth={1.8} />
-        <span className="flex-1">{favoriteOn ? '取消特别关心' : '特别关心'}</span>
+        <span className="flex-1">{favoriteOn ? t('misc.favorite.unaction') : t('misc.favorite.action')}</span>
       </button>
     )}
     <button type="button" role="menuitemcheckbox" aria-checked={laterOn} className="opt" disabled={busy || !later.map}
-      onClick={() => run(() => (laterOn ? remove([mangaId]) : add(mangaId)), laterOn ? '已移出稍后再看' : '已加入稍后再看')}>
+      onClick={() => run(() => (laterOn ? remove([mangaId]) : add(mangaId)), laterOn ? t('misc.later.off') : t('misc.later.on'))}>
       <LaterIcon className="size-5" strokeWidth={1.8} />
-      <span className="flex-1">{laterOn ? '移出稍后再看' : '稍后再看'}</span>
+      <span className="flex-1">{laterOn ? t('misc.later.unaction') : t('misc.later.action')}</span>
     </button>
     <Link to={`/manga/${mangaId}`} role="menuitem" viewTransition className="opt text-text no-underline" onClick={onDone}>
       <ExternalLink className="size-5" strokeWidth={1.8} />
-      打开详情
+      {t('misc.menu.openDetail')}
     </Link>
   </>
 }

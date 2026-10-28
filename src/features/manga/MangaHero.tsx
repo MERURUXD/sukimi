@@ -33,6 +33,7 @@ import { lastRead, nextToRead } from './progress'
 import { STATUS } from './status'
 import { NextUpdate, type NextPrediction } from './NextUpdate'
 import './MangaHero.css'
+import { t } from '@/i18n'
 
 export function MangaHero({
   manga,
@@ -61,8 +62,10 @@ export function MangaHero({
   const target = chapters ? nextToRead(chapters, manga.lastReadChapter?.id) : null
   const last = chapters && lastRead(chapters, manga.lastReadChapter?.id)
   const recent = last
-    ? `上次${last.isRead ? '读完' : '停在'} ${chapterLabel(last)}${!last.isRead && last.lastPageRead > 0 ? ` · 第 ${last.lastPageRead + 1} 页` : ''} · ${timeAgo(sec(last.lastReadAt))}`
-    : '还没有开始阅读'
+    ? (last.isRead
+      ? t('manga.hero.lastFinished', { chapter: chapterLabel(last), time: timeAgo(sec(last.lastReadAt)) })
+      : t('manga.hero.lastStopped', { chapter: chapterLabel(last), page: last.lastPageRead > 0 ? t('manga.hero.pageSuffix', { n: last.lastPageRead + 1 }) : '', time: timeAgo(sec(last.lastReadAt)) }))
+    : t('manga.hero.notStarted')
 
   const client = useApolloClient()
   const [checking, setChecking] = useState(false)
@@ -99,9 +102,9 @@ export function MangaHero({
         },
       })
       if (next) void refreshLibraryList(client)
-      toast(next ? '已加入书库' : '已移出书库')
+      toast(next ? t('manga.hero.added') : t('manga.hero.removed'))
     } catch (e) {
-      toastError(next ? '加入书库失败' : '移出书库失败', e)
+      toastError(next ? t('manga.hero.addFailed') : t('manga.hero.removeFailed'), e)
     }
   }
 
@@ -119,7 +122,7 @@ export function MangaHero({
         >
           <CoverImg src={manga.thumbnailUrl} />
           {manga.thumbnailUrl && !placeholder && (
-            <button ref={zoomTrigger} type="button" className="absolute inset-0 cursor-zoom-in" aria-label="放大封面" title="放大封面" onClick={() => setZoom(true)} />
+            <button ref={zoomTrigger} type="button" className="absolute inset-0 cursor-zoom-in" aria-label={t('manga.hero.zoom')} title={t('manga.hero.zoom')} onClick={() => setZoom(true)} />
           )}
         </div>
         <CoverZoomHost
@@ -167,14 +170,14 @@ export function MangaHero({
                 <Play className="size-[18px] shrink-0 fill-current" strokeWidth={1.6} />
                 <span className="truncate">{target.verb}<span className="manga-hero-chapter-label"> · {chapterLabel(target.chapter)}</span></span>
               </Link>
-            ) : <span style={delay(mangaIntro.actions)} className={cn('solid opacity-50', animate && 'rise')}><span className="truncate">{fetching ? '正在获取章节…' : '暂无章节'}</span></span>}
-            <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? '移出书库' : '加入书库'} title={manga.inLibrary ? '已在书库' : '加入书库'}>
+            ) : <span style={delay(mangaIntro.actions)} className={cn('solid opacity-50', animate && 'rise')}><span className="truncate">{fetching ? t('manga.hero.fetching') : t('manga.hero.noChapters')}</span></span>}
+            <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? t('library.bulk.removeLibrary') : t('manga.hero.addToLibrary')} title={manga.inLibrary ? t('home.inLibrary') : t('manga.hero.addToLibrary')}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
             <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn(animate && 'rise')} />
             {manga.inLibrary && <FavoriteButton mangaId={manga.id} style={delay(mangaIntro.actions + 52)} className={cn(animate && 'rise')} />}
             <Can permission="DOWNLOAD_CHAPTERS">
-              <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label="下载未读章节" title="下载未读章节"><Download className="size-5" strokeWidth={1.8} /></Glass>
+              <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label={t('manga.hero.downloadUnread')} title={t('manga.hero.downloadUnread')}><Download className="size-5" strokeWidth={1.8} /></Glass>
             </Can>
             <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} intro={animate} />
           </div>
@@ -182,7 +185,7 @@ export function MangaHero({
             <AnimatePresence>
               {same && (
                 <SameTitleDialog
-                  target={{ id: manga.id, title: manga.title, thumbnailUrl: manga.thumbnailUrl, author: manga.author, source: { displayName: manga.source?.displayName ?? '当前来源' } }}
+                  target={{ id: manga.id, title: manga.title, thumbnailUrl: manga.thumbnailUrl, author: manga.author, source: { displayName: manga.source?.displayName ?? t('manga.hero.currentSource') } }}
                   matches={same}
                   onAdd={() => void applyLibrary()}
                   onClose={() => setSame(null)}
@@ -192,7 +195,7 @@ export function MangaHero({
             </AnimatePresence>,
             document.body,
           )}
-          <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label="阅读记录">{recent}</p>
+          <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label={t('manga.hero.record')}>{recent}</p>
           {!placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
         </div>
         {/* 宽屏放到右侧空白处直接展开，不把头部撑高；不在书库时只有 Bangumi 站内评分 */}
@@ -206,7 +209,7 @@ export function MangaHero({
 /** 标题、作者点开后到发现页对所有漫画源做全局搜索 */
 function SearchLink({ q, children }: { q: string; children: ReactNode }) {
   return (
-    <Link to={`/browse?${new URLSearchParams({ q, mode: 'SEARCH' })}`} title={`全局搜索「${q}」`} className="text-inherit no-underline hover:underline">
+    <Link to={`/browse?${new URLSearchParams({ q, mode: 'SEARCH' })}`} title={t('manga.hero.globalSearch', { q })} className="text-inherit no-underline hover:underline">
       {children}
     </Link>
   )
@@ -235,7 +238,7 @@ function MangaDescription({ description, intro }: { description: string; intro: 
   return (
     <div style={delay(mangaIntro.description)} className={cn('manga-hero-description max-w-[70ch] text-[15px] leading-[1.75] text-muted', intro && 'rise')}>
       <p ref={paragraph} id={id} className={cn('m-0 whitespace-pre-line', !expanded && 'line-clamp-3')}>{description}</p>
-      {(overflowing || expanded) && <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded((v) => !v)} className="manga-hero-expand mt-1 font-semibold text-text">{expanded ? '收起简介' : '展开简介'}</button>}
+      {(overflowing || expanded) && <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setExpanded((v) => !v)} className="manga-hero-expand mt-1 font-semibold text-text">{expanded ? t('manga.hero.collapseSynopsis') : t('manga.hero.expandSynopsis')}</button>}
     </div>
   )
 }
@@ -252,7 +255,7 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
   const navigate = useNavigate()
   const sheetOpen = location.state?.mangaMore === manga.id
   const open = mobile ? sheetOpen : popoverOpen
-  const label = categories ? '分类' : '更多漫画操作'
+  const label = categories ? t('manga.hero.categories') : t('manga.hero.moreActions')
   const tracks = useQuery(MangaTracks, { variables: { id: manga.id }, skip: !manga.inLibrary })
   const bound = tracks.data?.manga.trackRecords.nodes.length ?? 0
   const close = () => {
@@ -284,19 +287,19 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
   }, [open, mobile, categories, panelId])
   const sourceUrl = httpUrl(manga.realUrl)
   const content = categories ? <>
-    <button type="button" className="opt font-semibold" onClick={() => setCategories(false)}><ChevronLeft className="size-5" />返回更多操作</button>
+    <button type="button" className="opt font-semibold" onClick={() => setCategories(false)}><ChevronLeft className="size-5" />{t('manga.hero.backToMore')}</button>
     <CategoryChoices manga={manga} />
   </> : <>
-    <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? '正在刷新…' : '刷新信息与章节'}</button>
-    {sourceUrl && <a className="opt no-underline" href={sourceUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />在来源网站打开</a>}
+    <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? t('manga.hero.refreshing') : t('manga.hero.refresh')}</button>
+    {sourceUrl && <a className="opt no-underline" href={sourceUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />{t('manga.hero.openSource')}</a>}
     <NsfwItem manga={manga} />
     {manga.inLibrary && <>
-      <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />管理分类</button>
-      <button type="button" className="opt" onClick={() => { close(); setTracking(true) }}><ListChecks className="size-5" /><span className="flex-1">追踪</span>{bound > 0 && <span className="text-xs text-muted">已绑定 {bound} 个</span>}</button>
-      <Link className="opt no-underline" to={`/manga/${manga.id}/migrate`} replace={sheetOpen} state={sheetOpen ? { ...location.state, mangaMore: undefined } : undefined} onClick={() => setPopoverOpen(false)}><ArrowLeftRight className="size-5" />换源迁移</Link>
+      <button type="button" className="opt" onClick={() => setCategories(true)}><Tags className="size-5" />{t('manga.hero.manageCategories')}</button>
+      <button type="button" className="opt" onClick={() => { close(); setTracking(true) }}><ListChecks className="size-5" /><span className="flex-1">{t('manga.hero.tracking')}</span>{bound > 0 && <span className="text-xs text-muted">{t('manga.hero.bound', { n: bound })}</span>}</button>
+      <Link className="opt no-underline" to={`/manga/${manga.id}/migrate`} replace={sheetOpen} state={sheetOpen ? { ...location.state, mangaMore: undefined } : undefined} onClick={() => setPopoverOpen(false)}><ArrowLeftRight className="size-5" />{t('manga.hero.migrate')}</Link>
     </>}
   </>
-  const button = <Glass suspendRefract ref={trigger} as="button" type="button" style={delay(mangaIntro.actions + 90)} className={cn('gicon rounded-full', intro && 'rise')} aria-label="更多漫画操作" aria-expanded={open} aria-controls={panelId} aria-haspopup="dialog" onClick={toggle}><MoreHorizontal className="size-5" strokeWidth={1.8} /></Glass>
+  const button = <Glass suspendRefract ref={trigger} as="button" type="button" style={delay(mangaIntro.actions + 90)} className={cn('gicon rounded-full', intro && 'rise')} aria-label={t('manga.hero.moreActions')} aria-expanded={open} aria-controls={panelId} aria-haspopup="dialog" onClick={toggle}><MoreHorizontal className="size-5" strokeWidth={1.8} /></Glass>
   return <>
     {mobile ? button : <Popover id={panelId} open={open} onClose={close} label={label} fitViewport className="manga-hero-more-panel w-[256px]" trigger={button}>{content}</Popover>}
     {createPortal(<>
@@ -317,9 +320,9 @@ function NsfwItem({ manga }: { manga: Manga }) {
     setBusy(true)
     try {
       await setManga([manga], !on)
-      toast(on ? '已取消 NSFW 标记' : '已标为 NSFW，首页和画廊不再显示')
+      toast(on ? t('manga.hero.nsfwUnmarked') : t('manga.hero.nsfwMarked'))
     } catch (e) {
-      if (!(e instanceof StaleSessionError)) toastError('修改 NSFW 标记失败', e)
+      if (!(e instanceof StaleSessionError)) toastError(t('manga.hero.nsfwFailed'), e)
     } finally {
       setBusy(false)
     }
@@ -327,9 +330,9 @@ function NsfwItem({ manga }: { manga: Manga }) {
   return (
     <button type="button" role="menuitemcheckbox" aria-checked={on} className="opt" disabled={busy} onClick={() => void toggle()}>
       <EyeOff className="size-5" />
-      <span className="flex-1">标为 NSFW</span>
-      {why === 'source' && <span className="text-xs text-muted">来自来源</span>}
-      {why === 'category' && <span className="text-xs text-muted">来自分类</span>}
+      <span className="flex-1">{t('library.bulk.markNsfw')}</span>
+      {why === 'source' && <span className="text-xs text-muted">{t('manga.hero.fromSource')}</span>}
+      {why === 'category' && <span className="text-xs text-muted">{t('manga.hero.fromCategory')}</span>}
       {on && <span aria-hidden>✓</span>}
     </button>
   )
@@ -342,9 +345,9 @@ function CategoryChoices({ manga }: { manga: Manga }) {
   const cats = (data?.categories.nodes ?? []).filter((c) => !c.default)
   const toggle = async (id: number) => {
     try { await setCats({ variables: { id: manga.id, add: mine.has(id) ? [] : [id], remove: mine.has(id) ? [id] : [] } }) }
-    catch (e) { toastError('修改分类失败', e) }
+    catch (e) { toastError(t('settings.nsfw.categoryFailed'), e) }
   }
   return cats.length ? cats.map((c) => (
     <button key={c.id} type="button" role="menuitemcheckbox" aria-checked={mine.has(c.id)} className="opt" onClick={() => void toggle(c.id)}><span className="flex-1">{c.name}</span>{mine.has(c.id) && <span aria-hidden>✓</span>}</button>
-  )) : <p className="px-3 text-sm text-muted">暂无自定义分类</p>
+  )) : <p className="px-3 text-sm text-muted">{t('manga.hero.noCategories')}</p>
 }

@@ -30,6 +30,7 @@ import { pageTurn, keyGoesToControl } from './keys'
 import { observedAfterJump } from './scrollBand'
 import { buildSpreads, nextOf, pickSpread, pinAfterStep, prevOf } from './spreads'
 import { useWakeLock } from './wakeLock'
+import { t } from '@/i18n'
 
 export function ReaderPage() {
   const mangaId = Number(useParams().id)
@@ -94,7 +95,7 @@ export function ReaderPage() {
     >
       {notFound ? (
         <Center>
-          <p className="text-danger">找不到这一话，它可能已被服务端移除。</p>
+          <p className="text-danger">{t('reader.notFound')}</p>
           <div className="mt-4 flex justify-center gap-3">
             <button
               type="button"
@@ -104,32 +105,32 @@ export function ReaderPage() {
               }}
               className="gbtn bg-accent-soft"
             >
-              重试
+              {t('common.retry')}
             </button>
             <button type="button" onClick={back} className="gbtn">
-              返回详情
+              {t('reader.backToDetail')}
             </button>
           </div>
         </Center>
       ) : error ? (
         <Center>
-          <p className="text-danger">无法加载本话：{error}</p>
+          <p className="text-danger">{t('reader.loadFailed', { reason: error })}</p>
           <div className="mt-4 flex justify-center gap-3">
             <button type="button" onClick={() => setAttempt((n) => n + 1)} className="gbtn bg-accent-soft">
-              重试
+              {t('common.retry')}
             </button>
             <button type="button" onClick={back} className="gbtn">
-              返回详情
+              {t('reader.backToDetail')}
             </button>
           </div>
         </Center>
       ) : !chapter || !list || pages?.id !== chapterId || !manga.data || !settingsReady ? (
         <Center>
-          <p className="text-muted">正在加载…</p>
+          <p className="text-muted">{t('manga.loading')}</p>
         </Center>
       ) : pages.urls.length === 0 ? (
         <Center>
-          <p className="text-muted">这一话没有页面</p>
+          <p className="text-muted">{t('reader.noPages')}</p>
         </Center>
       ) : (
         <ReaderSession
@@ -433,9 +434,9 @@ function ReaderSession({
     setSaving(true)
     const list = atEnd ? [last] : [...shown].sort((a, b) => a - b)
     try {
-      await savePages(list.map((i) => ({ url: pages[i], name: `${title} ${chapterLabel(chapter)} 第${i + 1}页` })))
+      await savePages(list.map((i) => ({ url: pages[i], name: t('reader.saveName', { title, chapter: chapterLabel(chapter), n: i + 1 }) })))
     } catch (e) {
-      toastError('没能保存这一页', e)
+      toastError(t('reader.saveFailed'), e)
     } finally {
       setSaving(false)
     }
@@ -491,8 +492,8 @@ function ReaderSession({
   const curLabel = chapterLabel(chapter)
   const syncLabel =
     isDemo
-      ? synced == null ? '演示进度仅保留在本次会话，刷新后重置' : `演示进度已保存 · ${curLabel} · 第 ${synced + 1} 页`
-      : synced == null ? '翻页后自动同步阅读进度到服务端' : `进度已同步到服务端 · ${curLabel} · 第 ${synced + 1} 页`
+      ? synced == null ? t('reader.sync.demoLocal') : t('reader.sync.demoSaved', { chapter: curLabel, page: synced + 1 })
+      : synced == null ? t('reader.sync.waiting') : t('reader.sync.synced', { chapter: curLabel, page: synced + 1 })
 
   const endCard = (
     <EndCard
@@ -564,7 +565,7 @@ function ReaderSession({
 
       {paged && holding && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center text-muted" aria-hidden>
-          正在加载…
+          {t('manga.loading')}
         </div>
       )}
 
@@ -616,34 +617,34 @@ function EndCard({
   onDetail: () => void
 }) {
   const nextInfo = next
-    ? [next.isDownloaded ? '已下载' : '在线', next.pageCount > 0 ? `${next.pageCount} 页` : null].filter(Boolean).join(' · ')
+    ? [next.isDownloaded ? t('reader.end.downloaded') : t('reader.end.online'), next.pageCount > 0 ? t('reader.end.pages', { count: next.pageCount }) : null].filter(Boolean).join(' · ')
     : ''
   return (
     <Glass dense className="mx-auto flex w-[min(520px,100%)] flex-col items-center gap-1.5 rounded-[26px] p-7 text-center">
-      <small className="text-xs text-muted">已读完</small>
+      <small className="text-xs text-muted">{t('reader.end.finished')}</small>
       <b className="text-base">{chapterLabel(chapter)}</b>
       {next ? (
         <>
           <ChevronRight className="my-1 size-5 rotate-90 text-muted" />
-          <small className="text-xs text-muted">下一话 · {nextInfo}</small>
+          <small className="text-xs text-muted">{t('reader.end.next', { info: nextInfo })}</small>
           <b className="text-[22px]">{chapterLabel(next)}</b>
           <div className={cn('mt-3.5 flex gap-2', scrollMode && 'flex-col items-center')}>
             {!scrollMode && (
               <button type="button" className="gbtn" onClick={onBack}>
-                返回本话
+                {t('reader.end.backToChapter')}
               </button>
             )}
             <button type="button" className="solid min-h-11" onClick={onNext}>
-              继续阅读下一话
+              {t('reader.end.continueNext')}
             </button>
           </div>
-          {scrollMode && <small className="mt-2 text-xs text-muted">继续下滑自动进入下一话</small>}
+          {scrollMode && <small className="mt-2 text-xs text-muted">{t('reader.end.scrollNext')}</small>}
         </>
       ) : (
         <>
-          <small className="mt-3 text-xs text-muted">这是最新的一话</small>
+          <small className="mt-3 text-xs text-muted">{t('reader.end.latest')}</small>
           <button type="button" onClick={onDetail} className="gbtn mt-3">
-            返回详情
+            {t('reader.backToDetail')}
           </button>
         </>
       )}

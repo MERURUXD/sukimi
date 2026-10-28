@@ -1,4 +1,5 @@
 import type { RecentUpdatesQuery } from '../../api/gql/graphql.ts'
+import { t } from '../../i18n/core.ts'
 
 export const WEEK_UPDATES_PAGE = 1000
 
@@ -15,6 +16,6 @@ export function completeWeekUpdates(start: number, data: RecentUpdatesQuery | un
 
 /** 分页保留服务端原始条数，隐藏迁移章节等展示筛选留给首页。 */
 export function mergeWeekUpdates(previous: RecentUpdatesQuery, next: RecentUpdatesQuery): RecentUpdatesQuery {
-  if (!next.chapters.nodes.length && next.chapters.pageInfo.hasNextPage) throw new Error('这一周的更新未取完整，请重试')
+  if (!next.chapters.nodes.length && next.chapters.pageInfo.hasNextPage) throw new Error(t('home.err.weekIncomplete'))
   return { chapters: { ...next.chapters, nodes: [...previous.chapters.nodes, ...next.chapters.nodes] } }
 }

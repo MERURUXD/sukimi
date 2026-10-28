@@ -15,6 +15,7 @@ import { prepareWindowWall, windowWallBusy } from './windowScene'
 import { DESKTOP_GRID, MOBILE_GRID } from './canvasMath'
 import { WINDOW_K, WINDOW_K_ON, ensureWall, wallCoverUrls, wallTransform } from './wall'
 import './window.css'
+import { t } from '@/i18n'
 
 const WALL_VARS = { '--wall-rest': wallTransform(WINDOW_K), '--wall-on': wallTransform(WINDOW_K_ON) } as CSSProperties
 
@@ -127,14 +128,14 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
         <CoverWall items={items} mobile={mobile} picks={picks} className="-z-2" />
         <div className="gwin-copy">
           <div className="min-w-0">
-            <p className="gwin-kicker">书库画廊</p>
+            <p className="gwin-kicker">{t('gallery.name')}</p>
             <h2 id="h-gallery" className="gwin-title font-cjk">
-              每一部收藏，
+              {t('gallery.slogan1')}
               <br />
-              都在这面墙上。
+              {t('gallery.slogan2')}
             </h2>
             <p className="gwin-stats num">
-              {count(library?.length ?? 0)} 部作品 · 已读 {read == null ? '—' : count(read)} 话
+              {[t('gallery.worksN', { count: library?.length ?? 0, n: count(library?.length ?? 0) }), t('gallery.readStat', { count: read ?? 0, n: read == null ? '—' : count(read) })].join(' · ')}
             </p>
           </div>
           <Link
@@ -148,7 +149,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
             }}
             className="gwin-cta no-underline"
           >
-            进入画廊
+            {t('gallery.enter')}
             <ArrowRight className="size-[18px]" strokeWidth={2} />
           </Link>
         </div>

@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { Glass } from '@/components/glass/Glass'
 import { cn } from '@/lib/cn'
 import { bust, releaseShown, retainShown, retryOriginal } from './pageImage'
+import { t } from '@/i18n'
 
 /**
  * 一页图片。加载失败时原位换成提示和「重新加载」按钮，页码、排版占位保持不变；
@@ -82,17 +83,17 @@ export function ReaderImage({
       <div
         {...marks}
         role="group"
-        aria-label={`第 ${page + 1} 页${retrying ? '加载中' : '加载失败'}`}
+        aria-label={retrying ? t('reader.image.loadingAria', { n: page + 1 }) : t('reader.image.failed', { n: page + 1 })}
         className="flex max-w-full min-w-[min(100%,260px)] flex-none flex-col items-center justify-center gap-3 bg-white/[0.04] text-sm text-white/70 select-none"
         style={fallback}
       >
         {retrying ? <LoaderCircle className="size-7 animate-spin" strokeWidth={1.6} /> : <ImageOff className="size-7" strokeWidth={1.6} />}
-        <span>{retrying ? `第 ${page + 1} 页加载中…` : `第 ${page + 1} 页加载失败`}</span>
+        <span>{retrying ? t('reader.image.loading', { n: page + 1 }) : t('reader.image.failed', { n: page + 1 })}</span>
         {!retrying && (
           // 阅读区的点击和拖动都挂在外层：按钮自己吃掉点击，免得顺带翻页或切换工具栏
           <Glass as="button" type="button" className="gbtn rounded-full" onClick={(e) => { e.stopPropagation(); retry() }}>
             <RotateCw className="size-4" strokeWidth={2} />
-            重新加载
+            {t('reader.image.reload')}
           </Glass>
         )}
       </div>
@@ -104,7 +105,7 @@ export function ReaderImage({
       {waiting && (
         <div
           role="status"
-          aria-label={`第 ${page + 1} 页加载中`}
+          aria-label={t('reader.image.loadingAria', { n: page + 1 })}
           className="flex max-w-full flex-none items-center justify-center text-white/60 select-none"
           style={fallback}
         >
@@ -119,7 +120,7 @@ export function ReaderImage({
           if (el?.complete && el.naturalWidth) setLoaded(true)
         }}
         src={displaySrc}
-        alt={`第 ${page + 1} 页`}
+        alt={t('reader.image.alt', { n: page + 1 })}
         loading={loading}
         decoding="async"
         draggable={false}

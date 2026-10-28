@@ -37,6 +37,7 @@ import { ServerTab } from './tabs/ServerTab'
 import { SyncTab } from './tabs/SyncTab'
 import { TrackingTab } from './tabs/TrackingTab'
 import { UsersTab } from './tabs/UsersTab'
+import { t } from '@/i18n'
 
 function ReadingTab() {
   return <ReaderDefaults />
@@ -57,32 +58,32 @@ export interface SettingsTab {
 export type SettingsGroupId = 'personal' | 'content' | 'system'
 
 const GROUPS: { id: SettingsGroupId; label: string }[] = [
-  { id: 'personal', label: '浏览与阅读' },
-  { id: 'content', label: '内容与数据' },
-  { id: 'system', label: '服务端与账号' },
+  { id: 'personal', label: t('settings.groups.personal') },
+  { id: 'content', label: t('settings.groups.content') },
+  { id: 'system', label: t('settings.groups.system') },
 ]
 
 /** 布局验收页按分栏渲染正式组件，所以导出 */
 export const SETTINGS_TABS: SettingsTab[] = [
-  { id: 'appearance', label: '外观', icon: Palette, desc: '主题、玻璃效果、动态背景、NSFW 隐私', Component: AppearanceTab, group: 'personal' },
-  { id: 'home', label: '首页', icon: House, desc: '首页布局、内容开关、显示顺序', Component: HomeTab, group: 'personal' },
-  { id: 'reading', label: '阅读', icon: BookOpen, desc: '阅读模式、翻页、点击分区', Component: ReadingTab, group: 'personal' },
-  { id: 'library', label: '书库', icon: LibraryBig, desc: '分类、自动检查更新', Component: LibraryTab, group: 'personal' },
-  { id: 'downloads', label: '下载', icon: Download, desc: '下载目录、自动下载、格式转换', Component: DownloadsTab, group: 'content' },
-  { id: 'browse', label: '来源与扩展', icon: Compass, desc: '扩展仓库、Cloudflare、缓存', Component: BrowseTab, group: 'content' },
-  { id: 'backup', label: '备份', icon: DatabaseBackup, desc: '备份与恢复、自动备份', Component: BackupTab, group: 'content' },
-  { id: 'sync', label: '同步', icon: RefreshCcw, desc: 'SyncYomi、KOReader', Component: SyncTab, group: 'content' },
-  { id: 'tracking', label: '追踪', icon: ListChecks, desc: 'AniList、MyAnimeList 等，同步阅读进度', Component: TrackingTab, group: 'content' },
-  { id: 'server', label: '服务端', icon: Server, desc: '网络、登录、代理、日志、OPDS', Component: ServerTab, group: 'system' },
-  { id: 'users', label: '用户', icon: Users, desc: '邀请新用户、权限、找回码', Component: UsersTab, group: 'system', adminOnly: true },
-  { id: 'about', label: '关于', icon: Info, desc: '版本、检查更新、退出登录', Component: AboutTab, group: 'system' },
+  { id: 'appearance', label: t('settings.tabs.appearance.label'), icon: Palette, desc: t('settings.tabs.appearance.desc'), Component: AppearanceTab, group: 'personal' },
+  { id: 'home', label: t('settings.tabs.home.label'), icon: House, desc: t('settings.tabs.home.desc'), Component: HomeTab, group: 'personal' },
+  { id: 'reading', label: t('settings.tabs.reading.label'), icon: BookOpen, desc: t('settings.tabs.reading.desc'), Component: ReadingTab, group: 'personal' },
+  { id: 'library', label: t('settings.tabs.library.label'), icon: LibraryBig, desc: t('settings.tabs.library.desc'), Component: LibraryTab, group: 'personal' },
+  { id: 'downloads', label: t('settings.tabs.downloads.label'), icon: Download, desc: t('settings.tabs.downloads.desc'), Component: DownloadsTab, group: 'content' },
+  { id: 'browse', label: t('settings.tabs.browse.label'), icon: Compass, desc: t('settings.tabs.browse.desc'), Component: BrowseTab, group: 'content' },
+  { id: 'backup', label: t('settings.tabs.backup.label'), icon: DatabaseBackup, desc: t('settings.tabs.backup.desc'), Component: BackupTab, group: 'content' },
+  { id: 'sync', label: t('settings.tabs.sync.label'), icon: RefreshCcw, desc: t('settings.tabs.sync.desc'), Component: SyncTab, group: 'content' },
+  { id: 'tracking', label: t('settings.tabs.tracking.label'), icon: ListChecks, desc: t('settings.tabs.tracking.desc'), Component: TrackingTab, group: 'content' },
+  { id: 'server', label: t('settings.tabs.server.label'), icon: Server, desc: t('settings.tabs.server.desc'), Component: ServerTab, group: 'system' },
+  { id: 'users', label: t('settings.tabs.users.label'), icon: Users, desc: t('settings.tabs.users.desc'), Component: UsersTab, group: 'system', adminOnly: true },
+  { id: 'about', label: t('settings.tabs.about.label'), icon: Info, desc: t('settings.tabs.about.desc'), Component: AboutTab, group: 'system' },
 ]
 
 /** 按当前用户的权限筛出能看到的分栏 */
 function useVisibleTabs() {
   const user = useAuth((s) => s.user)
   const manageUsers = !!user && !user.legacy && can(user, 'MANAGE_USERS')
-  return SETTINGS_TABS.filter((t) => !t.adminOnly || manageUsers)
+  return SETTINGS_TABS.filter((tab) => !tab.adminOnly || manageUsers)
 }
 
 /**
@@ -112,7 +113,7 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
   const to = (t: SettingsTab) => `${basePath}/${t.id}`
 
   return (
-    <nav aria-label="设置分栏" className={cn('md:sticky md:top-[calc(var(--nav-h)+12px)]', singlePage && 'max-md:hidden')}>
+    <nav aria-label={t('settings.shell.navAria')} className={cn('md:sticky md:top-[calc(var(--nav-h)+12px)]', singlePage && 'max-md:hidden')}>
       <div ref={root} className="relative isolate flex flex-col gap-4 max-md:hidden">
         {/* 胶囊自身做位移动画，祖先不加透明度或滤镜，玻璃才采得到背后的内容 */}
         {highlight && <MotionGlass aria-hidden initial={false} animate={highlight} transition={spring.fast} className="pointer-events-none absolute top-0 inset-x-0 -z-10 rounded-full" />}
@@ -177,12 +178,12 @@ export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: S
       <PageHeader
         className={cn(intro && 'pb-3')}
         lead={current && (
-          <button type="button" className="gicon plain rounded-full md:hidden" onClick={back} aria-label="返回设置列表">
+          <button type="button" className="gicon plain rounded-full md:hidden" onClick={back} aria-label={t('settings.shell.backToList')}>
             <ChevronLeft className="size-6" strokeWidth={1.8} />
           </button>
         )}
         title={<>
-          <span className={cn(current && 'max-md:hidden')}>设置</span>
+          <span className={cn(current && 'max-md:hidden')}>{t('settings.shell.title')}</span>
           {current && <span className="md:hidden">{current.label}</span>}
         </>}
       />
@@ -197,7 +198,7 @@ export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: S
           {pending > 0 && (
             <div className="plain mb-8 flex items-center gap-3 rounded-[18px] px-4 py-3 text-sm">
               <TriangleAlert className="size-5 flex-none" strokeWidth={1.8} />
-              有 {pending} 项改动要重启服务端后才生效。
+              {t('settings.shell.pendingRestart', { count: pending })}
             </div>
           )}
           {/* 换栏时内容轻轻淡入 */}

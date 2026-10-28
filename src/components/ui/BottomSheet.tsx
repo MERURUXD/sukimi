@@ -5,9 +5,10 @@ import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
 import './BottomSheet.css'
+import { t } from '@/i18n'
 
 /** 手机底部浮层：使用全局玻璃外观，内容过长时在面板内滚动。 */
-export function BottomSheet({ id, label, closeLabel = '关闭更多操作', onClose, className, children }: {
+export function BottomSheet({ id, label, closeLabel = t('common.closeMoreActions'), onClose, className, children }: {
   id: string
   label: string
   closeLabel?: string

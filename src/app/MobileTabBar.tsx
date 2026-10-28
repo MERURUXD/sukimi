@@ -6,6 +6,7 @@ import { useNavPill } from '@/components/ui/useNavPill'
 import { cn } from '@/lib/cn'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection, TABS, updatesTabLabel } from './navTabs'
+import { t } from '@/i18n'
 
 /** 手机（< 768px）底部标签栏；平板用左侧导航栏，桌面用顶部导航 */
 export function MobileTabBar() {
@@ -14,7 +15,7 @@ export function MobileTabBar() {
   const { ref: pillRef, box: pillBox } = useNavPill(pathname)
   return (
     <div data-vt-bar="tabbar" className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center px-3 pb-[max(10px,env(safe-area-inset-bottom))] md:hidden">
-      <Glass as="nav" data-vt-glass="tabbar-tabs" ref={pillRef} dense aria-label="主导航" className="pointer-events-auto grid w-full max-w-[520px] grid-cols-6 rounded-[26px] p-1.5">
+      <Glass as="nav" data-vt-glass="tabbar-tabs" ref={pillRef} dense aria-label={t('app.nav.main')} className="pointer-events-auto grid w-full max-w-[520px] grid-cols-6 rounded-[26px] p-1.5">
         <NavPill box={pillBox} className="rounded-[20px]" />
         {TABS.map((t) => (
           <NavLink

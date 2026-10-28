@@ -16,6 +16,7 @@ import { useLive } from '@/api/live'
 import { cn } from '@/lib/cn'
 import { mangaIntro, mangaIntroDelay } from './intro'
 import { useAppearance } from '@/design/settings'
+import { t } from '@/i18n'
 
 export function MangaPage() {
   const id = Number(useParams().id)
@@ -43,9 +44,9 @@ export function MangaPage() {
       try {
         await fetchRemote({ variables: { id } })
         await Promise.all([refetchChapters(), refetchManga()])
-        if (!silent) toast('已从来源刷新')
+        if (!silent) toast(t('manga.refreshed'))
       } catch (e) {
-        toastError('从来源刷新失败', e)
+        toastError(t('manga.refreshFailed'), e)
       }
     },
     [fetchRemote, id, refetchChapters, refetchManga],
@@ -78,7 +79,7 @@ export function MangaPage() {
 
   const downloadUnread = () => {
     const ids = (list ?? []).filter((c) => !c.isRead && !c.isDownloaded).map((c) => c.id)
-    if (!ids.length) return toast('没有需要下载的未读章节')
+    if (!ids.length) return toast(t('library.bulk.noneToDownload'))
     void actions.download(ids)
   }
 
@@ -91,7 +92,7 @@ export function MangaPage() {
     ? null
     : client.readFragment({ id: client.cache.identify({ __typename: 'MangaType', id }), fragment: MangaPeek })
   const m = manga.data?.manga ?? (peek ? placeholderManga(peek) : null)
-  if (!m) return <p className="wrap pt-10 text-muted">正在加载…</p>
+  if (!m) return <p className="wrap pt-10 text-muted">{t('manga.loading')}</p>
 
   return (
     <div className="manga-detail relative isolate" data-sfw={sfwAttr(m.source?.displayName)}>
@@ -113,7 +114,7 @@ export function MangaPage() {
         (list ? (
           <ChapterList mangaId={id} chapters={list} prediction={prediction} queue={queue} actions={actions} intro={intro} />
         ) : (
-          <p style={mangaIntroDelay(mangaIntro.chapterTitle)} className={cn('wrap text-muted', intro && 'rise')}>正在加载章节…</p>
+          <p style={mangaIntroDelay(mangaIntro.chapterTitle)} className={cn('wrap text-muted', intro && 'rise')}>{t('manga.loadingChapters')}</p>
         ))}
     </div>
   )

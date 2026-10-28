@@ -8,6 +8,7 @@ import { toastError } from '@/components/ui/toast'
 import { spring } from '@/design/motion'
 import { chapterLabel } from '@/lib/format'
 import { CoverImg } from './CoverImg'
+import { t } from '@/i18n'
 
 /** 吸底的下载状态条：当前下载、进度环、暂停 / 继续；完整队列在 /downloads */
 export function DownloadPill() {
@@ -25,7 +26,7 @@ export function DownloadPill() {
       if (running) await stop()
       else await start()
     } catch (e) {
-      toastError(running ? '暂停下载失败' : '继续下载失败', e)
+      toastError(running ? t('downloads.pauseFailed') : t('downloads.resumeFailed'), e)
     }
   }
 
@@ -35,7 +36,7 @@ export function DownloadPill() {
         <div className="pointer-events-none sticky bottom-[calc(var(--tabbar-h)+20px)] z-30 mt-7 flex justify-center">
           <MotionGlass
             role="status"
-            aria-label="下载状态"
+            aria-label={t('downloads.pill.status')}
             dense
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -66,21 +67,21 @@ export function DownloadPill() {
             </span>
             <span className="flex min-w-0 flex-col leading-[1.35]">
               <span className="truncate text-[13px] font-semibold">
-                {running ? '正在下载' : '已暂停'} · {cur.manga.title} {chapterLabel(cur.chapter)}
+                {t('downloads.pill.current', { state: running ? t('downloads.running') : t('downloads.paused'), title: cur.manga.title, chapter: chapterLabel(cur.chapter) })}
               </span>
               <span className="truncate text-xs text-muted num">
                 {cur.chapter.pageCount > 0
-                  ? `${Math.round(cur.progress * cur.chapter.pageCount)} / ${cur.chapter.pageCount} 页`
+                  ? t('downloads.pages', { done: Math.round(cur.progress * cur.chapter.pageCount), total: cur.chapter.pageCount })
                   : `${Math.round(cur.progress * 100)}%`}
-                {queue.length > 1 && ` · 队列中还有 ${queue.length - 1} 话`}
-                {cur.state === 'ERROR' && ' · 出错，稍后重试'}
+                {queue.length > 1 && t('downloads.pill.moreInQueue', { n: queue.length - 1 })}
+                {cur.state === 'ERROR' && t('downloads.pill.errorRetry')}
               </span>
             </span>
-            <button type="button" className="gicon size-10" onClick={toggle} aria-label={running ? '暂停下载' : '继续下载'}>
+            <button type="button" className="gicon size-10" onClick={toggle} aria-label={running ? t('downloads.pill.pauseAria') : t('downloads.pill.resumeAria')}>
               {running ? <Pause className="size-5" strokeWidth={1.8} /> : <Play className="size-5" strokeWidth={1.8} />}
             </button>
             <Link to="/downloads" className="gbtn min-h-10 bg-g-hi text-text no-underline">
-              下载队列
+              {t('downloads.pill.queue')}
             </Link>
           </MotionGlass>
         </div>

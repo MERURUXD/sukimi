@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useCan } from '@/api/auth'
+import { t } from '@/i18n'
 
 /*
  * 服务端设置需要 MANAGE_SETTINGS。没有这个权限时服务端返回的是默认值的遮蔽视图，
@@ -7,7 +8,7 @@ import { useCan } from '@/api/auth'
  */
 const useCanManageSettings = () => useCan('MANAGE_SETTINGS')
 
-const NOTICE = '你没有「管理服务端设置」的权限，服务端选项已隐藏。需要的话请联系管理员。'
+const NOTICE = t('settings.gate.notice')
 
 /** 整页都是服务端设置：没有权限就只显示说明 */
 export function SettingsGate({ children }: { children: ReactNode }) {

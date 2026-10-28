@@ -5,7 +5,8 @@ import { cn } from '@/lib/cn'
 import { clamp01 } from './canvasMath'
 import { BigHead } from './StatsRank'
 import { ease, seg, type Pager } from './statsPager'
-import { tasteHeadline, type Taste } from './taste'
+import { genreLabel, tasteHeadline, type Taste } from './taste'
+import { t as tl } from '@/i18n'
 
 export interface TasteLayout {
   phone: boolean
@@ -74,10 +75,10 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
           style={{ gridTemplateColumns: 'minmax(0, 1fr) auto', rowGap: phone ? 6 : 9, color: `rgba(255,255,255,${(1 - k * 0.13).toFixed(2)})` }}
         >
           <span className="min-w-0 font-cjk font-black tracking-[-0.03em] [overflow-wrap:anywhere]" style={{ fontSize: L.genreFs, lineHeight: 1.15 }}>
-            {g.name}
+            {genreLabel(g.name)}
             {!phone && (
               <span className="ml-3.5 font-sans text-[11px] font-normal tracking-normal whitespace-nowrap text-white/40 num">
-                {count(g.read)} 话 · {g.works} 部
+                {tl('gallery.chaptersN', { count: g.read, n: count(g.read) })} · {tl('gallery.titlesN', { count: g.works, n: g.works })}
               </span>
             )}
           </span>
@@ -101,9 +102,9 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
     </ol>
   ) : (
     <p ref={empty} className="m-0 text-sm leading-[1.9] text-muted">
-      读过的作品还没有题材标签。
+      {tl('gallery.stats.tasteNone1')}
       <br />
-      等来源补上题材后，这里会按已读话数排出你的口味。
+      {tl('gallery.stats.tasteNone2')}
     </p>
   )
 
@@ -116,7 +117,7 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
         }}
         className="text-xs font-bold tracking-[.32em] text-muted"
       >
-        最常读的作者
+        {tl('gallery.stats.topAuthors')}
       </span>
       {taste.authors.map((a, k) => (
         <div
@@ -144,7 +145,7 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
               {a.name}
             </span>
             <span className={cn('block text-[11px] text-muted num', phone ? 'mt-0.5' : 'mt-1.5')}>
-              {a.works} 部 · {count(a.read)} 话{a.pages > 0 && ` · 约 ${count(a.pages)} 页`}
+              {[tl('gallery.titlesN', { count: a.works, n: a.works }), tl('gallery.chaptersN', { count: a.read, n: count(a.read) }), a.pages > 0 && tl('gallery.stats.aboutPages', { count: a.pages, n: count(a.pages) })].filter(Boolean).join(' · ')}
             </span>
           </span>
         </div>
@@ -153,12 +154,12 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
   )
 
   return (
-    <section aria-label="口味" className="absolute flex flex-col" style={{ left: L.left, width: L.width, top: L.top, bottom: L.bottom, gap: Math.round((phone ? 24 : 46) * u), justifyContent: phone ? 'flex-start' : 'center' }}>
+    <section aria-label={tl('gallery.stats.screens.taste')} className="absolute flex flex-col" style={{ left: L.left, width: L.width, top: L.top, bottom: L.bottom, gap: Math.round((phone ? 24 : 46) * u), justifyContent: phone ? 'flex-start' : 'center' }}>
       <BigHead
         ref={(el) => {
           head.current = el
         }}
-        eyebrow="03 / 口味 · 按已读话数"
+        eyebrow={tl('gallery.stats.tasteEyebrow')}
         fs={L.headFs}
         phone={phone}
       >

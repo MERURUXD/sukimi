@@ -20,6 +20,7 @@ import { PosterShare } from './PosterShare'
 import { GalleryPeek } from './queries'
 import { hfit, mostlyLatin, vfit } from './titleFit'
 import './gallery.css'
+import { t as tl } from '@/i18n'
 
 /** 封面卡片静止时的姿态，和进场动画（gallery-card）的终点一致 */
 const CARD_REST = 'perspective(1400px) rotateY(16deg) rotateZ(-3deg)'
@@ -256,18 +257,18 @@ export function PlayView({
   const defaultId = categories.find((c) => c.default)?.id ?? 0
   const categoryOf = (m: LibraryManga) => {
     const c = categories.find((c) => inCategory(m, c.id, defaultId))
-    return c ? (c.default ? '默认' : c.name) : ''
+    return c ? (c.default ? tl('gallery.default') : c.name) : ''
   }
   const pad = (i: number) => String(i + 1).padStart(2, '0')
   const dur = { '--dur': `${interval}s` } as CSSProperties
 
   if (mobile) {
     return (
-      <div role="dialog" aria-modal aria-label="放映模式" className="absolute inset-0 z-30 grid place-items-center bg-bg p-6 text-center">
+      <div role="dialog" aria-modal aria-label={tl('gallery.play.mode')} className="absolute inset-0 z-30 grid place-items-center bg-bg p-6 text-center">
         <div className="flex flex-col items-center gap-4">
-          <p className="m-0 text-muted">放映模式适合在电脑或电视的大屏上看。</p>
+          <p className="m-0 text-muted">{tl('gallery.play.desktopOnly')}</p>
           <button type="button" className="solid" onClick={onExit}>
-            回到画布
+            {tl('gallery.backToCanvas')}
           </button>
         </div>
       </div>
@@ -299,7 +300,7 @@ export function PlayView({
       ref={root}
       role="dialog"
       aria-modal
-      aria-label="放映模式"
+      aria-label={tl('gallery.play.mode')}
       data-paused={playing ? undefined : ''}
       className={cn('gallery-play absolute inset-0 z-30 overflow-hidden', closing && 'pointer-events-none')}
       style={dur}
@@ -347,36 +348,36 @@ export function PlayView({
         <div {...UI} className={cn('flex items-center gap-3.5', flying && 'gallery-up')} style={{ '--d': '.4s' } as CSSProperties}>
           <span className="grid size-11 place-items-center rounded-full bg-solid text-lg font-bold text-on-solid">S</span>
           <div className="flex flex-col gap-0.5">
-            <span className="font-cjk text-lg font-black">放映模式</span>
+            <span className="font-cjk text-lg font-black">{tl('gallery.play.mode')}</span>
             <span className="text-[13px] text-white/75 num">
-              书库 · {count(n)} 部 · 每 {interval} 秒切换
+              {tl('gallery.play.sub', { count: n, n: count(n), s: interval })}
             </span>
           </div>
         </div>
         <Glass {...UI} className={cn('flex items-center gap-1 rounded-full p-[5px]', flying && 'gallery-up')} style={{ '--d': '.45s' } as CSSProperties}>
-          <button type="button" onClick={() => go(idx - 1)} aria-label="上一部" className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+          <button type="button" onClick={() => go(idx - 1)} aria-label={tl('gallery.play.prev')} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
             <ChevronLeft className="size-5" strokeWidth={2} />
           </button>
-          <button type="button" onClick={() => setPlaying((p) => !p)} aria-label={playing ? '暂停放映' : '继续放映'} className="grid size-[46px] place-items-center rounded-full bg-solid text-on-solid">
+          <button type="button" onClick={() => setPlaying((p) => !p)} aria-label={playing ? tl('gallery.play.pause') : tl('gallery.play.resume')} className="grid size-[46px] place-items-center rounded-full bg-solid text-on-solid">
             {playing ? <Pause className="size-4 fill-current" strokeWidth={1.6} /> : <Play className="size-4 fill-current" strokeWidth={1.6} />}
           </button>
-          <button type="button" onClick={() => go(idx + 1)} aria-label="下一部" className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+          <button type="button" onClick={() => go(idx + 1)} aria-label={tl('gallery.play.next')} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
             <ChevronRight className="size-5" strokeWidth={2} />
           </button>
-          <button type="button" onClick={cycle} aria-label={`切换间隔：${interval} 秒，点一下换`} title="切换间隔" className="flex h-[46px] items-center gap-1.5 rounded-full px-3 text-sm font-semibold hover:bg-hover num">
+          <button type="button" onClick={cycle} aria-label={tl('gallery.play.intervalAria', { s: interval })} title={tl('gallery.play.intervalTitle')} className="flex h-[46px] items-center gap-1.5 rounded-full px-3 text-sm font-semibold hover:bg-hover num">
             <Timer className="size-[18px]" strokeWidth={1.8} />
-            {interval} 秒
+            {tl('gallery.play.seconds', { s: interval })}
           </button>
           {cur && !test(cur) && (
-            <button type="button" onClick={openShare} aria-label="分享这一部" title="分享海报" className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+            <button type="button" onClick={openShare} aria-label={tl('gallery.play.shareAria')} title={tl('gallery.play.shareTitle')} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
               <Share className="size-[18px]" strokeWidth={1.8} />
             </button>
           )}
-          <button type="button" onClick={toggleFullscreen} aria-label={fullscreen ? '退出全屏' : '全屏'} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+          <button type="button" onClick={toggleFullscreen} aria-label={fullscreen ? tl('gallery.play.exitFullscreen') : tl('gallery.play.fullscreen')} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
             {fullscreen ? <Minimize className="size-[18px]" strokeWidth={1.8} /> : <Maximize className="size-[18px]" strokeWidth={1.8} />}
           </button>
           {/* 工具条本身是玻璃，里面的按钮不再套一层 */}
-          <button type="button" onClick={onExit} aria-label="退出放映" title="退出放映（Esc）" className="grid size-[46px] place-items-center rounded-full bg-white/10 text-text hover:bg-hover">
+          <button type="button" onClick={onExit} aria-label={tl('gallery.play.exitAria')} title={tl('gallery.play.exitTitle')} className="grid size-[46px] place-items-center rounded-full bg-white/10 text-text hover:bg-hover">
             <X className="size-[18px]" strokeWidth={2} />
           </button>
         </Glass>
@@ -384,7 +385,7 @@ export function PlayView({
 
       {/* 底部刻度：点选跳到那一部；书多时只显示当前前后一段 */}
       {n > 1 && (
-        <nav {...UI} aria-label="全部作品" className={cn('absolute bottom-[26px] left-1/2 flex -translate-x-1/2 items-end gap-0.5', flying && 'gallery-up')} style={{ '--d': '.6s' } as CSSProperties}>
+        <nav {...UI} aria-label={tl('gallery.allWorks')} className={cn('absolute bottom-[26px] left-1/2 flex -translate-x-1/2 items-end gap-0.5', flying && 'gallery-up')} style={{ '--d': '.6s' } as CSSProperties}>
           {tickWindow(idx, n).map((i) => {
             const on = i === idx
             return (
@@ -417,7 +418,7 @@ export function PlayView({
             <CoverImg src={next.thumbnailUrl} />
           </span>
           <span className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-medium tracking-[.3em] text-white/72">下一部</span>
+            <span className="text-xs font-medium tracking-[.3em] text-white/72">{tl('gallery.play.next')}</span>
             <span className="truncate font-cjk text-[17px] font-bold">{next.title}</span>
           </span>
         </Glass>
@@ -509,7 +510,7 @@ function PlayStage({
           ref={cardRef}
           to={`/manga/${cur.id}`}
           viewTransition
-          aria-label={`${cur.title}，作品详情`}
+          aria-label={tl('gallery.detailAria', { title: cur.title })}
           className={cn('cv relative z-10 w-[clamp(200px,19vw,280px)] flex-none rounded-2xl shadow-[0_60px_100px_-30px_rgba(0,0,0,.9),0_0_0_1px_rgba(255,255,255,.12)]', card === 'enter' && 'gallery-card')}
           style={{
             WebkitBoxReflect: 'below 14px linear-gradient(transparent 68%, rgba(255,255,255,.18))',
@@ -520,13 +521,13 @@ function PlayStage({
         </Link>
         <div className="flex w-[min(400px,28vw)] flex-col gap-4">
           <p {...UI} className="gallery-up m-0 text-sm font-medium tracking-[.32em] text-white/80 num" style={up(0)}>
-            正在放映　No.{no} / {count(total)}
+            {tl('gallery.play.nowPlaying', { no, total: count(total) })}
           </p>
           <p {...UI} className="gallery-up m-0 text-[30px] font-bold" style={up(1)}>
-            {cur.author || cur.artist || '佚名'}
+            {cur.author || cur.artist || tl('gallery.unknownAuthor')}
           </p>
           <div className="flex flex-wrap gap-2">
-            {[category, status, `${chapters} 话`].filter(Boolean).map((t, i) => (
+            {[category, status, tl('gallery.chaptersText', { n: chapters })].filter(Boolean).map((t, i) => (
               <span key={t} {...UI} className="gallery-up flex h-[30px] items-center rounded-full border border-white/18 bg-white/14 px-3 text-[13px] font-medium" style={{ '--d': `${0.62 + i * 0.03}s` } as CSSProperties}>
                 {t}
               </span>
@@ -542,13 +543,13 @@ function PlayStage({
             {firstUnread ? (
               <Link {...UI} to={`/manga/${cur.id}/chapter/${firstUnread}`} viewTransition className="gallery-up solid h-[54px] px-7 text-base no-underline" style={up(4)}>
                 <BookOpen className="size-[18px]" strokeWidth={1.8} />
-                {Number(cur.lastReadChapter?.lastReadAt) > 0 ? '继续阅读' : '开始阅读'}
+                {Number(cur.lastReadChapter?.lastReadAt) > 0 ? tl('gallery.continue') : tl('gallery.start')}
               </Link>
             ) : (
-              peeked && <span {...UI} className="gallery-up solid h-[54px] px-7 text-base opacity-60" style={up(4)}>已全部读完</span>
+              peeked && <span {...UI} className="gallery-up solid h-[54px] px-7 text-base opacity-60" style={up(4)}>{tl('gallery.allRead')}</span>
             )}
             <GlassLink {...UI} to={`/manga/${cur.id}`} viewTransition className="gallery-up gbtn h-[54px] rounded-full px-6 text-base font-semibold text-text no-underline" style={up(5)}>
-              作品详情
+              {tl('gallery.detail')}
             </GlassLink>
           </div>
         </div>
@@ -590,7 +591,7 @@ function PlayStage({
             className="gallery-up absolute top-[108px] m-0 font-cjk text-lg font-medium tracking-[.4em] text-[#f4f1e6]/82 [writing-mode:vertical-rl]"
             style={{ right: Math.round(100 + v.columns.length * v.size * 1.18 + 26), '--d': '.9s' } as CSSProperties}
           >
-            {[cur.author || cur.artist ? `${cur.author || cur.artist} 著` : '', category].filter(Boolean).join(' · ')}
+            {[cur.author || cur.artist ? tl('gallery.by', { author: cur.author || cur.artist }) : '', category].filter(Boolean).join(' · ')}
           </p>
         </>
       )}

@@ -3,6 +3,7 @@
  * 画法见 posterDraw.ts，面板见 PosterShare.tsx。
  */
 import type { ReadingStats } from './stats.ts'
+import { t } from '../../i18n/core.ts'
 
 /** 海报固定 1080 × 1350（4:5），不按屏幕像素比放大 */
 export const POSTER_W = 1080
@@ -10,7 +11,7 @@ export const POSTER_H = 1350
 
 export type PosterKind = 'library' | 'stats' | 'work'
 
-export const POSTER_LABEL: Record<PosterKind, string> = { library: '书库', stats: '阅读档案', work: '这一部' }
+export const POSTER_LABEL: Record<PosterKind, string> = { library: t('gallery.poster.label.library'), stats: t('gallery.poster.label.stats'), work: t('gallery.poster.label.work') }
 
 /** 一张封面：地址取不到或加载失败时画占位，占位上写书名 */
 export interface PosterCover {
@@ -142,9 +143,9 @@ export function workProgress(total: number | null | undefined, unread: number) {
 
 /** 单部海报左上角那一行：按进度说 */
 export function workHeading(read: number | null, total: number | null) {
-  if (read != null && total && read >= total) return '已读完'
-  if (read) return '正在读'
-  return '在我的书库里'
+  if (read != null && total && read >= total) return t('gallery.poster.workFinished')
+  if (read) return t('gallery.poster.workReading')
+  return t('gallery.poster.workInLibrary')
 }
 
 /** 年轮刻度的角度（度）：从正下方开始顺时针一圈，和档案页的年轮一致 */

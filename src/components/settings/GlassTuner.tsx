@@ -2,6 +2,7 @@ import { Download, Heart, RefreshCw } from 'lucide-react'
 import { Glass } from '@/components/glass/Glass'
 import { GLASS_PARAMS, GLASS_PRESETS, useGlassTuning } from '@/design/glassTuning'
 import { cn } from '@/lib/cn'
+import { t as tl } from '@/i18n'
 
 /** 液态玻璃参数滑块；与默认值不同的项会标出默认值 */
 export function GlassSliders({ className }: { className?: string }) {
@@ -17,7 +18,7 @@ export function GlassSliders({ className }: { className?: string }) {
               <span>{p.label}</span>
               <span className="text-muted num">
                 {v}
-                {v !== d && <span className="ml-1 text-faint">（默认 {d}）</span>}
+                {v !== d && <span className="ml-1 text-faint">{tl('misc.glass.defaultValue', { value: d })}</span>}
               </span>
             </span>
             <input
@@ -44,7 +45,7 @@ export function GlassSliders({ className }: { className?: string }) {
 export function GlassPreview({ className }: { className?: string }) {
   return (
     <div className={cn('relative isolate h-[360px] overflow-hidden rounded-[22px] border border-line', className)}>
-      <div className="absolute inset-0 overflow-y-auto" aria-label="预览背景，可滚动">
+      <div className="absolute inset-0 overflow-y-auto" aria-label={tl('misc.glass.previewAria')}>
         <div className="flex flex-col">
           {Array.from({ length: 24 }, (_, i) =>
             i % 4 === 3 ? (
@@ -61,7 +62,7 @@ export function GlassPreview({ className }: { className?: string }) {
                   i % 2 ? 'bg-white text-black' : 'bg-black text-white',
                 )}
               >
-                液态玻璃 Liquid Glass 0123456789 黑白高对比
+                {tl('misc.glass.sample')}
               </div>
             ),
           )}
@@ -79,20 +80,20 @@ export function GlassPreview({ className }: { className?: string }) {
             <RefreshCw className="size-5" strokeWidth={1.8} />
           </Glass>
           <Glass as="span" className="gbtn rounded-full">
-            漫画详情
+            {tl('misc.glass.mangaDetail')}
           </Glass>
         </div>
         <Glass className="flex w-[min(300px,100%)] flex-col gap-2 rounded-[22px] p-4">
-          <b className="text-sm">普通玻璃</b>
+          <b className="text-sm">{tl('misc.glass.plain')}</b>
           <div className="prog">
             <i style={{ width: '64%' }} />
           </div>
-          <span className="text-xs text-muted">停在第 98 话第 14 页</span>
+          <span className="text-xs text-muted">{tl('misc.glass.stoppedAt')}</span>
         </Glass>
         <Glass dense className="flex w-[min(460px,100%)] items-center justify-between gap-3 rounded-full px-5 py-3 text-[13px] font-semibold">
-          <span>上一话</span>
-          <span className="num">浮动条 · 14 / 22</span>
-          <span>下一话</span>
+          <span>{tl('misc.glass.prev')}</span>
+          <span className="num">{tl('misc.glass.bar')}</span>
+          <span>{tl('misc.glass.next')}</span>
         </Glass>
       </div>
     </div>

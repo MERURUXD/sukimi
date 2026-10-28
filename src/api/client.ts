@@ -12,6 +12,7 @@ import { clearSnapshots } from './persist'
 import { resetUserContext } from './userContext'
 import { createCache } from './cache'
 import { monitorLink } from './monitorLink'
+import { t } from '@/i18n'
 
 const ENDPOINT = '/api/graphql'
 
@@ -64,7 +65,7 @@ const transport = ApolloLink.split(
   },
   wsLink,
   // 演示页使用独立的本地客户端；万一误用了这个客户端，也不让请求真的发到服务端
-  new HttpLink({ uri: ENDPOINT, fetch: isDemo ? () => Promise.reject(new TypeError('演示模式不会请求真实服务端')) : undefined }),
+  new HttpLink({ uri: ENDPOINT, fetch: isDemo ? () => Promise.reject(new TypeError(t('misc.api.demoModeNoRequest'))) : undefined }),
 )
 
 export const apollo = new ApolloClient({

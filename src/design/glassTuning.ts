@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { preferenceKey } from '@/lib/demo'
+import { t } from '@/i18n'
 
 /**
  * 液态折射的可调参数。默认值是 2026-10-03 手调的「激进」预设；
@@ -67,15 +68,15 @@ export const GLASS_PRESETS: Record<GlassTuning['tone'], GlassTuning> = {
 
 /** 设置页与调参页共用的滑块定义 */
 export const GLASS_PARAMS: { key: Exclude<keyof GlassTuning, 'tone'>; label: string; min: number; max: number; step: number; hint?: string }[] = [
-  { key: 'bezel', label: '透镜带宽度', min: 0, max: 40, step: 1, hint: '0 = 自动（按组件短边的 30%）' },
-  { key: 'strength', label: '折射强度', min: 0, max: 2, step: 0.05 },
-  { key: 'falloff', label: '集中到外缘', min: 0.5, max: 5, step: 0.1 },
-  { key: 'dispersion', label: '色散', min: 0, max: 8, step: 0.5, hint: '0 = 关闭' },
-  { key: 'blur', label: '模糊 · 普通', min: 0, max: 30, step: 1 },
-  { key: 'denseBlur', label: '模糊 · 浮动条', min: 0, max: 30, step: 1, hint: '阅读器工具栏、批量栏、弹出层' },
-  { key: 'tint', label: '底色 · 普通（%）', min: 0, max: 100, step: 5 },
-  { key: 'denseTint', label: '底色 · 浮动条（%）', min: 0, max: 100, step: 5 },
-  { key: 'saturate', label: '饱和度', min: 1, max: 2.5, step: 0.05 },
+  { key: 'bezel', label: t('misc.glass.bezel'), min: 0, max: 40, step: 1, hint: t('misc.glass.bezelHint') },
+  { key: 'strength', label: t('misc.glass.strength'), min: 0, max: 2, step: 0.05 },
+  { key: 'falloff', label: t('misc.glass.falloff'), min: 0.5, max: 5, step: 0.1 },
+  { key: 'dispersion', label: t('misc.glass.dispersion'), min: 0, max: 8, step: 0.5, hint: t('misc.glass.dispersionHint') },
+  { key: 'blur', label: t('misc.glass.blur'), min: 0, max: 30, step: 1 },
+  { key: 'denseBlur', label: t('misc.glass.denseBlur'), min: 0, max: 30, step: 1, hint: t('misc.glass.denseBlurHint') },
+  { key: 'tint', label: t('misc.glass.tint'), min: 0, max: 100, step: 5 },
+  { key: 'denseTint', label: t('misc.glass.denseTint'), min: 0, max: 100, step: 5 },
+  { key: 'saturate', label: t('misc.glass.saturate'), min: 1, max: 2.5, step: 0.05 },
 ]
 
 /** 取出一组参数里的数值部分（不含 tone 以外的 store 字段） */

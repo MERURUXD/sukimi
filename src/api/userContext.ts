@@ -4,6 +4,7 @@
  * （其中还有按用户的 inLibrary 标记，以及按旧权限才看得到的来源）。
  */
 import { useAuth } from './auth'
+import { t } from '../i18n/core.ts'
 
 const resets = new Set<() => void>()
 
@@ -24,7 +25,7 @@ export function resetUserContext() {
 /** 账号在异步流程进行中被换掉了 */
 export class StaleSessionError extends Error {
   constructor() {
-    super('账号已切换，这次操作已中止')
+    super(t('misc.api.accountSwitched'))
   }
 }
 

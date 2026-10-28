@@ -7,6 +7,7 @@ import { rememberAspect } from './pageCache'
 import { decodePage } from './pageDecode'
 import type { Half } from './pageTools'
 import type { ReaderSettings } from './settings'
+import { t } from '@/i18n'
 
 /** 一屏显示的页；拆分宽页时 half 是这一屏显示的那一半 */
 export interface Screen {
@@ -286,7 +287,7 @@ export function PagedView({
       const shown = src(i, half)
       const k = `${pages[i]}#${half ?? ''}`
       // 拆半页还没处理好：先空着，免得整张闪一下再换成半张
-      if (!shown) return <div key={k} className="h-dvh w-screen flex-none" aria-label={`第 ${i + 1} 页（处理中）`} />
+      if (!shown) return <div key={k} className="h-dvh w-screen flex-none" aria-label={t('reader.image.processing', { n: i + 1 })} />
       return (
         <ReaderImage
           key={k}

@@ -1,0 +1,22 @@
+export default {
+  justNow: 'Just now',
+  minutesAgo_one: '{{count}} minute ago',
+  minutesAgo_other: '{{count}} minutes ago',
+  hoursAgo_one: '{{count}} hour ago',
+  hoursAgo_other: '{{count}} hours ago',
+  yesterday: 'Yesterday',
+  daysAgo_one: '{{count}} day ago',
+  daysAgo_other: '{{count}} days ago',
+  today: 'Today',
+  weekday: {
+    sun: 'Sun',
+    mon: 'Mon',
+    tue: 'Tue',
+    wed: 'Wed',
+    thu: 'Thu',
+    fri: 'Fri',
+    sat: 'Sat',
+  },
+  chapterNo: 'Ch. {{n}}',
+  untitledChapter: 'Untitled chapter',
+}

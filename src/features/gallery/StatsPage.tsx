@@ -26,6 +26,8 @@ import { readTaste, type Taste } from './taste'
 import { useReadChapters } from './useReadChapters'
 import { PosterShare } from './PosterShare'
 import './gallery.css'
+import { t as tl } from '@/i18n'
+import { monthName } from './dates'
 
 /** 排行最多显示这么多部 */
 const TOP = 40
@@ -126,7 +128,7 @@ const STAGE_MIN_H = 760
 
 const dateLabel = (t: number) => {
   const d = new Date(t)
-  return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日`
+  return tl('gallery.dateFull', { year: d.getFullYear(), month: monthName(d.getMonth()), day: d.getDate() })
 }
 
 /**
@@ -255,7 +257,7 @@ export function StatsPage() {
     if (libError) void refetch()
     if (countsError) void refetchCounts()
   }, [reads, libError, countsError, refetch, refetchCounts])
-  const loadingText = error ? null : `正在汇总阅读记录…${reads.fetched ? `已取 ${count(reads.fetched)} 话` : ''}`
+  const loadingText = error ? null : tl('gallery.stats.compiling') + (reads.fetched ? tl('gallery.stats.fetched', { count: reads.fetched, n: count(reads.fetched) }) : '')
 
   return (
     <div data-theme="dark" {...{ [PAGE_PATH_ATTR]: location.pathname }} className="relative min-h-dvh bg-bg text-text">
@@ -271,7 +273,7 @@ export function StatsPage() {
         intro={intro}
         reduced={reduced}
         glow={glow}
-        loadingText={stats ? null : libLoading ? '正在加载书库…' : loadingText}
+        loadingText={stats ? null : libLoading ? tl('gallery.loadingLibrary') : loadingText}
         // 离开时交还给进场进度，外圈跟着倒放收起
         load={load}
         error={error}
@@ -486,9 +488,9 @@ function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; 
       <div className="flex flex-col items-center gap-3 text-center">
         {p.error ? (
           <>
-            <p className="m-0 text-danger">阅读记录加载失败</p>
+            <p className="m-0 text-danger">{tl('gallery.stats.loadFailed')}</p>
             <button type="button" className="solid" onClick={p.retry}>
-              重试
+              {tl('common.retry')}
             </button>
           </>
         ) : (
@@ -496,7 +498,7 @@ function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; 
         )}
       </div>
     )
-  if (!p.ranked.length) return <p className="m-0 text-sm text-muted">还没有读过的作品，读完一话就会出现在这里</p>
+  if (!p.ranked.length) return <p className="m-0 text-sm text-muted">{tl('gallery.stats.noneRead')}</p>
   const e = easeOut((t - 0.6) / 0.45)
   return (
     // 透明度放在玻璃元素自己身上，不放祖先，免得背景采样跟着变
@@ -509,18 +511,18 @@ function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; 
       className="flex h-10 items-center gap-1.5 rounded-full pr-3.5 pl-4 text-[13px] font-bold text-text"
       style={{ opacity: `calc(${e} * (1 - ${seg01('0', '0.15')}))`, translate: `0 calc(${((1 - e) * 18).toFixed(1)}px + ${seg01('0', '0.15')} * 12px)` }}
     >
-      {mobile ? '上滑' : '往下看'} · 读了什么
+      {tl('gallery.stats.hint', { how: mobile ? tl('gallery.stats.swipeUp') : tl('gallery.stats.scrollDown') })}
       <ChevronDown className="size-4" strokeWidth={2.4} />
     </Glass>
   )
 }
 
-const SCREENS = ['概览', '已读排行', '口味']
+const SCREENS = [tl('gallery.stats.screens.overview'), tl('gallery.stats.screens.rank'), tl('gallery.stats.screens.taste')]
 
 /** 右侧三个小点：当前这屏拉长，点哪个切到哪屏 */
 function ScreenDots({ screen, pager, mobile, style }: { screen: number; pager: Pager; mobile: boolean; style: CSSProperties }) {
   return (
-    <nav data-intro-rise="0.7" aria-label="切换屏幕" className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
+    <nav data-intro-rise="0.7" aria-label={tl('gallery.stats.switchAria')} className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
       {SCREENS.map((label, i) => (
         <button key={label} type="button" aria-label={label} aria-current={screen === i ? 'true' : undefined} onClick={() => pager.go(i)} className="group grid place-items-center p-2">
           <span className={cn('block h-[22px] w-1.5 rounded-full transition-[transform,background-color] duration-400 ease-out', screen === i ? 'scale-y-100 bg-white' : 'scale-y-[.273] bg-white/30 group-hover:bg-white/60')} />
@@ -716,16 +718,16 @@ function Stats(p: BodyProps) {
         </div>
       </div>
       <div ref={num} className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
-        <span className="text-xs font-semibold tracking-[.32em] text-muted md:text-[13px]">已读章节</span>
+        <span className="text-xs font-semibold tracking-[.32em] text-muted md:text-[13px]">{tl('gallery.readChapters')}</span>
         <span className="flex items-baseline gap-1.5">
           {/* 数字一开始就是最终值：它是从首页飞过来的，落地时不能变 */}
           <span data-gallery-read className="leading-[.95] font-bold tracking-[-0.045em] num" style={{ fontSize: numSize }}>
             {text}
           </span>
-          <span className="font-cjk text-lg font-bold text-white/75 md:text-xl">话</span>
+          <span className="font-cjk text-lg font-bold text-white/75 md:text-xl">{tl('gallery.unit.chapter', { count: read ?? 0 })}</span>
         </span>
         <span data-intro-fade={peak >= 0 ? 0.5 : undefined} className="mt-1 font-cjk text-xs font-bold text-white/70 md:text-sm" style={{ opacity: peak >= 0 ? easeOut((t - 0.5) / 0.4) : 0 }}>
-          {peak >= 0 ? `${peak} 点读得最多${peak >= 22 || peak <= 3 ? ' · 是个夜猫子' : ''}` : ' '}
+          {peak >= 0 ? tl('gallery.stats.peakAt', { h: peak }) + (peak >= 22 || peak <= 3 ? tl('gallery.stats.peakOwl') : '') : ' '}
         </span>
       </div>
     </div>
@@ -767,9 +769,9 @@ function Stats(p: BodyProps) {
           ) : (
             // 两侧数字贴着表盘，整组居中；不铺满整个窗口，宽屏上中间才不会空出一大片
             <div className="absolute grid items-center justify-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px ${dial}px ${kpiW}px`, columnGap: kpiGap }}>
-              <div>{kpis && group('进度', kpis.progress, false, 0.38)}</div>
+              <div>{kpis && group(tl('gallery.stats.progress'), kpis.progress, false, 0.38)}</div>
               {dialEl}
-              <div className="flex justify-end">{kpis && group('节奏', kpis.rhythm, true, 0.46)}</div>
+              <div className="flex justify-end">{kpis && group(tl('gallery.stats.rhythm'), kpis.rhythm, true, 0.46)}</div>
             </div>
           )}
           <div className="absolute inset-x-0 flex justify-center px-6" style={{ bottom: mobile ? 'max(20px, env(safe-area-inset-bottom))' : 28 }}>
@@ -803,23 +805,23 @@ function Stats(p: BodyProps) {
         {/* ───── 顶栏：三屏共用，不跟着穿过表盘 ───── */}
         {mobile ? (
           <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
-            <Glass as="button" type="button" onClick={p.onExit} aria-label="返回画廊首页" className="gicon size-11 rounded-full text-text">
+            <Glass as="button" type="button" onClick={p.onExit} aria-label={tl('gallery.backAria')} className="gicon size-11 rounded-full text-text">
               <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
             </Glass>
             <div className="flex flex-col items-center">
-              <h1 className="m-0 font-cjk text-[17px] font-black">阅读档案</h1>
-              <span className="text-[11px] text-muted">截至 {dateLabel(p.now)}</span>
+              <h1 className="m-0 font-cjk text-[17px] font-black">{tl('gallery.archive')}</h1>
+              <span className="text-[11px] text-muted">{tl('gallery.stats.asOf', { date: dateLabel(p.now) })}</span>
             </div>
-            <Glass as="button" type="button" onClick={p.onShare} aria-label="分享阅读档案" className="gicon size-11 rounded-full text-text">
+            <Glass as="button" type="button" onClick={p.onShare} aria-label={tl('gallery.stats.shareAria')} className="gicon size-11 rounded-full text-text">
               <Share className="size-5" strokeWidth={1.8} />
             </Glass>
           </header>
         ) : (
           <header className={cn('absolute z-10 flex items-center gap-4', BACK_SLOT)}>
-            <GalleryBack onClick={p.onExit} title="返回画廊首页（Esc）" />
+            <GalleryBack onClick={p.onExit} title={tl('gallery.backTitle')} />
             <div className="flex flex-col gap-0.5">
-              <h1 className="m-0 font-cjk text-xl font-black">阅读档案</h1>
-              <span className="text-[13px] text-muted">书库画廊 · 截至 {dateLabel(p.now)} · 时间按每话最后一次阅读算</span>
+              <h1 className="m-0 font-cjk text-xl font-black">{tl('gallery.archive')}</h1>
+              <span className="text-[13px] text-muted">{tl('gallery.stats.asOfLong', { date: dateLabel(p.now) })}</span>
             </div>
           </header>
         )}
@@ -832,7 +834,7 @@ function Stats(p: BodyProps) {
             className="absolute top-[calc((var(--nav-h)-52px)/2)] right-[max(32px,calc((100%-1320px)/2+32px))] z-10 flex h-[52px] items-center gap-2 rounded-full pr-5 pl-4 text-[17px] font-bold text-text lg:right-[max(48px,calc((100%-1320px)/2+48px))]"
           >
             <Share className="size-5" strokeWidth={1.8} />
-            分享
+            {tl('gallery.share')}
           </Glass>
         )}
       </div>

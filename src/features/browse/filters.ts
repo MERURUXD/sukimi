@@ -1,4 +1,5 @@
 import type { FilterChangeInput, SortSelectionInput, SourceFilterFieldsFragment, TriState } from '@/api/gql/graphql'
+import { t } from '../../i18n/core.ts'
 
 export type SourceFilter = Exclude<SourceFilterFieldsFragment, { __typename: 'GroupFilter' }> | {
   __typename: 'GroupFilter'
@@ -9,7 +10,7 @@ export type FilterValue = string | boolean | number | SortSelectionInput | null
 export type FilterValues = Record<string, FilterValue>
 
 export const TRI_STATES: TriState[] = ['IGNORE', 'INCLUDE', 'EXCLUDE']
-export const TRI_LABELS: Record<TriState, string> = { IGNORE: '不限', INCLUDE: '包含', EXCLUDE: '排除' }
+export const TRI_LABELS: Record<TriState, string> = { IGNORE: t('browse.filter.tri.IGNORE'), INCLUDE: t('browse.filter.tri.INCLUDE'), EXCLUDE: t('browse.filter.tri.EXCLUDE') }
 
 export function defaultValue(filter: SourceFilter): FilterValue {
   switch (filter.__typename) {

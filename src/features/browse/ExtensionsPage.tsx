@@ -25,6 +25,7 @@ import { defaultLangs, langCounts, tabCounts, visibleExtensions, type Extension,
 import { ConfigurableSources, Extensions, FetchExtensions, InstallExternalExtension, langLabel, UpdateExtension, UpdateExtensions } from './queries'
 import { SourcePreferencesDialog, type PreferenceSource } from './SourcePreferences'
 import { SourceIcon } from './SourceIcon'
+import { t } from '@/i18n'
 
 /** 「未安装」的语言选择和成人扩展开关，记在本机 */
 interface ExtensionView {
@@ -124,10 +125,10 @@ export function ExtensionsPage() {
       fetchedAt = Date.now()
       if (!quiet) {
         const n = r.data?.fetchExtensions?.extensions.filter((e) => e.isInstalled && e.hasUpdate).length ?? 0
-        toast(n ? `有 ${n} 个扩展可以更新` : '扩展都是最新的')
+        toast(n ? t('browse.ext.updatesAvailable', { count: n }) : t('browse.ext.allUpToDate'))
       }
     } catch (e) {
-      toastError('检查扩展失败', e)
+      toastError(t('browse.ext.checkFailed'), e)
     } finally {
       setChecking(false)
     }
@@ -145,9 +146,9 @@ export function ExtensionsPage() {
   const run = async (e: Extension, action: Busy) => {
     if (action === 'uninstall') {
       const ok = await confirm({
-        title: `卸载「${displayName(e)}」？`,
-        body: '书库里来自这个来源的漫画会保留，但重新安装之前无法检查更新，也不能在线阅读没下载的章节。',
-        ok: '卸载',
+        title: t('browse.ext.uninstallTitle', { name: displayName(e) }),
+        body: t('browse.ext.uninstallBody'),
+        ok: t('browse.ext.uninstall'),
         danger: true,
       })
       if (!ok) return
@@ -160,9 +161,9 @@ export function ExtensionsPage() {
       })
       // 已下架的扩展卸载后服务端会删掉记录，重新查一次列表
       if (action === 'uninstall') await refetch()
-      toast(`${action === 'install' ? '已安装' : action === 'update' ? '已更新' : '已卸载'}「${displayName(e)}」`)
+      toast(t(`browse.ext.done.${action}`, { name: displayName(e) }))
     } catch (err) {
-      toastError(`${action === 'install' ? '安装' : action === 'update' ? '更新' : '卸载'}失败`, err)
+      toastError(t(`browse.ext.failed.${action}`), err)
     } finally {
       setBusy((b) => Object.fromEntries(Object.entries(b).filter(([k]) => k !== e.pkgName)))
     }
@@ -174,9 +175,9 @@ export function ExtensionsPage() {
     setBusy((b) => ({ ...b, ...Object.fromEntries(targets.map((e) => [e.pkgName, 'update' as const])) }))
     try {
       await updateAll({ variables: { ids: targets.map((e) => e.pkgName) }, update: forgetSources })
-      toast(`已更新 ${targets.length} 个扩展`)
+      toast(t('browse.ext.updatedMany', { n: targets.length }))
     } catch (err) {
-      toastError('更新失败', err)
+      toastError(t('browse.ext.updateFailed'), err)
     } finally {
       setBusy((b) => Object.fromEntries(Object.entries(b).filter(([k]) => !targets.some((e) => e.pkgName === k))))
     }
@@ -189,9 +190,9 @@ export function ExtensionsPage() {
     ev.target.value = ''
     if (!file) return
     const ok = await confirm({
-      title: `安装「${file.name}」？`,
-      body: '扩展会在服务端运行代码，只安装你信任的文件。同名扩展会被这个文件替换。',
-      ok: '安装',
+      title: t('browse.ext.installFileTitle', { name: file.name }),
+      body: t('browse.ext.installFileBody'),
+      ok: t('browse.ext.install'),
     })
     if (!ok) return
     setInstallingFile(true)
@@ -200,18 +201,18 @@ export function ExtensionsPage() {
       await refetch()
       forgetSources(client.cache)
       const e = r.installExternalExtension?.extension
-      toast(e ? `已安装「${displayName(e)}」` : '已安装')
+      toast(e ? t('browse.ext.done.install', { name: displayName(e) }) : t('browse.ext.installed'))
     } catch (err) {
-      toastError('安装失败', err)
+      toastError(t('browse.ext.installFailed'), err)
     } finally {
       setInstallingFile(false)
     }
   }
 
   const tabs: SegItem<ExtensionTab>[] = [
-    ...(counts.updates > 0 || tab === 'updates' ? [{ value: 'updates' as const, label: '可更新', count: counts.updates }] : []),
-    { value: 'installed', label: '已安装', count: counts.installed },
-    { value: 'available', label: '未安装', count: counts.available },
+    ...(counts.updates > 0 || tab === 'updates' ? [{ value: 'updates' as const, label: t('browse.ext.tabUpdates'), count: counts.updates }] : []),
+    { value: 'installed', label: t('browse.ext.tabInstalled'), count: counts.installed },
+    { value: 'available', label: t('browse.ext.tabAvailable'), count: counts.available },
   ]
   const allLangs = useMemo(() => langCounts(list ?? []), [list])
   const toggleLang = (l: string) => view.setLangs(langs.includes(l) ? langs.filter((x) => x !== l) : [...langs, l])
@@ -221,9 +222,9 @@ export function ExtensionsPage() {
   return (
     <div className="wrap pb-20">
       <PageHeader
-        title="扩展"
+        title={t('browse.ext.title')}
         lead={
-          <Link to="/browse" aria-label="返回发现" className="flex-none rounded-full text-text no-underline">
+          <Link to="/browse" aria-label={t('browse.ext.back')} className="flex-none rounded-full text-text no-underline">
             <Glass flat as="span" className="gicon size-11 rounded-full">
               <ChevronLeft className="size-6" strokeWidth={1.8} />
             </Glass>
@@ -232,40 +233,40 @@ export function ExtensionsPage() {
         actions={
           <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_560px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
             <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-            <span className="sr">搜索扩展</span>
+            <span className="sr">{t('browse.ext.searchLabel')}</span>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="按名称或包名搜索扩展"
+              placeholder={t('browse.ext.searchPlaceholder')}
               className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
             />
             <span className="text-[13px] whitespace-nowrap">
-              {checking ? '正在检查仓库…' : list ? `${list.length} 个扩展` : ''}
+              {checking ? t('browse.ext.checking') : list ? t('browse.ext.count', { count: list.length }) : ''}
             </span>
           </Glass>
         }
       />
 
       <div className="mb-6 flex flex-wrap items-center gap-2.5 max-sm:gap-2">
-        <Seg flat label="扩展分栏" items={tabs} value={tab} onChange={setTab} className="max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:justify-center" />
+        <Seg flat label={t('browse.ext.tabsAria')} items={tabs} value={tab} onChange={setTab} className="max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:justify-center" />
         {tab === 'available' && (
           <Popover
             open={langPop}
             onClose={() => setLangPop(false)}
-            label="语言与成人内容"
+            label={t('browse.ext.langsAria')}
             align="left"
             fitViewport
             className="flex w-[380px] max-w-[calc(100vw-32px)] flex-col gap-5 px-4 py-5"
             trigger={
               <Glass flat as="button" type="button" className={cn('gbtn rounded-full', langPop && 'bg-g-hi')} aria-expanded={langPop} onClick={() => setLangPop((v) => !v)}>
                 <Globe className="size-[18px]" strokeWidth={1.8} />
-                {langs.length === 0 ? '全部语言' : langs.length === 1 ? langLabel(langs[0]) : `${langs.length} 种语言`}
+                {langs.length === 0 ? t('browse.ext.allLangs') : langs.length === 1 ? langLabel(langs[0]) : t('browse.ext.langCount', { count: langs.length })}
               </Glass>
             }
           >
             <div>
-              <h3 className="pop-h">显示这些语言的扩展</h3>
+              <h3 className="pop-h">{t('browse.ext.showLangs')}</h3>
               <div className="flex flex-wrap gap-1.5">
                 {allLangs.map(([l, n]) => (
                   <button key={l} type="button" className={cn('fopt', langs.includes(l) && 'inc')} aria-pressed={langs.includes(l)} onClick={() => toggleLang(l)}>
@@ -275,16 +276,16 @@ export function ExtensionsPage() {
                 ))}
               </div>
               <div className="mt-3 flex gap-2">
-                <button type="button" className="opt w-auto" onClick={() => view.setLangs([])}>全部语言</button>
-                <button type="button" className="opt w-auto" onClick={() => view.setLangs(null)}>恢复默认</button>
+                <button type="button" className="opt w-auto" onClick={() => view.setLangs([])}>{t('browse.ext.allLangs')}</button>
+                <button type="button" className="opt w-auto" onClick={() => view.setLangs(null)}>{t('browse.ext.resetDefault')}</button>
               </div>
             </div>
             <label className="flex items-center gap-3">
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="font-semibold">隐藏成人扩展</span>
-                <span className="text-xs text-muted">只影响「未安装」，已安装的照常显示</span>
+                <span className="font-semibold">{t('browse.ext.hideAdult')}</span>
+                <span className="text-xs text-muted">{t('browse.ext.hideAdultHint')}</span>
               </span>
-              <Switch on={view.hideNsfw} onChange={view.setHideNsfw} label="隐藏成人扩展" />
+              <Switch on={view.hideNsfw} onChange={view.setHideNsfw} label={t('browse.ext.hideAdult')} />
             </label>
           </Popover>
         )}
@@ -294,17 +295,18 @@ export function ExtensionsPage() {
         {counts.updates > 0 && canInstall && (
           <button type="button" className="solid min-h-11" disabled={updatingAll} onClick={() => void runAll()}>
             {updatingAll ? <Loader2 className="size-[18px] animate-spin" /> : <Download className="size-[18px]" strokeWidth={1.8} />}
-            <span className="max-sm:hidden">全部</span>更新
+            <span className="max-sm:hidden">{t('browse.ext.updateAll')}</span>
+            <span className="sm:hidden">{t('browse.ext.update')}</span>
           </button>
         )}
-        <Glass flat as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="检查更新" disabled={checking} onClick={() => void check()}>
+        <Glass flat as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label={t('browse.ext.check')} disabled={checking} onClick={() => void check()}>
           <RefreshCw className={cn('size-[18px]', checking && 'animate-spin')} strokeWidth={1.8} />
-          <span className="max-sm:hidden">检查更新</span>
+          <span className="max-sm:hidden">{t('browse.ext.check')}</span>
         </Glass>
         <Can permission="INSTALL_EXTERNAL_EXTENSIONS">
-          <Glass flat as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label="安装 APK 文件" disabled={installingFile} onClick={() => fileInput.current?.click()}>
+          <Glass flat as="button" type="button" className="gbtn rounded-full max-sm:size-11 max-sm:p-0" aria-label={t('browse.ext.installApkAria')} disabled={installingFile} onClick={() => fileInput.current?.click()}>
             {installingFile ? <Loader2 className="size-[18px] animate-spin" /> : <PackagePlus className="size-[18px]" strokeWidth={1.8} />}
-            <span className="max-sm:hidden">安装 APK</span>
+            <span className="max-sm:hidden">{t('browse.ext.installApk')}</span>
           </Glass>
           <input ref={fileInput} type="file" accept=".apk,application/vnd.android.package-archive" hidden onChange={(e) => void installFile(e)} />
         </Can>
@@ -312,8 +314,8 @@ export function ExtensionsPage() {
 
       {error && !list && (
         <p className="py-16 text-center text-muted">
-          无法读取扩展列表：{error.message.split('\n')[0]}
-          <button type="button" className="ml-3 font-semibold text-text" onClick={() => void refetch()}>重试</button>
+          {t('browse.ext.loadFailed', { reason: error.message.split('\n')[0] })}
+          <button type="button" className="ml-3 font-semibold text-text" onClick={() => void refetch()}>{t('common.retry')}</button>
         </p>
       )}
 
@@ -321,14 +323,14 @@ export function ExtensionsPage() {
 
       {list && list.length === 0 && !checking && (
         <p className="py-16 text-center text-muted">
-          还没有可用的扩展。先在设置里添加扩展仓库：
-          <Link to="/settings/browse" className="ml-1 font-semibold text-text">来源与扩展设置</Link>
+          {t('browse.ext.emptyRepos')}
+          <Link to="/settings/browse" className="ml-1 font-semibold text-text">{t('browse.ext.settingsLink')}</Link>
         </p>
       )}
 
       {list && list.length > 0 && shown === 0 && (
         <p className="py-16 text-center text-muted">
-          {query ? '没有匹配的扩展' : tab === 'updates' ? '扩展都是最新的' : tab === 'installed' ? '还没有安装扩展' : '没有符合所选语言的扩展'}
+          {query ? t('browse.ext.noMatch') : tab === 'updates' ? t('browse.ext.allUpToDate') : tab === 'installed' ? t('browse.ext.noInstalled') : t('browse.ext.noLangMatch')}
         </p>
       )}
 
@@ -357,8 +359,6 @@ export function ExtensionsPage() {
   )
 }
 
-const WARNING: Record<Extension['contentWarning'], string | null> = { SAFE: null, MIXED: '部分成人内容', NSFW: '成人内容' }
-
 function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extension; showStore: boolean; busy?: Busy; onAction: (a: Busy) => void; onConfigure?: () => void }) {
   const name = displayName(e)
   // 更新也算安装；没有对应权限的账号只看列表
@@ -366,8 +366,8 @@ function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extens
   const canUninstall = useCan('UNINSTALL_EXTENSIONS')
   const meta = [
     `v${e.versionName}`,
-    WARNING[e.contentWarning],
-    e.isObsolete ? '仓库已下架' : null,
+    e.contentWarning === 'SAFE' ? null : t(`browse.ext.warning.${e.contentWarning}`),
+    e.isObsolete ? t('browse.ext.obsolete') : null,
     showStore ? e.extensionStore?.name : null,
   ].filter(Boolean)
 
@@ -382,29 +382,29 @@ function ExtensionRow({ e, showStore, busy, onAction, onConfigure }: { e: Extens
       {busy ? (
         <span className="inline-flex min-h-10 items-center gap-1.5 px-2 text-sm text-muted" role="status">
           <Loader2 className="size-4 animate-spin" />
-          {busy === 'install' ? '安装中' : busy === 'update' ? '更新中' : '卸载中'}
+          {t(`browse.ext.busy.${busy}`)}
         </span>
       ) : !e.isInstalled ? (
         canInstall && (
           // 行有 content-visibility（隐含绘制裁切），按钮的外投影会被截成行边缘一圈方形阴影，这里去掉
-          <Glass flat as="button" type="button" className="gbtn min-h-10 rounded-full px-4 [--g-drop:0_0_0_transparent]" aria-label={`安装 ${name}`} onClick={() => onAction('install')}>
-            安装
+          <Glass flat as="button" type="button" className="gbtn min-h-10 rounded-full px-4 [--g-drop:0_0_0_transparent]" aria-label={t('browse.ext.installAria', { name })} onClick={() => onAction('install')}>
+            {t('browse.ext.install')}
           </Glass>
         )
       ) : (
         <span className="flex items-center gap-1">
           {e.hasUpdate && canInstall && (
-            <button type="button" className="solid min-h-10 px-4" aria-label={`更新 ${name}`} onClick={() => onAction('update')}>
-              更新
+            <button type="button" className="solid min-h-10 px-4" aria-label={t('browse.ext.updateAria', { name })} onClick={() => onAction('update')}>
+              {t('browse.ext.update')}
             </button>
           )}
           {onConfigure && (
-            <button type="button" className="gicon size-10 text-muted hover:text-text" aria-label={`${name} 设置`} title="扩展设置" onClick={onConfigure}>
+            <button type="button" className="gicon size-10 text-muted hover:text-text" aria-label={t('browse.ext.settingsAria', { name })} title={t('browse.ext.settingsTitle')} onClick={onConfigure}>
               <Settings2 className="size-[18px]" strokeWidth={1.8} />
             </button>
           )}
           {canUninstall && (
-            <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={`卸载 ${name}`} title="卸载" onClick={() => onAction('uninstall')}>
+            <button type="button" className="gicon size-10 text-muted hover:text-danger" aria-label={t('browse.ext.uninstallAria', { name })} title={t('browse.ext.uninstall')} onClick={() => onAction('uninstall')}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />
             </button>
           )}

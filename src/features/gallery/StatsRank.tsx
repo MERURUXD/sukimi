@@ -9,6 +9,7 @@ import { cn } from '@/lib/cn'
 import { clamp01 } from './canvasMath'
 import { ease, seg, type Pager } from './statsPager'
 import { useRankCover } from './rankCover'
+import { t as tl } from '@/i18n'
 
 export interface Ranked {
   manga: LibraryManga
@@ -22,7 +23,7 @@ export interface Ranked {
 }
 
 /** 排行里给 NSFW 作品用的替身：数字照常，能认出是哪部的字段都去掉 */
-export const maskRanked = (m: LibraryManga): LibraryManga => ({ ...m, title: 'NSFW 作品', thumbnailUrl: null, author: null, artist: null, genre: [] })
+export const maskRanked = (m: LibraryManga): LibraryManga => ({ ...m, title: tl('gallery.stats.nsfwWork'), thumbnailUrl: null, author: null, artist: null, genre: [] })
 
 /** 排行一组几部：前三名放大摆成领奖台，后五部排成一行 */
 export const GROUP = 8
@@ -74,7 +75,7 @@ function Cover({ it, className, style }: { it: Ranked; className?: string; style
   )
 }
 
-const label = (it: Ranked) => `第 ${it.rank} 名：${it.manga.title}，已读 ${it.read} 话`
+const label = (it: Ranked) => tl('gallery.stats.rankLabel', { rank: it.rank, title: it.manga.title, count: it.read, n: it.read })
 const no = (n: number) => String(n).padStart(2, '0')
 
 /**
@@ -181,16 +182,16 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
           <span className={cn('flex flex-wrap items-baseline', phone ? 'gap-x-2' : 'gap-x-3')}>
             <span className="leading-none font-bold tracking-[-0.04em] num" style={{ fontSize: Math.round((phone ? (first ? 28 : 22) : first ? 40 : 30) * (phone ? 1 : u)) }}>
               {count(it.read)}
-              <span className="ml-1 font-cjk text-[11px] font-bold tracking-normal text-muted">话</span>
+              <span className="ml-1 font-cjk text-[11px] font-bold tracking-normal text-muted">{tl('gallery.unit.chapter', { count: it.read })}</span>
             </span>
-            {it.pages > 0 && <span className="text-[11px] whitespace-nowrap text-muted num">约 {count(it.pages)} 页</span>}
+            {it.pages > 0 && <span className="text-[11px] whitespace-nowrap text-muted num">{tl('gallery.stats.aboutPages', { count: it.pages, n: count(it.pages) })}</span>}
           </span>
           {it.total != null && it.total > 0 && (
             <span className="mt-2.5 flex items-center gap-2.5 text-[10px] whitespace-nowrap text-white/45 num">
               <span aria-hidden className="block h-0.5 flex-none overflow-hidden rounded-sm bg-white/10" style={{ width: Math.round((phone ? 60 : 110) * (phone ? 1 : u)) }}>
                 <span className="block h-full rounded-sm bg-white/70" style={{ width: `${Math.min(100, (it.read / it.total) * 100)}%` }} />
               </span>
-              {count(it.read)} / {count(it.total)} 话{done && ' · 已追平'}
+              {tl('gallery.stats.readOfTotal', { read: count(it.read), total: count(it.total) })}{done && tl('gallery.stats.caughtUp')}
             </span>
           )}
         </span>
@@ -224,7 +225,7 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
             <span className="mt-0.5 block truncate text-xs font-bold">{it.manga.title}</span>
           </span>
           <span className={cn('self-start text-xs text-muted num', swapIn)} style={lift(j + 4)}>
-            {count(it.read)} 话
+            {tl('gallery.chaptersN', { count: it.read, n: count(it.read) })}
           </span>
         </>
       )}
@@ -240,7 +241,7 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
       }}
       onClick={() => pager.flip(group + d)}
       disabled={d < 0 ? group === 0 : group >= groups - 1}
-      aria-label={d < 0 ? '上一组' : '下一组'}
+      aria-label={d < 0 ? tl('gallery.stats.prevGroup') : tl('gallery.stats.nextGroup')}
       className="grid size-10 place-items-center rounded-full text-text"
     >
       {d < 0 ? <ChevronLeft className="size-[18px]" strokeWidth={2} /> : <ChevronRight className="size-[18px]" strokeWidth={2} />}
@@ -248,16 +249,16 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
   )
 
   return (
-    <section aria-label="已读排行" className="absolute flex flex-col" style={{ left: L.left, width: L.width, top: L.top, bottom: L.bottom, gap: Math.round((phone ? 16 : 26) * u), justifyContent: phone ? 'flex-start' : 'center' }}>
+    <section aria-label={tl('gallery.stats.screens.rank')} className="absolute flex flex-col" style={{ left: L.left, width: L.width, top: L.top, bottom: L.bottom, gap: Math.round((phone ? 16 : 26) * u), justifyContent: phone ? 'flex-start' : 'center' }}>
       <BigHead
         ref={(el) => {
           head.current = el
         }}
-        eyebrow={`02 / 已读排行 · 前 ${ranked.length} 部`}
+        eyebrow={tl('gallery.stats.rankEyebrow', { n: ranked.length })}
         fs={L.headFs}
         phone={phone}
       >
-        总有些故事，<span className="whitespace-nowrap text-white/30">读得更多。</span>
+        {tl('gallery.stats.rankHead1')}<span className="whitespace-nowrap text-white/30">{tl('gallery.stats.rankHead2')}</span>
       </BigHead>
       <div className={cn('grid', phone ? 'grid-cols-2 gap-x-[6%] gap-y-5' : 'items-end gap-[4%]')} style={phone ? undefined : { gridTemplateColumns: '1.45fr 1fr 1fr' }}>
         {podium}

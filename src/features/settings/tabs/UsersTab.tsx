@@ -10,6 +10,7 @@ import { toast, toastError } from '@/components/ui/toast'
 import { ALL_PERMISSIONS, PERMISSION_LABEL, ROLE_LABEL } from '@/features/auth/permissions'
 import { Row, Section, Switch, TextInput } from '../parts'
 import { codeExpiryText, registerLink } from '../userCodes'
+import { t } from '@/i18n'
 
 /** 服务端内置管理员（用户 1）：不能改角色权限，也没有找回码 */
 const BUILTIN_ADMIN_ID = 1
@@ -103,9 +104,9 @@ interface Issued {
 async function copy(text: string, what: string) {
   try {
     await navigator.clipboard.writeText(text)
-    toast(`已复制${what}`)
+    toast(t('cfg.users.copied', { what }))
   } catch {
-    toast('复制失败，请手动选中复制', 'error')
+    toast(t('cfg.users.copyFailed'), 'error')
   }
 }
 
@@ -128,22 +129,22 @@ function IssuedCode({ issued, onClose }: { issued: Issued; onClose: () => void }
   return (
     <div className="flex flex-col gap-3">
       <div className="text-sm text-muted">
-        {issued.kind === 'register' ? '注册码' : `${issued.username} 的找回码`}只显示这一次，请现在复制并私下发给对方 · {codeExpiryText(issued.expiresAt)}
+        {t('cfg.users.shownOnce', { what: issued.kind === 'register' ? t('cfg.users.regCode') : t('cfg.users.recoveryOf', { name: issued.username }), expiry: codeExpiryText(issued.expiresAt) })}
       </div>
       <code className="font-mono text-lg break-all select-all">{issued.code}</code>
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="gbtn plain rounded-full" onClick={() => void copy(issued.code, '码')}>
+        <button type="button" className="gbtn plain rounded-full" onClick={() => void copy(issued.code, t('cfg.users.whatCode'))}>
           <Copy className="size-[18px]" strokeWidth={1.8} />
-          复制码
+          {t('cfg.users.copyCode')}
         </button>
         {link && (
-          <button type="button" className="gbtn plain rounded-full" onClick={() => void copy(link, '链接')}>
+          <button type="button" className="gbtn plain rounded-full" onClick={() => void copy(link, t('cfg.users.whatLink'))}>
             <Copy className="size-[18px]" strokeWidth={1.8} />
-            复制注册链接
+            {t('cfg.users.copyLink')}
           </button>
         )}
         <button type="button" className="gbtn plain rounded-full" onClick={onClose}>
-          我已保存
+          {t('cfg.users.saved')}
         </button>
       </div>
     </div>
@@ -158,20 +159,20 @@ function InviteSection({ issued, onIssued }: { issued: Issued | null; onIssued: 
       const r = await create()
       if (r.data) onIssued({ kind: 'register', code: r.data.createRegistrationCode.code, expiresAt: r.data.createRegistrationCode.expiresAt })
     } catch (e) {
-      toastError('生成注册码失败', e)
+      toastError(t('cfg.users.genFailed'), e)
     }
   }
 
   return (
     <Section
-      title="邀请新用户"
-      desc="生成注册码发给对方，由对方在登录页自行设置用户名与密码。新用户权限可在注册后调整。"
+      title={t('cfg.users.inviteTitle')}
+      desc={t('cfg.users.inviteDesc')}
     >
       {issued && <IssuedCode issued={issued} onClose={() => onIssued(null)} />}
-      <Row label="注册码" hint="一次性使用，7 天内有效">
+      <Row label={t('cfg.users.regCodeLabel')} hint={t('cfg.users.regCodeHint')}>
         <button type="button" className="gbtn plain rounded-full" disabled={loading} onClick={() => void make()}>
           <Plus className="size-[18px]" strokeWidth={1.8} />
-          生成注册码
+          {t('cfg.users.gen')}
         </button>
       </Row>
     </Section>
@@ -186,23 +187,23 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
 
   const recover = async (id: number, username: string) => {
     const ok = await confirm({
-      title: `给「${username}」生成找回码？`,
-      body: '对方用找回码设置新密码后，旧密码就不能再用了。每个用户同时只有一个未用的找回码。',
-      ok: '生成',
+      title: t('cfg.users.recoverTitle', { name: username }),
+      body: t('cfg.users.recoverBody'),
+      ok: t('cfg.users.recoverOk'),
     })
     if (!ok) return
     try {
       const r = await recovery({ variables: { userId: id } })
       if (r.data) onIssued({ kind: 'recover', code: r.data.createRecoveryCode.code, expiresAt: r.data.createRecoveryCode.expiresAt, username })
     } catch (e) {
-      toastError('生成找回码失败', e)
+      toastError(t('cfg.users.recoverFailed'), e)
     }
   }
 
   const users = data?.users.nodes
 
   return (
-    <Section title="用户" desc="权限和角色的改动要等对方的登录令牌下一次刷新才生效，最长 5 分钟。">
+    <Section title={t('cfg.users.title')} desc={t('cfg.users.desc')}>
       <div className="flex flex-col gap-5">
         {!users && <span className="text-muted">…</span>}
         {users?.map((u) => (
@@ -211,24 +212,24 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
               label={u.username}
               hint={
                 u.id === BUILTIN_ADMIN_ID
-                  ? '内置管理员，权限和密码都在服务端配置里管理'
+                  ? t('cfg.users.builtin')
                   : u.id === selfId
-                    ? '这是你自己，不能在这里改自己的角色'
+                    ? t('cfg.users.self')
                     : u.roles.includes('ADMIN')
-                    ? '拥有全部权限'
+                    ? t('cfg.users.allPerms')
                     : u.permissions.length
-                      ? u.permissions.map((p) => PERMISSION_LABEL[p]).join('、')
-                      : '没有额外权限'
+                      ? u.permissions.map((p) => PERMISSION_LABEL[p]).join(t('cfg.sep'))
+                      : t('cfg.users.noExtra')
               }
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted">{u.roles.map((r) => ROLE_LABEL[r]).join('、')}</span>
+                <span className="text-sm text-muted">{u.roles.map((r) => ROLE_LABEL[r]).join(t('cfg.sep'))}</span>
                 {u.id !== BUILTIN_ADMIN_ID && u.id !== selfId && (
                   <>
                     <button type="button" className="gbtn plain rounded-full" onClick={() => setEditing(editing === u.id ? null : u.id)}>
-                      {editing === u.id ? '收起' : '编辑'}
+                      {editing === u.id ? t('cfg.users.collapse') : t('cfg.users.edit')}
                     </button>
-                    <button type="button" className="gicon plain rounded-full" aria-label={`给 ${u.username} 生成找回码`} onClick={() => void recover(u.id, u.username)}>
+                    <button type="button" className="gicon plain rounded-full" aria-label={t('cfg.users.recoverAria', { name: u.username })} onClick={() => void recover(u.id, u.username)}>
                       <KeyRound className="size-[18px]" strokeWidth={1.8} />
                     </button>
                   </>
@@ -263,10 +264,10 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
     try {
       const permissions = ALL_PERMISSIONS.filter((p) => perms.has(p))
       await save({ variables: { input: { userId: user.id, permissions, ...(role !== initialRole && { role }) } } })
-      toast(`已更新「${user.username}」，最长 5 分钟后对方生效`)
+      toast(t('cfg.users.updated', { name: user.username }))
       onDone()
     } catch (e) {
-      toastError('更新失败', e)
+      toastError(t('cfg.users.updateFailed'), e)
     }
   }
 
@@ -275,7 +276,7 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
       {isAdmin && (
         <Seg
           glass={false}
-          label="角色"
+          label={t('cfg.users.role')}
           value={role}
           onChange={setRole}
           items={[
@@ -286,7 +287,7 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
         />
       )}
       {role === 'ADMIN' ? (
-        <p className="m-0 text-sm text-muted">管理员拥有全部权限，不需要单独勾选。</p>
+        <p className="m-0 text-sm text-muted">{t('cfg.users.adminNote')}</p>
       ) : (
         <div className="flex flex-col gap-3">
           {ALL_PERMISSIONS.map((p) => (
@@ -298,10 +299,10 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
       )}
       <div className="flex gap-2">
         <button type="button" className="solid" disabled={loading} onClick={() => void submit()}>
-          {loading ? '正在保存…' : '保存'}
+          {loading ? t('cfg.users.saving') : t('cfg.users.save')}
         </button>
         <button type="button" className="gbtn plain rounded-full" onClick={onDone}>
-          取消
+          {t('common.cancel')}
         </button>
       </div>
     </div>
@@ -311,29 +312,29 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
 function CodesSection() {
   const { data } = useQuery(UserCodes)
   const [revoke] = useMutation(RevokeUserCode, { refetchQueries: [UserCodes] })
-  const codes = data?.userCodes.filter((c) => c.expiresAt && codeExpiryText(c.expiresAt) !== '已过期')
+  const codes = data?.userCodes.filter((c) => c.expiresAt && codeExpiryText(c.expiresAt) !== t('cfg.code.expired'))
 
   const drop = async (id: number) => {
-    if (!(await confirm({ title: '撤销这个码？', body: '撤销后对方无法再用它。', ok: '撤销', danger: true }))) return
+    if (!(await confirm({ title: t('cfg.users.revokeTitle'), body: t('cfg.users.revokeBody'), ok: t('cfg.users.revokeOk'), danger: true }))) return
     try {
       await revoke({ variables: { id } })
     } catch (e) {
-      toastError('撤销失败', e)
+      toastError(t('cfg.users.revokeFailed'), e)
     }
   }
 
   if (codes?.length === 0) return null
   return (
-    <Section title="未使用的码" desc="服务端不保存码的明文，这里只能看到它们还没被使用，并撤销。">
+    <Section title={t('cfg.users.unusedTitle')} desc={t('cfg.users.unusedDesc')}>
       <div className="flex flex-col gap-3">
         {!codes && <span className="text-muted">…</span>}
         {codes?.map((c) => (
           <Row
             key={c.id}
-            label={c.purpose === 'REGISTRATION' ? '注册码' : `${c.user?.username ?? ''} 的找回码`}
-            hint={`${codeExpiryText(c.expiresAt)} · 由 ${c.createdBy.username} 生成`}
+            label={c.purpose === 'REGISTRATION' ? t('cfg.users.regCodeLabel') : t('cfg.users.codeLabelRecovery', { name: c.user?.username ?? '' })}
+            hint={t('cfg.users.codeHint', { expiry: codeExpiryText(c.expiresAt), name: c.createdBy.username })}
           >
-            <button type="button" className="gicon plain rounded-full" aria-label="撤销" onClick={() => void drop(c.id)}>
+            <button type="button" className="gicon plain rounded-full" aria-label={t('cfg.users.revokeAria')} onClick={() => void drop(c.id)}>
               <Trash2 className="size-[18px]" strokeWidth={1.8} />
             </button>
           </Row>
@@ -354,35 +355,35 @@ function CreateUserSection() {
     if (!username.trim() || !password) return
     try {
       await create({ variables: { input: { username: username.trim(), password } } })
-      toast(`已创建用户「${username.trim()}」`)
+      toast(t('cfg.users.created', { name: username.trim() }))
       setUsername('')
       setPassword('')
       setOpen(false)
     } catch (err) {
-      toastError('创建失败', err)
+      toastError(t('cfg.users.createFailed'), err)
     }
   }
 
   return (
-    <Section title="直接创建账号" desc="由管理员设定初始密码并告知对方；更推荐使用注册码，密码无需经过管理员。">
+    <Section title={t('cfg.users.directTitle')} desc={t('cfg.users.directDesc')}>
       {open ? (
         <form onSubmit={submit} className="flex max-w-[360px] flex-col gap-3">
-          <TextInput placeholder="用户名" autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
-          <TextInput type="password" placeholder="初始密码" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <TextInput placeholder={t('cfg.username')} autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <TextInput type="password" placeholder={t('cfg.users.initPw')} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <div className="flex gap-2">
             <button className="solid" disabled={loading || !username.trim() || !password}>
-              {loading ? '正在创建…' : '创建'}
+              {loading ? t('cfg.users.creating') : t('cfg.users.create')}
             </button>
             <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(false)}>
-              取消
+              {t('common.cancel')}
             </button>
           </div>
         </form>
       ) : (
-        <Row label="创建账号">
+        <Row label={t('cfg.users.createRow')}>
           <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(true)}>
             <UserPlus className="size-[18px]" strokeWidth={1.8} />
-            创建账号
+            {t('cfg.users.createRow')}
           </button>
         </Row>
       )}

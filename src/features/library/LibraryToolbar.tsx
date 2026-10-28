@@ -10,50 +10,51 @@ import { useMobile } from '@/features/gallery/hooks'
 import { cn } from '@/lib/cn'
 import { FILTERS, SORTS } from './filtering'
 import { useLibraryView, type BadgeKey, type Density, type LibraryTab, type SublineKey, type TitleLines } from './store'
+import { t } from '@/i18n'
 
 const DENSITIES: SegItem<Density>[] = [
-  { value: 'comfy', label: '舒适网格' },
-  { value: 'compact', label: '紧凑网格' },
-  { value: 'list', label: '列表' },
+  { value: 'comfy', label: t('library.toolbar.comfy') },
+  { value: 'compact', label: t('library.toolbar.compact') },
+  { value: 'list', label: t('library.toolbar.list') },
 ]
 
 const BADGES: { key: BadgeKey; label: string }[] = [
-  { key: 'favorite', label: '特别关心' },
-  { key: 'unread', label: '未读数' },
-  { key: 'downloaded', label: '已下载' },
-  { key: 'score', label: '评分' },
-  { key: 'bookmarks', label: '书签数' },
-  { key: 'completed', label: '已完结' },
-  { key: 'lang', label: '语言' },
+  { key: 'favorite', label: t('library.toolbar.badgeFavorite') },
+  { key: 'unread', label: t('library.toolbar.badgeUnread') },
+  { key: 'downloaded', label: t('library.toolbar.badgeDownloaded') },
+  { key: 'score', label: t('library.toolbar.badgeScore') },
+  { key: 'bookmarks', label: t('library.toolbar.badgeBookmarks') },
+  { key: 'completed', label: t('library.toolbar.badgeCompleted') },
+  { key: 'lang', label: t('library.toolbar.badgeLang') },
 ]
 
 const TITLE_LINES: SegItem<`${TitleLines}`>[] = [
-  { value: '0', label: '不显示标题' },
-  { value: '1', label: '标题一行' },
-  { value: '2', label: '标题两行' },
+  { value: '0', label: t('library.toolbar.titleNone') },
+  { value: '1', label: t('library.toolbar.titleOne') },
+  { value: '2', label: t('library.toolbar.titleTwo') },
 ]
 
 const SUBLINE: { key: SublineKey; label: string }[] = [
-  { key: 'source', label: '来源' },
-  { key: 'time', label: '更新时间' },
-  { key: 'author', label: '作者' },
-  { key: 'genre', label: '题材标签' },
+  { key: 'source', label: t('library.toolbar.metaSource') },
+  { key: 'time', label: t('library.toolbar.metaTime') },
+  { key: 'author', label: t('library.toolbar.metaAuthor') },
+  { key: 'genre', label: t('library.toolbar.metaGenre') },
 ]
 
 /** 每行封面数的可选范围；从「自动」切到固定时先用中间值 */
 const COLS = { mobile: { min: 2, max: 6, start: 3 }, desktop: { min: 2, max: 12, start: 6 } }
 
 const COL_MODES: SegItem<'auto' | 'fixed'>[] = [
-  { value: 'auto', label: '自动' },
-  { value: 'fixed', label: '固定' },
+  { value: 'auto', label: t('library.toolbar.colsAuto') },
+  { value: 'fixed', label: t('library.toolbar.colsFixed') },
 ]
 
 type PanelTab = 'filter' | 'sort' | 'display'
 
 const PANEL_TABS: SegItem<PanelTab>[] = [
-  { value: 'filter', label: '筛选' },
-  { value: 'sort', label: '排序' },
-  { value: 'display', label: '显示' },
+  { value: 'filter', label: t('library.toolbar.tabFilter') },
+  { value: 'sort', label: t('library.toolbar.tabSort') },
+  { value: 'display', label: t('library.toolbar.tabDisplay') },
 ]
 
 export function LibraryToolbar({
@@ -98,17 +99,17 @@ export function LibraryToolbar({
         onClick={() => setPanel((v) => !v)}
       >
       <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />
-      <span className="max-sm:hidden">筛选与排序</span>
+      <span className="max-sm:hidden">{t('library.toolbar.filterSort')}</span>
     </Glass>
   )
   const content = (
     <>
-      <Seg label="面板分页" glass={false} items={PANEL_TABS} value={tab} onChange={setTab} className="grid w-full grid-cols-3 [&>button]:justify-center" />
+      <Seg label={t('library.toolbar.panelTabs')} glass={false} items={PANEL_TABS} value={tab} onChange={setTab} className="grid w-full grid-cols-3 [&>button]:justify-center" />
 
       {tab === 'filter' && (
         <>
           <div>
-            <h3 className="pop-h">点击包含，再次点击排除</h3>
+            <h3 className="pop-h">{t('library.toolbar.filterHint')}</h3>
             <div className="flex flex-wrap gap-1.5">
               {FILTERS.map((f) => {
                 const st = view.filters[f.key]
@@ -118,7 +119,7 @@ export function LibraryToolbar({
                     type="button"
                     className={cn('fopt', st === 1 && 'inc', st === 2 && 'exc')}
                     onClick={() => view.cycleFilter(f.key)}
-                    aria-label={`${f.label}：${['不限', '仅包含', '排除'][st]}`}
+                    aria-label={t('library.toolbar.filterAria', { label: f.label, state: [t('library.toolbar.stateAny'), t('library.toolbar.stateInclude'), t('library.toolbar.stateExclude')][st] })}
                   >
                     {st === 1 && <Plus className="size-3.5" strokeWidth={2.6} />}
                     {st === 2 && <Minus className="size-3.5" strokeWidth={2.6} />}
@@ -131,10 +132,10 @@ export function LibraryToolbar({
           {sources.length > 1 && (
             <div>
               <h3 className="pop-h flex items-center">
-                <span className="flex-1">来源 · 可多选</span>
+                <span className="flex-1">{t('library.toolbar.sources')}</span>
                 {view.sources.length > 0 && (
                   <button type="button" onClick={view.clearSources} className="font-semibold tracking-normal text-text">
-                    清除
+                    {t('library.toolbar.clear')}
                   </button>
                 )}
               </h3>
@@ -163,7 +164,7 @@ export function LibraryToolbar({
 
       {tab === 'sort' && (
         <div>
-          <h3 className="pop-h">再次点击切换排序方向</h3>
+          <h3 className="pop-h">{t('library.toolbar.sortHint')}</h3>
           {SORTS.map((s) => {
             const on = s.key === view.sort
             const Arrow = view.desc ? ArrowDown : ArrowUp
@@ -174,9 +175,9 @@ export function LibraryToolbar({
               </button>
             )
           })}
-          <h3 className="pop-h mt-3">置顶</h3>
+          <h3 className="pop-h mt-3">{t('library.toolbar.pin')}</h3>
           <button type="button" className="opt" aria-pressed={view.favoriteFirst} onClick={() => view.setFavoriteFirst(!view.favoriteFirst)}>
-            <span className="flex-1">特别关心排在最前</span>
+            <span className="flex-1">{t('library.toolbar.favoriteFirst')}</span>
             {view.favoriteFirst && <Check className="size-4" strokeWidth={2.2} />}
           </button>
         </div>
@@ -185,37 +186,37 @@ export function LibraryToolbar({
       {tab === 'display' && (
         <>
           <div>
-            <h3 className="pop-h">显示方式</h3>
-            <Seg label="显示方式" glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
+            <h3 className="pop-h">{t('library.toolbar.layout')}</h3>
+            <Seg label={t('library.toolbar.layout')} glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
           </div>
           {/* 列表没有封面网格，下面几项只对两种网格生效 */}
           {view.density !== 'list' && (
             <>
               <div>
                 <h3 className="pop-h flex items-center">
-                  <span className="flex-1">每行数目</span>
-                  <span className="tracking-normal normal-case">{mobile ? '手机' : '宽屏'}单独设置</span>
+                  <span className="flex-1">{t('library.toolbar.perRow')}</span>
+                  <span className="tracking-normal normal-case">{t('library.toolbar.perRowDevice', { device: t(mobile ? 'library.toolbar.devicePhone' : 'library.toolbar.deviceWide') })}</span>
                 </h3>
                 <div className="flex items-center gap-2">
                   <Seg
-                    label="每行数目"
+                    label={t('library.toolbar.perRow')}
                     glass={false}
                     items={COL_MODES}
                     value={cols ? 'fixed' : 'auto'}
                     onChange={(v) => view.setCols(device, v === 'auto' ? 0 : range.start)}
                     className="grid flex-1 grid-cols-2 [&>button]:justify-center"
                   />
-                  <button type="button" className="fopt size-9 justify-center px-0" aria-label="每行减少一部" disabled={cols === range.min} onClick={() => stepCols(-1)}>
+                  <button type="button" className="fopt size-9 justify-center px-0" aria-label={t('library.toolbar.fewer')} disabled={cols === range.min} onClick={() => stepCols(-1)}>
                     <Minus className="size-4" strokeWidth={2.4} />
                   </button>
                   <span className={cn('w-6 text-center font-semibold num', !cols && 'text-faint')} aria-live="polite">{cols || '—'}</span>
-                  <button type="button" className="fopt size-9 justify-center px-0" aria-label="每行增加一部" disabled={cols === range.max} onClick={() => stepCols(1)}>
+                  <button type="button" className="fopt size-9 justify-center px-0" aria-label={t('library.toolbar.more')} disabled={cols === range.max} onClick={() => stepCols(1)}>
                     <Plus className="size-4" strokeWidth={2.4} />
                   </button>
                 </div>
               </div>
               <div>
-                <h3 className="pop-h">封面标记</h3>
+                <h3 className="pop-h">{t('library.toolbar.badges')}</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {BADGES.map((b) => (
                     <button key={b.key} type="button" className={cn('fopt', view.badges[b.key] && 'inc')} aria-pressed={view.badges[b.key]} onClick={() => view.toggleBadge(b.key)}>
@@ -225,9 +226,9 @@ export function LibraryToolbar({
                 </div>
               </div>
               <div>
-                <h3 className="pop-h">封面下文字</h3>
+                <h3 className="pop-h">{t('library.toolbar.belowCover')}</h3>
                 <Seg
-                  label="标题"
+                  label={t('library.toolbar.titleLabel')}
                   glass={false}
                   items={TITLE_LINES}
                   value={`${view.titleLines}`}
@@ -235,7 +236,7 @@ export function LibraryToolbar({
                   className="mb-2.5 grid w-full grid-cols-3 [&>button]:justify-center"
                 />
                 {view.density === 'compact' ? (
-                  <p className="px-1 text-xs text-muted">紧凑网格只显示标题。</p>
+                  <p className="px-1 text-xs text-muted">{t('library.toolbar.compactNote')}</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {SUBLINE.map((x) => (
@@ -256,7 +257,7 @@ export function LibraryToolbar({
   return (
     <div className="mb-6 flex flex-wrap items-center gap-2.5">
       {categories.length > 1 && (
-        <Seg flat label="分类" items={categories} value={view.category} onChange={view.setCategory} />
+        <Seg flat label={t('library.toolbar.categoryAria')} items={categories} value={view.category} onChange={view.setCategory} />
       )}
 
       {activeFilters.map((f) => (
@@ -264,10 +265,10 @@ export function LibraryToolbar({
           key={f.key}
           type="button"
           onClick={() => view.clearFilter(f.key)}
-          aria-label={`移除筛选 ${f.label}`}
+          aria-label={t('library.toolbar.removeFilter', { label: f.label })}
           className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent-soft py-0 pr-1.5 pl-3 text-[13px] font-semibold"
         >
-          {view.filters[f.key] === 2 ? `排除 ${f.label}` : f.label}
+          {view.filters[f.key] === 2 ? t('library.toolbar.excludeChip', { label: f.label }) : f.label}
           <X className="size-4 opacity-70" />
         </button>
       ))}
@@ -277,7 +278,7 @@ export function LibraryToolbar({
           key={src.id}
           type="button"
           onClick={() => view.toggleSource(src.id)}
-          aria-label={`移除来源筛选 ${src.name}`}
+          aria-label={t('library.toolbar.removeSource', { name: src.name })}
           className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent-soft py-0 pr-1.5 pl-3 text-[13px] font-semibold"
         >
           {src.name}
@@ -289,12 +290,12 @@ export function LibraryToolbar({
 
       <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-[1_1_120px]">
         <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-        <span className="sr">搜索书库</span>
+        <span className="sr">{t('library.toolbar.search')}</span>
         <input
           type="search"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
-          placeholder="搜索标题、作者、标签或来源"
+          placeholder={t('library.toolbar.searchPlaceholder')}
           className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
         />
       </Glass>
@@ -303,7 +304,7 @@ export function LibraryToolbar({
         <Popover
           open={panel}
           onClose={closePanel}
-          label="筛选与排序"
+          label={t('library.toolbar.filterSort')}
           fitViewport
           className="glass-legible flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 px-4 py-4"
           trigger={button}
@@ -314,7 +315,7 @@ export function LibraryToolbar({
       {mobile && createPortal(
         <AnimatePresence>
           {panel && (
-            <BottomSheet id="library-panel" label="筛选与排序" closeLabel="关闭筛选与排序" onClose={closePanel} className="glass-legible">
+            <BottomSheet id="library-panel" label={t('library.toolbar.filterSort')} closeLabel={t('library.toolbar.closePanel')} onClose={closePanel} className="glass-legible">
               <div className="flex flex-col gap-4 px-2 pt-3 pb-2">{content}</div>
             </BottomSheet>
           )}
@@ -324,7 +325,7 @@ export function LibraryToolbar({
 
       <Glass flat as="button" type="button" className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', selecting && 'bg-g-hi')} aria-pressed={selecting} onClick={onToggleSelect}>
         {selecting ? <Check className="size-[18px]" strokeWidth={2} /> : <CheckSquare className="size-[18px]" strokeWidth={1.8} />}
-        <span className="max-sm:hidden">{selecting ? '完成' : '选择'}</span>
+        <span className="max-sm:hidden">{selecting ? t('library.toolbar.done') : t('library.toolbar.select')}</span>
       </Glass>
 
       <Glass flat as="button"
@@ -332,8 +333,8 @@ export function LibraryToolbar({
           className="gicon rounded-full"
           onClick={onRefresh}
           disabled={!!updating}
-          aria-label="检查书库更新"
-          title={updating ? `正在检查更新 ${updating.finished}/${updating.total}` : '检查书库更新'}
+          aria-label={t('library.checkUpdates')}
+          title={updating ? t('library.checking', { done: updating.finished, total: updating.total }) : t('library.checkUpdates')}
         >
         <RefreshCw className={cn('size-[18px]', updating && 'animate-spin')} strokeWidth={1.8} />
       </Glass>

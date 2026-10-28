@@ -2,52 +2,55 @@
  * 时间单位（服务端约定）：uploadDate 为毫秒；fetchedAt / lastReadAt / inLibraryAt 为秒。
  * LongString 标量以字符串传输。
  */
+import { t } from '../i18n/core.ts'
+
 export const ms = (v: string | null | undefined) => Number(v ?? 0)
 export const sec = (v: string | null | undefined) => Number(v ?? 0) * 1000
 
 const MIN = 60_000
 const HOUR = 60 * MIN
 const DAY = 24 * HOUR
+const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
-export function timeAgo(t: number, now = Date.now()) {
-  if (!t) return ''
-  const d = now - t
-  if (d < MIN) return '刚刚'
-  if (d < HOUR) return `${Math.floor(d / MIN)} 分钟前`
-  if (d < DAY) return `${Math.floor(d / HOUR)} 小时前`
-  if (d < 2 * DAY) return '昨天'
-  if (d < 30 * DAY) return `${Math.floor(d / DAY)} 天前`
-  return formatDate(t)
+export function timeAgo(at: number, now = Date.now()) {
+  if (!at) return ''
+  const d = now - at
+  if (d < MIN) return t('format.justNow')
+  if (d < HOUR) return t('format.minutesAgo', { count: Math.floor(d / MIN) })
+  if (d < DAY) return t('format.hoursAgo', { count: Math.floor(d / HOUR) })
+  if (d < 2 * DAY) return t('format.yesterday')
+  if (d < 30 * DAY) return t('format.daysAgo', { count: Math.floor(d / DAY) })
+  return formatDate(at)
 }
 
-export function formatDate(t: number) {
-  if (!t) return ''
-  const d = new Date(t)
+export function formatDate(at: number) {
+  if (!at) return ''
+  const d = new Date(at)
   const y = d.getFullYear()
   const md = `${d.getMonth() + 1}/${d.getDate()}`
   return y === new Date().getFullYear() ? md : `${y}/${md}`
 }
 
 /** 带年份的完整日期，章节行用：只写月日分不清是哪一年发布的 */
-export function formatFullDate(t: number) {
-  if (!t) return ''
-  const d = new Date(t)
+export function formatFullDate(at: number) {
+  if (!at) return ''
+  const d = new Date(at)
   return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`
 }
 
 /** 按天分组的标题：今天、昨天、本周几，再早显示日期 */
-export function dayLabel(t: number, now = new Date()) {
-  const d = new Date(t)
+export function dayLabel(at: number, now = new Date()) {
+  const d = new Date(at)
   const diff = Math.round((new Date(now.toDateString()).getTime() - new Date(d.toDateString()).getTime()) / DAY)
-  if (diff === 0) return '今天'
-  if (diff === 1) return '昨天'
-  if (diff < 7) return ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()]
-  return formatDate(t)
+  if (diff === 0) return t('format.today')
+  if (diff === 1) return t('format.yesterday')
+  if (diff < 7) return t(`format.weekday.${WEEKDAYS[d.getDay()]}`)
+  return formatDate(at)
 }
 
 /** 时:分 */
-export function clock(t: number) {
-  const d = new Date(t)
+export function clock(at: number) {
+  const d = new Date(at)
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
@@ -62,7 +65,7 @@ export function chapterLabel(c: { chapterNumber: number; name: string }) {
   const name = c.name.trim()
   if (name) return name
   const n = chapterNo(c.chapterNumber)
-  return n ? `第 ${n} 话` : '未命名章节'
+  return n ? t('format.chapterNo', { n }) : t('format.untitledChapter')
 }
 
 export function count(n: number) {

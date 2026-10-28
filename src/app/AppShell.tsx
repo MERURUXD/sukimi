@@ -21,6 +21,7 @@ import { TopNav } from './TopNav'
 import { UpdatePrompt } from './UpdatePrompt'
 import { AwayPrompt } from '@/features/favorite/AwayPrompt'
 import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
+import { t } from '@/i18n'
 
 /** 需要登录的页面外壳：未登录跳登录页，连不上服务器给重试 */
 export function AuthGate() {
@@ -44,10 +45,10 @@ export function AuthGate() {
     return (
       <div className="grid min-h-dvh place-items-center px-4 text-center">
         <div>
-          <p className="text-lg font-semibold">连不上 Suwayomi 服务端</p>
-          <p className="mt-1 text-muted">确认服务端已启动后重试。</p>
+          <p className="text-lg font-semibold">{t('app.shell.serverDown')}</p>
+          <p className="mt-1 text-muted">{t('app.shell.serverDownHint')}</p>
           <button className="solid mt-6" onClick={() => void restoreSession()}>
-            重试
+            {t('common.retry')}
           </button>
         </div>
       </div>
@@ -99,7 +100,7 @@ export function AppShell() {
           el.focus()
         }}
       >
-        跳到内容
+        {t('app.shell.skipToContent')}
       </a>
       <TopNav />
       <SideNav />

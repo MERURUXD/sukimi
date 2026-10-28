@@ -15,6 +15,7 @@ import { can, type AuthUser } from '@/features/auth/permissions'
 import { PREVIEW_ADMIN } from '@/features/auth/previewUsers'
 import { claimLegacyData } from '@/features/auth/userScope'
 import type { UserPermission } from './gql/graphql'
+import { t } from '@/i18n'
 
 const REFRESH_KEY = 'suwayomi-web.refreshToken'
 /** 只存 id 与用户名，让各本地存储在首屏前就能知道当前是谁；角色与权限每次续期时重新查询 */
@@ -126,7 +127,7 @@ export function getAccessToken() {
 
 /** 不带 Cookie 与登录态直接请求（登录、续期用）；`token` 只给取当前用户这类刚拿到令牌、尚未生效的请求 */
 async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V, token?: string): Promise<R> {
-  if (isDemo || isDevLab) throw new TypeError('演示和验收页不会请求真实服务端')
+  if (isDemo || isDevLab) throw new TypeError(t('misc.api.demoNoRequest'))
   let res: Response
   try {
     res = await fetch('/api/graphql', {
@@ -137,12 +138,12 @@ async function anonymousRequest<R, V>(doc: TypedDocumentNode<R, V>, variables: V
       body: JSON.stringify({ query: print(doc), variables }),
     })
   } catch (e) {
-    throw new TypeError(`无法连接服务端：${(e as Error).message}`)
+    throw new TypeError(t('misc.api.connectFailed', { reason: (e as Error).message }))
   }
-  if (!res.ok && res.status >= 500) throw new TypeError(`服务端错误 ${res.status}`)
+  if (!res.ok && res.status >= 500) throw new TypeError(t('misc.api.serverError', { status: res.status }))
   const json = (await res.json()) as { data?: R; errors?: { message: string }[] }
   if (json.errors?.length || !json.data) {
-    throw new AuthError(json.errors?.[0]?.message.split('\n')[0] ?? '请求失败')
+    throw new AuthError(json.errors?.[0]?.message.split('\n')[0] ?? t('misc.api.requestFailed'))
   }
   return json.data
 }
@@ -242,7 +243,7 @@ export async function login(username: string, password: string) {
   await establishSession(login.accessToken, login.refreshToken, mine)
 }
 
-const UNSUPPORTED = '这台服务端不支持用户账号，需要新版 Suwayomi'
+const UNSUPPORTED = t('misc.api.unsupported')
 
 /** 兑换注册码：创建账号并直接登录 */
 export async function redeemRegistrationCode(code: string, username: string, password: string) {
@@ -287,14 +288,14 @@ export function refreshAccessToken(): Promise<string> {
   const refreshToken = localStorage.getItem(REFRESH_KEY)
   if (!refreshToken) {
     signOut()
-    return Promise.reject(new AuthError('未登录'))
+    return Promise.reject(new AuthError(t('misc.api.notLoggedIn')))
   }
   const started = epoch
   const request: Promise<string> = anonymousRequest(RefreshMutation, { input: { refreshToken } })
     .then(async ({ refreshToken: r }) => {
       await establishSession(r.accessToken, undefined, started)
       // 期间已退出或换了会话：不能让等着重放请求的 retryOnUnauthorized 拿着新会话的令牌去执行旧会话的操作
-      if (started !== epoch) throw new AuthError('会话已更换')
+      if (started !== epoch) throw new AuthError(t('misc.api.sessionChanged'))
       return r.accessToken
     })
     .catch((e: unknown) => {

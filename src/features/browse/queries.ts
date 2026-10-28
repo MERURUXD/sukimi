@@ -1,5 +1,6 @@
 import { graphql } from '@/api/gql'
 import type { FetchSourceMangaMutation, SourcesQuery } from '@/api/gql/graphql'
+import { t } from '@/i18n'
 
 export const Sources = graphql(`
   query Sources {
@@ -99,9 +100,6 @@ const LANG: Record<string, string> = {
   en: 'English',
   ja: '日本語',
   ko: '한국어',
-  all: '多语言',
-  other: '其他',
-  localsourcelang: '本地',
   es: 'Español',
   'es-419': 'Español (LatAm)',
   'pt-br': 'Português (BR)',
@@ -119,7 +117,14 @@ const LANG: Record<string, string> = {
   th: 'ไทย',
 }
 
-export const langLabel = (lang: string) => LANG[lang.toLowerCase()] ?? lang.toUpperCase()
+// 这三个不是语言名，要跟着界面语言走；其余语言保持各自的本名
+const LANG_SPECIAL = ['all', 'other', 'localsourcelang'] as const
+
+export const langLabel = (lang: string) => {
+  const key = lang.toLowerCase()
+  const special = LANG_SPECIAL.find((k) => k === key)
+  return special ? t(`browse.lang.${special}`) : (LANG[key] ?? lang.toUpperCase())
+}
 
 /* ───────── 扩展 ───────── */
 

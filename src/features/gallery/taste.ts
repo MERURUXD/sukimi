@@ -1,3 +1,4 @@
+import { locale, t } from '../../i18n/core.ts'
 /*
  * 阅读档案第三屏的「口味」：按已读话数算最常读的题材和作者。纯函数，测试直接导入。
  *
@@ -13,33 +14,36 @@ const STOP = new Set(
   ],
 )
 
-/** 同义的写法合并成一个中文名（键为小写） */
-const ALIAS: Record<string, string> = Object.fromEntries(
-  (
-    [
-      ['恋爱', 'romance', '爱情', '恋爱'],
-      ['喜剧', 'comedy', '搞笑', '喜剧'],
-      ['校园', 'school life', 'school', '校园', '学园'],
-      ['日常', 'slice of life', '日常', '生活'],
-      ['奇幻', 'fantasy', '奇幻', '魔幻', '魔法'],
-      ['科幻', 'sci-fi', 'science fiction', '科幻'],
-      ['悬疑', 'mystery', '悬疑', '推理'],
-      ['冒险', 'adventure', '冒险'],
-      ['动作', 'action', '动作'],
-      ['剧情', 'drama', '剧情'],
-      ['恐怖', 'horror', '恐怖'],
-      ['运动', 'sports', 'sport', '运动', '体育', '竞技'],
-      ['美食', 'cooking', 'gourmet', '美食'],
-      ['治愈', 'healing', 'iyashikei', '治愈'],
-      ['历史', 'historical', 'history', '历史'],
-      ['异世界', 'isekai', '异世界', '穿越'],
-      ['音乐', 'music', '音乐'],
-      ['心理', 'psychological', '心理'],
-      ['百合', 'yuri', 'girls love', "girls' love", '百合'],
-      ['耽美', 'yaoi', 'boys love', "boys' love", 'bl', '耽美'],
-    ] as const
-  ).flatMap(([name, ...keys]) => keys.map((k) => [k, name])),
-)
+/** 同义的写法：第一列是归一后的中文名，第二列是英文界面里显示的名字，其余是各来源常见的写法（小写比较） */
+const GENRE_TABLE = [
+  ['恋爱', 'romance', '爱情', '恋爱'],
+  ['喜剧', 'comedy', '搞笑', '喜剧'],
+  ['校园', 'school life', 'school', '校园', '学园'],
+  ['日常', 'slice of life', '日常', '生活'],
+  ['奇幻', 'fantasy', '奇幻', '魔幻', '魔法'],
+  ['科幻', 'sci-fi', 'science fiction', '科幻'],
+  ['悬疑', 'mystery', '悬疑', '推理'],
+  ['冒险', 'adventure', '冒险'],
+  ['动作', 'action', '动作'],
+  ['剧情', 'drama', '剧情'],
+  ['恐怖', 'horror', '恐怖'],
+  ['运动', 'sports', 'sport', '运动', '体育', '竞技'],
+  ['美食', 'cooking', 'gourmet', '美食'],
+  ['治愈', 'healing', 'iyashikei', '治愈'],
+  ['历史', 'historical', 'history', '历史'],
+  ['异世界', 'isekai', '异世界', '穿越'],
+  ['音乐', 'music', '音乐'],
+  ['心理', 'psychological', '心理'],
+  ['百合', 'yuri', 'girls love', "girls' love", '百合'],
+  ['耽美', 'yaoi', 'boys love', "boys' love", 'bl', '耽美'],
+] as const
+
+const ALIAS: Record<string, string> = Object.fromEntries(GENRE_TABLE.flatMap(([name, ...keys]) => keys.map((k) => [k, name])))
+
+const EN_NAME = new Map<string, string>(GENRE_TABLE.map(([name, en]): [string, string] => [name, en.charAt(0).toUpperCase() + en.slice(1)]))
+
+/** 题材的显示名：英文界面把归一过的中文名换成英文，来源自带的写法原样显示 */
+export const genreLabel = (name: string) => (locale === 'en' ? (EN_NAME.get(name) ?? name) : name)
 
 /** 一部作品的题材：归一、去掉无意义的标签、去重 */
 export function genresOf(raw: readonly string[] | null | undefined) {
@@ -147,8 +151,10 @@ const fits = (name: string) => name.length <= (/^[ -~]+$/.test(name) ? 12 : 6)
  */
 export function tasteHeadline(genres: readonly { name: string }[]): { lead: string; strong?: string; tail: string } {
   const [a, b] = genres
-  if (!a) return { lead: '还看不出', tail: '你的口味。' }
-  if (!b) return fits(a.name) ? { lead: '你最常读', strong: a.name, tail: '。' } : { lead: '你只读', tail: '一类题材。' }
-  if (fits(a.name) && fits(b.name)) return { lead: '你偏爱', strong: a.name, tail: `与${b.name}。` }
-  return { lead: '这些题材，', tail: '你读得最多。' }
+  if (!a) return { lead: t('gallery.taste.none'), tail: t('gallery.taste.noneTail') }
+  const na = genreLabel(a.name)
+  if (!b) return fits(na) ? { lead: t('gallery.taste.top'), strong: na, tail: t('gallery.taste.topTail') } : { lead: t('gallery.taste.one'), tail: t('gallery.taste.oneTail') }
+  const nb = genreLabel(b.name)
+  if (fits(na) && fits(nb)) return { lead: t('gallery.taste.prefer'), strong: na, tail: t('gallery.taste.preferTail', { other: nb }) }
+  return { lead: t('gallery.taste.many'), tail: t('gallery.taste.manyTail') }
 }

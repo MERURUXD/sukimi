@@ -56,6 +56,9 @@ g.getComputedStyle = window.getComputedStyle.bind(window)
 g.history = window.history
 g.location = window.location
 g.matchMedia = window.matchMedia
+// 断言按简体中文写；jsdom 的浏览器语言是 en-US，要显式固定界面语言
+g.localStorage = window.localStorage
+window.localStorage.setItem('suwayomi-web.locale', 'zh-CN')
 if (typeof window.document.elementFromPoint !== 'function') window.document.elementFromPoint = () => null
 try {
   g.navigator = window.navigator

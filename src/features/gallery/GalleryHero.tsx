@@ -4,10 +4,12 @@ import { Link } from 'react-router'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { armReadMorph, plainClick } from './readMorph'
+import { t } from '@/i18n'
+import { monthName } from './dates'
 
 export const GALLERY = '/library/gallery'
 
-export const monthLabel = (d = new Date()) => `书库画廊 · ${d.getFullYear()} 年 ${d.getMonth() + 1} 月`
+export const monthLabel = (d = new Date()) => t('gallery.monthLabel', { date: t('gallery.monthYear', { year: d.getFullYear(), month: monthName(d.getMonth()) }) })
 
 export interface HeroStats {
   works: number
@@ -61,6 +63,8 @@ export function HeroCopy({
   onShare?: () => void
 }) {
   const chapterText = stats.chapters == null ? '—' : count(stats.chapters)
+  const nWorks = t('gallery.worksN', { count: stats.works, n: count(stats.works) })
+  const nChapters = stats.chapters == null ? t('gallery.chaptersText', { n: chapterText }) : t('gallery.chaptersN', { count: stats.chapters, n: chapterText })
   const base = decorative && '[opacity:var(--fade,1)] [translate:0_var(--lift,0px)]'
   const fx = cn(base, late ? 'gallery-late' : intro && 'rise')
   const titleFx = morph ? cn(base) : fx
@@ -77,7 +81,7 @@ export function HeroCopy({
       }}
       className={cn('flex items-center gap-1.5 font-medium text-muted no-underline hover:text-text', mobile ? 'text-[13px]' : 'text-sm')}
     >
-      浏览全部 {count(stats.shown ?? stats.works)} 部
+      {t('gallery.browseAll', { n: count(stats.shown ?? stats.works) })}
       <ArrowDown className={cn('size-4', onBrowse && !decorative && 'gallery-nudge')} strokeWidth={2} />
     </a>
   )
@@ -85,14 +89,14 @@ export function HeroCopy({
   const back = (
     <button type="button" tabIndex={tab} onClick={onBack} aria-label={backLabel} className="-ml-1 flex items-center gap-0.5 rounded-full py-1 pr-2 pl-0.5 font-medium text-muted hover:text-text">
       <ChevronLeft className="size-4" strokeWidth={2} />
-      返回
+      {t('gallery.back')}
     </button>
   )
   // 分享：跟在最上面那行小字后面。画布过渡摆出的那一份也要有，两边排版才一致；墙上一部都没有（全是 NSFW）时不能分享
   const share = (stats.shown ?? stats.works) > 0 && (onShare || decorative) && (
     <button type="button" tabIndex={tab} onClick={onShare} className="flex items-center gap-1 rounded-full px-2 py-1 font-medium text-muted hover:text-text">
       <Share className="size-[15px]" strokeWidth={2} />
-      分享
+      {t('gallery.share')}
     </button>
   )
   const door = <ReadDoor read={stats.read} mobile={mobile} decorative={decorative} className={fx} style={d(mobile ? 120 : 160)} />
@@ -104,7 +108,7 @@ export function HeroCopy({
       tabIndex={tab}
       className={cn('solid no-underline', mobile ? 'h-[46px] min-h-0 px-[22px] text-[15px]' : 'h-[52px] text-base')}
     >
-      进入画布
+      {t('gallery.enterCanvas')}
       {!mobile && <ArrowRight className="size-[18px]" strokeWidth={2} />}
     </Link>
   )
@@ -114,16 +118,16 @@ export function HeroCopy({
       <div data-hero-ui className="wrap mt-auto flex flex-col gap-3 pb-[calc(var(--tabbar-h)+14px)]" aria-hidden={decorative || undefined} inert={decorative || undefined}>
         <div data-hero-fade data-gallery-copy="meta" className={cn('flex items-center gap-3 text-xs', fx)}>
           {back}
-          <p className="m-0 font-medium tracking-[.3em] text-muted">书库画廊</p>
+          <p className="m-0 font-medium tracking-[.3em] text-muted">{t('gallery.name')}</p>
           {share}
         </div>
         <h1 className={cn('gallery-title m-0 font-cjk text-[34px] leading-[1.06] font-black tracking-[-0.02em]', titleFx)} style={d(40)}>
-          每一部收藏，
+          {t('gallery.slogan1')}
           <br />
-          都在这面墙上。
+          {t('gallery.slogan2')}
         </h1>
         <p data-hero-fade data-gallery-copy="summary" className={cn('m-0 text-sm text-muted num', fx)} style={d(80)}>
-          {count(stats.works)} 部作品 · {chapterText} 话 · {count(stats.done)} 部已完结
+          {[nWorks, nChapters, t('gallery.doneN', { n: count(stats.done) })].join(' · ')}
         </p>
         <div className="mt-1 flex items-center justify-between gap-4">
           <span data-hero-fade data-gallery-copy="actions" className={fx} style={d(120)}>
@@ -151,12 +155,12 @@ export function HeroCopy({
           {share}
         </div>
         <h1 className={cn('gallery-title m-0 font-cjk text-[clamp(44px,5.2vw,84px)] leading-[1.06] font-black tracking-[-0.02em]', titleFx)} style={d(40)}>
-          每一部收藏，
+          {t('gallery.slogan1')}
           <br />
-          都在这面墙上。
+          {t('gallery.slogan2')}
         </h1>
         <p data-hero-fade data-gallery-copy="summary" className={cn('m-0 text-[17px] text-muted num', fx)} style={d(80)}>
-          {count(stats.works)} 部作品 · {chapterText} 话 · {count(stats.ongoing)} 部连载中 · {count(stats.done)} 部已完结
+          {[nWorks, nChapters, t('gallery.ongoingN', { n: count(stats.ongoing) }), t('gallery.doneN', { n: count(stats.done) })].join(' · ')}
         </p>
         <div data-hero-fade data-gallery-copy="actions" className={cn('mt-2 flex items-center gap-7', fx)} style={d(120)}>
           {canvas}
@@ -180,7 +184,7 @@ function ReadDoor({ read, mobile, decorative, className, style }: { read: number
       state={{ from: 'gallery' }}
       viewTransition
       tabIndex={decorative ? -1 : undefined}
-      aria-label={`阅读档案：已读 ${value} 话`}
+      aria-label={t('gallery.readAria', { count: read ?? 0, n: value })}
       data-hero-fade
       data-gallery-copy="read"
       onClick={(e) => plainClick(e) && armReadMorph()}
@@ -188,7 +192,7 @@ function ReadDoor({ read, mobile, decorative, className, style }: { read: number
       style={style}
     >
       {!mobile && <ClockHint />}
-      <span className={cn('font-medium text-muted', mobile ? 'text-[11px] tracking-[.2em]' : 'text-[13px] tracking-[.32em]')}>已读章节</span>
+      <span className={cn('font-medium text-muted', mobile ? 'text-[11px] tracking-[.2em]' : 'text-[13px] tracking-[.32em]')}>{t('gallery.readChapters')}</span>
       <span className="flex items-baseline gap-1.5">
         {/* 只给数字本身挂过渡名：两页的数字字体一样，飞的时候不变形 */}
         <span
@@ -197,10 +201,10 @@ function ReadDoor({ read, mobile, decorative, className, style }: { read: number
         >
           {value}
         </span>
-        <span className={cn('font-cjk font-bold text-muted', mobile ? 'text-sm' : 'text-xl')}>话</span>
+        <span className={cn('font-cjk font-bold text-muted', mobile ? 'text-sm' : 'text-xl')}>{t('gallery.unit.chapter', { count: read ?? 0 })}</span>
       </span>
       <span className={cn('flex items-center gap-1.5 font-semibold', mobile ? 'text-[13px]' : 'text-[15px]')}>
-        阅读档案
+        {t('gallery.archive')}
         <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} />
       </span>
     </Link>

@@ -13,6 +13,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { sec, timeAgo } from '@/lib/format'
 import { READER_VT_ATTR } from '@/lib/readerTransition'
 import type { ReadChapter } from './queries'
+import { t } from '@/i18n'
 
 /** 打开网页时的路径。开屏动画只在首页就是第一页时播一次，从别的页回来只播轻的进场 */
 const bootPath = location.pathname
@@ -323,7 +324,7 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   const riseEach = rise && `${rise}-each`
 
   return (
-    <section aria-label="继续阅读" className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]" data-desktop-layout="stage" data-sfw={sfwAttr(m.source?.displayName)}>
+    <section aria-label={t('home.continue')} className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]" data-desktop-layout="stage" data-sfw={sfwAttr(m.source?.displayName)}>
       {/* 背景：流动模糊封面原样保留；开屏时整体淡入并从略大缩回，轻进场只轻微缩回。
           裁切放在外层、缩放放在里层：缩放的元素自己带 overflow 时，放大的那圈会溢出到下一段，露出一条灰带 */}
       <div aria-hidden className="absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden">
@@ -378,12 +379,12 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
             className="flex w-full flex-col items-center"
           >
             <div className="flex w-full max-w-[760px] flex-col items-center gap-3 text-center">
-              <span style={delay(0.85, 0.06)} className={cn('text-[13px] font-bold tracking-[.12em] text-muted', rise)}>继续阅读 · {timeAgo(sec(cur.lastReadAt))}</span>
+              <span style={delay(0.85, 0.06)} className={cn('text-[13px] font-bold tracking-[.12em] text-muted', rise)}>{t('home.continueAgo', { time: timeAgo(sec(cur.lastReadAt)) })}</span>
               <h1 title={m.title} style={delay(0.92, 0.1)} className={cn('m-0 line-clamp-2 font-cjk text-[46px] font-black tracking-[-.02em] text-balance break-words xl:text-[60px]', m.title.length > 22 && 'text-[36px] xl:text-[40px]', m.title.length > 40 && 'text-[28px] xl:text-[32px]',
                 // 行高放在字号之后：tailwind-merge 换字号时会把前面的行高一起去掉
                 'leading-[1.12]', rise)}>{m.title}</h1>
               <span style={delay(1, 0.14)} className={cn('max-w-full truncate text-[15px] text-muted num', rise)}>
-                {[meta, target && `${target.isNext ? '接着读 · ' : ''}${target.label} · ${target.page}`].filter(Boolean).join(' · ')}
+                {[meta, target && `${target.isNext ? t('home.nextUp') : ''}${target.label} · ${target.page}`].filter(Boolean).join(' · ')}
               </span>
               {target?.pct != null && (
                 <span style={delay(1.08, 0.18)} className={cn('prog mt-1 w-[300px] max-w-[80%]', rise)}>
@@ -398,10 +399,10 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
           {target ? (
             <Link to={`/manga/${m.id}/chapter/${target.id}`} viewTransition className="solid h-[54px] px-[30px] text-base no-underline">
               <Play className="size-4 fill-current" strokeWidth={1.6} />
-              继续阅读
+              {t('home.continue')}
             </Link>
           ) : (
-            <span className="solid h-[54px] px-[30px] text-base opacity-60">已全部读完</span>
+            <span className="solid h-[54px] px-[30px] text-base opacity-60">{t('home.allRead')}</span>
           )}
           {/* 背后只是氛围光，折射看不出来，关掉透镜省开销 */}
           <Glass suspendRefract
@@ -414,15 +415,15 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
               navigate(`/manga/${m.id}`, { viewTransition: true })
             }}
           >
-            漫画详情
+            {t('home.details')}
           </Glass>
           <Can permission="DOWNLOAD_CHAPTERS">
-            <Glass suspendRefract as="button" type="button" className="gicon size-[54px] rounded-full" onClick={onDownload} aria-label="下载后续章节" title="下载后续章节">
+            <Glass suspendRefract as="button" type="button" className="gicon size-[54px] rounded-full" onClick={onDownload} aria-label={t('home.downloadRest')} title={t('home.downloadRest')}>
               <Download className="size-5" strokeWidth={1.8} />
             </Glass>
           </Can>
           {onShuffle && (
-            <Glass suspendRefract as="button" type="button" className="gicon size-[54px] rounded-full" onClick={() => { interrupt(); onShuffle() }} aria-label="换一批继续阅读" title="换一批">
+            <Glass suspendRefract as="button" type="button" className="gicon size-[54px] rounded-full" onClick={() => { interrupt(); onShuffle() }} aria-label={t('home.shuffleContinue')} title={t('home.shuffle')}>
               <Shuffle className="size-5" strokeWidth={1.8} />
             </Glass>
           )}
@@ -475,7 +476,7 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect, onHove
     >
       <motion.div data-fan-card={j} className="pointer-events-auto absolute top-0 left-1/2 -ml-[138px] h-[414px] w-[276px]" style={{ x, rotateY, scale, opacity }}>
         {center ? (
-          <Link to={`/manga/${m.id}`} viewTransition draggable={false} data-hero-art-link aria-label={`查看《${m.title}》详情`} className="cv size-full rounded-[18px] shadow-[0_36px_70px_rgba(0,0,0,.38),0_0_0_1px_rgba(255,255,255,.08)]">
+          <Link to={`/manga/${m.id}`} viewTransition draggable={false} data-hero-art-link aria-label={t('home.viewDetails', { title: m.title })} className="cv size-full rounded-[18px] shadow-[0_36px_70px_rgba(0,0,0,.38),0_0_0_1px_rgba(255,255,255,.08)]">
             {cover}
           </Link>
         ) : (
@@ -493,7 +494,7 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect, onHove
               hovering.current = false
               onHover(false)
             }}
-            aria-label={`切换到《${m.title}》`} className="cv size-full cursor-[inherit] rounded-[14px] shadow-[0_20px_40px_rgba(0,0,0,.2)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-text">
+            aria-label={t('home.switchTo', { title: m.title })} className="cv size-full cursor-[inherit] rounded-[14px] shadow-[0_20px_40px_rgba(0,0,0,.2)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-text">
             {cover}
           </button>
         )}

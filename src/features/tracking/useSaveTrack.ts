@@ -6,6 +6,7 @@ import { toastError } from '@/components/ui/toast'
 import { TrackRecordFieldsFragmentDoc } from '@/api/gql/graphql'
 import { UpdateTrack, type TrackRecord } from './queries'
 import { scoreValue } from './tracking'
+import { t } from '../../i18n/core.ts'
 
 // 同一条记录的写入排队发出：连点两次状态或评分时，若两个请求同时在路上、旧的后返回，
 // 它带回的整条记录会把后选的值盖掉。手动修改和自动同步共用这条队列
@@ -52,7 +53,7 @@ export function useSaveTrack(r: TrackRecord) {
       cache.modify({ id: cache.identify({ __typename: 'TrackRecordType', id: r.id }), fields: Object.fromEntries(Object.entries(changed).map(([k, v]) => [k, () => v])) })
     }, id)
     updateTrackQueued(client, { recordId: r.id, ...patch })
-      .catch((e) => { if (!(e instanceof StaleSessionError)) toastError('保存失败', e) })
+      .catch((e) => { if (!(e instanceof StaleSessionError)) toastError(t('track.saveFailed'), e) })
       .finally(() => client.cache.removeOptimistic(id))
   }
 }

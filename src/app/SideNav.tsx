@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { BrandMark } from './BrandMark'
 import { markNavDirection, TABS, updatesTabLabel } from './navTabs'
+import { t } from '@/i18n'
 
 /**
  * 触控移动设备在 768–1279px 使用左侧玻璃导航栏。宽度和内容让位由 index.css 的 --side-w 统一给出，
@@ -19,13 +20,13 @@ export function SideNav() {
   return (
     <div data-vt-bar="sidenav" className="side-nav pointer-events-none fixed top-0 left-0 z-40 w-[var(--side-w)] flex-col items-end">
       <div className="flex h-[var(--nav-h)] w-[72px] items-center justify-center">
-        <NavLink to="/" aria-label="Sukimi 首页" className="pointer-events-auto rounded-full text-text no-underline">
+        <NavLink to="/" aria-label={t('app.nav.brandHome')} className="pointer-events-auto rounded-full text-text no-underline">
           <Glass as="span" data-vt-glass="sidenav-brand" className="flex rounded-full p-[5px] text-[17px] font-bold">
             <BrandMark />
           </Glass>
         </NavLink>
       </div>
-      <Glass as="nav" data-vt-glass="sidenav-tabs" ref={pillRef} dense aria-label="主导航" className="pointer-events-auto flex w-[72px] flex-col gap-1 rounded-[26px] p-1.5">
+      <Glass as="nav" data-vt-glass="sidenav-tabs" ref={pillRef} dense aria-label={t('app.nav.main')} className="pointer-events-auto flex w-[72px] flex-col gap-1 rounded-[26px] p-1.5">
         <NavPill box={pillBox} className="rounded-[20px]" />
         {TABS.map((t) => (
           <NavLink
