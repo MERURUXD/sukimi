@@ -198,7 +198,7 @@ function EntryTile({ e, now }: { e: DayEntry<Manga>; now: number }) {
         <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
       </span>
       <span className={cn('line-clamp-2 min-h-[2.75em] text-[13px] leading-snug break-words', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
-      <span className="truncate text-[13px] text-muted num">{entrySub(e, now)}</span>
+      <span className="line-clamp-2 text-[13px] leading-snug break-words text-muted num">{entrySub(e, now)}</span>
     </Link>
   )
 }
