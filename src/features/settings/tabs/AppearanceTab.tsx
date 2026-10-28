@@ -1,11 +1,13 @@
 import { RotateCcw } from 'lucide-react'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
+import { LanguageSeg } from '@/components/ui/LanguageSeg'
 import { Seg } from '@/components/ui/Seg'
 import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Row, Section, Switch } from '../parts'
+import { t } from '@/i18n'
 
 export function AppearanceTab() {
   const {
@@ -20,32 +22,35 @@ export function AppearanceTab() {
 
   return (
     <>
-      <Section title="外观" desc="仅保存在当前浏览器。">
-        <Row label="主题">
+      <Section title={t('settings.appearance.title')} desc={t('settings.appearance.desc')}>
+        <Row label={t('settings.language.label')} hint={t('settings.language.hint')}>
+          <LanguageSeg />
+        </Row>
+        <Row label={t('settings.appearance.theme')}>
           <Seg
             glass={false}
-            label="主题"
+            label={t('settings.appearance.theme')}
             items={[
-              { value: 'dark', label: '深色' },
-              { value: 'light', label: '浅色' },
-              { value: 'system', label: '跟随系统' },
+              { value: 'dark', label: t('common.theme.dark') },
+              { value: 'light', label: t('common.theme.light') },
+              { value: 'system', label: t('common.theme.system') },
             ]}
             value={theme}
             onChange={setTheme}
           />
         </Row>
         <Row
-          label="玻璃效果"
-          hint={canRefract ? '液态会在边缘像透镜一样折射背景；可在下方「液态玻璃质感」微调参数' : undefined}
-          warn={canRefract ? undefined : '当前浏览器不支持液态折射，会自动回退为毛玻璃'}
+          label={t('settings.appearance.glass')}
+          hint={canRefract ? t('settings.appearance.glassHint') : undefined}
+          warn={canRefract ? undefined : t('settings.appearance.glassWarn')}
         >
           <Seg
             glass={false}
-            label="玻璃效果"
+            label={t('settings.appearance.glass')}
             items={[
-              { value: 'refract', label: '液态' },
-              { value: 'frosted', label: '毛玻璃' },
-              { value: 'solid', label: '不透明' },
+              { value: 'refract', label: t('common.glass.refract') },
+              { value: 'frosted', label: t('common.glass.frosted') },
+              { value: 'solid', label: t('common.glass.solid') },
             ]}
             value={glass}
             onChange={setGlass}
@@ -53,47 +58,47 @@ export function AppearanceTab() {
         </Row>
       </Section>
 
-      <Section title="动画" desc="仅保存在当前浏览器；系统开启「减弱动态效果」时不播放。">
+      <Section title={t('settings.appearance.motionTitle')} desc={t('settings.appearance.motionDesc')}>
         <Row
-          label="首页入场"
-          hint="首次打开首页时播放开屏动画"
-          help="首次进入首页时封面与文字依次出现；之后从其他页面返回首页只播放轻进场，从阅读器缩回时不重复播放。"
+          label={t('settings.appearance.homeIntro')}
+          hint={t('settings.appearance.homeIntroHint')}
+          help={t('settings.appearance.homeIntroHelp')}
         >
-          <Switch on={homeIntro} onChange={setHomeIntro} label="首页入场" />
+          <Switch on={homeIntro} onChange={setHomeIntro} label={t('settings.appearance.homeIntro')} />
         </Row>
         <Row
-          label="详情页转场"
-          hint="封面过渡与内容依次渐入"
-          help="从列表打开漫画时封面飞入详情页，背景淡入，简介与章节列表自上而下依次出现。"
+          label={t('settings.appearance.detailMotion')}
+          hint={t('settings.appearance.detailMotionHint')}
+          help={t('settings.appearance.detailMotionHelp')}
         >
-          <Switch on={mangaDetailMotion} onChange={setMangaDetailMotion} label="详情页转场" />
+          <Switch on={mangaDetailMotion} onChange={setMangaDetailMotion} label={t('settings.appearance.detailMotion')} />
         </Row>
         <Row
-          label="阅读器展开"
-          hint="从章节入口展开至全屏"
-          help="打开一话时从点击的章节或封面位置展开成全屏，返回时缩回原位置。"
+          label={t('settings.appearance.readerMotion')}
+          hint={t('settings.appearance.readerMotionHint')}
+          help={t('settings.appearance.readerMotionHelp')}
         >
-          <Switch on={readerMotion} onChange={setReaderMotion} label="阅读器展开" />
+          <Switch on={readerMotion} onChange={setReaderMotion} label={t('settings.appearance.readerMotion')} />
         </Row>
         <Row
-          label="动态背景"
-          hint="首页与详情页背景随封面主色缓慢流动"
-          help="提取当前封面主色生成缓慢流动的背景氛围。关闭后首页显示静态模糊封面，详情页背景色块保持静止。"
+          label={t('settings.appearance.motionBg')}
+          hint={t('settings.appearance.motionBgHint')}
+          help={t('settings.appearance.motionBgHelp')}
         >
-          <Switch on={homeMotionBg} onChange={setHomeMotionBg} label="动态背景" />
+          <Switch on={homeMotionBg} onChange={setHomeMotionBg} label={t('settings.appearance.motionBg')} />
         </Row>
       </Section>
 
-      <Section title="顶栏" desc="页面顶部的导航与操作栏。">
-        <Row label="自动隐藏顶栏" hint="向下滚动时收起，向上滚动时显现">
-          <Switch on={autoHideNav} onChange={setAutoHideNav} label="自动隐藏顶栏" />
+      <Section title={t('settings.appearance.topbar')} desc={t('settings.appearance.topbarDesc')}>
+        <Row label={t('settings.appearance.autoHideNav')} hint={t('settings.appearance.autoHideNavHint')}>
+          <Switch on={autoHideNav} onChange={setAutoHideNav} label={t('settings.appearance.autoHideNav')} />
         </Row>
         <Row
-          label="顶栏渐进模糊"
-          hint="越靠近屏幕顶端越模糊，避免正文与顶部按钮重叠"
-          warn="可能影响滚动流畅度"
+          label={t('settings.appearance.navBlur')}
+          hint={t('settings.appearance.navBlurHint')}
+          warn={t('settings.appearance.navBlurWarn')}
         >
-          <Switch on={navBlur} onChange={setNavBlur} label="顶栏渐进模糊" />
+          <Switch on={navBlur} onChange={setNavBlur} label={t('settings.appearance.navBlur')} />
         </Row>
       </Section>
 
@@ -101,12 +106,12 @@ export function AppearanceTab() {
 
       <Section
         fold
-        title="液态玻璃质感"
-        desc="浅色、深色独立保存，仅在「液态」档生效。"
+        title={t('settings.appearance.glassSection')}
+        desc={t('settings.appearance.glassSectionDesc')}
         action={
-          <button type="button" className="gbtn plain min-h-9 w-fit rounded-full px-3.5 text-[13px]" onClick={reset} aria-label={`恢复${glassTheme === 'light' ? '浅色' : '深色'}玻璃默认参数`}>
+          <button type="button" className="gbtn plain min-h-9 w-fit rounded-full px-3.5 text-[13px]" onClick={reset} aria-label={t('settings.appearance.glassResetAria', { theme: t(`common.themeName.${glassTheme}`) })}>
             <RotateCcw className="size-4" strokeWidth={1.8} />
-            恢复默认
+            {t('settings.appearance.glassReset')}
           </button>
         }
       >
@@ -114,33 +119,33 @@ export function AppearanceTab() {
           <GlassPreview className="lg:sticky lg:top-[calc(var(--nav-h)+12px)]" />
           <div className="flex min-w-0 flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm">调整模式</span>
+              <span className="text-sm">{t('settings.appearance.tuneMode')}</span>
               <Seg
                 glass={false}
-                label="玻璃参数模式"
+                label={t('settings.appearance.tuneModeAria')}
                 items={[
-                  { value: 'light', label: '浅色' },
-                  { value: 'dark', label: '深色' },
+                  { value: 'light', label: t('common.theme.light') },
+                  { value: 'dark', label: t('common.theme.dark') },
                 ]}
                 value={glassTheme}
                 onChange={setTheme}
               />
-              <span className="text-[13px] text-faint">切换时同步预览对应主题；跟随系统时自动使用对应参数。</span>
+              <span className="text-[13px] text-faint">{t('settings.appearance.tuneModeHint')}</span>
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm">预设</span>
+              <span className="text-sm">{t('settings.appearance.preset')}</span>
               <Seg
                 glass={false}
-                label="玻璃质感预设"
+                label={t('settings.appearance.presetAria')}
                 items={[
-                  { value: 'tint', label: '默认' },
-                  { value: 'veil', label: '通透' },
+                  { value: 'tint', label: t('settings.appearance.presetDefault') },
+                  { value: 'veil', label: t('settings.appearance.presetVeil') },
                 ]}
                 value={tone}
                 onChange={switchPreset}
               />
               <span className="text-[13px] text-faint">
-                通透：在模糊里直接提亮或压暗背景，底色换成中性白 / 近黑，饱和度更低、底色更薄。每种模式的两个预设各自记住滑块；「恢复默认」只清除当前模式的改动。
+                {t('settings.appearance.presetHint')}
               </span>
             </div>
             <GlassSliders />

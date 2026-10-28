@@ -21,6 +21,7 @@ import { Popover } from '@/components/ui/Popover'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
 import { FITS, MODES, cycle, type ReadMode, type ReaderSettings } from './settings'
+import { t } from '@/i18n'
 
 export const MODE_ICON: Record<ReadMode, typeof BookOpen> = {
   single: RectangleVertical,
@@ -58,7 +59,7 @@ function BookmarkControl({
   const spread = pages.length > 1
   const marks = pages.map((p) => bookmarks.includes(p))
   const bookmarked = marks.some(Boolean)
-  const label = spread ? '页面书签' : `${bookmarked ? '取消' : '添加'}此页书签`
+  const label = spread ? t('reader.chrome.bookmarkPages') : bookmarked ? t('reader.chrome.bookmarkRemove') : t('reader.chrome.bookmarkAdd')
   const button = (
     <button
       type="button"
@@ -68,7 +69,7 @@ function BookmarkControl({
       aria-pressed={spread ? undefined : bookmarked}
       aria-haspopup={spread ? 'menu' : undefined}
       aria-expanded={spread ? menu : undefined}
-      title={spread ? '选择要加书签的页（B / Shift+B）' : `${label}（B）`}
+      title={spread ? t('reader.chrome.bookmarkPickTitle') : t('reader.withKey', { label, key: 'B' })}
     >
       <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
     </button>
@@ -79,7 +80,7 @@ function BookmarkControl({
   const sides = pages.map((p, i) => ({ p, marked: marks[i] }))
   if (rtl) sides.reverse()
   return (
-    <Popover open={menu} onClose={close} trigger={button} label="选择要加书签的页" rootClassName="flex-none" className="flex w-[200px] flex-col rounded-[22px] p-2">
+    <Popover open={menu} onClose={close} trigger={button} label={t('reader.chrome.bookmarkPick')} rootClassName="flex-none" className="flex w-[200px] flex-col rounded-[22px] p-2">
       {sides.map(({ p, marked }, i) => (
         <button
           key={p}
@@ -94,7 +95,7 @@ function BookmarkControl({
         >
           <Bookmark className={cn('size-5', marked && 'fill-current')} strokeWidth={1.8} />
           <span className="flex-1">
-            {i === 0 ? '左页' : '右页'} · 第 {p + 1} 页
+            {t('reader.chrome.side', { side: i === 0 ? t('reader.chrome.left') : t('reader.chrome.right'), n: p + 1 })}
           </span>
         </button>
       ))}
@@ -165,7 +166,7 @@ export function ReaderChrome({
   const manyPages = pageCount > 60
   // 触屏调起系统分享（可存到相册），电脑直接下载
   const touch = matchMedia('(pointer: coarse)').matches
-  const saveLabel = touch ? '分享此页' : '保存此页'
+  const saveLabel = touch ? t('reader.chrome.share') : t('reader.chrome.save')
 
   return (
     <AnimatePresence>
@@ -179,7 +180,7 @@ export function ReaderChrome({
               dense
               className="pointer-events-auto flex min-w-0 items-center gap-1 rounded-full p-[5px]"
             >
-              <button type="button" onClick={onBack} className={ib} aria-label="返回漫画详情">
+              <button type="button" onClick={onBack} className={ib} aria-label={t('reader.chrome.back')}>
                 <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
               </button>
               <div className="flex min-w-0 flex-col pr-3.5 pl-1 leading-tight">
@@ -196,7 +197,7 @@ export function ReaderChrome({
               suspendRefract={suspendRefract}
               dense
               role="toolbar"
-              aria-label="阅读工具"
+              aria-label={t('reader.chrome.tools')}
               className="pointer-events-auto flex flex-none items-center gap-1 rounded-full p-[5px]"
             >
               <span className="flex max-md:hidden">
@@ -209,7 +210,7 @@ export function ReaderChrome({
                       className={cn(ib, settings.mode === m.value && on)}
                       onClick={() => set({ mode: m.value })}
                       aria-label={m.label}
-                      title={`${m.label}（M）`}
+                      title={t('reader.withKey', { label: m.label, key: 'M' })}
                       aria-pressed={settings.mode === m.value}
                     >
                       <Icon className="size-5" strokeWidth={1.8} />
@@ -224,12 +225,12 @@ export function ReaderChrome({
                 className={cn(tb, 'max-sm:hidden')}
                 disabled={!paged}
                 onClick={() => set({ dir: settings.dir === 'rtl' ? 'ltr' : 'rtl' })}
-                title="切换翻页方向（D）"
+                title={t('reader.withKey', { label: t('reader.chrome.toggleDir'), key: 'D' })}
               >
                 <ArrowLeftRight className="size-[18px]" strokeWidth={1.8} />
                 {settings.dir.toUpperCase()}
               </button>
-              <button type="button" className={cn(tb, 'max-sm:hidden')} onClick={() => set({ fit: cycle(FITS, settings.fit) })} title="切换缩放（Z）">
+              <button type="button" className={cn(tb, 'max-sm:hidden')} onClick={() => set({ fit: cycle(FITS, settings.fit) })} title={t('reader.withKey', { label: t('reader.chrome.toggleFit'), key: 'Z' })}>
                 {FITS.find((f) => f.value === settings.fit)?.label}
               </button>
               <span className="mx-1 h-[22px] w-px self-center bg-line max-sm:hidden" />
@@ -237,7 +238,7 @@ export function ReaderChrome({
               <button type="button" className={ib} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
                 {touch ? <Share2 className="size-5" strokeWidth={1.8} /> : <Download className="size-5" strokeWidth={1.8} />}
               </button>
-              <button type="button" className={cn(ib, panel && on)} onClick={onTogglePanel} aria-label="阅读设置" aria-pressed={panel}>
+              <button type="button" className={cn(ib, panel && on)} onClick={onTogglePanel} aria-label={t('reader.chrome.settings')} aria-pressed={panel}>
                 <Settings2 className="size-5" strokeWidth={1.8} />
               </button>
               <button
@@ -245,8 +246,8 @@ export function ReaderChrome({
                 // 不支持全屏的浏览器（iPhone Safari）不显示
                 className={cn(ib, !document.fullscreenEnabled && 'hidden')}
                 onClick={onFullscreen}
-                aria-label={fullscreen ? '退出全屏' : '全屏'}
-                title="全屏（F）"
+                aria-label={fullscreen ? t('reader.chrome.exitFullscreen') : t('reader.chrome.fullscreen')}
+                title={t('reader.withKey', { label: t('reader.chrome.fullscreen'), key: 'F' })}
               >
                 {fullscreen ? <Shrink className="size-5" strokeWidth={1.8} /> : <Expand className="size-5" strokeWidth={1.8} />}
               </button>
@@ -262,14 +263,14 @@ export function ReaderChrome({
               className="pointer-events-auto flex w-[min(920px,100%)] items-center gap-3 rounded-full px-2.5 py-2 max-sm:gap-1.5"
             >
               {/* 从右往左读时，下一话在左、上一话在右，和翻页方向一致；用 order 换位，中间的页码与进度条不动 */}
-              <button type="button" className={cn(tb, rtl && 'order-last')} disabled={!hasPrev} onClick={onPrevChapter} title="上一话（[）">
+              <button type="button" className={cn(tb, rtl && 'order-last')} disabled={!hasPrev} onClick={onPrevChapter} title={t('reader.withKey', { label: t('reader.chrome.prevChapter'), key: '[' })}>
                 {rtl ? <ChevronRight className="size-[18px]" strokeWidth={1.8} /> : <ChevronLeft className="size-[18px]" strokeWidth={1.8} />}
-                <span className="max-sm:hidden">上一话</span>
+                <span className="max-sm:hidden">{t('reader.chrome.prevChapter')}</span>
               </button>
               <span className="w-[72px] flex-none text-center text-[13px] font-bold num max-sm:w-auto">{pageLabel}</span>
               <div
                 role="group"
-                aria-label="页面进度"
+                aria-label={t('reader.chrome.progress')}
                 className={cn('flex h-[42px] min-w-0 flex-1 items-center gap-[3px]', manyPages ? 'hidden' : 'max-sm:hidden')}
                 style={{ direction: paged && settings.dir === 'rtl' ? 'rtl' : 'ltr' }}
               >
@@ -281,8 +282,8 @@ export function ReaderChrome({
                       key={i}
                       type="button"
                       onClick={() => onJump(i)}
-                      aria-label={`第 ${i + 1} 页${marked ? '（书签）' : ''}`}
-                      title={`第 ${i + 1} 页${marked ? ' · 书签' : ''}`}
+                      aria-label={marked ? t('reader.chrome.pageMarked', { n: i + 1 }) : t('reader.chrome.page', { n: i + 1 })}
+                      title={marked ? t('reader.chrome.pageMarkedTitle', { n: i + 1 }) : t('reader.chrome.page', { n: i + 1 })}
                       className={cn(
                         'relative h-1.5 min-w-0 flex-1 rounded-[3px] transition-[height] hover:h-3',
                         // 有书签的页上方一个小点
@@ -306,14 +307,14 @@ export function ReaderChrome({
                 max={pageCount}
                 value={first + 1}
                 onChange={(e) => onJump(Number(e.target.value) - 1)}
-                aria-label="跳转到页"
+                aria-label={t('reader.chrome.jump')}
                 className={cn('h-[42px] min-w-0 flex-1 accent-[var(--accent)]', manyPages ? '' : 'sm:hidden')}
                 style={{ direction: paged && settings.dir === 'rtl' ? 'rtl' : 'ltr' }}
               />
-              <span className="text-xs whitespace-nowrap text-muted max-md:hidden">预加载 {settings.preload} 页</span>
-              <button type="button" className={cn(tb, rtl && '-order-1')} disabled={!hasNext} onClick={onNextChapter} title="下一话（]）">
+              <span className="text-xs whitespace-nowrap text-muted max-md:hidden">{t('reader.chrome.preload', { n: settings.preload })}</span>
+              <button type="button" className={cn(tb, rtl && '-order-1')} disabled={!hasNext} onClick={onNextChapter} title={t('reader.withKey', { label: t('reader.chrome.nextChapter'), key: ']' })}>
                 {rtl ? <ChevronLeft className="size-[18px]" strokeWidth={1.8} /> : null}
-                <span className="max-sm:hidden">下一话</span>
+                <span className="max-sm:hidden">{t('reader.chrome.nextChapter')}</span>
                 {rtl ? null : <ChevronRight className="size-[18px]" strokeWidth={1.8} />}
               </button>
             </MotionGlass>

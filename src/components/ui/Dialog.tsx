@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { spring, still } from '@/design/motion'
 import { cn } from '@/lib/cn'
+import { t } from '@/i18n'
 
 /** 从先打开到后打开。只有最上面一层接收键盘，下面的层和页面都 inert */
 const layers: HTMLElement[] = []
@@ -18,9 +19,12 @@ function labelOf(el: HTMLElement) {
   return (el.getAttribute('aria-label') || el.textContent || '').replace(/\s+/g, ' ').trim()
 }
 
+/** 取消 / 关闭按钮的名字：两种语言都认，焦点优先落在这里 */
+const DISMISS_NAMES = new Set([t('common.cancel'), t('common.close')])
+
 function isDismiss(el: HTMLElement) {
   const name = labelOf(el)
-  return name === '取消' || name === '关闭'
+  return DISMISS_NAMES.has(name)
 }
 
 function focusableIn(panel: HTMLElement) {

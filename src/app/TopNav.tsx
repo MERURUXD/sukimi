@@ -17,13 +17,14 @@ import { ThemeToggle } from './ThemeToggle'
 import { useHideOnScroll } from './useHideOnScroll'
 import { isDemo } from '@/lib/demo'
 import { DemoNotice } from '@/features/demo/DemoGate'
+import { t } from '@/i18n'
 
 const LINKS = [
-  { to: '/', label: '首页', end: true },
-  { to: '/library', label: '书库' },
-  { to: '/history', label: '历史' },
-  { to: '/updates', label: '更新' },
-  { to: '/browse', label: '发现' },
+  { to: '/', label: t('app.nav.home'), end: true },
+  { to: '/library', label: t('app.nav.library') },
+  { to: '/history', label: t('app.nav.history') },
+  { to: '/updates', label: t('app.nav.updates') },
+  { to: '/browse', label: t('app.nav.browse') },
 ]
 
 export function TopNav() {
@@ -60,13 +61,13 @@ export function TopNav() {
       <div className="topnav-layout wrap h-[var(--nav-h)] items-center justify-between gap-4">
         {inManga ? (
           // 网格项默认会拉满整列，要贴着一侧只占自身宽度
-          <Glass as="button" data-vt-glass="topnav-back" type="button" className="gicon rounded-full justify-self-start" onClick={back} aria-label="返回">
+          <Glass as="button" data-vt-glass="topnav-back" type="button" className="gicon rounded-full justify-self-start" onClick={back} aria-label={t('app.nav.back')}>
             <ChevronLeft className={cn('size-6', leadIn)} strokeWidth={1.8} />
           </Glass>
         ) : (
           // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏。
           // 右侧留白放在文字上：文字隐藏的宽度下胶囊回到正圆，图标不偏左
-          <NavLink to="/" aria-label="Sukimi 首页" className="topnav-brand rounded-full text-text no-underline justify-self-start">
+          <NavLink to="/" aria-label={t('app.nav.brandHome')} className="topnav-brand rounded-full text-text no-underline justify-self-start">
             <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-1.5 rounded-full p-[5px] text-[17px] font-bold">
               <BrandMark className={leadIn} />
               <span className={cn('pr-[11px] max-sm:hidden md:max-xl:hidden', leadIn)}>Sukimi</span>
@@ -169,7 +170,7 @@ function DownloadIndicator() {
     <AnimatePresence>
       {cur && !inDownloads && (
         // 透明度动画放在玻璃元素自己身上，外面的链接不动（否则玻璃失效）
-        <NavLink to="/downloads" className="rounded-full text-text no-underline" aria-label={`下载队列：${running ? '正在下载' : '已暂停'}，${queue.length} 话`} title="下载队列">
+        <NavLink to="/downloads" className="rounded-full text-text no-underline" aria-label={t('app.nav.downloadQueueState', { state: running ? t('app.nav.downloading') : t('app.nav.paused'), count: queue.length })} title={t('app.nav.downloadQueue')}>
           <MotionGlass
             as="span"
             data-vt-glass="topnav-downloads"

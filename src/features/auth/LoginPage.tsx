@@ -5,6 +5,7 @@ import { AuthError, login, useAuth } from '@/api/auth'
 import { graphql } from '@/api/gql'
 import { Glass } from '@/components/glass/Glass'
 import { AuthInput, AuthLayout } from './AuthLayout'
+import { t } from '@/i18n'
 
 const AboutServer = graphql(`
   query AboutServer {
@@ -37,7 +38,7 @@ export function LoginPage() {
     try {
       await login(username.trim(), password)
     } catch (err) {
-      setError(err instanceof AuthError ? '用户名或密码不正确' : (err as Error).message)
+      setError(err instanceof AuthError ? t('auth.login.badCredentials') : (err as Error).message)
     } finally {
       setBusy(false)
     }
@@ -45,15 +46,15 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="登录 Sukimi"
+      title={t('auth.login.title')}
       subtitle={data ? `${data.aboutServer.name} ${data.aboutServer.version}` : undefined}
       onSubmit={submit}
     >
       <div className="mt-8 flex w-full flex-col gap-3">
-        <AuthInput placeholder="用户名" autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
+        <AuthInput placeholder={t('auth.login.username')} autoComplete="username" autoFocus value={username} onChange={(e) => setUsername(e.target.value)} />
         <AuthInput
           type="password"
-          placeholder="密码"
+          placeholder={t('auth.login.password')}
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -65,20 +66,20 @@ export function LoginPage() {
       </p>
 
       <button className="solid mt-3 w-full" disabled={busy || !username || !password}>
-        {busy ? '正在登录…' : '登录'}
+        {busy ? t('auth.login.signingIn') : t('auth.login.signIn')}
       </button>
       <p className="mt-4 mb-0 flex gap-4 text-sm">
         <Link to="/register" className="text-muted no-underline hover:text-text">
-          用注册码注册
+          {t('auth.login.registerByCode')}
         </Link>
         <Link to="/recover" className="text-muted no-underline hover:text-text">
-          忘记密码
+          {t('auth.login.forgot')}
         </Link>
       </p>
       <Glass as="a" href="/demo/" className="gbtn mt-4 w-full justify-center rounded-full no-underline">
-        无需登录，体验演示
+        {t('auth.login.demo')}
       </Glass>
-      <p className="mt-3 text-center text-xs text-muted">虚构作品，可体验书库与阅读器，无需连接服务端。</p>
+      <p className="mt-3 text-center text-xs text-muted">{t('auth.login.demoHint')}</p>
     </AuthLayout>
   )
 }

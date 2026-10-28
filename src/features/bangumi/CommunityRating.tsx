@@ -10,9 +10,10 @@ import { searchSubjects, setBgmMatch, useBgmGuess, useBgmSubject, type BgmMatch,
 import { shortCount, subjectUrl, type BgmSubject } from './rating'
 import { introRise as rise } from '@/features/manga/intro'
 import './CommunityRating.css'
+import { t } from '@/i18n'
 
 const word = (s: BgmSubject) => scoreWord('bangumi', Math.round(s.score))
-const facts = (s: BgmSubject) => [word(s), s.rank ? `#${s.rank}` : '暂无排名', `${shortCount(s.total)} 人`].filter(Boolean).join(' · ')
+const facts = (s: BgmSubject) => [word(s), s.rank ? `#${s.rank}` : t('bangumi.unranked'), t('bangumi.people', { n: shortCount(s.total) })].filter(Boolean).join(' · ')
 
 /* ───────── 柱状图：1–10 分各有多少人，自己打的那一分标亮并在下方写「你」 ───────── */
 
@@ -41,7 +42,7 @@ function Histogram({ counts, mine = 0, height, labels = 'ends', delay = 0 }: { c
       <div className="mt-1 flex gap-[3px] text-center text-[11px] leading-none text-faint num">
         {Array.from({ length: 10 }, (_, i) => {
           const s = i + 1
-          const text = counts && s === mine ? '你' : labels === 'all' || s === 1 || s === 5 || s === 10 ? String(s) : ''
+          const text = counts && s === mine ? t('bangumi.you') : labels === 'all' || s === 1 || s === 5 || s === 10 ? String(s) : ''
           return <span key={i} className={cn('flex-1', counts && s === mine && 'font-semibold text-text')}>{text}</span>
         })}
       </div>
@@ -73,21 +74,21 @@ function Score({ value, delay = 0 }: { value: number; delay?: number }) {
 }
 
 /** 读屏用的分布说明：图本身 aria-hidden */
-const describe = (s: BgmSubject) => `Bangumi 站内评分 ${s.score.toFixed(1)}，${facts(s)}评分；最多人打 ${s.counts.indexOf(Math.max(...s.counts)) + 1} 分`
+const describe = (s: BgmSubject) => t('bangumi.describe', { score: s.score.toFixed(1), facts: facts(s), top: s.counts.indexOf(Math.max(...s.counts)) + 1 })
 
 function Status({ state, id, onRetry, className }: { state: BgmState; id?: number; onRetry: () => void; className?: string }) {
-  if (state === 'loading') return <span className={cn('text-[13px] text-muted', className)}>正在查询 Bangumi 站内评分…</span>
+  if (state === 'loading') return <span className={cn('text-[13px] text-muted', className)}>{t('bangumi.querying')}</span>
   // 公开接口对未登录访问的 NSFW 条目也返回 404，不能断言条目不存在
   if (state === 'missing')
     return (
       <span className={cn('text-[13px] text-muted', className)}>
-        查不到站内评分：条目可能需要登录 Bangumi 才能查看，或已被删除。
-        {id ? <a href={subjectUrl(id)} target="_blank" rel="noreferrer" className="ml-1 font-semibold text-muted hover:text-text">在 Bangumi 打开</a> : null}
+        {t('bangumi.missing')}
+        {id ? <a href={subjectUrl(id)} target="_blank" rel="noreferrer" className="ml-1 font-semibold text-muted hover:text-text">{t('bangumi.openOn')}</a> : null}
       </span>
     )
   return (
     <button type="button" className={cn('self-start text-[13px] font-semibold text-muted hover:text-text', className)} onClick={onRetry}>
-      站内评分加载失败，点此重试
+      {t('bangumi.loadFailed')}
     </button>
   )
 }
@@ -114,19 +115,19 @@ export function BgmBlock({ id, mine, delay = 0 }: { id: number; mine: number; de
             {subject ? (
               <>
                 <span className="flex min-w-0 flex-1 items-baseline gap-2" role="img" aria-label={describe(subject)}>
-                  <span className="text-[11px] font-semibold tracking-[.06em] text-faint">站内</span>
+                  <span className="text-[11px] font-semibold tracking-[.06em] text-faint">{t('bangumi.inSite')}</span>
                   <span className="text-[22px] leading-none font-bold num"><Score value={subject.score} delay={start} /></span>
                   <span className="rise min-w-0 truncate text-xs text-muted num" style={{ '--d': `${start}ms` } as CSSProperties}>{facts(subject)}</span>
                 </span>
                 <button type="button" className="-mr-1 inline-flex min-h-8 flex-none items-center self-center rounded-full pl-2 text-[13px] font-semibold text-muted transition-colors hover:text-text" onClick={() => setOpen(true)}>
-                  更多
+                  {t('bangumi.more')}
                   <ChevronRight className="size-4" />
                 </button>
               </>
             ) : (
               <span className="flex items-baseline gap-2 self-center">
-                <span className="text-[11px] font-semibold tracking-[.06em] text-faint">站内</span>
-                <span className="text-[13px] text-muted">正在查询…</span>
+                <span className="text-[11px] font-semibold tracking-[.06em] text-faint">{t('bangumi.inSite')}</span>
+                <span className="text-[13px] text-muted">{t('bangumi.queryingShort')}</span>
               </span>
             )}
           </div>
@@ -157,14 +158,14 @@ function LineButton({ subject, state, guess, onOpen, onRetry }: { subject: BgmSu
   if (!subject && state !== 'missing') return <Status state={state} onRetry={onRetry} className="min-h-10 px-0 py-2.5" />
   return (
     <button type="button" onClick={onOpen} className="-mx-2 flex min-h-10 items-center gap-2 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-hover active:bg-hover">
-      <span className="text-[11px] font-semibold tracking-[.06em] text-faint">Bangumi 站内</span>
+      <span className="text-[11px] font-semibold tracking-[.06em] text-faint">{t('bangumi.inSiteFull')}</span>
       {subject ? (
         <>
           <b className="text-[17px] leading-none num"><Score value={subject.score} /></b>
-          <span className="min-w-0 flex-1 truncate text-[13px] text-muted num">{guess ? `可能是：${subject.nameCn || subject.name}` : facts(subject)}</span>
+          <span className="min-w-0 flex-1 truncate text-[13px] text-muted num">{guess ? t('bangumi.maybe', { name: subject.nameCn || subject.name }) : facts(subject)}</span>
         </>
       ) : (
-        <span className="min-w-0 flex-1 truncate text-[13px] text-muted">没有找到对应条目，点此手动搜索</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-muted">{t('bangumi.noMatchSearch')}</span>
       )}
       <ChevronRight className="size-4 flex-none text-muted" />
     </button>
@@ -218,13 +219,13 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
       <div {...row(0)} className={cn('flex w-full items-center gap-2.5', row(0).className)}>
         <span className="grid size-7 flex-none place-items-center rounded-[8px] bg-hover text-[13px] font-bold" aria-hidden>b</span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate font-semibold">Bangumi 站内评分</span>
+          <span className="truncate font-semibold">{t('bangumi.title')}</span>
           <span className="truncate text-[13px] text-muted">
-            {shown ? `${g.match?.sure ? '' : '可能是：'}${shown.nameCn || shown.name}` : g.state === 'loading' ? '正在按标题搜索…' : rejected ? '已排除自动匹配的条目' : '没有找到对应条目'}
+            {shown ? (g.match?.sure ? shown.nameCn || shown.name : t('bangumi.maybe', { name: shown.nameCn || shown.name })) : g.state === 'loading' ? t('bangumi.matching') : rejected ? t('bangumi.rejected') : t('bangumi.noMatch')}
           </span>
         </span>
         <button type="button" className="-mr-1 inline-flex min-h-9 flex-none items-center rounded-full pl-2 text-[13px] font-semibold text-muted transition-colors hover:text-text" onClick={() => setOpen('search')}>
-          {shown ? '换一个' : '手动搜索'}
+          {shown ? t('bangumi.change') : t('bangumi.manual')}
           <ChevronRight className="size-4" />
         </button>
       </div>
@@ -235,8 +236,8 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
           <div {...row(1)} className={cn('flex items-baseline gap-2.5', row(1).className)} role={shown ? 'img' : undefined} aria-label={shown ? describe(shown) : undefined}>
             <span className={cn('text-[36px] leading-none font-bold num', !shown && 'text-faint')}>{shown ? <Score value={shown.score} delay={start} /> : '—'}</span>
             <span className="flex flex-col text-xs text-muted num">
-              <span className="text-text">{shown ? [word(shown), shown.rank ? `排名 #${shown.rank}` : '暂无排名'].filter(Boolean).join(' · ') : ' '}</span>
-              <span>{shown ? `${shortCount(shown.total)} 人评分` : ' '}</span>
+              <span className="text-text">{shown ? [word(shown), shown.rank ? t('bangumi.rank', { n: shown.rank }) : t('bangumi.unranked')].filter(Boolean).join(' · ') : ' '}</span>
+              <span>{shown ? t('bangumi.ratedBy', { n: shortCount(shown.total) }) : ' '}</span>
             </span>
           </div>
           <div {...row(2)} className={cn('w-full', row(2).className)}><Histogram counts={shown?.counts ?? null} height={44} delay={start} /></div>
@@ -246,11 +247,11 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
               <div {...row(4)} className={cn('flex flex-wrap gap-2', row(4).className)}>
                 {/* 手动选定（sure）后仍可直接绑定 */}
                 {bind && (
-                  <button type="button" className="fopt cta" disabled={binding} onClick={() => void bind()}>{binding ? '正在绑定…' : g.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>
+                  <button type="button" className="fopt cta" disabled={binding} onClick={() => void bind()}>{binding ? t('bangumi.binding') : g.match?.sure ? t('bangumi.bind') : t('bangumi.confirmBind')}</button>
                 )}
-                {!g.match?.sure && !bind && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, shown.id)}>就是这部</button>}
-                {!g.match?.sure && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, 0)}>不是这部</button>}
-                <button type="button" className="fopt" onClick={() => setOpen('detail')}>更多</button>
+                {!g.match?.sure && !bind && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, shown.id)}>{t('bangumi.isThis')}</button>}
+                {!g.match?.sure && <button type="button" className="fopt" onClick={() => setBgmMatch(mangaId, 0)}>{t('bangumi.notThis')}</button>}
+                <button type="button" className="fopt" onClick={() => setOpen('detail')}>{t('bangumi.more')}</button>
               </div>
             </>
           )}
@@ -264,11 +265,11 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
 }
 
 const collections = (s: BgmSubject): [string, number][] => [
-  ['想读', s.collection.wish],
-  ['在读', s.collection.doing],
-  ['读过', s.collection.collect],
-  ['搁置', s.collection.onHold],
-  ['抛弃', s.collection.dropped],
+  [t('bangumi.col.wish'), s.collection.wish],
+  [t('bangumi.col.doing'), s.collection.doing],
+  [t('bangumi.col.collect'), s.collection.collect],
+  [t('bangumi.col.onHold'), s.collection.onHold],
+  [t('bangumi.col.dropped'), s.collection.dropped],
 ]
 
 /* ───────── 完整面板：弹窗，内容过长时在面板内滚动 ───────── */
@@ -291,15 +292,15 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
   return (
     <AnimatePresence>
       {open && (
-        <Dialog label="Bangumi 站内评分" onClose={onClose} className="place-items-end p-3 sm:place-items-center sm:p-4">
+        <Dialog label={t('bangumi.title')} onClose={onClose} className="place-items-end p-3 sm:place-items-center sm:p-4">
           <MotionGlass
             dense
             {...pop}
             className="no-scrollbar relative flex max-h-[calc(100dvh-24px)] w-[min(460px,100%)] flex-col gap-6 overflow-y-auto overscroll-contain rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
           >
             <div className="flex items-center gap-3">
-              <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">{guess?.search ? '搜索 Bangumi 条目' : subject ? subject.nameCn || subject.name : 'Bangumi 站内评分'}</h2>
-              <button type="button" className="gicon size-10 flex-none" aria-label="关闭" onClick={onClose}>
+              <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">{guess?.search ? t('bangumi.searchTitle') : subject ? subject.nameCn || subject.name : t('bangumi.title')}</h2>
+              <button type="button" className="gicon size-10 flex-none" aria-label={t('common.close')} onClick={onClose}>
                 <X className="size-5" />
               </button>
             </div>
@@ -311,8 +312,8 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                 <div className="flex items-baseline gap-3" role="img" aria-label={describe(subject)}>
                   <span className="text-[44px] leading-none font-bold num"><Score value={subject.score} /></span>
                   <span className="flex flex-col text-sm text-muted num">
-                    <span className="text-text">{[word(subject), subject.rank ? `排名 #${subject.rank}` : '暂无排名'].filter(Boolean).join(' · ')}</span>
-                    <span>{shortCount(subject.total)} 人评分{subject.name && subject.nameCn && subject.name !== subject.nameCn ? ` · ${subject.name}` : ''}</span>
+                    <span className="text-text">{[word(subject), subject.rank ? t('bangumi.rank', { n: subject.rank }) : t('bangumi.unranked')].filter(Boolean).join(' · ')}</span>
+                    <span>{t('bangumi.ratedBy', { n: shortCount(subject.total) })}{subject.name && subject.nameCn && subject.name !== subject.nameCn ? ` · ${subject.name}` : ''}</span>
                   </span>
                 </div>
                 <Histogram counts={subject.counts} mine={mine} height={88} labels="all" />
@@ -331,22 +332,22 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                 )}
                 {guess && (guess.bind || !guess.match?.sure) && (
                   <div className="flex flex-wrap gap-2">
-                    {guess.bind && <button type="button" className="fopt cta" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? '正在绑定…' : guess.match?.sure ? '绑定追踪' : '确认并绑定追踪'}</button>}
-                    {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>就是这部</button>}
-                    {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>不是这部</button>}
-                    {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>换一个</button>}
+                    {guess.bind && <button type="button" className="fopt cta" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? t('bangumi.binding') : guess.match?.sure ? t('bangumi.bind') : t('bangumi.confirmBind')}</button>}
+                    {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>{t('bangumi.isThis')}</button>}
+                    {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>{t('bangumi.notThis')}</button>}
+                    {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>{t('bangumi.change')}</button>}
                   </div>
                 )}
                 {guess?.match?.sure && (
-                  <button type="button" className="self-start text-[13px] font-semibold text-muted hover:text-text" onClick={guess.onSearch}>换一个条目</button>
+                  <button type="button" className="self-start text-[13px] font-semibold text-muted hover:text-text" onClick={guess.onSearch}>{t('bangumi.changeItem')}</button>
                 )}
                 <div className="flex items-center justify-between gap-3 text-xs text-muted">
                   <button type="button" className="inline-flex min-h-8 items-center gap-1.5 hover:text-text" onClick={onRefresh} disabled={state === 'loading'}>
                     <RefreshCw className={cn('size-3.5', state === 'loading' && 'animate-spin')} />
-                    {state === 'loading' ? '正在刷新…' : at ? `${timeAgo(at)}更新 · 刷新` : '刷新'}
+                    {state === 'loading' ? t('bangumi.refreshing') : at ? t('bangumi.updatedAgo', { time: timeAgo(at) }) : t('bangumi.refresh')}
                   </button>
                   <a href={subjectUrl(subject.id)} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 font-semibold text-muted no-underline hover:text-text">
-                    在 Bangumi 打开
+                    {t('bangumi.openOn')}
                     <ExternalLink className="size-3.5" />
                   </a>
                 </div>
@@ -387,12 +388,12 @@ function Picker({ guess }: { guess: GuessProps }) {
       <form onSubmit={submit}>
         <label className="plain flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
           <Search className="size-4 flex-none" />
-          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="作品名，原名或中文名都可以" aria-label="搜索 Bangumi 条目" className="min-w-0 flex-1 bg-transparent text-[15px] text-text outline-none" />
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('bangumi.searchPlaceholder')} aria-label={t('bangumi.searchTitle')} className="min-w-0 flex-1 bg-transparent text-[15px] text-text outline-none" />
         </label>
       </form>
-      {state === 'loading' && <span className="text-sm text-muted">正在搜索…</span>}
-      {state === 'error' && <button type="button" className="self-start text-sm font-semibold text-muted hover:text-text" onClick={() => void run(input)}>搜索失败，点此重试</button>}
-      {state === 'idle' && results?.length === 0 && <span className="text-sm text-muted">没有搜到，换个写法试试</span>}
+      {state === 'loading' && <span className="text-sm text-muted">{t('bangumi.searching')}</span>}
+      {state === 'error' && <button type="button" className="self-start text-sm font-semibold text-muted hover:text-text" onClick={() => void run(input)}>{t('bangumi.searchFailed')}</button>}
+      {state === 'idle' && results?.length === 0 && <span className="text-sm text-muted">{t('bangumi.noneFound')}</span>}
       {state === 'idle' && results && results.length > 0 && (
         <ul className="m-0 -mx-2 flex list-none flex-col p-0">
           {results.map((s) => (
@@ -404,11 +405,11 @@ function Picker({ guess }: { guess: GuessProps }) {
               >
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-semibold">{s.nameCn || s.name}</span>
-                  <span className="truncate text-[13px] text-muted">{[s.platform, s.nameCn && s.name !== s.nameCn ? s.name : '', s.series ? '' : '单册'].filter(Boolean).join(' · ')}</span>
+                  <span className="truncate text-[13px] text-muted">{[s.platform, s.nameCn && s.name !== s.nameCn ? s.name : '', s.series ? '' : t('bangumi.single')].filter(Boolean).join(' · ')}</span>
                 </span>
                 <span className="flex flex-none flex-col items-end text-xs text-muted num">
                   <b className="text-[15px] text-text">{s.score ? s.score.toFixed(1) : '—'}</b>
-                  {shortCount(s.total)} 人
+                  {t('bangumi.people', { n: shortCount(s.total) })}
                 </span>
               </button>
             </li>

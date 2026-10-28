@@ -6,6 +6,8 @@ import type { Rgb } from '@/lib/palette'
 import { monthLabel } from './GalleryHero'
 import { POSTER_H, POSTER_W, fitLines, ringAngle, workHeading, type LibraryPoster, type PosterCover, type PosterModel, type StatsPoster, type WorkPoster } from './poster'
 import { bestRun, kpiData, type KpiBar } from './stats'
+import { t as tl } from '@/i18n'
+import { monthName } from './dates'
 
 /*
  * 用画布直接画出分享海报（1080 × 1350 的 PNG），不加依赖。
@@ -223,27 +225,27 @@ function drawLibrary(ctx: Ctx, m: LibraryPoster, imgs: Images) {
   setFont(ctx, 500, 22, CJK, 6.6)
   text(ctx, monthLabel(new Date(m.now)), L, 625, ink(0.7))
   setFont(ctx, 900, 104, CJK, -2)
-  text(ctx, '每一部收藏，', L, 746, INK)
-  text(ctx, '都在这面墙上。', L, 862, INK)
+  text(ctx, tl('gallery.slogan1'), L, 746, INK)
+  text(ctx, tl('gallery.slogan2'), L, 862, INK)
 
   // 左边：已读话数
   setFont(ctx, 500, 24, CJK)
-  text(ctx, '已读', L, 980, ink(0.68))
+  text(ctx, tl('gallery.poster.libRead'), L, 980, ink(0.68))
   setFont(ctx, 700, 148, SANS, -4.4)
   const read = count(m.read)
   text(ctx, read, L, 1126, INK)
   const rw = ctx.measureText(read).width
   setFont(ctx, 500, 40, CJK)
-  text(ctx, '话', L + rw + 14, 1126, INK)
+  text(ctx, tl('gallery.unit.chapter', { count: m.read }), L + rw + 14, 1126, INK)
 
   // 右边：数字一列右对齐，单位一列左对齐（画布没有等宽数字，靠对齐方式排整齐）
   setFont(ctx, 500, 24, CJK)
-  const unitX = R - ctx.measureText('部').width
   const rows: [number, string][] = [
-    [m.works, '部'],
-    [m.chapters, '话'],
-    [m.pages, '页'],
+    [m.works, tl('gallery.unit.title', { count: m.works })],
+    [m.chapters, tl('gallery.unit.chapter', { count: m.chapters })],
+    [m.pages, tl('gallery.unit.page', { count: m.pages })],
   ]
+  const unitX = R - Math.max(...rows.map(([, u]) => ctx.measureText(u).width))
   rows.forEach(([v, u], i) => {
     const y = 1006 + i * 58
     setFont(ctx, 700, 44)
@@ -254,7 +256,7 @@ function drawLibrary(ctx: Ctx, m: LibraryPoster, imgs: Images) {
 
   brand(ctx, L, 1214)
   setFont(ctx, 400, 18, CJK)
-  text(ctx, '页数按已知页数估算', R, 1246, ink(0.5), 'right')
+  text(ctx, tl('gallery.poster.pageNote'), R, 1246, ink(0.5), 'right')
 }
 
 /* ───── 阅读档案 ───── */
@@ -286,7 +288,7 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
   const R = POSTER_W - 88
   const d = new Date(m.now)
   setFont(ctx, 500, 22, CJK, 6.6)
-  text(ctx, '阅读档案', L, 100, ink(0.7))
+  text(ctx, tl('gallery.archive'), L, 100, ink(0.7))
   setFont(ctx, 500, 22)
   text(ctx, `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`, R, 100, ink(0.6), 'right')
 
@@ -329,13 +331,13 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     const day = new Date(x.date)
     if (day.getDate() !== 1) return
     const p = polar(cx, cy, ringAngle(i, s.days.length), 248 * K)
-    text(ctx, `${day.getMonth() + 1} 月`, p.x, p.y, white(0.4), 'center', 'middle')
+    text(ctx, monthName(day.getMonth()), p.x, p.y, white(0.4), 'center', 'middle')
   })
   if (run && run.len > 1) {
     const p = polar(cx, cy, ringAngle((run.from + run.to) / 2, s.days.length), 274 * K)
     setFont(ctx, 700, 17, CJK)
     // 最长连续在最近几天时字落在表盘正下方，往上收一点，别贴着下面的四项数字
-    text(ctx, `近半年最长连续 ${run.len} 天`, p.x, Math.min(p.y, 784), '#ffffff', 'center', 'middle')
+    text(ctx, tl('gallery.stats.longestRun', { count: run.len, n: run.len }), p.x, Math.min(p.y, 784), '#ffffff', 'center', 'middle')
   }
 
   // 24 小时刻度：读得最多的那格点亮
@@ -372,10 +374,10 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
   while (big > 48 && ctx.measureText(count(s.read)).width > 250) setFont(ctx, 700, (big -= 4), SANS, -big * 0.03)
   text(ctx, count(s.read), cx, 459, INK, 'center')
   setFont(ctx, 500, 22, CJK)
-  text(ctx, '已读话数', cx, 500, ink(0.68), 'center')
+  text(ctx, tl('gallery.poster.readCount'), cx, 500, ink(0.68), 'center')
   if (s.peak >= 0) {
     setFont(ctx, 400, 18, CJK)
-    text(ctx, `${s.peak} 点读得最多`, cx, 530, ink(0.5), 'center')
+    text(ctx, tl('gallery.stats.peakAt', { h: s.peak }), cx, 530, ink(0.5), 'center')
   }
 
   // 四项数字，和档案页两侧的一样
@@ -403,7 +405,7 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     cover(ctx, imgs, t.cover, x, 1000, 96, 144, 8)
     const tx = x + 114
     setFont(ctx, 400, 18, CJK)
-    text(ctx, `${count(t.read)} 话`, tx, 1140, ink(0.6))
+    text(ctx, tl('gallery.chaptersN', { count: t.read, n: count(t.read) }), tx, 1140, ink(0.6))
     setFont(ctx, 700, 22, CJK)
     const lines = fitLines(t.cover.title, colT - 114, 2, (q) => ctx.measureText(q).width)
     const first = 1112 - (lines.length - 1) * 29
@@ -427,7 +429,7 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
 
   brand(ctx, L, 1234)
   setFont(ctx, 400, 18, CJK)
-  text(ctx, '时钟与年轮按每一话的最后阅读时间统计', R, 1266, ink(0.5), 'right')
+  text(ctx, tl('gallery.poster.footNote'), R, 1266, ink(0.5), 'right')
 }
 
 /* ───── 单部 ───── */
@@ -500,8 +502,8 @@ function drawWork(ctx: Ctx, m: WorkPoster, imgs: Images, colors: readonly Rgb[])
   }
   const status = m.status ? ` · ${m.status}` : ''
   if (m.read != null && m.total != null) {
-    pair('已读 ', count(m.read), ' 话', L, 'left')
-    pair('共 ', count(m.total), ` 话${status}`, R, 'right')
+    pair(tl('gallery.poster.pairRead'), count(m.read), ` ${tl('gallery.unit.chapter', { count: m.read })}`, L, 'left')
+    pair(tl('gallery.poster.pairTotal'), count(m.total), ` ${tl('gallery.unit.chapter', { count: m.total })}${status}`, R, 'right')
     if (m.total > 0) {
       ctx.beginPath()
       ctx.roundRect(L, y + 18, R - L, 6, 3)
@@ -528,15 +530,18 @@ function coversOf(m: PosterModel): PosterCover[] {
   return [m.cover]
 }
 
+const units = (n: number) => [tl('gallery.unit.title', { count: n }), tl('gallery.unit.chapter', { count: n }), tl('gallery.unit.page', { count: n })].join('')
+const months = () => Array.from({ length: 12 }, (_, i) => monthName(i)).join('')
+
 function stringsOf(m: PosterModel) {
-  const common = ['Sukimi', '0123456789,./·%…—', '页数按已知页数估算', '时钟与年轮按每一话的最后阅读时间统计']
+  const common = ['Sukimi', '0123456789,./·%…—', tl('gallery.poster.pageNote'), tl('gallery.poster.footNote')]
   const titles = coversOf(m).map((c) => c.title)
-  if (m.kind === 'library') return [...common, ...titles, monthLabel(new Date(m.now)), '每一部收藏，都在这面墙上。已读部话页']
+  if (m.kind === 'library') return [...common, ...titles, monthLabel(new Date(m.now)), tl('gallery.slogan1'), tl('gallery.slogan2'), tl('gallery.poster.libRead'), units(1), units(2)]
   if (m.kind === 'stats') {
     const k = kpiData(m.stats, m.works, null)
-    return [...common, ...titles, '阅读档案已读话数点读得最多近半年最长连续天月', ...[...k.progress, ...k.rhythm].flatMap((x) => [x.unit, x.caption]), m.headline ? `${m.headline.lead}${m.headline.strong ?? ''}${m.headline.tail}` : '']
+    return [...common, ...titles, tl('gallery.archive'), tl('gallery.poster.readCount'), tl('gallery.stats.peakAt', { h: 0 }), tl('gallery.stats.longestRun', { count: 1, n: 1 }), tl('gallery.stats.longestRun', { count: 2, n: 2 }), months(), units(1), units(2), ...[...k.progress, ...k.rhythm].flatMap((x) => [x.unit, x.caption]), m.headline ? `${m.headline.lead}${m.headline.strong ?? ''}${m.headline.tail}` : '']
   }
-  return [...common, ...titles, m.author ?? '', m.status ?? '', '已读完正在读在我的书库里共话 ']
+  return [...common, ...titles, m.author ?? '', m.status ?? '', tl('gallery.poster.workFinished'), tl('gallery.poster.workReading'), tl('gallery.poster.workInLibrary'), tl('gallery.poster.pairRead'), tl('gallery.poster.pairTotal'), units(1), units(2), ' ']
 }
 
 async function colorsOf(m: PosterModel): Promise<Rgb[]> {
@@ -556,12 +561,12 @@ export async function renderPoster(m: PosterModel): Promise<Blob> {
   canvas.width = POSTER_W
   canvas.height = POSTER_H
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('无法创建画布')
+  if (!ctx) throw new Error(tl('gallery.poster.noCanvas'))
   if (m.kind === 'library') drawLibrary(ctx, m, imgs)
   else if (m.kind === 'stats') drawStats(ctx, m, imgs, colors)
   else drawWork(ctx, m, imgs, colors)
   return new Promise<Blob>((resolve, reject) => {
     // 画布被跨域图片污染时 toBlob 直接抛 SecurityError，Promise 会转成 reject
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('导出图片失败'))), 'image/png')
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(tl('gallery.poster.exportFailed')))), 'image/png')
   })
 }

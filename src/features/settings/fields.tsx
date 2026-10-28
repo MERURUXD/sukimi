@@ -13,6 +13,7 @@ import {
   type Settings,
   type SettingsPatch,
 } from './server'
+import { t } from '@/i18n'
 
 /** 改之前要确认的项：返回要显示的确认内容，返回 null 表示不用确认 */
 type Confirmer<V> = (next: V, prev: V) => { title: string; body?: ReactNode; ok?: string } | null
@@ -46,7 +47,7 @@ function useSetting<V>(k: string, confirmChange?: Confirmer<V>) {
       return true
     } catch (e) {
       setStatus('error')
-      toastError('保存失败', e)
+      toastError(t('settings.parts.saveFailed'), e)
       return false
     }
   }
@@ -189,7 +190,7 @@ export function SDuration({ unit, ...props }: Common<string> & { unit: 'min' | '
     <Editable<string>
       {...props}
       type="number"
-      suffix={unit === 'min' ? '分钟' : unit === 'h' ? '小时' : '天'}
+      suffix={t(unit === 'min' ? 'settings.parts.unitMinutes' : unit === 'h' ? 'settings.parts.unitHours' : 'settings.parts.unitDays')}
       width="w-[160px]"
       format={(v) => String(Math.round((durationToMinutes(v) / per) * 100) / 100)}
       parse={(raw) => {
@@ -233,7 +234,7 @@ export function SSecret({
       setStatus('saved')
     } catch (e) {
       setStatus('error')
-      toastError('保存失败', e)
+      toastError(t('settings.parts.saveFailed'), e)
     }
   }
   return (
@@ -249,13 +250,13 @@ export function SSecret({
           type="password"
           autoComplete="new-password"
           value={draft}
-          placeholder="不显示现值，留空不修改"
+          placeholder={t('settings.parts.secretPlaceholder')}
           onChange={(e) => setDraft(e.target.value)}
           className="w-[220px] max-w-full"
           aria-label={typeof label === 'string' ? label : k}
         />
         <button type="submit" className="gbtn min-h-11 rounded-full bg-accent-soft disabled:opacity-50" disabled={!draft}>
-          保存
+          {t('settings.parts.save')}
         </button>
       </form>
     </Row>

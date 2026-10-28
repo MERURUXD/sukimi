@@ -5,6 +5,7 @@ import { compareSortValues, libraryScore } from './sortValues'
 import type { NsfwSubject } from '@/features/nsfw/nsfw'
 import { favoritesFirst } from '@/features/favorite/favorite'
 import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
+import { t } from '@/i18n'
 
 /** 筛选要用到的书库外数据：NSFW 标记存在服务端，由调用方按当前账号的标记和开关给出判定 */
 export interface FilterContext {
@@ -14,13 +15,13 @@ export interface FilterContext {
 export const isCompleted = (m: LibraryManga) => m.status === 'COMPLETED' || m.status === 'PUBLISHING_FINISHED'
 
 export const FILTERS: { key: FilterKey; label: string; test: (m: LibraryManga, ctx: FilterContext) => boolean }[] = [
-  { key: 'unread', label: '未读', test: (m) => m.unreadCount > 0 },
-  { key: 'downloaded', label: '已下载', test: (m) => m.downloadCount > 0 },
+  { key: 'unread', label: t('library.filter.unread'), test: (m) => m.unreadCount > 0 },
+  { key: 'downloaded', label: t('library.filter.downloaded'), test: (m) => m.downloadCount > 0 },
   // 没读过的漫画服务端也会给出 lastReadChapter，阅读时间为 0；
   // 从 Tachiyomi 导入的已读章节没有阅读时间、只有已读标记（latestReadChapter），也算读过，和首页「还没开始读」一致
-  { key: 'started', label: '已开始阅读', test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 || !!m.latestReadChapter },
-  { key: 'bookmarked', label: '有书签', test: (m) => m.bookmarkCount > 0 },
-  { key: 'completed', label: '已完结', test: isCompleted },
+  { key: 'started', label: t('library.filter.started'), test: (m) => sec(m.lastReadChapter?.lastReadAt) > 0 || !!m.latestReadChapter },
+  { key: 'bookmarked', label: t('library.filter.bookmarked'), test: (m) => m.bookmarkCount > 0 },
+  { key: 'completed', label: t('library.filter.completed'), test: isCompleted },
   // 不看「首页和画廊隐藏」「模糊封面」这些显示开关：只按标记、分类和来源判定，临时显示（Shift + H）时也能筛出来
   { key: 'nsfw', label: 'NSFW', test: (m, ctx) => ctx.nsfw(m) },
 ]
@@ -44,13 +45,13 @@ export const SORTS: {
   value: (m: LibraryManga, ctx: SortContext) => number | string | null
   nullsLow?: boolean
 }[] = [
-  { key: 'updated', label: '最近更新', value: lastUpdated },
-  { key: 'read', label: '最近阅读', value: (m) => sec(m.lastReadChapter?.lastReadAt) },
-  { key: 'added', label: '加入时间', value: (m) => sec(m.inLibraryAt) },
-  { key: 'title', label: '标题', value: (m) => m.title },
-  { key: 'unread', label: '未读数', value: (m) => m.unreadCount },
-  { key: 'downloaded', label: '已下载数', value: (m) => m.downloadCount },
-  { key: 'score', label: '评分', value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsLow: true },
+  { key: 'updated', label: t('library.sort.updated'), value: lastUpdated },
+  { key: 'read', label: t('library.sort.read'), value: (m) => sec(m.lastReadChapter?.lastReadAt) },
+  { key: 'added', label: t('library.sort.added'), value: (m) => sec(m.inLibraryAt) },
+  { key: 'title', label: t('library.sort.title'), value: (m) => m.title },
+  { key: 'unread', label: t('library.sort.unread'), value: (m) => m.unreadCount },
+  { key: 'downloaded', label: t('library.sort.downloaded'), value: (m) => m.downloadCount },
+  { key: 'score', label: t('library.sort.score'), value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsLow: true },
 ]
 export function matchesSearch(m: LibraryManga, q: string) {
   if (!q) return true

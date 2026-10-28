@@ -1,10 +1,11 @@
 import type { ApolloClient } from '@apollo/client'
 import { BindTrack, SearchTracker } from './queries'
+import { t } from '../../i18n/core.ts'
 
 /** 所有关键词都没搜到目标条目 */
 export class RemoteNotFoundError extends Error {
   constructor() {
-    super('追踪服务未找到对应的条目')
+    super(t('track.notFoundRemote'))
   }
 }
 

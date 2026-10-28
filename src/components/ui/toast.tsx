@@ -4,6 +4,7 @@ import { create } from 'zustand'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { errorText } from '@/lib/errorText'
+import { t } from '@/i18n'
 
 interface Toast {
   id: number
@@ -68,7 +69,7 @@ export function toast(text: string, tone: Toast['tone'] = 'info') {
 }
 
 export function toastError(prefix: string, e: unknown) {
-  toast(`${prefix}：${errorText(e)}`, 'error')
+  toast(t('common.withReason', { prefix, reason: errorText(e) }), 'error')
 }
 
 function ToastCard({ item }: { item: Toast }) {
@@ -101,7 +102,7 @@ function ToastCard({ item }: { item: Toast }) {
       <span>{item.text}</span>
       {item.tone === 'error' && (
         <button type="button" className="font-semibold" onClick={() => dismissToast(item.id)}>
-          关闭
+          {t('common.close')}
         </button>
       )}
     </MotionGlass>

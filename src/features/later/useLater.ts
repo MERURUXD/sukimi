@@ -7,6 +7,7 @@ import { toastError } from '@/components/ui/toast'
 import { useLibraryView } from '@/features/library/store'
 import { caughtUp, laterKey, laterPrefix, parseLater } from './later'
 import { LaterMangas, LaterMetas, RemoveLater, SetLater, type LaterManga } from './queries'
+import { t } from '@/i18n'
 
 type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 
@@ -18,7 +19,7 @@ function patch(cache: ApolloCache, userId: number, fn: (nodes: readonly Node[]) 
 /** 写入前取当前账号；未登录时不写 */
 function currentUserId() {
   const id = useAuth.getState().user?.id
-  if (id === undefined) throw new Error('未登录，无法修改稍后再看')
+  if (id === undefined) throw new Error(t('misc.later.notLoggedIn'))
   return id
 }
 
@@ -107,7 +108,7 @@ export function useLaterList({ skip = false } = {}) {
     if (!todo.length) return
     todo.forEach((id) => removing.current.add(id))
     remove(todo)
-      .catch((e) => { if (!(e instanceof StaleSessionError)) toastError('自动移出稍后再看失败', e) })
+      .catch((e) => { if (!(e instanceof StaleSessionError)) toastError(t('misc.later.autoRemoveFailed'), e) })
       .finally(() => todo.forEach((id) => removing.current.delete(id)))
   }, [done, remove])
 

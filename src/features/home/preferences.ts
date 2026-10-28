@@ -1,9 +1,11 @@
+import { t } from '../../i18n/core.ts'
 export const HOME_SECTION_ORDER = ['week', 'later', 'stale', 'fresh', 'gallery', 'favorite', 'updates', 'recent'] as const
 export type HomeSection = typeof HOME_SECTION_ORDER[number]
 export type HomeContentSection = Exclude<HomeSection, 'gallery'>
 
 export const HOME_SECTION_LABELS: Record<HomeSection, string> = {
-  week: '这一周', favorite: '特别关心', updates: '最近更新', stale: '好久没看', fresh: '还没开始读', recent: '最近阅读', gallery: '画廊橱窗', later: '稍后再看',
+  week: t('home.section.week'), favorite: t('home.section.favorite'), updates: t('home.section.updates'), stale: t('home.section.stale'),
+  fresh: t('home.section.fresh'), recent: t('home.section.recent'), gallery: t('home.section.gallery'), later: t('home.section.later'),
 }
 
 const object = (value: unknown): Record<string, unknown> =>

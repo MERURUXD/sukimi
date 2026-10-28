@@ -18,6 +18,7 @@ import { chapterLabel, clock, sec, timeAgo } from '@/lib/format'
 import type { ReadChapter, UpdateChapter } from './queries'
 import { byDay, weekDays, weekTabSub, type DayGroup } from './week'
 import { useLocalNow } from './useLocalNow'
+import { t } from '@/i18n'
 
 /**
  * 展开的格子与布局版本。rev 在托盘出现、换格子和收起时各加一次，
@@ -54,7 +55,7 @@ interface Lane {
   mangas: number
 }
 
-const LANE_LINK: Record<LaneId, string> = { favorite: '全部特别关心', updates: '全部更新', recent: '全部历史' }
+const LANE_LINK: Record<LaneId, string> = { favorite: t('home.week.laneLinkFavorite'), updates: t('home.week.laneLinkUpdates'), recent: t('home.week.laneLinkRecent') }
 
 const progressOf = (c: ReadChapter) =>
   c.isRead ? 100 : c.pageCount > 0 ? Math.round(((c.lastPageRead + 1) / c.pageCount) * 100) : 0
@@ -66,14 +67,14 @@ function updateLane(id: LaneId, name: string, days: DayGroup<UpdateChapter>[][])
   const chapters = days.map((d) => d.reduce((n, g) => n + g.items.length, 0))
   return {
     id, name, chapters, mangas: new Set(days.flat().map((g) => g.mangaId)).size,
-    total: `本周 ${chapters.reduce((a, b) => a + b, 0)} 话`,
+    total: t('home.week.totalChapters', { count: chapters.reduce((a, b) => a + b, 0) }),
     // 一天里没读完的排在前面，同一类里仍按时间。叠放取前几张、托盘按下标认领共享封面，所以只在这里排一次
     days: days.map((groups, day) => groups.map(({ items }): Entry => {
       const c = items[0]
-      const t = when(sec(c.fetchedAt), day)
+      const time = when(sec(c.fetchedAt), day)
       const unread = items.filter((i) => !i.isRead).length
-      const left = items.length > 1 && unread > 0 && unread < items.length ? ` · ${unread} 话未读` : ''
-      return { manga: c.manga, sub: items.length > 1 ? `${items.length} 话${left} · ${t}` : `${chapterLabel(c)} · ${t}`, badge: items.length > 1 ? `+${items.length}` : undefined, unread }
+      const left = items.length > 1 && unread > 0 && unread < items.length ? t('home.week.unreadLeft', { n: unread }) : ''
+      return { manga: c.manga, sub: items.length > 1 ? t('home.week.chaptersSub', { count: items.length, left, time }) : `${chapterLabel(c)} · ${time}`, badge: items.length > 1 ? `+${items.length}` : undefined, unread }
     }).sort((a, b) => Number(!a.unread) - Number(!b.unread))),
   }
 }
@@ -81,8 +82,8 @@ function updateLane(id: LaneId, name: string, days: DayGroup<UpdateChapter>[][])
 function readLane(days: DayGroup<ReadChapter>[][]): Lane {
   const mangas = new Set(days.flat().map((g) => g.mangaId)).size
   return {
-    id: 'recent', name: '最近阅读', chapters: days.map(() => 0), mangas,
-    total: `本周 ${mangas} 部`,
+    id: 'recent', name: t('home.section.recent'), chapters: days.map(() => 0), mangas,
+    total: t('home.week.totalTitles', { n: mangas }),
     days: days.map((groups, day) => groups.map(({ items }) => {
       const c = items[0]
       return { manga: c.manga, sub: `${chapterLabel(c)} · ${when(sec(c.lastReadAt), day)}`, pct: progressOf(c) }
@@ -109,8 +110,8 @@ export function WeekSection({ updates, partial, reads, error, onRetry }: {
     const ups = updates ?? []
     const fav = (c: UpdateChapter) => !!favorites?.has(c.mangaId)
     const lanes = [
-      updateLane('favorite', '特别关心', byDay(ups.filter(fav), (c) => sec(c.fetchedAt), (c) => c.mangaId, now)),
-      updateLane('updates', '最近更新', byDay(ups.filter((c) => !fav(c)), (c) => sec(c.fetchedAt), (c) => c.mangaId, now)),
+      updateLane('favorite', t('home.section.favorite'), byDay(ups.filter(fav), (c) => sec(c.fetchedAt), (c) => c.mangaId, now)),
+      updateLane('updates', t('home.section.updates'), byDay(ups.filter((c) => !fav(c)), (c) => sec(c.fetchedAt), (c) => c.mangaId, now)),
       readLane(byDay(reads ?? [], (c) => sec(c.lastReadAt), (c) => c.manga.id, now)),
     ].filter((l) => l.days.some((d) => d.length))
     return { days: weekDays(now), lanes }
@@ -119,23 +120,23 @@ export function WeekSection({ updates, partial, reads, error, onRetry }: {
 
   if (!updates) return (
     <section aria-labelledby="h-week" className="pt-11">
-      <h2 id="h-week" className="m-0 text-[26px] font-bold">这一周</h2>
-      {error ? <LoadError message="未能取完整周更新" onRetry={onRetry} />
-        : <p role="status" className="m-0 py-8 text-sm text-muted">正在加载这一周…</p>}
+      <h2 id="h-week" className="m-0 text-[26px] font-bold">{t('home.week.title')}</h2>
+      {error ? <LoadError message={t('home.err.week')} onRetry={onRetry} />
+        : <p role="status" className="m-0 py-8 text-sm text-muted">{t('home.week.loading')}</p>}
     </section>
   )
   if (!week?.lanes.length) return null
   const chapters = week.lanes.reduce((n, l) => n + l.chapters.reduce((a, b) => a + b, 0), 0)
   const read = week.lanes.find((l) => l.id === 'recent')
-  const summary = [chapters && `本周 ${chapters} 话新章节`, read && `读了 ${read.mangas} 部`, partial && '更早几天只显示了一部分'].filter(Boolean).join(' · ')
+  const summary = [chapters && t('home.week.summaryChapters', { count: chapters }), read && t('home.week.summaryRead', { n: read.mangas }), partial && t('home.week.summaryPartial')].filter(Boolean).join(' · ')
 
   return (
     <section aria-labelledby="h-week" className="pt-11">
       <div className="mb-[18px]">
-        <h2 id="h-week" className="m-0 text-[26px] font-bold">这一周</h2>
+        <h2 id="h-week" className="m-0 text-[26px] font-bold">{t('home.week.title')}</h2>
         <span className="text-sm text-muted">{summary}</span>
       </div>
-      {!!error && <LoadError message="暂时未能刷新，正在显示上次的完整记录" onRetry={onRetry} />}
+      {!!error && <LoadError message={t('home.err.staleWeek')} onRetry={onRetry} />}
       {wide ? <VisibleWeekGrid days={week.days} lanes={week.lanes} /> : <WeekTabs days={week.days} lanes={week.lanes} />}
     </section>
   )
@@ -246,8 +247,8 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
                 // 今天的底色只衬在有内容的格子上：刚过零点还没有记录时整列留空
                 <div key={i} className={cn('min-h-[140px] rounded-[14px]', i === 0 && entries.length > 0 && 'bg-hover/60')}>
                   {entries.length > 0 && (
-                    <Stack id={cellId(lane.id, i)} entries={entries} open={i === day} instant={restoring} label={`${days[i].name} · ${lane.name} · ${entries.length} 部`}
-                      sub={lane.id === 'recent' ? `读了 ${entries.length} 部` : `${lane.chapters[i]} 话新章节`} />
+                    <Stack id={cellId(lane.id, i)} entries={entries} open={i === day} instant={restoring} label={t('home.week.stackLabel', { day: days[i].name, lane: lane.name, n: entries.length })}
+                      sub={lane.id === 'recent' ? t('home.week.readN', { n: entries.length }) : t('home.week.newChapters', { count: lane.chapters[i] })} />
                   )}
                 </div>
               ))}
@@ -289,7 +290,7 @@ function Stack({ id, entries, open, instant, label, sub }: { id: string; entries
       data-week-cell={id}
       aria-expanded={open}
       aria-controls={open ? `tray-${id}` : undefined}
-      aria-label={`${label}，${open ? '收起' : '点开查看'}`}
+      aria-label={t('home.week.stackAria', { label, state: open ? t('home.week.stateOpen') : t('home.week.stateClosed') })}
       onClick={() => (open ? close(id) : setOpen(id))}
       initial="rest"
       animate="rest"
@@ -318,7 +319,7 @@ function Stack({ id, entries, open, instant, label, sub }: { id: string; entries
         )}
       </span>
       <span className="flex w-full min-w-0 flex-col">
-        <span className="truncate text-[13px] font-bold">{entries.length === 1 ? first : `${first} 等 ${entries.length} 部`}</span>
+        <span className="truncate text-[13px] font-bold">{entries.length === 1 ? first : t('home.week.firstAndMore', { first, n: entries.length })}</span>
         <span className="mt-0.5 truncate text-xs text-muted">{sub}</span>
       </span>
     </motion.button>
@@ -376,23 +377,23 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
       <div className="relative mb-[18px] flex items-center gap-2.5">
         <motion.div className="min-w-0 flex-1" {...headerFade}>
           <div className="text-[17px] font-extrabold">{dayName} · {lane.name}</div>
-          <div className="mt-1 text-[13px] text-muted">{lane.id === 'recent' ? `读了 ${n} 部` : `${n} 部 · ${lane.chapters[day]} 话新章节 · ${unread ? `${unread} 部未读` : '都读过了'}`}</div>
+          <div className="mt-1 text-[13px] text-muted">{lane.id === 'recent' ? t('home.week.readN', { n }) : t('home.week.laneSub', { n, chapters: lane.chapters[day], unread: unread ? t('home.week.unreadTitles', { n: unread }) : t('home.week.allReadYet') })}</div>
         </motion.div>
         <motion.button type="button" className="gbtn plain flex-none rounded-full" onClick={go} {...headerFade}>
           {LANE_LINK[lane.id]}
           <ChevronRight className="size-[18px]" strokeWidth={1.8} />
         </motion.button>
-        <motion.button type="button" className="gicon plain size-10 flex-none rounded-full" onClick={() => close(id)} aria-label="收起" {...headerFade}>
+        <motion.button type="button" className="gicon plain size-10 flex-none rounded-full" onClick={() => close(id)} aria-label={t('home.week.collapse')} {...headerFade}>
           <X className="size-4" strokeWidth={2} />
         </motion.button>
       </div>
       {unread > 0 && unread < n ? (
         <>
-          <TrayHeading>未读 · {unread} 部</TrayHeading>
+          <TrayHeading>{t('home.week.unreadHeading', { n: unread })}</TrayHeading>
           <div className={TRAY_GRID}>{entries.slice(0, shownUnread).map((e, i) => item(e, i))}</div>
           {shown > unread && (
             <>
-              <TrayHeading className="mt-7">已读 · {n - unread} 部</TrayHeading>
+              <TrayHeading className="mt-7">{t('home.week.readHeading', { n: n - unread })}</TrayHeading>
               <div className={TRAY_GRID}>{entries.slice(unread, shown).map((e, i) => item(e, unread + i))}</div>
             </>
           )}
@@ -403,7 +404,7 @@ function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>;
       {shown < n && (
         <div className="relative mt-6 flex justify-center">
           <motion.button type="button" className="gbtn plain rounded-full" onClick={more} {...headerFade}>
-            显示更多 · 还有 {n - shown} 部
+            {t('home.week.showMoreLeft', { n: n - shown })}
           </motion.button>
         </div>
       )}
@@ -495,7 +496,7 @@ function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lan
   }
   return (
     <div>
-      <div role="tablist" aria-label="选择日期" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1.5 [scrollbar-width:none]">
+      <div role="tablist" aria-label={t('home.week.pickDay')} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1.5 [scrollbar-width:none]">
         {days.map((d, i) => (
           <button
             key={d.date}
@@ -516,12 +517,12 @@ function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lan
         ))}
       </div>
       <div role="tabpanel" id={panelId} aria-labelledby={`${base}-tab-${sel}`} className="mt-5 flex flex-col gap-6">
-        {shown.length === 0 && <p className="m-0 py-10 text-center text-sm text-muted">这一天没有更新，也没有阅读记录</p>}
+        {shown.length === 0 && <p className="m-0 py-10 text-center text-sm text-muted">{t('home.week.emptyDay')}</p>}
         {shown.map((lane) => (
           <div key={lane.id}>
             <div className="mb-3 flex items-baseline justify-between">
               <h3 className="m-0 text-[17px] font-extrabold">{lane.name}</h3>
-              <span className="text-[13px] text-muted">{lane.id === 'recent' ? `读了 ${lane.days[sel].length} 部` : `${lane.chapters[sel]} 话新章节`}</span>
+              <span className="text-[13px] text-muted">{lane.id === 'recent' ? t('home.week.readN', { n: lane.days[sel].length }) : t('home.week.newChapters', { count: lane.chapters[sel] })}</span>
             </div>
             <div className="-mx-1 grid snap-x auto-cols-[96px] grid-flow-col gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] sm:auto-cols-[120px]">
               <Rail key={sel} entries={lane.days[sel]} />
@@ -545,8 +546,8 @@ function Rail({ entries }: { entries: Entry[] }) {
       {rest > 0 && (
         <button type="button" onClick={() => setShown((v) => v + RAIL_LIMIT * 2)} className="flex min-w-0 snap-start flex-col gap-1.5 text-left text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text">
           <span className="grid aspect-[2/3] place-items-center rounded-[10px] bg-hover text-[15px] font-extrabold num">+{rest}</span>
-          <span className="truncate text-[13px] font-semibold">显示更多</span>
-          <span className="-mt-1 truncate text-[11px] text-muted">还有 {rest} 部</span>
+          <span className="truncate text-[13px] font-semibold">{t('home.week.showMore')}</span>
+          <span className="-mt-1 truncate text-[11px] text-muted">{t('home.week.moreLeft', { n: rest })}</span>
         </button>
       )}
     </>

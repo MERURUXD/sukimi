@@ -9,6 +9,7 @@ import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStora
 import { USER_KEYS } from '@/features/auth/userScope'
 import { ReaderMangaMeta, ReaderMetaOf, SetReaderMeta } from './queries'
 import { READER_META_PREFIX, classifyDevice, createWriteOrder, mergeServerMeta, parseReaderMeta, planMigration, splitPatch, toReaderMeta, type DeviceKind, type Meta } from './remote'
+import { t } from '../../i18n/core.ts'
 
 export type ReadMode = 'single' | 'double' | 'vertical' | 'webtoon'
 export type ReadDir = 'ltr' | 'rtl'
@@ -43,30 +44,30 @@ export interface ReaderSettings {
 }
 
 export const MODES: { value: ReadMode; label: string; hint: string }[] = [
-  { value: 'single', label: '单页', hint: '一次一页，点按翻页' },
-  { value: 'double', label: '双页', hint: '跨页对开，适合宽屏' },
-  { value: 'vertical', label: '纵向连续', hint: '页间留缝，滚动阅读' },
-  { value: 'webtoon', label: 'Webtoon', hint: '无缝长条，条漫专用' },
+  { value: 'single', label: t('reader.mode.single.label'), hint: t('reader.mode.single.hint') },
+  { value: 'double', label: t('reader.mode.double.label'), hint: t('reader.mode.double.hint') },
+  { value: 'vertical', label: t('reader.mode.vertical.label'), hint: t('reader.mode.vertical.hint') },
+  { value: 'webtoon', label: t('reader.mode.webtoon.label'), hint: t('reader.mode.webtoon.hint') },
 ]
 
 export const FITS: { value: Fit; label: string }[] = [
-  { value: 'screen', label: '适应屏幕' },
-  { value: 'width', label: '适应宽度' },
-  { value: 'height', label: '适应高度' },
-  { value: 'original', label: '原始大小' },
+  { value: 'screen', label: t('reader.fit.screen') },
+  { value: 'width', label: t('reader.fit.width') },
+  { value: 'height', label: t('reader.fit.height') },
+  { value: 'original', label: t('reader.fit.original') },
 ]
 
 export const BGS: { value: ReaderBg; color: string; label: string }[] = [
-  { value: 'black', color: '#000000', label: '黑色' },
-  { value: 'gray', color: '#232427', label: '深灰' },
-  { value: 'white', color: '#EDECE7', label: '白色' },
+  { value: 'black', color: '#000000', label: t('reader.bg.black') },
+  { value: 'gray', color: '#232427', label: t('reader.bg.gray') },
+  { value: 'white', color: '#EDECE7', label: t('reader.bg.white') },
 ]
 
 export const TAP_ZONES: { value: TapZones; label: string; hint: string }[] = [
-  { value: 'auto', label: '自动', hint: '分页模式左右分区，纵向模式上下分区' },
-  { value: 'lr', label: '左右', hint: '左 30% / 右 30% 翻页，中间呼出菜单' },
-  { value: 'tb', label: '上下', hint: '上 30% 上一页，下 30% 下一页' },
-  { value: 'off', label: '关闭', hint: '点击只呼出菜单，用手势或按键翻页' },
+  { value: 'auto', label: t('reader.tap.auto.label'), hint: t('reader.tap.auto.hint') },
+  { value: 'lr', label: t('reader.tap.lr.label'), hint: t('reader.tap.lr.hint') },
+  { value: 'tb', label: t('reader.tap.tb.label'), hint: t('reader.tap.tb.hint') },
+  { value: 'off', label: t('reader.tap.off.label'), hint: t('reader.tap.off.hint') },
 ]
 
 export const DEFAULTS: ReaderSettings = {
@@ -231,7 +232,7 @@ function refreshReaderMeta(client: ApolloClient, mangaId: number) {
       if (currentUser() !== userId) return
       const { data } = await client.query({ query: ReaderMangaMeta, variables, fetchPolicy: 'no-cache' })
       if (currentUser() !== userId) return
-      if (!data) throw new Error('没有取到漫画元数据')
+      if (!data) throw new Error(t('reader.noMeta'))
       const current = client.cache.readQuery({ query: ReaderMangaMeta, variables })?.manga.meta ?? []
       const meta = mergeServerMeta(data.manga.meta, current, (key) => writes.pending(mangaId, key))
       client.cache.writeQuery({ query: ReaderMangaMeta, variables, data: { manga: { ...data.manga, meta } } })
@@ -305,7 +306,7 @@ export function useReaderSettings(mangaId: number) {
         () => writes.finish(mangaId, keys, id),
         (e) => {
           writes.finish(mangaId, keys, id)
-          toastError('阅读设置没能保存到服务端', e)
+          toastError(t('reader.settingsSaveFailed'), e)
           // 失败时重新取服务端的值，界面退回去；后面还有更新的修改就交给它
           if (currentUser() === userId && metas.some((m) => latest({ mangaId, ...m }))) refreshReaderMeta(client, mangaId).catch(() => {})
         },

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { Dialog } from '@/components/ui/Dialog'
 import { spring, still } from '@/design/motion'
+import { t } from '@/i18n'
 
 /**
  * 详情页封面的放大查看：点封面打开，点任意处、按 Esc 或关闭按钮收起。
@@ -18,9 +19,9 @@ export function CoverZoom({ src, title, onClose }: { src: string; title: string;
   const pop = reduced ? still : spring.default
 
   return (
-    <Dialog label={`${title} 的封面`} onClose={onClose} fill backdropClassName="bg-black/70">
+    <Dialog label={t('manga.coverOf', { title })} onClose={onClose} fill backdropClassName="bg-black/70">
       {failed ? (
-        <p className="relative m-0 text-sm text-muted">封面加载失败</p>
+        <p className="relative m-0 text-sm text-muted">{t('manga.coverFailed')}</p>
       ) : (
         <motion.img
           src={src}
@@ -41,8 +42,8 @@ export function CoverZoom({ src, title, onClose }: { src: string; title: string;
       )}
       <MotionGlass
         as="button"
-        aria-label="关闭"
-        title="关闭"
+        aria-label={t('common.close')}
+        title={t('common.close')}
         initial={reduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}

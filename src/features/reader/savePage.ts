@@ -1,3 +1,4 @@
+import { t } from '../../i18n/core.ts'
 /**
  * 保存 / 分享页面原图。手机（触屏）优先调起系统分享（可以存到相册或发给别人），
  * 浏览器不支持分享文件时下载到本地；电脑直接下载。
@@ -12,7 +13,7 @@ export async function savePages(items: { url: string; name: string }[]) {
   const files = await Promise.all(
     items.map(async ({ url, name }) => {
       const res = await fetch(url)
-      if (!res.ok) throw new Error(`图片请求失败（${res.status}）`)
+      if (!res.ok) throw new Error(t('reader.imageRequestFailed', { status: res.status }))
       const blob = await res.blob()
       const type = blob.type.split(';')[0]
       return new File([blob], `${safe(name)}.${EXT[type] ?? 'jpg'}`, { type: type || 'image/jpeg' })

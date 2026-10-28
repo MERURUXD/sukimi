@@ -7,6 +7,7 @@ import { aroundSlot, padRange, slotsInView } from './scrollWindow'
 import { halfAspect, type Half } from './pageTools'
 import { bestBandHit, scrollBandRootMargin } from './scrollBand'
 import type { ReaderSettings } from './settings'
+import { t } from '@/i18n'
 
 /** 图片处理会改动占位高度，程序跳页的目标要继续对齐，直到用户主动滚动。 */
 function alignJump(root: HTMLDivElement | null, target: number | null) {
@@ -231,7 +232,7 @@ export function ScrollView({
               ) : (
                 <div
                   aria-hidden={shown ? true : undefined}
-                  aria-label={shown ? undefined : `第 ${i + 1} 页（处理中）`}
+                  aria-label={shown ? undefined : t('reader.image.processing', { n: i + 1 })}
                   className="block w-full"
                   style={box}
                 />

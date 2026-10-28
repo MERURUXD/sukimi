@@ -5,6 +5,7 @@ import { Glass } from '@/components/glass/Glass'
 import { toast } from '@/components/ui/toast'
 import { spring } from '@/design/motion'
 import { themeForced, useAppearance } from '@/design/settings'
+import { t } from '@/i18n'
 
 const RAYS = Array.from({ length: 8 }, (_, i) => i * 45)
 /** 月牙缺口里的两颗星：x、y、大小、闪烁错开的延迟（样式在 index.css 的 .theme-star，只在悬停时闪） */
@@ -81,7 +82,7 @@ export function ThemeToggle() {
     // 书库画廊固定深色：只记下选择，离开画廊后生效，页面颜色不动
     if (themeForced()) {
       setTheme(next)
-      toast(`书库画廊固定深色，离开画廊后换成${next === 'dark' ? '深色' : '浅色'}`)
+      toast(t('app.themeToggle.galleryDark', { theme: t(`common.themeName.${next}`) }))
       return
     }
     if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return apply()
@@ -100,11 +101,11 @@ export function ThemeToggle() {
     root.style.setProperty('--vt-r', radius)
     // 写目标主题：index.css 据此关掉全部 CSS 过渡（否则新快照里颜色还在渐变，圆圈揭开的不是最终画面），并决定叠放层次
     root.dataset.themeVt = next
-    const t = document.startViewTransition(apply)
+    const transition = document.startViewTransition(apply)
     // 上一次转场还没结束就再点：新转场会让旧的被跳过，旧的收尾不能清掉新的标记和变量
     const token = ++latestToggle
     let reveal: Animation | undefined
-    t.ready
+    transition.ready
       .then(() => {
         if (token !== latestToggle) return
         // 变深：新的（深色）画面在上面，从按钮处放大盖住旧画面；
@@ -118,7 +119,7 @@ export function ThemeToggle() {
         )
       })
       .catch(() => {})
-    void t.finished
+    void transition.finished
       .finally(() => {
         // 挂在根元素上的伪元素动画不会随过渡自动清掉，forwards 的终点会留到下一次切换，必须手动取消
         reveal?.cancel()
@@ -135,7 +136,7 @@ export function ThemeToggle() {
     <div className="theme-btn relative" data-dark={dark || undefined}>
       {/* 月光：只在深色悬停时浮出，略偏向左下，隔着玻璃只透出一团柔光（样式在 index.css） */}
       <span className="theme-halo pointer-events-none absolute inset-0 rounded-full bg-solid" aria-hidden />
-      <Glass as="button" data-vt-glass="topnav-theme" type="button" className="gicon rounded-full" onClick={toggle} aria-label={`切换到${dark ? '浅色' : '深色'}主题`} title={`切换到${dark ? '浅色' : '深色'}`}>
+      <Glass as="button" data-vt-glass="topnav-theme" type="button" className="gicon rounded-full" onClick={toggle} aria-label={t('app.themeToggle.switchTo', { theme: t(`common.themeName.${dark ? 'light' : 'dark'}`) })} title={t('app.themeToggle.switchToShort', { theme: t(`common.themeName.${dark ? 'light' : 'dark'}`) })}>
         <SunMoon dark={dark} />
       </Glass>
     </div>

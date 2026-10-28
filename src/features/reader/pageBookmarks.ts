@@ -4,6 +4,7 @@ import { useAuth } from '@/api/auth'
 import { toastError } from '@/components/ui/toast'
 import { formatPageBookmarks, pageBookmarkKey, parsePageBookmarks, togglePageBookmark } from './pageTools'
 import { SetPageBookmarks } from './queries'
+import { t } from '@/i18n'
 
 type ChapterWithMeta = { id: number; meta: readonly { key: string; value: string }[] }
 
@@ -39,7 +40,7 @@ export function usePageBookmarks(chapter: ChapterWithMeta) {
     cacheBookmarks(client.cache, chapter.id, key, value)
     save({ variables: { id: chapter.id, key, value } }).catch((e) => {
       cacheBookmarks(client.cache, chapter.id, key, before)
-      toastError('页面书签没能保存', e)
+      toastError(t('reader.bookmarkSaveFailed'), e)
     })
   }
   return [pages, toggle] as const

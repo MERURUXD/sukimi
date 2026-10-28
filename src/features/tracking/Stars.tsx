@@ -2,6 +2,7 @@ import { Star } from 'lucide-react'
 import { useState, type KeyboardEvent } from 'react'
 import { cn } from '@/lib/cn'
 import './Stars.css'
+import { t } from '@/i18n'
 
 export type StarSize = 'md' | 'lg'
 const STAR = {
@@ -42,11 +43,11 @@ export function Stars({ max, value, word, onChange, size }: { max: 5 | 10; value
     <span
       role="slider"
       tabIndex={0}
-      aria-label="评分"
+      aria-label={t('track.rating')}
       aria-valuemin={0}
       aria-valuemax={max}
       aria-valuenow={value}
-      aria-valuetext={value ? `${value} 分${word(value) ? `，${word(value)}` : ''}` : '未评分'}
+      aria-valuetext={value ? (word(value) ? t('track.scoreWordAria', { score: value, word: word(value) }) : t('track.scoreAria', { score: value })) : t('track.unrated')}
       onKeyDown={onKey}
       className={cn('flex items-center rounded-full outline-offset-4', gap)}
     >
@@ -74,7 +75,7 @@ export function Stars({ max, value, word, onChange, size }: { max: 5 | 10; value
       </span>
       {/* 宽度按最长的评价词留好，悬停换词时星星不左右跳 */}
       <span className={cn('text-sm leading-none num', word(max) ? 'min-w-[6.4em]' : 'min-w-[2em]')} aria-hidden>
-        {shown > 0 ? <><b className={cn('font-bold', num)}>{shown}</b>{text && <span className="ml-1.5 text-muted">{text}</span>}</> : <span className="text-faint">未评分</span>}
+        {shown > 0 ? <><b className={cn('font-bold', num)}>{shown}</b>{text && <span className="ml-1.5 text-muted">{text}</span>}</> : <span className="text-faint">{t('track.unrated')}</span>}
       </span>
     </span>
   )

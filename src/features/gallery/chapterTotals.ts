@@ -1,6 +1,7 @@
 import type { ApolloClient } from '@apollo/client'
 import { GalleryCountsDocument } from '../../api/gql/graphql.ts'
 import type { LibraryManga } from '../library/queries'
+import { t } from '../../i18n/core.ts'
 
 type Library = readonly LibraryManga[]
 interface Snapshot {
@@ -63,7 +64,7 @@ export function createChapterTotalsStore(client: ApolloClient) {
             context: { queryDeduplication: false },
           })
           if (pending !== request) return
-          if (!data) throw new Error('没有取到总话数，请重试')
+          if (!data) throw new Error(t('gallery.totalsFailed'))
           const next = new Map(data.mangas.nodes.map((m) => [m.id, m.chapters.totalCount]))
           const prev = state.totals
           const totals = prev && prev.size === next.size && [...next].every(([id, n]) => prev.get(id) === n) ? prev : next

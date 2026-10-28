@@ -33,6 +33,7 @@ import { LastUpdate, UPDATES_FEEDS, UPDATES_FILTERS, UpdateInterval, type Update
 import { isFreshUpdate } from './visible'
 import { UpdateCalendar } from './UpdateCalendar'
 import { chapterLabel, clock, count, dayLabel, formatDate, sec, timeAgo } from '@/lib/format'
+import { locale, t } from '@/i18n'
 
 export function UpdatesPage() {
   // 视图放在网址里：从详情页返回时还停在日历
@@ -138,7 +139,7 @@ export function UpdatesPage() {
     try {
       await start({ variables: {} })
     } catch (e) {
-      toastError('无法开始检查', e)
+      toastError(t('updates.checkFailed'), e)
     }
   }
   // 服务端同一时间只有一个更新任务，多账号时停下的可能是别人发起的检查
@@ -148,9 +149,9 @@ export function UpdatesPage() {
     if (
       shared &&
       !(await confirm({
-        title: '停止检查更新？',
-        body: '检查更新由服务端上的所有账号共用，其他人发起的检查也会一起停止。已经找到的新章节会保留。',
-        ok: '停止',
+        title: t('updates.stopTitle'),
+        body: t('updates.stopBody'),
+        ok: t('updates.stopOk'),
         // 会停掉别人的检查：不默认聚焦确认按钮，避免误按回车
         danger: true,
       }))
@@ -158,9 +159,9 @@ export function UpdatesPage() {
       return
     try {
       await stopUpdate()
-      toast('已停止检查更新')
+      toast(t('updates.stopped'))
     } catch (e) {
-      toastError('停止失败', e)
+      toastError(t('updates.stopFailed'), e)
     }
   }
   // 检查结束后刷新列表与时间。first 用已经加载的条数，只改 offset 会把这次停留里翻出来的页截掉。
@@ -187,22 +188,22 @@ export function UpdatesPage() {
 
   const downloadDay = async (label: string, rows: UpdateChapter[]) => {
     const ids = rows.filter((c) => !c.isRead && !c.isDownloaded && !queued.has(c.id)).map((c) => c.id)
-    if (!ids.length) return toast(`${label}的未读章节都已下载`)
+    if (!ids.length) return toast(t('updates.allDownloaded', { label }))
     try {
       await enqueue({ variables: { ids } })
-      toast(`已将${label}的 ${ids.length} 话加入下载队列`)
+      toast(t('updates.queued', { label, n: ids.length }))
     } catch (e) {
-      toastError('加入下载队列失败', e)
+      toastError(t('home.queueFailed'), e)
     }
   }
 
   const ts = Number(lastData?.lastUpdateTimestamp.timestamp ?? 0)
   const hours = interval.data?.settings.globalUpdateInterval
   const status = updater.isRunning
-    ? `正在检查更新 · ${updater.finished} / ${updater.total}`
+    ? t('updates.status.running', { done: updater.finished, total: updater.total })
     : view === 'calendar'
-      ? [ts ? `上次检查 ${timeAgo(ts)}` : null, nextCheck(ts, hours)].filter(Boolean).join(' · ')
-      : [ts ? `上次检查 ${timeAgo(ts)}` : null, data ? `${count(Math.max(0, data.chapters.totalCount - (loaded - list.length)))} 话` : null, syncing ? '正在同步…' : null]
+      ? [ts ? t('updates.status.lastCheck', { time: timeAgo(ts) }) : null, nextCheck(ts, hours)].filter(Boolean).join(' · ')
+      : [ts ? t('updates.status.lastCheck', { time: timeAgo(ts) }) : null, data ? t('updates.status.chapters', { count: Math.max(0, data.chapters.totalCount - (loaded - list.length)), n: count(Math.max(0, data.chapters.totalCount - (loaded - list.length))) }) : null, syncing ? t('updates.status.syncing') : null]
           .filter(Boolean)
           .join(' · ')
 
@@ -210,15 +211,15 @@ export function UpdatesPage() {
     <>
       <div className="wrap pb-10">
         <header className="pt-4 md:pt-7 md:pb-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-4 md:gap-7">
-              <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">更新</h1>
+              <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">{t('updates.title')}</h1>
               <Seg flat
-                label="视图"
+                label={t('updates.view.label')}
                 className="[&>button]:min-h-11 md:[&>button]:min-h-9"
                 items={[
-                  { value: 'recent', label: '最近' },
-                  { value: 'calendar', label: '日历' },
+                  { value: 'recent', label: t('updates.view.recent') },
+                  { value: 'calendar', label: t('updates.view.calendar') },
                 ]}
                 value={view}
                 onChange={setView}
@@ -227,25 +228,25 @@ export function UpdatesPage() {
             {updater.isRunning ? (
               <button type="button" className="solid min-h-11 shrink-0" onClick={() => void stop()}>
                 <Square className="size-4 fill-current" strokeWidth={2} />
-                停止检查
+                {t('updates.stop')}
               </button>
             ) : (
               <button type="button" className="solid min-h-11 shrink-0" onClick={check}>
                 <RefreshCw className="size-[18px]" strokeWidth={2} />
-                检查更新
+                {t('updates.check')}
               </button>
             )}
           </div>
           <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || ' '}</p>
           {view === 'recent' && <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">
             <Seg flat
-              label="筛选"
+              label={t('updates.filter.label')}
               className="[&>button]:min-h-11 md:[&>button]:min-h-9"
               items={[
-                { value: 'all', label: '全部' },
-                { value: 'unread', label: '未读' },
-                { value: 'downloaded', label: '已下载' },
-                { value: 'favorite', label: '特别关心' },
+                { value: 'all', label: t('updates.filter.all') },
+                { value: 'unread', label: t('updates.filter.unread') },
+                { value: 'downloaded', label: t('updates.filter.downloaded') },
+                { value: 'favorite', label: t('updates.filter.favorite') },
               ]}
               value={filter}
               onChange={setFilter}
@@ -261,22 +262,22 @@ export function UpdatesPage() {
           </div>
         )}
 
-        {view === 'calendar' ? <UpdateCalendar /> : <section aria-label="新章节" className="pb-6">
+        {view === 'calendar' ? <UpdateCalendar /> : <section aria-label={t('updates.list')} className="pb-6">
           {data && list.length === 0 && !noFavorites && (
             <div className="flex flex-col items-center gap-3 py-20 text-center text-muted">
-              <p className="m-0">没有符合条件的章节</p>
+              <p className="m-0">{t('updates.empty')}</p>
               {filter !== 'all' && (
                 <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
-                  查看全部更新
+                  {t('updates.viewAll')}
                 </Glass>
               )}
             </div>
           )}
           {noFavorites && favorites.map && (
             <div className="flex flex-col items-center gap-3 py-20 text-center text-muted">
-              <p className="m-0">还没有特别关心的漫画。在漫画详情页点星标，或右键、长按这里的条目设置。</p>
+              <p className="m-0">{t('updates.noFavorites')}</p>
               <Glass flat as="button" type="button" className="gbtn rounded-full text-text" onClick={() => setFilter('all')}>
-                查看全部更新
+                {t('updates.viewAll')}
               </Glass>
             </div>
           )}
@@ -287,7 +288,7 @@ export function UpdatesPage() {
               <div className="mt-[26px] mb-2.5 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="m-0 flex items-baseline gap-2.5 text-lg font-bold lg:text-xl">
                   {d.label}
-                  <span className="text-[13px] font-medium text-muted num">{d.rows.length} 话</span>
+                  <span className="text-[13px] font-medium text-muted num">{t('updates.dayChapters', { count: d.rows.length })}</span>
                 </h2>
                 {unreadCount > 0 && (
                   <div className="flex items-center gap-1.5">
@@ -295,11 +296,12 @@ export function UpdatesPage() {
                       <button
                         type="button"
                         className="gbtn min-h-9 rounded-full px-3 text-[13px] text-muted hover:bg-hover hover:text-text"
-                        aria-label={`下载${d.label}的未读章节`}
+                        aria-label={t('updates.downloadUnreadAria', { label: d.label })}
                         onClick={() => void downloadDay(d.label, d.rows)}
                       >
                         <Download className="size-4" strokeWidth={1.8} />
-                        下载未读
+                        {/* 下载未读 */}
+                        {t('updates.downloadUnread')}
                       </button>
                     </Can>
                   </div>
@@ -310,7 +312,7 @@ export function UpdatesPage() {
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
                 const row = (c: UpdateChapter, nested = false) => (
-                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError('下载失败', e))} onToggleRead={() => { hold(g); const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError(c.isRead ? '标为未读失败' : '标为已读失败', e)) }} />
+                  <Row key={c.id} rise={nested ? undefined : rise} nested={nested} c={c} favorite={favorites.ids.has(c.mangaId)} onMenu={(x, y) => ctx.open(x, y, c.manga)} queued={queued.get(c.id)} onEnqueue={() => void enqueue({ variables: { ids: [c.id] } }).catch((e) => toastError(t('updates.downloadFailed'), e))} onToggleRead={() => { hold(g); const still = captureUser(); void update({ variables: { ids: [c.id], patch: c.isRead ? { isRead: false, lastPageRead: 0 } : { isRead: true } } }).then(() => { if (!c.isRead) void syncTrackProgressMany(client, [c.mangaId], still) }).catch((e) => toastError(c.isRead ? t('manga.chapters.markUnreadFailed') : t('manga.chapters.markReadFailed'), e)) }} />
                 )
                 if (g.rows.length === 1) return row(g.rows[0])
                 const expanded = open.has(g.key)
@@ -336,12 +338,12 @@ export function UpdatesPage() {
           <div ref={sentinel} />
           {loading && !data && <RowsSkeleton />}
           {updates.error && !data && <LoadError message={updates.error.message} onRetry={() => void refetch().catch(() => {})} />}
-          {loading && data && !syncing && <p className="py-6 text-center text-muted">正在加载…</p>}
+          {loading && data && !syncing && <p className="py-6 text-center text-muted">{t('updates.loading')}</p>}
         </section>}
 
         <DownloadPill />
       </div>
-      <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? `${ctx.menu.target.title} 的操作` : '操作'}>
+      <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? t('updates.menuLabel', { title: ctx.menu.target.title }) : t('updates.menu')}>
         {/* 更新页只列书库里的漫画 */}
         {ctx.menu && <MangaMenuItems mangaId={ctx.menu.target.id} inLibrary onDone={ctx.close} />}
       </ContextMenu>
@@ -352,12 +354,12 @@ export function UpdatesPage() {
 /** 下次自动检查：上次检查时间加上检查频率；关闭自动检查或时间已过时另说 */
 function nextCheck(last: number, hours: number | null | undefined) {
   if (hours == null || !last) return null
-  if (hours <= 0) return '自动检查已关闭'
+  if (hours <= 0) return t('updates.status.autoOff')
   const at = last + hours * 3_600_000
-  if (at <= Date.now()) return '即将自动检查'
+  if (at <= Date.now()) return t('updates.status.soon')
   // dayLabel 只会往回数，往后的日子在这里单独说
   const days = Math.round((new Date(new Date(at).toDateString()).getTime() - new Date(new Date().toDateString()).getTime()) / 86_400_000)
-  return `下次检查 ${days === 0 ? '今天' : days === 1 ? '明天' : formatDate(at)} ${clock(at)}`
+  return t('updates.status.next', { day: days === 0 ? t('format.today') : days === 1 ? t('updates.tomorrow') : formatDate(at), clock: clock(at) })
 }
 
 /** 第几条（跨日期分组，日期标题也算一格），给进场动画排延迟 */
@@ -402,7 +404,7 @@ function useRowMenu(open: (x: number, y: number) => void) {
 }
 
 /** 标题前的实心星：特别关心 */
-const FavoriteMark = () => <Star className="size-3.5 flex-none self-center fill-current lg:size-4" strokeWidth={2.2} aria-label="特别关心" />
+const FavoriteMark = () => <Star className="size-3.5 flex-none self-center fill-current lg:size-4" strokeWidth={2.2} aria-label={t('home.section.favorite')} />
 
 function Row({
   c,
@@ -424,8 +426,8 @@ function Row({
   onEnqueue: () => void
   onToggleRead: () => void
 }) {
-  const time = new Date(sec(c.fetchedAt)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  const downloadStatus = queued?.state === 'ERROR' ? '下载出错' : `下载中 ${Math.round((queued?.progress ?? 0) * 100)}%`
+  const time = new Date(sec(c.fetchedAt)).toLocaleTimeString(locale === 'en' ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const downloadStatus = queued?.state === 'ERROR' ? t('manga.row.downloadError') : t('manga.row.downloading', { pct: Math.round((queued?.progress ?? 0) * 100) })
   const menu = useRowMenu(onMenu)
   return (
     <div
@@ -439,7 +441,7 @@ function Row({
       {nested ? (
         <span className="w-[46px] flex-none lg:w-[72px]" aria-hidden />
       ) : (
-        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md lg:w-[72px] lg:rounded-lg" aria-label={`${c.manga.title} 详情`}>
+        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv w-[46px] flex-none rounded-md lg:w-[72px] lg:rounded-lg" aria-label={t('home.shelf.detailsAria', { title: c.manga.title })}>
           <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
         </Link>
       )}
@@ -464,8 +466,8 @@ function Row({
         type="button"
         className="row-action gicon text-muted hover:text-text"
         onClick={onToggleRead}
-        aria-label={c.isRead ? '标为未读' : '标为已读'}
-        title={c.isRead ? '标为未读' : '标为已读'}
+        aria-label={c.isRead ? t('manga.chapters.markAsUnread') : t('manga.chapters.markAsRead')}
+        title={c.isRead ? t('manga.chapters.markAsUnread') : t('manga.chapters.markAsRead')}
       >
         {c.isRead ? <BookOpen className="size-5 lg:size-[22px]" strokeWidth={1.8} /> : <BookCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />}
       </button>
@@ -479,12 +481,12 @@ function Row({
             </span>
           </span>
         ) : c.isDownloaded ? (
-          <span className="grid size-11 place-items-center text-accent" title="已下载">
+          <span className="grid size-11 place-items-center text-accent" title={t('manga.row.downloaded')}>
             <CircleCheck className="size-5 lg:size-[22px]" strokeWidth={1.8} />
           </span>
         ) : (
           <Can permission="DOWNLOAD_CHAPTERS">
-            <button type="button" className="gicon text-muted hover:text-text" onClick={onEnqueue} aria-label={`下载 ${c.manga.title} ${chapterLabel(c)}`}>
+            <button type="button" className="gicon text-muted hover:text-text" onClick={onEnqueue} aria-label={t('manga.row.downloadAria', { name: `${c.manga.title} ${chapterLabel(c)}` })}>
               <Download className="size-5 lg:size-[22px]" strokeWidth={1.8} />
             </button>
           </Can>
@@ -506,8 +508,8 @@ function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
   const c = rows[0]
   const menu = useRowMenu(onMenu)
   const unread = rows.filter((r) => !r.isRead).length
-  const time = new Date(sec(c.fetchedAt)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-  const summary = `${chapterLabel(c)} 等 ${rows.length} 话${unread ? ` · ${unread} 话未读` : ''}`
+  const time = new Date(sec(c.fetchedAt)).toLocaleTimeString(locale === 'en' ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })
+  const summary = t('updates.groupSummary', { chapter: chapterLabel(c), count: rows.length }) + (unread ? t('updates.groupUnread', { n: unread }) : '')
   return (
     <div
       {...menu}
@@ -520,7 +522,7 @@ function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
       <span className="relative mt-2 w-[46px] flex-none lg:w-[72px]">
         <span aria-hidden className="absolute inset-x-2 -top-2.5 h-full rounded-md bg-text/15 lg:inset-x-3 lg:rounded-lg" />
         <span aria-hidden className="absolute inset-x-1 -top-[5px] h-full rounded-md bg-text/30 lg:inset-x-1.5 lg:rounded-lg" />
-        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv relative rounded-md lg:rounded-lg" aria-label={`${c.manga.title} 详情`}>
+        <Link to={`/manga/${c.mangaId}`} viewTransition className="cv relative rounded-md lg:rounded-lg" aria-label={t('home.shelf.detailsAria', { title: c.manga.title })}>
           <CoverImg src={c.manga.thumbnailUrl} loading="lazy" />
         </Link>
         <span aria-hidden className="pointer-events-none absolute -right-2 -bottom-2 grid h-[22px] min-w-[22px] place-items-center rounded-full bg-accent px-1.5 text-[12px] leading-none font-bold text-on-accent num">{rows.length}</span>

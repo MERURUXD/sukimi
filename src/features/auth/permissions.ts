@@ -1,4 +1,5 @@
 import type { UserPermission, UserRole } from '@/api/gql/graphql'
+import { t } from '../../i18n/core.ts'
 
 export interface AuthUser {
   id: number
@@ -16,18 +17,18 @@ export function can(user: Pick<AuthUser, 'roles' | 'permissions'> | null, permis
 }
 
 export const PERMISSION_LABEL: Record<UserPermission, string> = {
-  INSTALL_EXTENSIONS: '安装扩展',
-  INSTALL_EXTERNAL_EXTENSIONS: '安装外部扩展（APK / 上传）',
-  UNINSTALL_EXTENSIONS: '卸载扩展',
-  DOWNLOAD_CHAPTERS: '下载章节',
-  ACCESS_NSFW: '查看成人内容',
-  MANAGE_SETTINGS: '管理服务端设置',
-  MANAGE_USERS: '管理用户',
-  MANAGE_EXTENSION_STORES: '管理扩展仓库',
-  MANAGE_SOURCE_PREFERENCES: '管理来源偏好',
-  MANAGE_CACHE: '清理缓存',
+  INSTALL_EXTENSIONS: t('auth.permission.INSTALL_EXTENSIONS'),
+  INSTALL_EXTERNAL_EXTENSIONS: t('auth.permission.INSTALL_EXTERNAL_EXTENSIONS'),
+  UNINSTALL_EXTENSIONS: t('auth.permission.UNINSTALL_EXTENSIONS'),
+  DOWNLOAD_CHAPTERS: t('auth.permission.DOWNLOAD_CHAPTERS'),
+  ACCESS_NSFW: t('auth.permission.ACCESS_NSFW'),
+  MANAGE_SETTINGS: t('auth.permission.MANAGE_SETTINGS'),
+  MANAGE_USERS: t('auth.permission.MANAGE_USERS'),
+  MANAGE_EXTENSION_STORES: t('auth.permission.MANAGE_EXTENSION_STORES'),
+  MANAGE_SOURCE_PREFERENCES: t('auth.permission.MANAGE_SOURCE_PREFERENCES'),
+  MANAGE_CACHE: t('auth.permission.MANAGE_CACHE'),
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABEL) as UserPermission[]
 
-export const ROLE_LABEL: Record<UserRole, string> = { ADMIN: '管理员', USER: '用户', VISITOR: '访客' }
+export const ROLE_LABEL: Record<UserRole, string> = { ADMIN: t('auth.role.ADMIN'), USER: t('auth.role.USER'), VISITOR: t('auth.role.VISITOR') }

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
+import { t } from '@/i18n'
 
 /** 吸底的玻璃批量操作栏 */
 export function BatchBar({
@@ -10,7 +11,7 @@ export function BatchBar({
   count,
   unit,
   onSelectAll,
-  selectAllLabel = '全选',
+  selectAllLabel = t('common.selectAll'),
   onCancel,
   children,
 }: {
@@ -29,7 +30,7 @@ export function BatchBar({
         <div className="pointer-events-none fixed right-0 bottom-[calc(var(--tabbar-h)+20px)] left-[var(--side-w)] z-40 flex justify-center px-4">
           <MotionGlass
             role="toolbar"
-            aria-label="批量操作"
+            aria-label={t('common.batchActions')}
             dense
             initial={reduced ? false : { opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -39,7 +40,7 @@ export function BatchBar({
           >
             <div className="flex flex-col px-3.5 leading-[1.3]">
               <span className="font-bold num">
-                已选 {count} {unit}
+                {t('common.selectedCount', { count, unit })}
               </span>
               <button type="button" onClick={onSelectAll} className="text-left text-xs font-semibold text-muted hover:text-text">
                 {selectAllLabel}
@@ -50,7 +51,7 @@ export function BatchBar({
             <span className="mx-1 h-[34px] w-px bg-line" />
             <button type="button" className="bb" onClick={onCancel}>
               <X className="size-5" strokeWidth={1.8} />
-              取消
+              {t('common.cancel')}
             </button>
           </MotionGlass>
         </div>

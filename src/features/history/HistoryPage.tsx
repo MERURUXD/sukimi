@@ -21,6 +21,7 @@ import { riseStep, useIntro } from '@/lib/intro'
 import { groupHistory, hiddenKey, hiddenValue, visibleHistoryCount, type HistoryEntry } from './history'
 import { HideHistory, History, type HistoryItem } from './queries'
 import { HISTORY_PAGE, historyVariables } from './pagination'
+import { t } from '@/i18n'
 
 /** 阅读历史：按天分组，同一天同一部漫画合成一条；可以搜索和删除单条 */
 export function HistoryPage() {
@@ -73,9 +74,9 @@ export function HistoryPage() {
   const hiddenKeyOfUser = userId === undefined ? undefined : hiddenKey(userId)
   const remove = async (entry: HistoryEntry<HistoryItem>) => {
     const ok = await confirm({
-      title: '删除这条阅读记录？',
-      body: `「${entry.latest.manga.title}」这一天的 ${entry.chapters.length} 话不再出现在历史和首页里。阅读进度和已读状态不变，之后再读会重新记录。`,
-      ok: '删除',
+      title: t('downloads.history.deleteTitle'),
+      body: t('downloads.history.deleteBody', { title: entry.latest.manga.title, n: entry.chapters.length }),
+      ok: t('downloads.history.deleteOk'),
     })
     if (!ok) return
     if (hiddenKeyOfUser === undefined) return
@@ -98,9 +99,9 @@ export function HistoryPage() {
           }
         },
       })
-      toast('已删除这条记录')
+      toast(t('downloads.history.deleted'))
     } catch (e) {
-      toastError('删除失败', e)
+      toastError(t('downloads.history.deleteFailed'), e)
     }
   }
 
@@ -111,34 +112,34 @@ export function HistoryPage() {
   return (
     <div className="wrap pb-20">
       <PageHeader
-        title="阅读历史"
+        title={t('downloads.history.title')}
         sub={<>
-          {visible ? `共 ${count(visible.total)} 话阅读记录` : loading ? '正在加载…' : ''}
-          {visible && (q ? ` · 在已加载的 ${count(visible.loaded)} 话里搜索` : hasMore ? ` · 已加载 ${count(visible.loaded)} 话` : '')}
+          {visible ? t('downloads.history.total', { n: count(visible.total) }) : loading ? t('manga.loading') : ''}
+          {visible && (q ? t('downloads.history.searchLoaded', { n: count(visible.loaded) }) : hasMore ? t('downloads.history.loaded', { n: count(visible.loaded) }) : '')}
         </>}
         actions={
           <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
             <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-            <span className="sr">搜索历史</span>
+            <span className="sr">{t('downloads.history.searchLabel')}</span>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="在已加载的历史中搜索漫画或章节"
+              placeholder={t('downloads.history.searchPlaceholder')}
               className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
             />
           </Glass>
         }
       />
 
-      {error && !data && <LoadError className="py-16" prefix="无法读取阅读历史" message={error.message} onRetry={() => void history.refetch().catch(() => {})} />}
+      {error && !data && <LoadError className="py-16" prefix={t('downloads.history.loadFailed')} message={error.message} onRetry={() => void history.refetch().catch(() => {})} />}
       {!data && !error && <HistorySkeleton />}
-      {data && shown === 0 && !hasMore && <p className="py-16 text-center text-muted">{q ? '没有匹配的记录' : '还没有阅读记录'}</p>}
+      {data && shown === 0 && !hasMore && <p className="py-16 text-center text-muted">{q ? t('downloads.history.noMatch') : t('downloads.history.none')}</p>}
       {data && shown === 0 && hasMore && q && (
         <div className="flex flex-col items-center gap-3 py-16 text-center text-muted">
-          <p className="m-0">在已加载的 {count(visible?.loaded ?? 0)} 话中没有找到「{query.trim()}」</p>
+          <p className="m-0">{t('downloads.history.notFound', { n: count(visible?.loaded ?? 0), q: query.trim() })}</p>
           <Glass flat as="button" type="button" className="gbtn rounded-full text-text" disabled={loading} onClick={() => void more()}>
-            {loading ? '正在加载更早的记录…' : '继续加载更早的记录'}
+            {loading ? t('downloads.history.loadingOlder') : t('downloads.history.loadOlder')}
           </Glass>
         </div>
       )}
@@ -156,9 +157,9 @@ export function HistoryPage() {
 
       {hasMore && (shown > 0 || !q) && (
         <div ref={q ? undefined : sentinel} className="py-6 text-center text-sm text-muted">
-          {loading ? '正在加载更早的记录…' : (
+          {loading ? t('downloads.history.loadingOlder') : (
             <button type="button" className="font-semibold text-text hover:underline" onClick={() => void more()}>
-              {q ? `继续加载更早的记录（已加载 ${count(visible?.loaded ?? 0)} / ${count(visible?.total ?? 0)} 话）` : '加载更早的记录'}
+              {q ? t('downloads.history.loadOlderCount', { loaded: count(visible?.loaded ?? 0), total: count(visible?.total ?? 0) }) : t('downloads.history.loadOlderPlain')}
             </button>
           )}
         </div>
@@ -170,7 +171,7 @@ export function HistoryPage() {
 function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem>; rise?: React.CSSProperties; onRemove: () => void }) {
   const c = entry.latest
   const prefetch = usePrefetchManga(c.manga.id)
-  const progress = c.isRead ? '已读完' : c.pageCount > 0 ? `读到 ${c.lastPageRead + 1} / ${c.pageCount} 页` : `读到第 ${c.lastPageRead + 1} 页`
+  const progress = c.isRead ? t('downloads.history.finished') : c.pageCount > 0 ? t('downloads.history.readPageOf', { current: c.lastPageRead + 1, total: c.pageCount }) : t('downloads.history.readPage', { page: c.lastPageRead + 1 })
   return (
     <div
       data-sfw={sfwAttr(c.manga.source?.displayName)}
@@ -188,16 +189,16 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
           <span className="truncate text-[13px] text-muted num">
             {chapterLabel(c)} · {progress} · {clock(Number(c.lastReadAt) * 1000)}
           </span>
-          {entry.chapters.length > 1 && <span className="text-[13px] text-faint">这天还读了 {entry.chapters.length - 1} 话</span>}
+          {entry.chapters.length > 1 && <span className="text-[13px] text-faint">{t('downloads.history.alsoRead', { n: entry.chapters.length - 1 })}</span>}
         </span>
       </Link>
       {!c.isRead && (
         // 行有进场动画（改透明度），这里不用玻璃按钮，免得动画期间玻璃失效
-        <Link to={`/manga/${c.manga.id}/chapter/${c.id}`} state={FROM_DETAIL} viewTransition className="gicon size-10 text-text no-underline" aria-label={`继续阅读 ${c.manga.title}`} title="继续阅读">
+        <Link to={`/manga/${c.manga.id}/chapter/${c.id}`} state={FROM_DETAIL} viewTransition className="gicon size-10 text-text no-underline" aria-label={t('downloads.history.continueAria', { title: c.manga.title })} title={t('downloads.history.continue')}>
           <Play className="size-[18px] fill-current" strokeWidth={1.6} />
         </Link>
       )}
-      <button type="button" className="row-action gicon size-10 text-muted hover:text-danger" aria-label={`删除 ${c.manga.title} 的这条记录`} title="删除这条记录" onClick={onRemove}>
+      <button type="button" className="row-action gicon size-10 text-muted hover:text-danger" aria-label={t('downloads.history.deleteAria', { title: c.manga.title })} title={t('downloads.history.deleteRow')} onClick={onRemove}>
         <Trash2 className="size-[18px]" strokeWidth={1.8} />
       </button>
     </div>

@@ -15,6 +15,7 @@ import { riseDelay, useIntro } from '@/lib/intro'
 import { isCompleted, lastUpdated } from './filtering'
 import type { LibraryManga } from './queries'
 import { DEFAULT_BADGES, DEFAULT_SUBLINE, type BadgeKey, type Density, type SublineKey, type TitleLines } from './store'
+import { t } from '@/i18n'
 
 interface Props {
   items: LibraryManga[]
@@ -268,7 +269,7 @@ const Tile = memo(function Tile({
           <span className="absolute top-2 right-2 z-[2] flex flex-col items-end gap-1">
             {/* 实心星：和评分角标的空心星区分开 */}
             {favorite && (
-              <span className={PILL} aria-label="特别关心" title="特别关心">
+              <span className={PILL} aria-label={t('library.cover.favorite')} title={t('library.cover.favorite')}>
                 <Star className="size-3 fill-current" strokeWidth={2.4} />
               </span>
             )}
@@ -295,7 +296,7 @@ const Tile = memo(function Tile({
                 {m.bookmarkCount}
               </span>
             )}
-            {completed && <span className={PILL}>完结</span>}
+            {completed && <span className={PILL}>{t('library.cover.completed')}</span>}
           </span>
         )}
         {selected && (
@@ -375,7 +376,7 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf, displa
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="flex min-w-0 items-center gap-1.5">
-                {display.badges.favorite && favorites?.has(m.id) && <Star className="size-3.5 flex-none fill-current" strokeWidth={2.2} aria-label="特别关心" />}
+                {display.badges.favorite && favorites?.has(m.id) && <Star className="size-3.5 flex-none fill-current" strokeWidth={2.2} aria-label={t('library.cover.favorite')} />}
                 <span className="truncate font-semibold">{m.title}</span>
               </span>
               <span className="truncate text-[13px] text-muted">
@@ -384,8 +385,8 @@ function ListView({ items, intro, selecting, selected, onToggle, scoreOf, displa
             </span>
             {scoreOf && <span className="w-10 text-right text-[13px] text-muted num">{scoreOf(m)?.toFixed(1) ?? '—'}</span>}
             <span className="w-[100px] text-[13px] text-muted max-md:hidden">{timeAgo(lastUpdated(m))}</span>
-            <span className="w-[72px] text-right text-[13px] text-muted num">未读 {m.unreadCount}</span>
-            <span className="w-[72px] text-right text-[13px] text-muted num max-sm:hidden">下载 {m.downloadCount}</span>
+            <span className="w-[72px] text-right text-[13px] text-muted num">{t('library.cover.unread', { n: m.unreadCount })}</span>
+            <span className="w-[72px] text-right text-[13px] text-muted num max-sm:hidden">{t('library.cover.downloaded', { n: m.downloadCount })}</span>
           </>
         )
         return selecting ? (

@@ -13,12 +13,13 @@ import { sfwAttr } from '@/lib/devSafe'
 import { chapterLabel, ms, sec } from '@/lib/format'
 import { riseStep, useIntro } from '@/lib/intro'
 import { buildWeek, leftovers, seriesOf, weekStart, type CalendarDay, type DayEntry, type Series } from './calendar'
-import { addDays, clockLabel, daysBetween, intervalLabel, regularLabel, startOfDay, type Prediction } from './predict'
+import { addDays, clockLabel, daysBetween, intervalLabel, regularLabel, startOfDay, weekdayName, type Prediction } from './predict'
 import { CALENDAR_LIMIT, CalendarChapters, calendarFilter } from './queries'
+import { t } from '@/i18n'
 
 type Manga = CalendarChaptersQuery['chapters']['nodes'][number]['manga']
 
-const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const WEEK_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 /** 往前最多翻到近半年的窗口，往后两个月 */
 const MIN_WEEK = -25
 const MAX_WEEK = 8
@@ -32,7 +33,7 @@ const Favorites = createContext<ReadonlyMap<number, number>>(new Map())
 
 function FavoriteMark({ id }: { id: number }) {
   if (!useContext(Favorites).has(id)) return null
-  return <Star className="mr-1 inline size-3 -translate-y-px fill-current" strokeWidth={2.2} aria-label="特别关心" />
+  return <Star className="mr-1 inline size-3 -translate-y-px fill-current" strokeWidth={2.2} aria-label={t('home.section.favorite')} />
 }
 
 /** 超出上限的折叠起来，点开后整天展开 */
@@ -48,7 +49,7 @@ function useCapped<T>() {
 function MoreButton({ n, onClick, className }: { n: number; onClick: () => void; className?: string }) {
   return (
     <button type="button" onClick={onClick} className={cn('min-h-9 self-start border-0 bg-transparent p-0 text-left text-xs text-muted hover:text-text', className)}>
-      还有 {n} 部
+      {t('home.week.moreLeft', { n })}
     </button>
   )
 }
@@ -86,25 +87,25 @@ export function UpdateCalendar() {
   const doneCount = new Set(week.flatMap((d) => d.entries.filter((e) => e.kind === 'done').map((e) => e.mangaId))).size
   const predCount = new Set(week.flatMap((d) => d.entries.filter((e) => e.kind === 'pred').map((e) => e.mangaId))).size
   const summary = [
-    doneCount ? `${offset === 0 ? '本周' : '这周'}已更新 ${doneCount} 部` : null,
-    predCount ? `预计${doneCount ? '还有' : ''} ${predCount} 部` : null,
-  ].filter(Boolean).join('，')
+    doneCount ? t(offset === 0 ? 'updates.cal.doneThis' : 'updates.cal.doneOther', { n: doneCount }) : null,
+    predCount ? t(doneCount ? 'updates.cal.predictedMore' : 'updates.cal.predicted', { n: predCount }) : null,
+  ].filter(Boolean).join(t('updates.cal.sep'))
   const end = addDays(start, 6)
   const range = `${new Date(start).getMonth() + 1}/${new Date(start).getDate()} – ${new Date(end).getMonth() + 1}/${new Date(end).getDate()}`
 
   return (
     <Favorites.Provider value={favorites}>
-    <section aria-label="更新日历" className="pb-6">
+    <section aria-label={t('updates.cal.aria')} className="pb-6">
       <div className="mt-5 mb-4 flex items-center justify-between gap-3">
-        <p className="m-0 min-w-0 text-[13px] text-muted md:text-sm">{summary || (offset < 0 ? '这周没有新章节' : '这周没有预计的更新')}</p>
+        <p className="m-0 min-w-0 text-[13px] text-muted md:text-sm">{summary || (offset < 0 ? t('updates.cal.noNew') : t('updates.cal.noPlanned'))}</p>
         <div className="flex flex-none items-center gap-1.5">
-          <Glass flat as="button" type="button" className="gicon size-10 rounded-full" disabled={offset <= MIN_WEEK} onClick={() => setOffset((o) => o - 1)} aria-label="上一周">
+          <Glass flat as="button" type="button" className="gicon size-10 rounded-full" disabled={offset <= MIN_WEEK} onClick={() => setOffset((o) => o - 1)} aria-label={t('updates.cal.prev')}>
             <ChevronLeft className="size-[18px]" strokeWidth={1.8} />
           </Glass>
-          <Glass flat as="button" type="button" className="gbtn min-w-[92px] rounded-full num" onClick={() => setOffset(0)} aria-label="回到本周" title="回到本周">
-            {offset === 0 ? '本周' : range}
+          <Glass flat as="button" type="button" className="gbtn min-w-[92px] rounded-full num" onClick={() => setOffset(0)} aria-label={t('updates.cal.backToThis')} title={t('updates.cal.backToThis')}>
+            {offset === 0 ? t('updates.cal.thisWeek') : range}
           </Glass>
-          <Glass flat as="button" type="button" className="gicon size-10 rounded-full" disabled={offset >= MAX_WEEK} onClick={() => setOffset((o) => o + 1)} aria-label="下一周">
+          <Glass flat as="button" type="button" className="gicon size-10 rounded-full" disabled={offset >= MAX_WEEK} onClick={() => setOffset((o) => o + 1)} aria-label={t('updates.cal.next')}>
             <ChevronRight className="size-[18px]" strokeWidth={1.8} />
           </Glass>
         </div>
@@ -117,12 +118,12 @@ export function UpdateCalendar() {
       {rest.late.length > 0 && (
         <div className="mt-9">
           <h2 className="m-0 mb-2 flex items-baseline gap-2.5 text-lg font-bold">
-            晚了
-            <span className="text-[13px] font-medium text-muted">按规律该出新话了，还没有出</span>
+            {t('updates.cal.late')}
+            <span className="text-[13px] font-medium text-muted">{t('updates.cal.lateHint')}</span>
           </h2>
           <div className="grid gap-x-6 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
             {(lateOpen ? rest.late : rest.late.slice(0, LATE_CAP)).map((s) => (
-              <SeriesRow key={s.mangaId} s={s} sub={`${intervalLabel(s.prediction.interval)}更新 · 晚了 ${s.prediction.late} 天`} />
+              <SeriesRow key={s.mangaId} s={s} sub={t('updates.cal.lateSub', { interval: intervalLabel(s.prediction.interval), n: s.prediction.late })} />
             ))}
           </div>
           {!lateOpen && rest.late.length > LATE_CAP && <MoreButton n={rest.late.length - LATE_CAP} onClick={() => setLateOpen(true)} className="mt-1 ml-1" />}
@@ -131,7 +132,7 @@ export function UpdateCalendar() {
 
       <Unpredicted rest={rest} />
       {query.data.chapters.nodes.length >= CALENDAR_LIMIT && (
-        <p className="mt-6 text-xs text-muted">近半年的章节太多，只按最近 {CALENDAR_LIMIT.toLocaleString('en-US')} 话推算。</p>
+        <p className="mt-6 text-xs text-muted">{t('updates.cal.limit', { n: CALENDAR_LIMIT.toLocaleString('en-US') })}</p>
       )}
     </section>
     </Favorites.Provider>
@@ -141,7 +142,7 @@ export function UpdateCalendar() {
 function dayHead(day: number, today: number) {
   const d = new Date(day)
   const diff = daysBetween(today, day)
-  return { name: diff === 0 ? '今天' : diff === 1 ? '明天' : diff === -1 ? '昨天' : WEEK[d.getDay()], date: `${d.getMonth() + 1}/${d.getDate()}`, isToday: diff === 0 }
+  return { name: diff === 0 ? t('format.today') : diff === 1 ? t('updates.tomorrow') : diff === -1 ? t('format.yesterday') : weekdayName(d.getDay()), date: `${d.getMonth() + 1}/${d.getDate()}`, isToday: diff === 0 }
 }
 
 /** 桌面：七列并排，不画格子线，靠列间距分开 */
@@ -172,14 +173,14 @@ function WeekColumns({ week, today, now, intro }: { week: CalendarDay<Manga>[]; 
 /** 当天更新的章节标题；一天出了好几话时前面加话数，截断时也看得到 */
 function doneLabel(e: Extract<DayEntry<Manga>, { kind: 'done' }>) {
   const title = chapterLabel(e.latest)
-  return e.count > 1 ? `${e.count} 话 · ${title}` : title
+  return e.count > 1 ? t('updates.cal.doneLabel', { count: e.count, title }) : title
 }
 
 function entrySub(e: DayEntry<Manga>, now: number) {
   if (e.kind === 'done') return doneLabel(e)
   const p = e.prediction
   const soon = daysBetween(startOfDay(now), p.next) <= 1
-  return p.minute !== undefined && soon ? `约 ${clockLabel(p.minute)}` : `${intervalLabel(p.interval)} · ${regularLabel(p)}`
+  return p.minute !== undefined && soon ? t('updates.cal.aroundClock', { clock: clockLabel(p.minute) }) : t('updates.cal.intervalSub', { interval: intervalLabel(p.interval), regular: regularLabel(p) })
 }
 
 function EntryTile({ e, now }: { e: DayEntry<Manga>; now: number }) {
@@ -191,13 +192,13 @@ function EntryTile({ e, now }: { e: DayEntry<Manga>; now: number }) {
       data-sfw={sfwAttr(e.manga.source?.displayName)}
       data-nsfw={useNsfwBlur(e.manga)}
       className="group flex min-w-0 flex-col gap-1.5 text-text no-underline"
-      aria-label={`${e.manga.title}，${pred ? '预计更新' : '已更新'}`}
+      aria-label={t(pred ? 'updates.cal.tilePred' : 'updates.cal.tileDone', { title: e.manga.title })}
     >
       <span className={cn('cv w-full max-w-[112px] rounded-lg transition-opacity', pred && 'opacity-45 outline-1 outline-offset-2 outline-dashed outline-text/50 group-hover:opacity-70')}>
         <CoverImg src={e.manga.thumbnailUrl} loading="lazy" />
       </span>
       <span className={cn('line-clamp-2 min-h-[2.75em] text-[13px] leading-snug break-words', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
-      <span className="truncate text-[13px] text-muted num">{entrySub(e, now)}</span>
+      <span className="line-clamp-2 text-[13px] leading-snug break-words text-muted num">{entrySub(e, now)}</span>
     </Link>
   )
 }
@@ -221,23 +222,23 @@ function WeekAgenda({ week, today, now, intro }: { week: CalendarDay<Manga>[]; t
               disabled={!n}
               onClick={() => document.getElementById(`cal-${d.day}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
               className={cn('flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl border-0 bg-transparent p-0 text-xs', h.isToday ? 'font-bold text-text' : n ? 'text-muted' : 'text-faint')}
-              aria-label={`${h.name} ${h.date}，${n ? `${n} 部` : '没有更新'}`}
+              aria-label={n ? t('updates.cal.dayAria', { name: h.name, date: h.date, n }) : t('updates.cal.dayAriaNone', { name: h.name, date: h.date })}
             >
-              <span>{WEEK[new Date(d.day).getDay()].slice(1)}</span>
+              <span>{t(`updates.cal.weekShort.${WEEK_KEYS[new Date(d.day).getDay()]}`)}</span>
               <span className={cn('grid size-7 place-items-center rounded-full text-sm num', h.isToday && 'bg-accent text-on-accent')}>{new Date(d.day).getDate()}</span>
               <span className={cn('size-1 rounded-full', n ? 'bg-text/60' : 'bg-transparent')} aria-hidden />
             </button>
           )
         })}
       </div>
-      {shown.length === 0 && <p className="py-14 text-center text-muted">这周没有更新</p>}
+      {shown.length === 0 && <p className="py-14 text-center text-muted">{t('updates.cal.weekEmpty')}</p>}
       {shown.map((d, di) => {
         const h = dayHead(d.day, today)
         return (
           <div key={d.day} id={`cal-${d.day}`} className="scroll-mt-[calc(var(--nav-h,0px)+12px)]">
             <h3 className={cn('m-0 mt-5 mb-1.5 flex items-baseline gap-2 text-base font-bold', intro && 'rise')} style={intro ? riseStep(di * 2) : undefined}>
               {h.name}
-              <span className="text-xs font-medium text-muted num">{h.isToday || h.name === '明天' || h.name === '昨天' ? `${WEEK[new Date(d.day).getDay()]} ${h.date}` : h.date}</span>
+              <span className="text-xs font-medium text-muted num">{h.isToday || daysBetween(today, d.day) === 1 || daysBetween(today, d.day) === -1 ? `${weekdayName(new Date(d.day).getDay())} ${h.date}` : h.date}</span>
             </h3>
             {cap.visible(d.day, d.entries, DAY_CAP_AGENDA).map((e, i) => (
               <AgendaRow key={`${e.kind}${e.mangaId}`} e={e} now={now} rise={intro ? riseStep(di * 2 + i + 1) : undefined} />
@@ -266,7 +267,7 @@ function AgendaRow({ e, now, rise }: { e: DayEntry<Manga>; now: number; rise?: C
       </span>
       <span className="flex min-w-0 flex-col">
         <span className={cn('truncate', pred ? 'text-muted' : 'font-semibold')}><FavoriteMark id={e.mangaId} />{e.manga.title}</span>
-        <span className="truncate text-[13px] text-muted num">{pred ? `预计 · ${entrySub(e, now)}` : entrySub(e, now)}</span>
+        <span className="truncate text-[13px] text-muted num">{pred ? t('updates.cal.predPrefix', { sub: entrySub(e, now) }) : entrySub(e, now)}</span>
       </span>
     </Link>
   )
@@ -277,11 +278,11 @@ function Legend() {
     <div className="mt-6 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted">
       <span className="flex items-center gap-1.5">
         <i className="block h-3 w-2 rounded-[2px] bg-text/70" aria-hidden />
-        已发布的更新
+        {t('updates.cal.legendDone')}
       </span>
       <span className="flex items-center gap-1.5">
         <i className="block h-3 w-2 rounded-[2px] bg-text/70 opacity-45 outline-1 outline-offset-1 outline-dashed outline-text/60" aria-hidden />
-        按最近几话的规律推算，仅供参考
+        {t('updates.cal.legendPred')}
       </span>
     </div>
   )
@@ -307,26 +308,26 @@ function SeriesRow({ s, sub }: { s: Series<Manga>; sub: string }) {
   )
 }
 
-const REASONS = { stalled: '很久没更新', irregular: '更新不太规律', few: '最近发的话太少', ended: '已完结或只抓一次' } as const
+const REASONS = ['stalled', 'irregular', 'few', 'ended'] as const
 
 /** 推算不出的：默认收起，只给一行各类的数量 */
 function Unpredicted({ rest }: { rest: ReturnType<typeof leftovers<Manga>> }) {
   const [open, setOpen] = useState(false)
-  const groups = (Object.keys(REASONS) as (keyof typeof REASONS)[]).map((k) => ({ k, items: rest[k] as Series<Manga>[] })).filter((g) => g.items.length)
+  const groups = REASONS.map((k) => ({ k, items: rest[k] as Series<Manga>[] })).filter((g) => g.items.length)
   if (!groups.length) return null
   return (
     <div className="mt-8">
       <button type="button" className="flex min-h-11 items-center gap-1.5 border-0 bg-transparent p-0 text-left text-sm text-muted hover:text-text" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         <span>
-          <span className="font-semibold text-text">不预测</span>
+          <span className="font-semibold text-text">{t('updates.cal.skip')}</span>
           {' · '}
-          {groups.map((g) => `${REASONS[g.k]} ${g.items.length} 部`).join('，')}
+          {groups.map((g) => t('updates.cal.skipItem', { reason: t(`updates.cal.reason.${g.k}`), n: g.items.length })).join(t('updates.cal.sep'))}
         </span>
         <ChevronDown className={cn('size-4 flex-none transition-transform', open && 'rotate-180')} strokeWidth={1.8} />
       </button>
       {open && groups.map((g) => (
         <div key={g.k} className="mt-3">
-          <h3 className="m-0 mb-1 text-sm font-semibold text-muted">{REASONS[g.k]}</h3>
+          <h3 className="m-0 mb-1 text-sm font-semibold text-muted">{t(`updates.cal.reason.${g.k}`)}</h3>
           <div className="grid gap-x-6 md:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
             {g.items.map((s) => <SeriesRow key={s.mangaId} s={s} sub={unpredictedSub(s.prediction)} />)}
           </div>
@@ -337,10 +338,10 @@ function Unpredicted({ rest }: { rest: ReturnType<typeof leftovers<Manga>> }) {
 }
 
 function unpredictedSub(p: Prediction) {
-  if (p.kind === 'none') return p.reason === 'few' ? '近半年只更新过一两次' : p.reason === 'once' ? '设置为只抓一次' : '已完结'
+  if (p.kind === 'none') return p.reason === 'few' ? t('updates.cal.fewSub') : p.reason === 'once' ? t('updates.cal.onceSub') : t('updates.cal.endedSub')
   const last = p.days[p.days.length - 1]
   const d = new Date(last)
-  return p.late > 0 ? `最近一话 ${d.getMonth() + 1}/${d.getDate()}` : `${intervalLabel(p.interval)}左右 · 不太规律`
+  return p.late > 0 ? t('updates.cal.lastChapter', { date: `${d.getMonth() + 1}/${d.getDate()}` }) : t('updates.cal.roughly', { interval: intervalLabel(p.interval) })
 }
 
 function CalendarSkeleton() {

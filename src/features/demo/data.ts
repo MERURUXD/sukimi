@@ -1,5 +1,6 @@
 import { DEMO_ACCOUNT_REJECT, PREVIEW_ADMIN, PREVIEW_MEMBER } from '../auth/previewUsers.ts'
 import { mergeMeta } from '../reader/remote.ts'
+import { t as tl } from '../../i18n/core.ts'
 const svgUrl = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 const TITLES = ['云海邮局', '月台尽头', '森林慢车', '星河旅人', '雨后的咖啡馆', '山间来信', '小岛日记', '风的收藏家', '灯塔与猫', '夏日观测站', '旧城漫游', '夜航书店']
 const COLORS = ['#23475d', '#563c66', '#365f50', '#303e70', '#705047', '#526a70', '#317177', '#6c6051', '#3d586c', '#626c49', '#704960', '#3a4260']
@@ -185,8 +186,8 @@ function scaledLibrary(scale: number, now: number, categories: Category[], makeM
 
 /** `?edge=1` 时追加的两个分类：超长名称、没有作品 */
 const EDGE_CATEGORIES: Category[] = [
-  { id: 3, name: '一个名字非常非常长、用来检查分类标签换行和截断效果的虚构分类', order: 2, default: false },
-  { id: 4, name: '空分类', order: 3, default: false },
+  { id: 3, name: tl('misc.demo.catLong'), order: 2, default: false },
+  { id: 4, name: tl('misc.demo.catEmpty'), order: 3, default: false },
 ]
 
 /**
@@ -276,7 +277,7 @@ function longRead(now: number, categories: Category[], makeManga: MakeManga) {
 
 /** 每个客户端拥有自己的数据，修改仅在本次演示内存中生效。 */
 export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; url: (file: string) => string }[] = [], { scale = 0, edge = false, long = false }: { scale?: number; edge?: boolean; long?: boolean } = {}) {
-  const categories: Category[] = [{ id: 1, name: '旅途', order: 0, default: false }, { id: 2, name: '日常', order: 1, default: false }, ...(edge ? EDGE_CATEGORIES : [])]
+  const categories: Category[] = [{ id: 1, name: tl('misc.demo.catJourney'), order: 0, default: false }, { id: 2, name: tl('misc.demo.catDaily'), order: 1, default: false }, ...(edge ? EDGE_CATEGORIES : [])]
   /** 各项统计都按章节现算，改了已读、书签后跟着变 */
   const makeManga: MakeManga = (fields, chapters) => {
     const m: DemoManga = {
@@ -378,18 +379,18 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
   }]
   const findTrack = (id: number) => {
     const t = tracks.find((t) => t.id === id)
-    if (!t) throw new Error('这条追踪不在演示数据中')
+    if (!t) throw new Error(tl('misc.demo.noTracker'))
     return t
   }
   const findManga = (id: number) => {
     const m = mangas.find((m) => m.id === id)
-    if (!m) throw new Error('这部漫画不在演示书库中')
+    if (!m) throw new Error(tl('misc.demo.noManga'))
     return m
   }
   const chapterById = new Map(allChapters.map((c) => [c.id, c]))
   const findChapter = (id: number) => {
     const c = chapterById.get(id)
-    if (!c) throw new Error('这一话不在演示书库中')
+    if (!c) throw new Error(tl('misc.demo.noChapter'))
     return c
   }
   const patchChapter = (id: number, patch: Partial<DemoChapter>) => {
@@ -537,6 +538,6 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
   }
   return new Proxy(root, { get(target, key) {
     if (key in target) return Reflect.get(target, key)
-    return () => { throw new Error('这项功能需要连接服务端；演示模式只在本地运行') }
+    return () => { throw new Error(tl('misc.demo.needServer')) }
   } })
 }

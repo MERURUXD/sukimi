@@ -32,6 +32,8 @@ runInNewContext(code, {
   queueMicrotask,
   require: (name) => {
     if (name === 'react' || name === '@apollo/client/react') return require(name)
+    // 词典不在这个手写的模块沙盒里加载；只给用到的那一条中文
+    if (name === '@/i18n') return { t: (key) => ({ 'reader.progressSyncFailed': '进度同步失败' })[key] ?? key }
     if (name === '@/api/userContext') return { captureUser: () => () => {} }
     if (name === '@/components/ui/toast') return { toastError: (prefix, error) => errors.push(`${prefix}:${error?.message ?? error}`) }
     if (name === '@/features/tracking/sync') return { syncTrackProgress: (_client, mangaId) => { tracks.push(mangaId) } }
