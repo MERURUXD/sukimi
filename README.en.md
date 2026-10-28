@@ -4,7 +4,7 @@
 
 A liquid-glass web client for [Suwayomi Server](https://github.com/Suwayomi/Suwayomi-Server), designed for both desktop and mobile.
 
-**Language**: the interface is currently available in Simplified Chinese only. Multi-language support is planned. Code comments and commit messages are also in Simplified Chinese.
+**Language**: the interface is available in Simplified Chinese and English. Switch it at the top right of the login page or under "Settings → Appearance". Code comments and commit messages are in Simplified Chinese.
 
 ![Home](docs/screenshots/home.png)
 
@@ -123,7 +123,7 @@ High-risk operations such as bulk deletion, source migration, extension install 
 
 ## Contributing
 
-UI text, code comments and commit messages are written in Simplified Chinese. Development and acceptance use fictional data; do not commit environment configuration, login credentials or real library data. After changes, run the type check and tests, and run a build when UI, routing or assets are involved; regenerate types after GraphQL document changes.
+Code comments and commit messages are written in Simplified Chinese; UI text lives in `src/i18n/` in both Simplified Chinese and English. Development and acceptance use fictional data; do not commit environment configuration, login credentials or real library data. After changes, run the type check and tests, and run a build when UI, routing or assets are involved; regenerate types after GraphQL document changes.
 
 The project was formerly named Suwayomi Web. To stay compatible with existing login state, settings, caches and history, the internal `suwayomi-web` storage names and deployment markers are kept.
 
