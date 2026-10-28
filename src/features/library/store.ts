@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { USER_KEYS } from '@/features/auth/userScope'
 
-export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed' | 'nsfw'
+export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'completed' | 'nsfw' | 'shelved'
 /** 0 不限 · 1 包含 · 2 排除 */
 export type TriState = 0 | 1 | 2
 export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded' | 'score'
@@ -54,7 +54,7 @@ interface LibraryView {
   toggleSubline: (k: SublineKey) => void
 }
 
-const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0, nsfw: 0 }
+const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0, nsfw: 0, shelved: 0 }
 
 // 默认值与加入这些设置之前的显示一致：未读、下载角标，一行标题，来源和更新时间；特别关心的星标后加，默认显示
 export const DEFAULT_BADGES: Record<BadgeKey, boolean> = { unread: true, downloaded: true, score: false, bookmarks: false, completed: false, lang: false, favorite: true }

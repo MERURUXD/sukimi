@@ -57,6 +57,7 @@ export function PlayView({
   items,
   totals,
   categories,
+  shelf,
   entry,
   closing,
   landing,
@@ -71,6 +72,7 @@ export function PlayView({
   items: readonly LibraryManga[]
   totals: ReadonlyMap<number, number> | null
   categories: readonly Category[]
+  shelf: ReadonlySet<number>
   entry: PlayEntry
   /** 正在退出：界面淡出，封面飞回 landing 那一格 */
   closing: boolean
@@ -256,7 +258,7 @@ export function PlayView({
 
   const defaultId = categories.find((c) => c.default)?.id ?? 0
   const categoryOf = (m: LibraryManga) => {
-    const c = categories.find((c) => inCategory(m, c.id, defaultId))
+    const c = categories.find((c) => inCategory(m, c.id, defaultId, shelf))
     return c ? (c.default ? tl('gallery.default') : c.name) : ''
   }
   const pad = (i: number) => String(i + 1).padStart(2, '0')

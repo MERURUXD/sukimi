@@ -88,6 +88,11 @@ export const Categories = graphql(`
         name
         order
         default
+        # 搁置分类靠元数据识别（features/shelf）
+        meta {
+          key
+          value
+        }
       }
     }
   }

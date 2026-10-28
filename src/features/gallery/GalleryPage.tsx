@@ -33,7 +33,7 @@ export function GalleryPage() {
   const from = (location.state as { from?: string } | null)?.from
   const origin = from === 'library' || from === 'home' ? from : null
   const sharedWall = origin === 'home'
-  const { all, full, stats, categories, loading, error, refetch } = useGalleryLibrary()
+  const { all, full, stats, categories, shelf, loading, error, refetch } = useGalleryLibrary()
   const mobile = useMobile()
   const [sharing, setSharing] = useState(false)
   const homeWindowVisible = useAppearance((s) => s.homeGallery)
@@ -92,21 +92,21 @@ export function GalleryPage() {
   const tabs = useMemo<SegItem<FilterValue>[]>(() => {
     const out: SegItem<FilterValue>[] = [{ value: 'all', label: tl('gallery.all'), count: all.length }]
     for (const c of categories) {
-      const n = all.filter((m) => inCategory(m, c.id, defaultId)).length
+      const n = all.filter((m) => inCategory(m, c.id, defaultId, shelf)).length
       if (c.default && n === 0) continue
       out.push({ value: c.id, label: c.default ? tl('gallery.default') : c.name, count: n })
     }
     const done = all.filter(isCompleted).length
     if (done) out.push({ value: 'done', label: tl('gallery.completed'), count: done })
     return out
-  }, [all, categories, defaultId])
+  }, [all, categories, defaultId, shelf])
   // 网址里的分类已不存在时按「全部」显示
   const active = tabs.some((t) => t.value === filter) ? filter : 'all'
   const items = useMemo(() => {
-    const list = active === 'all' ? all : active === 'done' ? all.filter(isCompleted) : all.filter((m) => inCategory(m, active, defaultId))
+    const list = active === 'all' ? all : active === 'done' ? all.filter(isCompleted) : all.filter((m) => inCategory(m, active, defaultId, shelf))
     // 按收藏时间，新收藏的在前
     return [...list].sort((a, b) => Number(b.inLibraryAt) - Number(a.inLibraryAt))
-  }, [all, active, defaultId])
+  }, [all, active, defaultId, shelf])
   const pick = (v: FilterValue) =>
     setParams((p) => {
       if (v === 'all') p.delete('f')

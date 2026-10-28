@@ -34,9 +34,9 @@ function page(sourceId: string, n: number) {
 
 // 批量已读 / 未读用的虚构书库：分类 0 是默认分类；最后一部的章节写入总是失败
 const CATEGORIES = [
-  { __typename: 'CategoryType', id: 0, name: '默认', order: 0, default: true },
-  { __typename: 'CategoryType', id: 1, name: '测试书架', order: 1, default: false },
-  { __typename: 'CategoryType', id: 2, name: '待读', order: 2, default: false },
+  { __typename: 'CategoryType', id: 0, name: '默认', order: 0, default: true, meta: [] },
+  { __typename: 'CategoryType', id: 1, name: '测试书架', order: 1, default: false, meta: [] },
+  { __typename: 'CategoryType', id: 2, name: '待读', order: 2, default: false, meta: [] },
 ]
 const READ_MANGAS: { id: number; title: string; cats: number[]; chapters: number; read: number; partial?: boolean }[] = [
   // 第 1 话读到一半：标为未读时也要被找出来归零页数

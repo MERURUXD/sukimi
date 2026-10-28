@@ -75,13 +75,14 @@ test('默认分类 id 不是 0 时，没有分类的漫画归在默认分类', a
   const none = { categories: { nodes: [] } }
   const inOne = { categories: { nodes: [{ id: 5 }] } }
   // 第二个用户的默认分类 id 是 1
-  assert.equal(inCategory(none, 1, 1), true)
-  assert.equal(inCategory(none, 5, 1), false)
-  assert.equal(inCategory(inOne, 1, 1), false)
-  assert.equal(inCategory(inOne, 5, 1), true)
-  assert.equal(inCategory(inOne, 'all', 1), true)
+  const noShelf = new Set()
+  assert.equal(inCategory(none, 1, 1, noShelf), true)
+  assert.equal(inCategory(none, 5, 1, noShelf), false)
+  assert.equal(inCategory(inOne, 1, 1, noShelf), false)
+  assert.equal(inCategory(inOne, 5, 1, noShelf), true)
+  assert.equal(inCategory(inOne, 'all', 1, noShelf), true)
   // 管理员默认分类仍是 0
-  assert.equal(inCategory(none, 0), true)
+  assert.equal(inCategory(none, 0, 0, noShelf), true)
 })
 
 test('注册码有效期：expiresAt 是秒，不是毫秒', async () => {

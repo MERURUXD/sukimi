@@ -58,6 +58,7 @@ export default {
     noTracker: '这条追踪不在演示数据中',
     noManga: '这部漫画不在演示书库中',
     noChapter: '这一话不在演示书库中',
+    noCategory: '这个分类不在演示书库中',
     needServer: '这项功能需要连接服务端；演示模式只在本地运行',
     catJourney: '旅途',
     catDaily: '日常',
@@ -75,6 +76,15 @@ export default {
     notLoggedIn: '未登录，无法修改特别关心',
     away: '离开期间 {{count}} 部特别关心更新了',
     closeAria: '关闭提示',
+  },
+  shelf: {
+    on: '已搁置，自动更新会跳过它',
+    off: '已取消搁置',
+    action: '搁置',
+    unaction: '取消搁置',
+    // 服务端上的隐藏分类名，只在别的客户端里看得到
+    category: '搁置',
+    createFailed: '创建搁置分类失败',
   },
   later: {
     on: '已加入稍后再看',
