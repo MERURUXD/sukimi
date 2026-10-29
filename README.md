@@ -77,17 +77,73 @@ pnpm build
 
 ## 部署
 
-推荐由 Suwayomi Server 以 `CUSTOM` WebUI 托管，前端与 `/api` 同源，无需另配反向代理。
+推荐由 Suwayomi Server 以 `Custom` WebUI 托管 Sukimi，前端与 `/api` 同源，无需额外配置反向代理。Sukimi 是静态前端：**普通使用只需要下载构建文件，不需要安装 Node.js 或 pnpm**。当前应部署在站点根路径（`server.webUISubpath = ""`），不支持直接放在 `/sukimi/` 等子路径。
 
-### 使用发布的构建
+[Releases 的 `webui-latest`](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest) 是随 `main` 自动更新的滚动预发布。提供适合桌面解压的 `sukimi-webui.zip` 和适合命令行的 `sukimi-webui.tar`；`sukimi-webui.json` 的 `sha256` 对应 TAR，`zipSha256` 对应 ZIP，可按需校验完整性。
 
-1. 从 [Releases 的 `webui-latest`](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest) 下载 `sukimi-webui.tar`。这是随 `main` 自动更新的滚动预发布；同页的 `sukimi-webui.json` 记有 SHA-256，可用来核对下载是否完整。
-2. 停止服务端，备份服务端数据目录（`server.conf` 所在的目录）里的 `server.conf` 和现有的 `webUI/`。
-3. 清空 `webUI/`，把压缩包直接解压进去。文件在压缩包根目录，解压后 `webUI/index.html` 应直接存在，不要多套一层目录。
-4. 在 `server.conf` 里设置 `server.webUIFlavor = CUSTOM`。不改的话，服务端检查 WebUI 更新时会用官方 WebUI 覆盖回去。
-5. 启动服务端。服务端启动时才读取 `webUI/`，所以每次替换文件后都要重启。
+### 桌面端：使用 Suwayomi Launcher（推荐）
 
-回退：把 `server.webUIFlavor` 改回 `WEBUI` 再重启，服务端会重新使用官方 WebUI；也可以用第 2 步的备份还原。
+已有 Suwayomi Server 的 Windows、macOS 或带桌面的 Linux 用户无需手动修改 `server.conf`：
+
+1. **停止 Suwayomi Server**。通过 Launcher 的 `Root Directory` 确认实际数据目录（包含 `server.conf`），备份其中的 `server.conf` 和原 `webUI/`。
+2. 下载 `sukimi-webui.zip`，将 **ZIP 内的文件** 直接解压到数据目录的 `webUI/`，替换旧前端。检查 `webUI/index.html` 直接存在，不要多套一层 `dist/` 或 `sukimi-webui/`。
+3. 打开官方 [Suwayomi Launcher](https://github.com/Suwayomi/Suwayomi-Launcher) 的 `WebUI` 选项卡，启用 `WebUI` 并将 `WebUI Flavor` 设为 `Custom`；在 `Authentication` 选项卡选择 `UI_LOGIN`（原本就是此模式则不用改）。
+4. 点击 `Launch` 启动 Suwayomi，访问原来的服务端地址即可。
+
+Launcher 只负责设置 `Custom`，**不会自动下载 Sukimi 或更新它**；更新时重新替换 `webUI/` 并重启服务端。
+
+### Linux / VPS：无图形界面部署
+
+无头服务器**不需要 Launcher**。如果使用原生 Java / systemd 安装，先停止 Suwayomi 服务，在实际数据目录（`server.conf` 所在处）设置：
+
+```hocon
+server.webUIEnabled = true
+server.webUIFlavor = "Custom"
+server.authMode = "ui_login"
+server.webUISubpath = ""
+server.systemTrayEnabled = false
+server.initialOpenInBrowserEnabled = false
+```
+
+从上述 Release 下载 `sukimi-webui.tar` 到服务器后，在 TAR 所在目录执行（把路径换成自己的数据目录，确保服务端已停止）：
+
+```sh
+DATA_DIR=/path/to/Tachidesk
+# 先保留旧前端，方便回退
+if [ -d "$DATA_DIR/webUI" ]; then
+  mv "$DATA_DIR/webUI" "$DATA_DIR/webUI.bak.$(date +%Y%m%d-%H%M%S)"
+fi
+mkdir -p "$DATA_DIR/webUI"
+tar -xf sukimi-webui.tar -C "$DATA_DIR/webUI"
+test -f "$DATA_DIR/webUI/index.html"
+```
+
+然后按你的安装方式启动 Suwayomi（如使用 systemd，就重启实际的服务单元）。只需部署静态文件；**不要在 VPS 上运行 `pnpm dev` 或长期运行 Vite**。对公网开放服务时，建议使用 HTTPS 反向代理并保持 `UI_LOGIN` 鉴权开启。
+
+### Docker Compose（Linux / NAS）
+
+如果已用 [Suwayomi 官方 Docker 镜像](https://github.com/Suwayomi/Suwayomi-Server-docker)，保留现有 Compose 配置，在 `suwayomi` 服务中确认这些字段（**片段，不是完整 Compose 文件**）：
+
+```yaml
+services:
+  suwayomi:
+    environment:
+      - WEB_UI_ENABLED=true
+      - WEB_UI_FLAVOR=Custom
+      - AUTH_MODE=ui_login
+    volumes:
+      - ./data:/home/suwayomi/.local/share/Tachidesk
+```
+
+上例的 `./data` 是**宿主机数据目录**（以 Compose 项目目录为基准）；如果已用其他宿主机路径或命名卷，沿用原映射，并在对应的数据卷内找到 `server.conf` 和 `webUI/`。首次部署应先启动一次 Suwayomi，让数据目录生成。
+
+1. 执行 `docker compose stop suwayomi`，备份宿主机数据目录中的 `server.conf` 和原 `webUI/`。
+2. 将 `sukimi-webui.tar` 解压到宿主机数据目录的 `webUI/`（同上 Linux 命令，把 `DATA_DIR` 换成宿主机映射路径）。
+3. 执行 `docker compose up -d suwayomi`。容器里无需安装 Node.js，也无需给 Sukimi 单独起容器。
+
+Docker 环境变量会在容器启动时覆盖对应的服务端配置；如果 `WEB_UI_FLAVOR` 仍为 `WebUI`，手动解压的文件可能被官方前端替换。
+
+**回退**：停止服务端，用备份还原 `webUI/` 后重启，即可回到原先的文件版本；若要切换回官方 WebUI，在 Launcher 中选择 `WebUI`，或把 `server.webUIFlavor` 设为 `"WebUI"`（Docker 则修改 `WEB_UI_FLAVOR`）再重启。切回官方 WebUI 不保证恢复到先前完全相同的官方前端版本。
 
 ### 从源码部署
 
