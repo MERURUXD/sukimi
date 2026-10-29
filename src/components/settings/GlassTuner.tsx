@@ -1,17 +1,18 @@
 import { Download, Heart, RefreshCw } from 'lucide-react'
 import { Glass } from '@/components/glass/Glass'
-import { GLASS_PARAMS, GLASS_PRESETS, useGlassTuning } from '@/design/glassTuning'
+import { GLASS_PARAMS, glassPreset, useGlassTuning } from '@/design/glassTuning'
 import { cn } from '@/lib/cn'
 import { t as tl } from '@/i18n'
 
 /** 液态玻璃参数滑块；与默认值不同的项会标出默认值 */
 export function GlassSliders({ className }: { className?: string }) {
   const t = useGlassTuning()
+  const defaults = glassPreset(t.tone, t.theme)
   return (
     <div className={cn('flex flex-col gap-3.5', className)}>
       {GLASS_PARAMS.map((p) => {
         const v = t[p.key] as number
-        const d = GLASS_PRESETS[t.tone][p.key] as number
+        const d = defaults[p.key] as number
         return (
           <label key={p.key} className="flex flex-col gap-1">
             <span className="flex justify-between gap-3 text-sm">
