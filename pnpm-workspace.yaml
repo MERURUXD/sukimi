@@ -1,3 +1,4 @@
 # pnpm 11 不再读取 package.json 里的 pnpm 字段，依赖覆盖写在这里。
+# utils 限定在已修补的 12.x：13 去掉了 createGraphQLError，@graphql-tools/import 仍要求 ^12，会让 codegen 崩溃。
 overrides:
-  "@graphql-tools/utils": ">=12.0.2"
+  "@graphql-tools/utils": "^12.0.2"
