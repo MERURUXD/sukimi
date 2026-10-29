@@ -136,6 +136,7 @@ export default {
     pin: 'Pinned',
     favoriteFirst: 'Favorites first',
     layout: 'Layout',
+    categoryTabs: 'Category tabs',
     perRow: 'Per row',
     perRowDevice: 'Set separately for {{device}}',
     devicePhone: 'phone',
