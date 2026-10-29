@@ -92,18 +92,44 @@ export function hideSource(edit: TagEdit, name: string, hidden: boolean): TagEdi
   return { ...edit, hide: hidden ? [...rest, name] : rest }
 }
 
-/** 所有漫画里自己加过的标签，用得多的在前；输入时补全用 */
-export function knownTags(edits: Iterable<TagEdit>) {
-  const count = new Map<string, { name: string; n: number }>()
+/** 所有漫画里自己加过的标签和各自用在几部上（不在书库的也算），用得多的在前；大小写不同的算一个，显示先见到的写法 */
+export function tagUsage(edits: Iterable<TagEdit>) {
+  const count = new Map<string, { name: string; count: number }>()
   for (const e of edits) {
     for (const a of e.add) {
       const k = a.toLowerCase()
       const hit = count.get(k)
-      if (hit) hit.n++
-      else count.set(k, { name: a, n: 1 })
+      if (hit) hit.count++
+      else count.set(k, { name: a, count: 1 })
     }
   }
-  return [...count.values()].sort((a, b) => b.n - a.n).map((x) => x.name)
+  return [...count.values()].sort((a, b) => b.count - a.count)
+}
+
+/** 输入时补全用 */
+export const knownTags = (edits: Iterable<TagEdit>) => tagUsage(edits).map((x) => x.name)
+
+/**
+ * 把自己加的一个标签改名，位置不变；改成已有的名字就是合并。
+ * 和这部隐藏的来源标签同名时不去取消隐藏：批量改名只动自己的标签
+ */
+export function renameTag(edit: TagEdit, from: string, to: string): TagEdit {
+  const name = cleanTag(to)
+  if (!name || !has(edit.add, from)) return edit
+  return { ...edit, add: uniq(edit.add.map((x) => (same(x, from) ? name : x))) }
+}
+
+/**
+ * 对每部漫画套用同一个改动，只返回真的变了的：漫画 id → 新的值（null 表示删掉这个键）。
+ * 设置里改名、删除标签时一次写完
+ */
+export function changedTags(edits: ReadonlyMap<number, TagEdit>, change: (edit: TagEdit) => TagEdit) {
+  const out = new Map<number, string | null>()
+  for (const [id, edit] of edits) {
+    const value = serializeTags(change(edit))
+    if (value !== serializeTags(edit)) out.set(id, value)
+  }
+  return out
 }
 
 /** 换源迁移：旧漫画的标签并进新漫画已有的，两边自己加的都留着；隐藏的来源标签一并带上（同名的才会生效） */

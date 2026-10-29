@@ -1,6 +1,6 @@
 import { locale, t } from '../../i18n/core.ts'
 /*
- * 阅读档案第三屏的「口味」：按已读话数算最常读的题材和作者。纯函数，测试直接导入。
+ * 阅读档案第三屏的「口味」：按已读话数算最常读的题材（来源标签与自建标签合在一起）和作者。纯函数，测试直接导入。
  *
  * 题材和作者都来自各个来源，写法不统一：同一个意思有中文、英文、近义词，
  * 还夹着「连载中」「漫画」这类没有意义的标签；作者可能几个人写在一起。这里先归一再合计。
@@ -82,6 +82,8 @@ export interface TasteWork {
   /** 已读页数估算 */
   pages: number
   genre: readonly string[] | null | undefined
+  /** 已经归一好的标签（含自建标签）；给了就直接用，不再按 genre 归一 */
+  tags?: readonly string[]
   author: string | null | undefined
 }
 
@@ -102,7 +104,7 @@ export function tasteOf(works: readonly TasteWork[], genreTop = 6, authorTop = 3
   let sum = 0
   for (const w of works) {
     if (w.read <= 0) continue
-    const gs = genresOf(w.genre)
+    const gs = w.tags ?? genresOf(w.genre)
     if (gs.length) {
       sum += w.read
       for (const x of gs) {
@@ -135,17 +137,19 @@ export function tasteOf(works: readonly TasteWork[], genreTop = 6, authorTop = 3
 
 /**
  * 读过的作品的口味（read 按排行顺序传入）；skip 为 true 的不计入。阅读档案和分享海报都跳过 NSFW 作品，
- * 免得题材和作者认出是哪部
+ * 免得题材和作者认出是哪部。
+ * tagsOf 由调用方给出合并了自建标签的结果（tags.ts 的 filterTags）：tags.ts 依赖本文件，这里不反过来导入
  */
 export function readTaste<M extends { genre?: readonly string[] | null; author?: string | null }>(
   read: readonly { id: number; read: number; pages: number }[],
   byId: ReadonlyMap<number, M>,
   skip: (m: M) => boolean,
+  tagsOf?: (id: number, m: M) => readonly string[],
 ) {
   return tasteOf(
     read.flatMap((r) => {
       const m = byId.get(r.id)
-      return m && !skip(m) ? [{ id: r.id, read: r.read, pages: r.pages, genre: m.genre, author: m.author }] : []
+      return m && !skip(m) ? [{ id: r.id, read: r.read, pages: r.pages, genre: m.genre, tags: tagsOf?.(r.id, m), author: m.author }] : []
     }),
   )
 }

@@ -32,3 +32,15 @@ export const RemoveTags = graphql(`
     }
   }
 `)
+
+/** 设置里改名、删除标签时，一次写完所有改到的漫画 */
+export const SetManyTags = graphql(`
+  mutation SetManyTags($metas: [MetaInput!]!) {
+    setGlobalMetas(input: { metas: $metas }) {
+      metas {
+        key
+        value
+      }
+    }
+  }
+`)

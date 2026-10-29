@@ -11,6 +11,7 @@ import { spring } from '@/design/motion'
 import type { LibraryManga } from '@/features/library/queries'
 import { STATUS } from '@/features/manga/status'
 import { useNsfw } from '@/features/nsfw/useNsfw'
+import { useTagLookup } from '@/features/tags/useTags'
 import { count } from '@/lib/format'
 import { galleryOrder, useGalleryLibrary, useMobile } from './hooks'
 import { POSTER_LABEL, posterFileName, posterTop, wallRows, workProgress, type PosterCover, type PosterKind, type PosterModel } from './poster'
@@ -88,6 +89,8 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
     () => reading ? reading.stats : (needsStats && reads.chapters && totals ? summarize(reads.chapters, full.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
     [reading, needsStats, reads.chapters, totals, full, now, userId],
   )
+  // 标题里的口味和档案页一致：自建标签一起算，标签取到之前先不出这一张
+  const tagLookup = useTagLookup()
   const models = useMemo<Partial<Record<PosterKind, PosterModel>>>(() => {
     const byId = new Map(full.map((m) => [m.id, m]))
     const read = stats?.ranking.filter((r) => r.read > 0) ?? []
@@ -96,13 +99,13 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
         stats && lib.chapters != null && lib.read != null
           ? { kind: 'library', rows: wallRows(shown.map(toCover)), read: lib.read, works: lib.works, chapters: lib.chapters, pages: stats.pages, now }
           : undefined,
-      stats: stats
+      stats: stats && tagLookup
         ? {
             kind: 'stats',
             stats,
             works: full.length,
             top: posterTop(read, byId, test).map((t) => ({ cover: toCover(t.manga), read: t.read })),
-            headline: read.length ? tasteHeadline(readTaste(read, byId, test).genres) : null,
+            headline: read.length ? tasteHeadline(readTaste(read, byId, test, tagLookup).genres) : null,
             now,
           }
         : undefined,
@@ -111,7 +114,7 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
           ? { kind: 'work', cover: toCover(work), author: work.author || work.artist || null, ...workProgress(totals.get(work.id), work.unreadCount), status: STATUS[work.status] ?? null }
           : undefined,
     }
-  }, [stats, lib.chapters, lib.read, lib.works, shown, full, test, work, totals, now])
+  }, [stats, lib.chapters, lib.read, lib.works, shown, full, test, tagLookup, work, totals, now])
   const model = models[kind]
 
   // 每种样式只画一次：数据在后台刷新时不重画，免得预览闪一下

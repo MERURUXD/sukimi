@@ -142,6 +142,7 @@ type Documents = {
     "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": typeof types.TagMetasDocument,
     "\n  mutation SetTags($key: String!, $value: String!) {\n    setGlobalMeta(input: { meta: { key: $key, value: $value } }) {\n      meta {\n        key\n        value\n      }\n    }\n  }\n": typeof types.SetTagsDocument,
     "\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": typeof types.RemoveTagsDocument,
+    "\n  mutation SetManyTags($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n": typeof types.SetManyTagsDocument,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": typeof types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": typeof types.TrackRecordFieldsFragmentDoc,
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": typeof types.TrackSearchFieldsFragmentDoc,
@@ -294,6 +295,7 @@ const documents: Documents = {
     "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": types.TagMetasDocument,
     "\n  mutation SetTags($key: String!, $value: String!) {\n    setGlobalMeta(input: { meta: { key: $key, value: $value } }) {\n      meta {\n        key\n        value\n      }\n    }\n  }\n": types.SetTagsDocument,
     "\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": types.RemoveTagsDocument,
+    "\n  mutation SetManyTags($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n": types.SetManyTagsDocument,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": types.TrackRecordFieldsFragmentDoc,
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": types.TrackSearchFieldsFragmentDoc,
@@ -844,6 +846,10 @@ export function graphql(source: "\n  mutation SetTags($key: String!, $value: Str
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetManyTags($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation SetManyTags($metas: [MetaInput!]!) {\n    setGlobalMetas(input: { metas: $metas }) {\n      metas {\n        key\n        value\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

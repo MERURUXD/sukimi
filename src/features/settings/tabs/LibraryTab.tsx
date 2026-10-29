@@ -1,6 +1,7 @@
 import { CategoryManager } from '../CategoryManager'
 import { SChoice, SSwitch } from '../fields'
 import { useLibraryView } from '@/features/library/store'
+import { TagManager } from '@/features/tags/TagManager'
 import { Row, Section, Switch } from '../parts'
 import { RequireSettings, SettingsNotice } from '../gate'
 import { t } from '@/i18n'
@@ -23,6 +24,10 @@ export function LibraryTab() {
       <SettingsNotice />
       <Section title={t('cfg.lib.cats')} desc={t('cfg.lib.catsDesc')}>
         <CategoryManager />
+      </Section>
+
+      <Section title={t('misc.tags.title')} desc={t('misc.tags.manageDesc')}>
+        <TagManager />
       </Section>
 
       <Section title={t('home.section.later')} desc={t('cfg.lib.laterDesc')}>
