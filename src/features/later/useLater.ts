@@ -1,9 +1,9 @@
 import type { ApolloCache } from '@apollo/client'
 import { useApolloClient, useQuery } from '@apollo/client/react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/api/auth'
 import { captureUser, StaleSessionError } from '@/api/userContext'
-import { toastError } from '@/components/ui/toast'
+import { toast, toastError } from '@/components/ui/toast'
 import { useLibraryView } from '@/features/library/store'
 import { caughtUp, laterKey, laterPrefix, parseLater } from './later'
 import { LaterMangas, LaterMetas, RemoveLater, SetLater, type LaterManga } from './queries'
@@ -121,4 +121,27 @@ export function useLaterList({ skip = false } = {}) {
       if (ids.length) await q.refetch()
     },
   }
+}
+
+/** 切换「稍后再看」并提示结果；图标按钮和手机「更多」菜单里的条目共用 */
+export function useLaterToggle(mangaId: number) {
+  const { map } = useLater()
+  const { add, remove } = useLaterActions()
+  const [busy, setBusy] = useState(false)
+  const at = map?.get(mangaId)
+  const on = at !== undefined
+
+  const toggle = async () => {
+    setBusy(true)
+    try {
+      if (on) await remove([mangaId])
+      else await add(mangaId)
+      toast(on ? t('misc.later.off') : t('misc.later.on'))
+    } catch (e) {
+      if (!(e instanceof StaleSessionError)) toastError(on ? t('misc.later.offFailed') : t('misc.later.onFailed'), e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return { on, at, ready: !!map, busy, toggle }
 }
