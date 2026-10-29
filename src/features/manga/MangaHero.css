@@ -34,6 +34,14 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
+/* 编辑入口和标签同一排、同样大小，颜色弱一档，不和标签抢眼 */
+.manga-hero-tag-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.manga-hero-tag-edit:hover { color: var(--text); }
 .manga-hero-actions {
   display: flex;
   align-items: center;

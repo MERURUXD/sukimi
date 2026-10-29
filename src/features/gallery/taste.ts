@@ -38,6 +38,9 @@ const GENRE_TABLE = [
   ['耽美', 'yaoi', 'boys love', "boys' love", 'bl', '耽美'],
 ] as const
 
+/** 「漫画」「连载中」这类不算题材的词；外站标签里也不给加入我的标签 */
+export const isStopTag = (name: string) => STOP.has(name.trim().replace(/\s+/g, ' ').toLowerCase())
+
 const ALIAS: Record<string, string> = Object.fromEntries(GENRE_TABLE.flatMap(([name, ...keys]) => keys.map((k) => [k, name])))
 
 const EN_NAME = new Map<string, string>(GENRE_TABLE.map(([name, en]): [string, string] => [name, en.charAt(0).toUpperCase() + en.slice(1)]))

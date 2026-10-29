@@ -8,6 +8,8 @@ import { captureUser, StaleSessionError } from '@/api/userContext'
 import { favoriteKey } from '@/features/favorite/favorite'
 import { FavoriteMetas } from '@/features/favorite/queries'
 import { laterKey } from '@/features/later/later'
+import { mergeTags, NO_EDIT, parseTags, serializeTags, tagsKey } from '@/features/tags/tags'
+import { TagMetas } from '@/features/tags/queries'
 import { LaterMetas } from '@/features/later/queries'
 import { useNsfwActions, useNsfwStore } from '@/features/nsfw/useNsfw'
 import { useShelf } from '@/features/shelf/useShelf'
@@ -83,10 +85,10 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     }
   }, [client, from.id])
 
-  // 新旧两部的稍后再看、特别关心；新漫画已有的不覆盖。查不到按没有处理，不挡迁移
+  // 新旧两部的稍后再看、特别关心和自建标签；新漫画已有的不覆盖。查不到按没有处理，不挡迁移
   const userId = useAuth((s) => s.user?.id)
   const markKeys = useMemo(
-    () => (userId === undefined ? [] : [from.id, target.id].flatMap((id) => [laterKey(userId, id), favoriteKey(userId, id)])),
+    () => (userId === undefined ? [] : [from.id, target.id].flatMap((id) => [laterKey(userId, id), favoriteKey(userId, id), tagsKey(userId, id)])),
     [userId, from.id, target.id],
   )
   const markQuery = useQuery(MigrationMarks, { variables: { keys: markKeys }, skip: !markKeys.length, fetchPolicy: 'network-only' })
@@ -94,6 +96,8 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
   const metas = markQuery.data?.metas.nodes ?? []
   const hasLater = userId !== undefined && metas.some((m) => m.key === laterKey(userId, from.id))
   const hasFav = userId !== undefined && metas.some((m) => m.key === favoriteKey(userId, from.id))
+  // 标签不设开关，总是跟着搬：换了来源就丢掉自己加的标签说不过去
+  const hasTags = userId !== undefined && metas.some((m) => m.key === tagsKey(userId, from.id))
 
   const plan = useMemo(() => (info.status === 'ready' ? planMigration(fromChapters, info.chapters) : null), [info, fromChapters])
   // 搁置分类不算用户的分类：不计入「复制分类」，换源后照样保持搁置
@@ -134,9 +138,22 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
         if (fav && hasFav) pairs.push([favoriteKey(userId, from.id), favoriteKey(userId, target.id)])
       }
       const marks = planMetaCopy(metas, pairs, keepOld)
+      // 标签是自己写的内容，新漫画已有标签时不能跳过：两边合并后写入
+      if (userId !== undefined && hasTags) {
+        const edits = parseTags(userId, metas)
+        const value = serializeTags(mergeTags(edits.get(from.id) ?? NO_EDIT, edits.get(target.id)))
+        if (value !== null) marks.set.push({ key: tagsKey(userId, target.id), value })
+        if (!keepOld) marks.remove.push(tagsKey(userId, from.id))
+      }
       if (marks.set.length) {
         still()
-        go(t('migrate.step.copyWhat', { what: [later && hasLater && t('home.section.later'), fav && hasFav && t('home.section.favorite')].filter(Boolean).join(t('migrate.step.and')) }))
+        const copied = new Set(marks.set.map((m) => m.key))
+        const what = [
+          userId !== undefined && copied.has(laterKey(userId, target.id)) && t('home.section.later'),
+          userId !== undefined && copied.has(favoriteKey(userId, target.id)) && t('home.section.favorite'),
+          userId !== undefined && copied.has(tagsKey(userId, target.id)) && t('misc.tags.title'),
+        ]
+        go(t('migrate.step.copyWhat', { what: what.filter(Boolean).join(t('migrate.step.and')) }))
         await client.mutate({ mutation: CopyMigrationMarks, variables: { metas: marks.set } })
       }
       if (tracks && trackCount > 0) {
@@ -174,8 +191,8 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
         }
       }
       still()
-      // 稍后再看、特别关心的清单各自缓存着，重新取一次
-      if (marks.set.length || marks.remove.length) void client.refetchQueries({ include: [LaterMetas, FavoriteMetas] })
+      // 稍后再看、特别关心、标签的清单各自缓存着，重新取一次
+      if (marks.set.length || marks.remove.length) void client.refetchQueries({ include: [LaterMetas, FavoriteMetas, TagMetas] })
       // 书库列表在别的页面，没法就地改；清掉让它下次打开时重新查询（本地快照会先顶上）
       client.cache.evict({ id: 'ROOT_QUERY', fieldName: 'mangas', args: { condition: { inLibrary: true } } })
       client.cache.gc()
@@ -197,6 +214,7 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
     tracks && trackCount ? t('migrate.tracksN', { n: trackCount }) : null,
     later && hasLater ? t('home.section.later') : null,
     fav && hasFav ? t('home.section.favorite') : null,
+    hasTags ? t('misc.tags.title') : null,
   ].filter(Boolean)
 
   return (

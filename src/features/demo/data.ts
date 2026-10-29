@@ -432,6 +432,9 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     // NSFW 标记（features/nsfw）：第 7 部手动标记，第 5 部来源是 NSFW 但手动放行
     [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.7`, '1'],
     [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.5`, '0'],
+    // 自建标签（features/tags）：第 1 部加了两个并隐藏了来源的「奇幻」，第 3 部用了其中一个，补全按用过的部数排
+    [`sukimi.tags.${PREVIEW_ADMIN.id}.1`, JSON.stringify({ add: ['适合睡前', '二刷'], hide: ['奇幻'] })],
+    [`sukimi.tags.${PREVIEW_ADMIN.id}.3`, JSON.stringify({ add: ['二刷'], hide: [] })],
   ])
   const root = {
     users: () => connection(demoUsers), userCodes: () => demoCodes,
