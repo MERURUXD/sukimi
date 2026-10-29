@@ -1,9 +1,9 @@
 import { ArrowDown, ArrowUp, RotateCcw } from 'lucide-react'
 import { useState } from 'react'
-import { Seg } from '@/components/ui/Seg'
 import { useAppearance } from '@/design/settings'
 import { HOME_SECTION_LABELS, HOME_SECTION_ORDER, moveHomeSection, type HomeSection } from '@/features/home/preferences'
 import { Row, Section, Switch } from '../parts'
+import { ThumbPicker, HomeDesktopThumb, HomeMobileThumb } from '../thumbs'
 import { t } from '@/i18n'
 
 const HINTS: Record<HomeSection, string> = {
@@ -80,27 +80,23 @@ export function HomeTab() {
   return (
     <>
       <Section title={t('cfg.home.layout')} desc={t('cfg.home.layoutDesc')}>
-        <Row label={t('cfg.home.mobileLayout')} hint={t('cfg.home.mobileLayoutHint')} help={<MobileLayoutHelp />}>
-          <Seg
-            glass={false}
+        <Row label={t('cfg.home.mobileLayout')} hint={t('cfg.home.mobileLayoutHint')} help={<MobileLayoutHelp />} stack>
+          <ThumbPicker
             label={t('cfg.home.mobileLayout')}
-            className="max-md:[&_button]:min-h-11"
             items={[
-              { value: 'poster', label: t('cfg.home.poster') },
-              { value: 'cover', label: t('cfg.home.cover') },
+              { value: 'poster', label: t('cfg.home.poster'), thumb: <HomeMobileThumb layout="poster" /> },
+              { value: 'cover', label: t('cfg.home.cover'), thumb: <HomeMobileThumb layout="cover" /> },
             ]}
             value={homeMobileLayout}
             onChange={setHomeMobileLayout}
           />
         </Row>
-        <Row label={t('cfg.home.desktopLayout')} hint={t('cfg.home.desktopLayoutHint')} help={<DesktopLayoutHelp />}>
-          <Seg
-            glass={false}
+        <Row label={t('cfg.home.desktopLayout')} hint={t('cfg.home.desktopLayoutHint')} help={<DesktopLayoutHelp />} stack>
+          <ThumbPicker
             label={t('cfg.home.desktopLayout')}
-            className="max-md:[&_button]:min-h-11"
             items={[
-              { value: 'poster', label: t('cfg.home.stage') },
-              { value: 'cover', label: t('cfg.home.cover') },
+              { value: 'poster', label: t('cfg.home.stage'), thumb: <HomeDesktopThumb layout="poster" /> },
+              { value: 'cover', label: t('cfg.home.cover'), thumb: <HomeDesktopThumb layout="cover" /> },
             ]}
             value={homeDesktopLayout}
             onChange={setHomeDesktopLayout}
