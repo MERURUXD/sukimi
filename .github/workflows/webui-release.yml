@@ -37,6 +37,15 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # 生成代码要与提交的一致：既防漏跑 codegen，也防依赖升级让 codegen 本身坏掉而类型检查照样通过
+      - name: codegen 产物无变化
+        run: |
+          pnpm codegen
+          if [ -n "$(git status --porcelain -- src/api/gql)" ]; then
+            git status --short -- src/api/gql
+            echo "::error::src/api/gql 与 codegen 结果不一致，请运行 pnpm codegen 后提交"
+            exit 1
+          fi
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
