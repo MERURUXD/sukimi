@@ -127,6 +127,7 @@ export default {
     pin: '置顶',
     favoriteFirst: '特别关心排在最前',
     layout: '显示方式',
+    categoryTabs: '分类标签',
     perRow: '每行数目',
     perRowDevice: '{{device}}单独设置',
     devicePhone: '手机',

@@ -99,7 +99,7 @@ export function LibraryPage() {
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
 
-  /* 分类：默认分类没有漫画时隐藏；「特别关心」「稍后再看」固定排在最后 */
+  /* 分类：默认分类没有漫画时隐藏；可选标签排在最后 */
   const laterCount = later.items?.length
   const favoriteCount = favorites.map && data ? favoriteList.length : undefined
   const categories = useMemo<SegItem<LibraryTab>[]>(() => {
@@ -109,10 +109,11 @@ export function LibraryPage() {
       if (c.default && n === 0) continue
       tabs.push({ value: c.id, label: c.default ? t('library.tab.default') : c.name, count: n })
     }
-    tabs.push({ value: 'favorite', label: t('library.tab.favorite'), count: favoriteCount })
-    tabs.push({ value: 'later', label: t('library.tab.later'), count: laterCount })
+    // 首页等入口仍能打开隐藏的标签，选中期间临时显示，离开后继续隐藏
+    if (view.showFavoriteTab || isFavorite) tabs.push({ value: 'favorite', label: t('library.tab.favorite'), count: favoriteCount })
+    if (view.showLaterTab || isLater) tabs.push({ value: 'later', label: t('library.tab.later'), count: laterCount })
     return tabs
-  }, [userCategories, all, defaultCategoryId, shelf, favoriteCount, laterCount])
+  }, [userCategories, all, defaultCategoryId, shelf, favoriteCount, laterCount, view.showFavoriteTab, view.showLaterTab, isFavorite, isLater])
 
   // 记住的分类已被删除时回到「全部」
   useEffect(() => {

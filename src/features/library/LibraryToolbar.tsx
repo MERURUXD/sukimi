@@ -193,6 +193,17 @@ export function LibraryToolbar({
       {tab === 'display' && (
         <>
           <div>
+            <h3 className="pop-h">{t('library.toolbar.categoryTabs')}</h3>
+            <div className="flex flex-wrap gap-1.5">
+              <button type="button" className={cn('fopt', view.showFavoriteTab && 'inc')} aria-pressed={view.showFavoriteTab} onClick={() => view.setTabVisible('favorite', !view.showFavoriteTab)}>
+                {t('library.tab.favorite')}
+              </button>
+              <button type="button" className={cn('fopt', view.showLaterTab && 'inc')} aria-pressed={view.showLaterTab} onClick={() => view.setTabVisible('later', !view.showLaterTab)}>
+                {t('library.tab.later')}
+              </button>
+            </div>
+          </div>
+          <div>
             <h3 className="pop-h">{t('library.toolbar.layout')}</h3>
             <Seg label={t('library.toolbar.layout')} glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
           </div>
@@ -313,6 +324,7 @@ export function LibraryToolbar({
           onClose={closePanel}
           label={t('library.toolbar.filterSort')}
           fitViewport
+          rootClassName="ml-auto"
           className="glass-legible flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 px-4 py-4"
           trigger={button}
         >

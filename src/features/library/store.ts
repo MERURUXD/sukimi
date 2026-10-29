@@ -34,6 +34,8 @@ interface LibraryView {
   laterAutoRemove: boolean
   /** 不论按什么排序，特别关心都排在最前 */
   favoriteFirst: boolean
+  showFavoriteTab: boolean
+  showLaterTab: boolean
   cols: GridCols
   badges: Record<BadgeKey, boolean>
   titleLines: TitleLines
@@ -48,6 +50,7 @@ interface LibraryView {
   clearSources: () => void
   setLaterAutoRemove: (on: boolean) => void
   setFavoriteFirst: (on: boolean) => void
+  setTabVisible: (tab: 'favorite' | 'later', on: boolean) => void
   setCols: (device: keyof GridCols, n: number) => void
   toggleBadge: (k: BadgeKey) => void
   setTitleLines: (n: TitleLines) => void
@@ -60,7 +63,7 @@ const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, star
 export const DEFAULT_BADGES: Record<BadgeKey, boolean> = { unread: true, downloaded: true, score: false, bookmarks: false, completed: false, lang: false, favorite: true }
 export const DEFAULT_SUBLINE: Record<SublineKey, boolean> = { source: true, time: true, author: false, genre: false }
 
-type Persisted = 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove' | 'favoriteFirst' | 'cols' | 'badges' | 'titleLines' | 'subline'
+type Persisted = 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove' | 'favoriteFirst' | 'showFavoriteTab' | 'showLaterTab' | 'cols' | 'badges' | 'titleLines' | 'subline'
 
 const INITIAL: Pick<LibraryView, Persisted> = {
   category: 'all',
@@ -72,6 +75,8 @@ const INITIAL: Pick<LibraryView, Persisted> = {
   // 旧偏好里没有这个字段，合并默认值后开启
   laterAutoRemove: true,
   favoriteFirst: true,
+  showFavoriteTab: true,
+  showLaterTab: true,
   cols: { mobile: 0, desktop: 0 },
   badges: DEFAULT_BADGES,
   titleLines: 1,
@@ -94,6 +99,10 @@ export const useLibraryView = create<LibraryView>()(
       clearSources: () => set({ sources: [] }),
       setLaterAutoRemove: (laterAutoRemove) => set({ laterAutoRemove }),
       setFavoriteFirst: (favoriteFirst) => set({ favoriteFirst }),
+      setTabVisible: (tab, on) => set((s) => ({
+        [tab === 'favorite' ? 'showFavoriteTab' : 'showLaterTab']: on,
+        category: !on && s.category === tab ? 'all' : s.category,
+      })),
       setCols: (device, n) => set((s) => ({ cols: { ...s.cols, [device]: n } })),
       toggleBadge: (k) => set((s) => ({ badges: { ...s.badges, [k]: !s.badges[k] } })),
       setTitleLines: (titleLines) => set({ titleLines }),
@@ -115,8 +124,8 @@ export const useLibraryView = create<LibraryView>()(
       },
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
-      partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, cols, badges, titleLines, subline }) =>
-        ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, cols, badges, titleLines, subline }),
+      partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, showFavoriteTab, showLaterTab, cols, badges, titleLines, subline }) =>
+        ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, showFavoriteTab, showLaterTab, cols, badges, titleLines, subline }),
     },
   ),
 )
