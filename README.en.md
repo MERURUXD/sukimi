@@ -77,21 +77,73 @@ Cloud development environments can run type checks, tests, builds and the fictio
 
 ## Deployment
 
-Recommended: let Suwayomi Server host the frontend as a `CUSTOM` WebUI. The frontend then shares an origin with `/api`, so no extra reverse proxy is needed.
+Download a build from the [webui-latest Release](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest): use `sukimi-webui.zip` for desktop installations or `sukimi-webui.tar` for Linux command-line installations.
 
-### Using the released build
+### Desktop: Suwayomi Launcher (recommended)
 
-1. Download `sukimi-webui.tar` from the [`webui-latest` release](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest). It is a rolling pre-release updated automatically from `main`; the `sukimi-webui.json` on the same page records the SHA-256 so you can check the download is intact.
-2. Stop the server and back up `server.conf` and the existing `webUI/` in the server data directory (the folder that contains `server.conf`).
-3. Empty `webUI/` and extract the archive straight into it. Files sit at the archive root, so `webUI/index.html` must exist directly after extraction, with no extra directory level.
-4. Set `server.webUIFlavor = CUSTOM` in `server.conf`. Otherwise the server overwrites it with the official WebUI when it checks for WebUI updates.
-5. Start the server. The server reads `webUI/` only at startup, so restart it after every file replacement.
+1. **Stop Suwayomi Server**. Use the Launcher's `Root Directory` tab to locate the actual data directory (containing `server.conf`); back up its `server.conf` and existing `webUI/`.
+2. Download `sukimi-webui.zip`, empty the old `webUI/` after backing it up, then extract the ZIP **contents** directly into that directory. Verify that `webUI/index.html` exists directly, without an extra `dist/` or `sukimi-webui/` directory.
+3. In the official [Suwayomi Launcher](https://github.com/Suwayomi/Suwayomi-Launcher), open the `WebUI` tab, enable `WebUI`, and set `WebUI Flavor` to `Custom`. In the `Authentication` tab, select `UI_LOGIN` if it is not already selected.
+4. Click `Launch` and open your usual Suwayomi URL.
 
-Rollback: set `server.webUIFlavor` back to `WEBUI` and restart; the server uses the official WebUI again. You can also restore the backup from step 2.
+**Updating:** Download the new build, replace the `webUI/` files, and restart the server.
+
+### Linux / VPS: headless deployment
+
+For native Java / systemd installations, stop Suwayomi, back up the data directory's `server.conf`, then set:
+
+```hocon
+server.webUIEnabled = true
+server.webUIFlavor = "Custom"
+server.authMode = "ui_login"
+server.webUISubpath = ""
+server.systemTrayEnabled = false
+server.initialOpenInBrowserEnabled = false
+```
+
+Download `sukimi-webui.tar` from the release above to the server. From the directory containing the TAR, run the following with the **actual Suwayomi data path**, while the server is stopped:
+
+```sh
+DATA_DIR=/path/to/Tachidesk
+# Keep the previous frontend for rollback
+if [ -d "$DATA_DIR/webUI" ]; then
+  mv "$DATA_DIR/webUI" "$DATA_DIR/webUI.bak.$(date +%Y%m%d-%H%M%S)"
+fi
+mkdir -p "$DATA_DIR/webUI"
+tar -xf sukimi-webui.tar -C "$DATA_DIR/webUI"
+test -f "$DATA_DIR/webUI/index.html"
+```
+
+Start Suwayomi using your original launch method (for systemd, restart the corresponding service unit).
+
+### Docker Compose (Linux / NAS)
+
+In your existing [Suwayomi Docker Compose](https://github.com/Suwayomi/Suwayomi-Server-docker), set the following in the `suwayomi` service (configuration snippet):
+
+```yaml
+services:
+  suwayomi:
+    environment:
+      - WEB_UI_ENABLED=true
+      - WEB_UI_FLAVOR=Custom
+      - AUTH_MODE=ui_login
+    volumes:
+      - ./data:/home/suwayomi/.local/share/Tachidesk
+```
+
+Here `./data` is the **host-side data directory** (relative to the Compose project). If you already have a different host path or a named volume, keep your mapping and locate `server.conf` and `webUI/` in that data volume. For named volumes, use a maintenance container with that volume mounted rather than copying the host-path commands below verbatim. For a fresh setup, start Suwayomi once to initialize its data directory.
+
+1. Run `docker compose stop suwayomi` and back up the host data directory's `server.conf` and `webUI/`.
+2. Extract `sukimi-webui.tar` into the host data directory's `webUI/` (use the Linux commands above with `DATA_DIR` set to the mapped host path).
+3. Run `docker compose up -d suwayomi`.
+
+Docker environment variables override the corresponding server configuration when the container starts. Leaving `WEB_UI_FLAVOR=WebUI` may cause the official frontend to replace your extracted files.
+
+**Rollback:** Stop the server, restore the backed-up `webUI/` and restart to restore the previous files. To switch to the official WebUI instead, select `WebUI` in the Launcher, or set `server.webUIFlavor = "WebUI"` (or Docker's `WEB_UI_FLAVOR`) and restart. Switching to the official WebUI does not guarantee the exact previous official WebUI version.
 
 ### Deploying from source
 
-The production build is written to `dist/`. `pnpm deploy:server` builds and copies the files into `webUI/` under the data directory given by `SUWAYOMI_DATA` in `.env.local`. On the first deployment, the existing official WebUI is backed up whole to `webUI-official-<timestamp>`. Back up `server.conf` first, confirm `server.webUIFlavor = CUSTOM`, and get authorization to operate the server. The script also updates the temporary copy the running server uses, which usually takes effect without a restart; if that copy cannot be found, a restart is still needed.
+The production build is written to `dist/`. `pnpm deploy:server` builds and copies the files into `webUI/` under the data directory given by `SUWAYOMI_DATA` in `.env.local`. On the first deployment, the existing official WebUI is backed up whole to `webUI-official-<timestamp>`. Back up `server.conf` first, confirm `server.webUIFlavor = "Custom"`, and get authorization to operate the server. The script also updates the temporary copy the running server uses, which usually takes effect without a restart; if that copy cannot be found, a restart is still needed.
 
 For a local Windows Java install, run `pnpm restart:server -WhatIf` for a pre-check, then `pnpm restart:server` to restart. The script verifies the process identity, backs up the configuration and frontend, and checks the HTTP response after startup. It does not elevate privileges on its own, and the backup does not include the running database. Windows services and other install types should use their own service management tools.
 
