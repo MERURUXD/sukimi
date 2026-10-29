@@ -1,0 +1,24 @@
+# pnpm 的清单和锁文件属于 npm 生态（package.json、pnpm-lock.yaml）。
+# 版本更新分组后每周最多几条；安全更新不分组，便于单独合并。
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      npm-production:
+        dependency-type: production
+      npm-development:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
