@@ -114,4 +114,4 @@ Preview 若连接同一 Suwayomi Server，**所有服务端数据仍与日用版
 
 ## 许可
 
-项目自身尚未选择许可证。第三方代码许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+Sukimi 自有代码采用 [Mozilla Public License 2.0](LICENSE)（MPL-2.0）许可证。第三方代码遵循各自的许可条款，详见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
