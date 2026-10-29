@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
-import { Archive, ArchiveRestore, ArrowLeftRight, ChevronLeft, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
+import { Archive, ArchiveRestore, ArrowLeftRight, ChevronLeft, ClockCheck, ClockPlus, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
 import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
@@ -14,6 +14,7 @@ import { dropFromLibraryList, refreshLibraryList } from '@/features/library/libr
 import { Categories, LibraryMangas, type LibraryManga } from '@/features/library/queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
+import { useLaterToggle } from '@/features/later/useLater'
 import { FavoriteButton } from '@/features/favorite/FavoriteButton'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { httpUrl } from '@/lib/url'
@@ -176,12 +177,13 @@ export function MangaHero({
             <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? t('library.bulk.removeLibrary') : t('manga.hero.addToLibrary')} title={manga.inLibrary ? t('home.inLibrary') : t('manga.hero.addToLibrary')}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
-            <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn(animate && 'rise')} />
+            {/* 手机上稍后再看和下载收进「更多」，图标太多会把主按钮挤成省略号 */}
+            <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn('manga-hero-wide-only', animate && 'rise')} />
             {manga.inLibrary && <FavoriteButton mangaId={manga.id} style={delay(mangaIntro.actions + 52)} className={cn(animate && 'rise')} />}
             <Can permission="DOWNLOAD_CHAPTERS">
-              <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label={t('manga.hero.downloadUnread')} title={t('manga.hero.downloadUnread')}><Download className="size-5" strokeWidth={1.8} /></Glass>
+              <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon manga-hero-wide-only rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label={t('manga.hero.downloadUnread')} title={t('manga.hero.downloadUnread')}><Download className="size-5" strokeWidth={1.8} /></Glass>
             </Can>
-            <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} intro={animate} />
+            <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} onDownloadUnread={onDownloadUnread} intro={animate} />
           </div>
           {createPortal(
             <AnimatePresence>
@@ -245,7 +247,7 @@ function MangaDescription({ description, intro }: { description: string; intro: 
   )
 }
 
-function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetching: boolean; onRefresh: () => void; intro: boolean }) {
+function MangaMore({ manga, fetching, onRefresh, onDownloadUnread, intro }: { manga: Manga; fetching: boolean; onRefresh: () => void; onDownloadUnread: () => void; intro: boolean }) {
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
   const [categories, setCategories] = useState(false)
@@ -293,6 +295,12 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
     <CategoryChoices manga={manga} />
   </> : <>
     <button type="button" className="opt" disabled={fetching} onClick={() => { close(); onRefresh() }}><RefreshCw className={cn('size-5', fetching && 'animate-spin')} />{fetching ? t('manga.hero.refreshing') : t('manga.hero.refresh')}</button>
+    {mobile && <>
+      <LaterItem mangaId={manga.id} />
+      <Can permission="DOWNLOAD_CHAPTERS">
+        <button type="button" className="opt" onClick={() => { close(); onDownloadUnread() }}><Download className="size-5" />{t('manga.hero.downloadUnread')}</button>
+      </Can>
+    </>}
     {sourceUrl && <a className="opt no-underline" href={sourceUrl} target="_blank" rel="noreferrer" onClick={close}><ExternalLink className="size-5" />{t('manga.hero.openSource')}</a>}
     <NsfwItem manga={manga} />
     {manga.inLibrary && <>
@@ -310,6 +318,18 @@ function MangaMore({ manga, fetching, onRefresh, intro }: { manga: Manga; fetchi
       <AnimatePresence>{tracking && <TrackDialog mangaId={manga.id} title={manga.title} onClose={() => { setTracking(false); trigger.current?.focus({ preventScroll: true }) }} />}</AnimatePresence>
     </>, document.body)}
   </>
+}
+
+/** 手机「更多」里的稍后再看；与顶部图标按钮共用同一个开关 */
+function LaterItem({ mangaId }: { mangaId: number }) {
+  const { on, ready, busy, toggle } = useLaterToggle(mangaId)
+  return (
+    <button type="button" role="menuitemcheckbox" aria-checked={on} className="opt" disabled={busy || !ready} onClick={() => void toggle()}>
+      {on ? <ClockCheck className="size-5" /> : <ClockPlus className="size-5" />}
+      <span className="flex-1">{on ? t('misc.later.unaction') : t('misc.later.action')}</span>
+      {on && <span aria-hidden>✓</span>}
+    </button>
+  )
 }
 
 /** 标记为 NSFW；来源或分类判定为 NSFW 的，也能在这里单独放行这一部 */

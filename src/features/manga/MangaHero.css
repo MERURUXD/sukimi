@@ -89,7 +89,11 @@
   }
   .manga-hero-track { grid-column: 1 / -1; order: 5; margin-top: -4px; }
 }
-/* 窄手机上图标按钮多达五个（书库、稍后再看、特别关心、下载、更多），稍微收窄，主按钮才放得下「继续阅读」 */
+/* 手机上稍后再看和下载收进「更多」，只剩书库、特别关心、更多三个图标 */
+@media (max-width: 767px) {
+  .manga-hero-actions .manga-hero-wide-only { display: none; }
+}
+/* 窄手机上图标按钮稍微收窄，主按钮才放得下「继续阅读」 */
 @media (max-width: 420px) {
   .manga-hero-actions { grid-auto-columns: 40px; gap: 6px; }
   .manga-hero-actions .gicon { width: 40px; height: 40px; }
