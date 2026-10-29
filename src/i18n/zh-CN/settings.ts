@@ -104,6 +104,7 @@ export default {
     expandAria: '展开{{title}}',
     thisItem: '该项',
     helpAria: '{{label}}详细说明',
+    warnAria: '{{label}}注意事项',
     saving: '保存中',
     saveFailed: '保存失败',
     saved: '已保存',
