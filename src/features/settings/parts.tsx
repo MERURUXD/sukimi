@@ -1,5 +1,6 @@
-import { Check, ChevronDown, CircleHelp, LoaderCircle, TriangleAlert } from 'lucide-react'
+import { Check, ChevronDown, CircleHelp, LoaderCircle, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { createContext, useContext, useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Popover } from '@/components/ui/Popover'
 import { cn } from '@/lib/cn'
 import { t } from '@/i18n'
 
@@ -72,9 +73,9 @@ export function Row({
 }: {
   label: ReactNode
   hint?: ReactNode
-  /** 按需展开的详细说明（首次/再次播放机制、兼容细节等），支持点击、键盘与触屏 */
+  /** 点图标弹出小窗的详细说明（首次/再次播放机制、兼容细节等），支持点击、键盘与触屏 */
   help?: ReactNode
-  /** 必须直接可见的关键限制、性能影响或操作风险 */
+  /** 关键限制、性能影响或操作风险；标题旁显示红色警示图标，点开看原因 */
   warn?: ReactNode
   /** 改了需要重启服务端 */
   restart?: boolean
@@ -83,8 +84,6 @@ export function Row({
   /** 控件放到标签下面（长输入框） */
   stack?: boolean
 }) {
-  const [helpOpen, setHelpOpen] = useState(false)
-  const helpId = useId()
   const labelText = typeof label === 'string' ? label : t('settings.parts.thisItem')
 
   return (
@@ -97,51 +96,50 @@ export function Row({
       <div className={cn('min-w-0', !stack && 'flex-[1_1_180px]')}>
         <div className="flex flex-wrap items-center gap-1.5 font-semibold">
           <span>{label}</span>
-          {help && (
-            <button
-              type="button"
-              aria-expanded={helpOpen}
-              aria-controls={helpId}
-              aria-label={t('settings.parts.helpAria', { label: labelText })}
-              onClick={() => setHelpOpen((v) => !v)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape' && helpOpen) {
-                  e.stopPropagation()
-                  setHelpOpen(false)
-                }
-              }}
-              className={cn(
-                // 图标保持 28px，伪元素把触屏可点范围扩到 44px
-                'relative -my-1 inline-flex size-7 flex-none items-center after:absolute after:-inset-2 after:rounded-full justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-text',
-                helpOpen && 'text-text',
-              )}
-            >
-              <CircleHelp className="size-4" strokeWidth={1.8} />
-            </button>
-          )}
+          {help && <InfoPop icon={CircleHelp} label={t('settings.parts.helpAria', { label: labelText })}>{help}</InfoPop>}
+          {warn && <InfoPop icon={TriangleAlert} danger label={t('settings.parts.warnAria', { label: labelText })}>{warn}</InfoPop>}
           {restart && <span className="rounded-full border border-line px-2 py-px text-[11px] font-semibold text-muted">{t('cfg.needRestart')}</span>}
           <StatusBadge status={status} />
         </div>
         {hint && <div className="mt-0.5 max-w-[58ch] text-[13px] leading-snug text-muted">{hint}</div>}
-        {warn && (
-          <div className="mt-1 flex max-w-[58ch] items-start gap-1.5 text-[13px] leading-snug font-medium text-text/90">
-            <TriangleAlert className="mt-0.5 size-3.5 flex-none text-danger" strokeWidth={2} aria-hidden />
-            <span>{warn}</span>
-          </div>
-        )}
-        {help && helpOpen && (
-          <div
-            id={helpId}
-            role="region"
-            aria-label={t('settings.parts.helpAria', { label: labelText })}
-            className="mt-1.5 max-w-[58ch] text-[13px] leading-relaxed text-faint"
-          >
-            {help}
-          </div>
-        )}
       </div>
       {children}
     </div>
+  )
+}
+
+/** 标题旁的图标，点开是浮在旁边的小窗：不占行内空间，右侧控件不会被挤动 */
+function InfoPop({ icon: Icon, danger, label, children }: { icon: LucideIcon; danger?: boolean; label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  return (
+    <Popover
+      open={open}
+      onClose={() => setOpen(false)}
+      align="left"
+      id={id}
+      label={label}
+      rootClassName="-my-1 flex-none"
+      className="glass-legible w-[min(300px,calc(100vw-48px))] px-4 py-3 text-[13px] leading-relaxed font-normal text-text/90"
+      trigger={
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={id}
+          aria-label={label}
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            // 图标保持 28px，伪元素把触屏可点范围扩到 44px
+            'relative inline-flex size-7 flex-none items-center justify-center rounded-full transition-colors after:absolute after:-inset-2 after:rounded-full hover:bg-hover',
+            danger ? 'text-danger' : cn('text-muted hover:text-text', open && 'text-text'),
+          )}
+        >
+          <Icon className="size-4" strokeWidth={danger ? 2 : 1.8} />
+        </button>
+      }
+    >
+      {children}
+    </Popover>
   )
 }
 

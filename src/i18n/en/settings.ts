@@ -104,6 +104,7 @@ export default {
     expandAria: 'Expand {{title}}',
     thisItem: 'This setting',
     helpAria: 'More about {{label}}',
+    warnAria: 'Caution for {{label}}',
     saving: 'Saving…',
     saveFailed: 'Save failed',
     saved: 'Saved',
