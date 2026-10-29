@@ -1,5 +1,6 @@
 # pnpm 的清单和锁文件属于 npm 生态（package.json、pnpm-lock.yaml）。
 # 版本更新分组后每周最多几条；安全更新不分组，便于单独合并。
+# 分组只收小版本和补丁：大版本各自单独开 PR，需要验收的（如 motion）不会混进一大组。
 version: 2
 updates:
   - package-ecosystem: npm
@@ -7,11 +8,23 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Babel 8 改了预设类型，vite.config.ts 的 GraphQL 构建优化需要先适配
+      - dependency-name: "@babel/core"
+        update-types: ["version-update:semver-major"]
+      # package.json 用 ~ 有意停在 TypeScript 6
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # 与 CI 和 engines 的 Node 24 保持一致
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-production:
         dependency-type: production
+        update-types: [minor, patch]
       npm-development:
         dependency-type: development
+        update-types: [minor, patch]
 
   - package-ecosystem: github-actions
     directory: /
