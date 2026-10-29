@@ -7,7 +7,6 @@ export default {
     history: '历史',
     updates: '更新',
     browse: '发现',
-    settings: '设置',
     back: '返回',
     brandHome: 'Sukimi 首页',
     downloadQueue: '下载队列',

@@ -1,4 +1,4 @@
-import { Bell, Compass, History, House, LibraryBig, Settings } from 'lucide-react'
+import { Bell, Compass, History, House, LibraryBig } from 'lucide-react'
 import { t } from '@/i18n'
 
 /** 更新标签上的下载角标：读屏要同时听到「更新」和队列里有几话，不能把数字当成更新条数 */
@@ -6,14 +6,13 @@ export function updatesTabLabel(downloading: number) {
   return downloading > 0 ? t('app.nav.updatesWithQueue', { count: downloading }) : undefined
 }
 
-/** 手机底部标签栏和平板左侧导航栏共用的主导航项 */
+/** 手机底部标签栏和平板左侧导航栏共用的主导航项；设置不在其中，入口是右上角的「全部设置」 */
 export const TABS = [
   { to: '/', label: t('app.nav.home'), icon: House, end: true },
   { to: '/library', label: t('app.nav.library'), icon: LibraryBig },
   { to: '/history', label: t('app.nav.history'), icon: History },
   { to: '/updates', label: t('app.nav.updates'), icon: Bell },
   { to: '/browse', label: t('app.nav.browse'), icon: Compass },
-  { to: '/settings', label: t('app.nav.settings'), icon: Settings },
 ]
 
 const tabIndex = (path: string) => TABS.findIndex((tab) => (tab.end ? path === tab.to : path === tab.to || path.startsWith(`${tab.to}/`)))
