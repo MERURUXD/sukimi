@@ -5,7 +5,7 @@ import { preferenceKey } from '@/lib/demo'
 import { t } from '@/i18n'
 
 /**
- * 液态折射的可调参数。默认值是 2026-10-03 手调的「激进」预设；
+ * 液态折射的可调参数。默认使用「通透」，深浅模式分别保存；
  * 用户可在设置页调整，结果存在本地并作用到整个应用。
  */
 export interface GlassTuning {
@@ -35,35 +35,40 @@ export interface GlassTuning {
 
 export const GLASS_DEFAULTS: GlassTuning = {
   bezel: 0,
-  strength: 1,
-  falloff: 2.2,
-  dispersion: 0.5,
+  strength: 1.6,
+  falloff: 2,
+  dispersion: 2,
   blur: 2,
   denseBlur: 2,
-  tint: 25,
-  denseTint: 25,
-  saturate: 1.6,
-  tone: 'tint',
+  tint: 20,
+  denseTint: 20,
+  saturate: 1.2,
+  tone: 'veil',
 }
 
 /**
- * 试验预设「通透」：滤镜里提亮 / 压暗、中性底色、饱和度降到 1.2（彩色封面不再把玻璃染色）；
- * 浮动条模糊只到 3px：10px 会把背后的条纹、封面边缘揉成一片脏的渐变色带，折射边也一起糊掉，像磨砂不像清玻璃。
+ * 默认预设「通透」：滤镜里提亮 / 压暗、中性底色、饱和度降到 1.2（彩色封面不再把玻璃染色）；
+ * 普通和浮动条模糊均为 2px，保留背后的条纹、封面边缘和折射细节。
  * 「厚玻璃」质感靠边缘弯折：强度 1.6、曲线 2，外缘把画面弯成镜像的弧线；色散 2 让弧线带一点彩边。
  */
 export const GLASS_PRESETS: Record<GlassTuning['tone'], GlassTuning> = {
-  tint: GLASS_DEFAULTS,
-  veil: {
+  tint: {
     ...GLASS_DEFAULTS,
-    tone: 'veil',
-    strength: 1.6,
-    falloff: 2,
-    dispersion: 2,
-    saturate: 1.2,
-    denseBlur: 3,
-    tint: 20,
-    denseTint: 20,
+    tone: 'tint',
+    strength: 1,
+    falloff: 2.2,
+    dispersion: 0.5,
+    saturate: 1.6,
+    tint: 25,
+    denseTint: 25,
   },
+  veil: GLASS_DEFAULTS,
+}
+
+/** 首次使用、切换预设和滑块默认提示共用对应主题的参数。 */
+export function glassPreset(tone: GlassTuning['tone'], theme: GlassTheme): GlassTuning {
+  const preset = GLASS_PRESETS[tone]
+  return tone === 'veil' && theme === 'light' ? { ...preset, tint: 60, denseTint: 60 } : preset
 }
 
 /** 设置页与调参页共用的滑块定义 */
@@ -116,14 +121,14 @@ interface GlassTuningStore extends GlassProfile {
 }
 
 const initialTheme: GlassTheme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
-const defaultProfile = (): GlassProfile => ({ ...GLASS_DEFAULTS, saved: {} })
+const defaultProfile = (theme: GlassTheme): GlassProfile => ({ ...glassPreset('veil', theme), saved: {} })
 
 export const useGlassTuning = create<GlassTuningStore>()(
   persist(
     (set) => ({
-      ...defaultProfile(),
+      ...defaultProfile(initialTheme),
       theme: initialTheme,
-      profiles: { light: defaultProfile(), dark: defaultProfile() },
+      profiles: { light: defaultProfile('light'), dark: defaultProfile('dark') },
       setTheme: (theme) => set((s) => s.theme === theme ? {} : { ...s.profiles[theme], theme }),
       set: (p) => set((s) => {
         const profile = { ...s.profiles[s.theme], ...p }
@@ -133,11 +138,11 @@ export const useGlassTuning = create<GlassTuningStore>()(
         set((s) => {
           if (s.tone === tone) return {}
           const { [tone]: target, ...rest } = s.saved
-          const profile = { ...(target ?? GLASS_PRESETS[tone]), saved: { ...rest, [s.tone]: pickTuning(s) } }
+          const profile = { ...(target ?? glassPreset(tone, s.theme)), saved: { ...rest, [s.tone]: pickTuning(s) } }
           return { ...profile, profiles: { ...s.profiles, [s.theme]: profile } }
         }),
       reset: () => set((s) => {
-        const profile = defaultProfile()
+        const profile = defaultProfile(s.theme)
         return { ...profile, profiles: { ...s.profiles, [s.theme]: profile } }
       }),
     }),
@@ -148,7 +153,7 @@ export const useGlassTuning = create<GlassTuningStore>()(
       // 旧版共用一组参数，复制到两个模式作为起点，保留已调整的预设。
       migrate: (saved) => {
         const previous = saved as Partial<GlassProfile>
-        const profile = { ...defaultProfile(), ...previous }
+        const profile = { ...GLASS_PRESETS.tint, saved: {}, ...previous }
         return { profiles: { light: profile, dark: { ...profile, saved: { ...profile.saved } } } }
       },
       merge: (saved, current) => {
