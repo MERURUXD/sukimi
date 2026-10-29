@@ -12,4 +12,4 @@
 
 依赖的许可由各自的软件包提供。`pnpm build` 会将实际打包依赖的许可汇总到 `dist/dependency-licenses.md`，随构建产物发布；以上说明不替代依赖包自己的许可。
 
-Sukimi 自身代码尚未选择项目许可证。第三方许可不代表 Sukimi 整个项目采用相同许可证。
+Sukimi 自有代码采用 [MPL-2.0](LICENSE) 许可证。上述第三方代码仍遵循其原有许可条款，不因 Sukimi 采用 MPL-2.0 而重新授权。
