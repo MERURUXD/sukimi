@@ -86,7 +86,7 @@ pnpm build
 已有 Suwayomi Server 的 Windows、macOS 或带桌面的 Linux 用户无需手动修改 `server.conf`：
 
 1. **停止 Suwayomi Server**。通过 Launcher 的 `Root Directory` 确认实际数据目录（包含 `server.conf`），备份其中的 `server.conf` 和原 `webUI/`。
-2. 下载 `sukimi-webui.zip`，将 **ZIP 内的文件** 直接解压到数据目录的 `webUI/`，替换旧前端。检查 `webUI/index.html` 直接存在，不要多套一层 `dist/` 或 `sukimi-webui/`。
+2. 下载 `sukimi-webui.zip`，备份后清空旧 `webUI/`，将 **ZIP 内的文件** 直接解压到该目录。检查 `webUI/index.html` 直接存在，不要多套一层 `dist/` 或 `sukimi-webui/`。
 3. 打开官方 [Suwayomi Launcher](https://github.com/Suwayomi/Suwayomi-Launcher) 的 `WebUI` 选项卡，启用 `WebUI` 并将 `WebUI Flavor` 设为 `Custom`；在 `Authentication` 选项卡选择 `UI_LOGIN`（原本就是此模式则不用改）。
 4. 点击 `Launch` 启动 Suwayomi，访问原来的服务端地址即可。
 
@@ -94,7 +94,7 @@ Launcher 只负责设置 `Custom`，**不会自动下载 Sukimi 或更新它**�
 
 ### Linux / VPS：无图形界面部署
 
-无头服务器**不需要 Launcher**。如果使用原生 Java / systemd 安装，先停止 Suwayomi 服务，在实际数据目录（`server.conf` 所在处）设置：
+无头服务器**不需要 Launcher**。如果使用原生 Java / systemd 安装，先停止 Suwayomi 服务，备份数据目录中的 `server.conf`，然后在其中设置：
 
 ```hocon
 server.webUIEnabled = true
@@ -135,7 +135,7 @@ services:
       - ./data:/home/suwayomi/.local/share/Tachidesk
 ```
 
-上例的 `./data` 是**宿主机数据目录**（以 Compose 项目目录为基准）；如果已用其他宿主机路径或命名卷，沿用原映射，并在对应的数据卷内找到 `server.conf` 和 `webUI/`。首次部署应先启动一次 Suwayomi，让数据目录生成。
+上例的 `./data` 是**宿主机数据目录**（以 Compose 项目目录为基准）；如果已用其他宿主机路径或命名卷，沿用原映射，并在对应的数据卷内找到 `server.conf` 和 `webUI/`；命名卷应通过挂载该卷的维护容器操作，不能直接把下方宿主机路径示例照搬。首次部署应先启动一次 Suwayomi，让数据目录生成。
 
 1. 执行 `docker compose stop suwayomi`，备份宿主机数据目录中的 `server.conf` 和原 `webUI/`。
 2. 将 `sukimi-webui.tar` 解压到宿主机数据目录的 `webUI/`（同上 Linux 命令，把 `DATA_DIR` 换成宿主机映射路径）。
@@ -147,7 +147,7 @@ Docker 环境变量会在容器启动时覆盖对应的服务端配置；如果 
 
 ### 从源码部署
 
-正式构建输出到 `dist/`。`pnpm deploy:server` 会构建并复制文件到 `.env.local` 中 `SUWAYOMI_DATA` 指定的数据目录下的 `webUI/`；第一次部署时，原有的官方 WebUI 会先整个备份到 `webUI-official-<时间>`。部署前备份 `server.conf`，确认 `server.webUIFlavor = CUSTOM` 并获得服务端操作授权。脚本会顺带更新服务端运行中使用的临时副本，通常免重启生效；找不到这份副本时仍需重启。
+正式构建输出到 `dist/`。`pnpm deploy:server` 会构建并复制文件到 `.env.local` 中 `SUWAYOMI_DATA` 指定的数据目录下的 `webUI/`；第一次部署时，原有的官方 WebUI 会先整个备份到 `webUI-official-<时间>`。部署前备份 `server.conf`，确认 `server.webUIFlavor = "Custom"` 并获得服务端操作授权。脚本会顺带更新服务端运行中使用的临时副本，通常免重启生效；找不到这份副本时仍需重启。
 
 Windows 本地 Java 安装可先运行 `pnpm restart:server -WhatIf` 预检，再运行 `pnpm restart:server` 重启。脚本核验进程身份、备份配置与前端，并检查启动后的 HTTP 响应；不自动提升权限，备份不包含运行中的数据库。Windows 服务及其他安装方式应使用相应的服务管理工具。
 
