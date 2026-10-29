@@ -6,7 +6,6 @@ export default {
     history: 'History',
     updates: 'Updates',
     browse: 'Browse',
-    settings: 'Settings',
     back: 'Back',
     brandHome: 'Sukimi home',
     downloadQueue: 'Download queue',
