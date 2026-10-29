@@ -210,7 +210,8 @@ export function HomePage() {
         entrance={entrance}
         onShuffle={hero.more ? nextHero : undefined}
       />
-      <div className="wrap pb-20">
+      {/* 手机的 main 已为底栏留出高度，这里再留 80px 会在画廊橱窗下面空出一截 */}
+      <div className="wrap pb-20 max-md:pb-6">
         {readsState === 'stale' && reads.error && <LoadError message={t('home.err.staleReads')} onRetry={retryReads} />}
         {usesLibrary && libState === 'error' && lib.error && <LoadError prefix={t('home.err.library')} message={lib.error.message} onRetry={retryLibrary} />}
         {usesLibrary && libState === 'stale' && lib.error && <LoadError message={t('home.err.staleLibrary')} onRetry={retryLibrary} />}

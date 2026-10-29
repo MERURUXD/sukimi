@@ -1,7 +1,10 @@
 import { Check, ChevronDown, CircleHelp, LoaderCircle, TriangleAlert } from 'lucide-react'
-import { useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
 import { t } from '@/i18n'
+
+/** 手机上子页的大标题就是分栏名；同名的小节标题只留给读屏，免得同一个词上下各出现一次 */
+export const SettingsPageTitle = createContext<string | undefined>(undefined)
 
 /**
  * 分栏里的一组设置：标题 + 说明，组与组之间只靠留白分开。
@@ -24,11 +27,12 @@ export function Section({
   wide?: boolean
 }) {
   const [open, setOpen] = useState(!fold)
+  const pageTitle = useContext(SettingsPageTitle)
   return (
     <section className={cn('flex flex-col gap-3.5 pb-10', !wide && 'max-w-[660px]')}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="m-0 text-xl font-bold">{title}</h2>
+          <h2 className={cn('m-0 text-xl font-bold', title === pageTitle && 'max-md:sr-only')}>{title}</h2>
           {desc && <p className="mt-1 mb-0 max-w-[62ch] text-[13px] leading-relaxed text-muted">{desc}</p>}
         </div>
         {(action || fold) && (
@@ -107,7 +111,8 @@ export function Row({
                 }
               }}
               className={cn(
-                '-my-1 inline-flex size-7 flex-none items-center justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-text',
+                // 图标保持 28px，伪元素把触屏可点范围扩到 44px
+                'relative -my-1 inline-flex size-7 flex-none items-center after:absolute after:-inset-2 after:rounded-full justify-center rounded-full text-muted transition-colors hover:bg-hover hover:text-text',
                 helpOpen && 'text-text',
               )}
             >

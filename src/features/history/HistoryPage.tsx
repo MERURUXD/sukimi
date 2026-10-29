@@ -186,8 +186,10 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate font-semibold">{c.manga.title}</span>
-          <span className="truncate text-[13px] text-muted num">
-            {chapterLabel(c)} · {progress} · {clock(Number(c.lastReadAt) * 1000)}
+          {/* 窄屏放不下时先截章节名，阅读时间一直显示 */}
+          <span className="flex min-w-0 text-[13px] text-muted num">
+            <span className="truncate">{chapterLabel(c)} · {progress}</span>
+            <span className="flex-none whitespace-pre"> · {clock(Number(c.lastReadAt) * 1000)}</span>
           </span>
           {entry.chapters.length > 1 && <span className="text-[13px] text-faint">{t('downloads.history.alsoRead', { n: entry.chapters.length - 1 })}</span>}
         </span>

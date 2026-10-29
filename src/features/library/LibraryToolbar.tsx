@@ -91,15 +91,22 @@ export function LibraryToolbar({
   const stepCols = (d: number) => view.setCols(device, Math.min(range.max, Math.max(range.min, (cols || range.start) + (cols ? d : 0))))
 
   const closePanel = () => setPanel(false)
+  const sortLabel = SORTS.find((s) => s.key === view.sort)?.label ?? ''
+  const SortDir = view.desc ? ArrowDown : ArrowUp
+  // 当前排序显示在按钮上（原来写在页头副标题里，手机上会把箭头挤到第二行）
   const button = (
     <Glass flat as="button"
         type="button"
         className={cn('rounded-full', 'gbtn max-sm:size-11 max-sm:px-0', (panel || filtering) && 'bg-g-hi')}
         aria-expanded={panel}
+        aria-label={t('library.toolbar.filterSortAria', { sort: sortLabel, dir: t(view.desc ? 'library.toolbar.desc' : 'library.toolbar.asc') })}
         onClick={() => setPanel((v) => !v)}
       >
       <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />
-      <span className="max-sm:hidden">{t('library.toolbar.filterSort')}</span>
+      <span className="inline-flex items-center gap-1 max-sm:hidden">
+        {sortLabel}
+        <SortDir className="size-4" strokeWidth={2} />
+      </span>
     </Glass>
   )
   const content = (

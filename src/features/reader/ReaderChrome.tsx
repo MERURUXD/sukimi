@@ -185,8 +185,10 @@ export function ReaderChrome({
               </button>
               <div className="flex min-w-0 flex-col pr-3.5 pl-1 leading-tight">
                 <span className="truncate font-bold">{title}</span>
+                {/* 手机上底栏已有页码，这里只留章节名，免得章节名被截成省略号 */}
                 <span className="truncate text-xs text-muted num">
-                  {chapterLabel} · {pageLabel}
+                  {chapterLabel}
+                  <span className="max-sm:hidden"> · {pageLabel}</span>
                 </span>
               </div>
             </MotionGlass>

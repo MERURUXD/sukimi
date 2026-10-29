@@ -24,6 +24,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { spring } from '@/design/motion'
 import { can } from '@/features/auth/permissions'
 import { cn } from '@/lib/cn'
+import { SettingsPageTitle } from './parts'
 import { ReaderDefaults } from './ReaderDefaults'
 import { usePendingRestart } from './server'
 import { AboutTab } from './tabs/AboutTab'
@@ -203,7 +204,9 @@ export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: S
           )}
           {/* 换栏时内容轻轻淡入 */}
           <div key={shown.id} className="rise" style={{ animationDuration: '0.35s' }}>
-            <shown.Component />
+            <SettingsPageTitle.Provider value={current?.label}>
+              <shown.Component />
+            </SettingsPageTitle.Provider>
           </div>
         </div>
       </div>
