@@ -2,14 +2,13 @@ import { useMutation, useQuery } from '@apollo/client/react'
 import { useState } from 'react'
 import { useAuth } from '@/api/auth'
 import { confirm } from '@/components/ui/Confirm'
-import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ClearReaderMeta, ReaderMetaIndex } from '@/features/reader/queries'
 import { DEVICE_LABEL, READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
 import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, deviceKind, settleReaderWrites, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
 import { wakeLockSupported } from '@/features/reader/wakeLock'
-import { cn } from '@/lib/cn'
 import { Row, Section, Switch } from './parts'
+import { ThumbPicker, BgThumb, DirThumb, FitThumb, ModeThumb, TapThumb } from './thumbs'
 import { t } from '@/i18n'
 
 /** 阅读器的全局默认值，分成三组；「按漫画记住」开着时，单部漫画里改过的模式 / 方向 / 缩放会覆盖这里 */
@@ -65,26 +64,25 @@ export function ReaderDefaults() {
   return (
     <>
       <Section title={t('cfg.reader.way')} desc={t('cfg.reader.wayDesc')}>
-        <Row label={t('reader.panel.mode')}>
-          <Seg glass={false} label={t('reader.panel.mode')} items={MODES} value={d.mode} onChange={(mode) => set({ mode })} />
+        <Row label={t('reader.panel.mode')} stack>
+          <ThumbPicker label={t('reader.panel.mode')} items={MODES.map((m) => ({ ...m, thumb: <ModeThumb mode={m.value} /> }))} value={d.mode} onChange={(mode) => set({ mode })} />
         </Row>
-        <Row label={t('reader.panel.dir')} hint={t('cfg.reader.dirHint')}>
-          <Seg
-            glass={false}
+        <Row label={t('reader.panel.dir')} hint={t('cfg.reader.dirHint')} stack>
+          <ThumbPicker
             label={t('reader.panel.dir')}
             items={[
-              { value: 'rtl', label: t('cfg.reader.rtl') },
-              { value: 'ltr', label: t('cfg.reader.ltr') },
+              { value: 'rtl', label: t('cfg.reader.rtl'), thumb: <DirThumb dir="rtl" /> },
+              { value: 'ltr', label: t('cfg.reader.ltr'), thumb: <DirThumb dir="ltr" /> },
             ]}
             value={d.dir}
             onChange={(dir) => set({ dir })}
           />
         </Row>
-        <Row label={t('reader.panel.fit')}>
-          <Seg glass={false} label={t('reader.panel.fit')} items={FITS} value={d.fit} onChange={(fit) => set({ fit })} />
+        <Row label={t('reader.panel.fit')} stack>
+          <ThumbPicker label={t('reader.panel.fit')} items={FITS.map((f) => ({ ...f, thumb: <FitThumb fit={f.value} /> }))} value={d.fit} onChange={(fit) => set({ fit })} />
         </Row>
-        <Row label={t('reader.panel.tapZones')} hint={TAP_ZONES.find((z) => z.value === d.tapZones)?.hint}>
-          <Seg glass={false} label={t('reader.panel.tapZones')} items={TAP_ZONES} value={d.tapZones} onChange={(tapZones) => set({ tapZones })} />
+        <Row label={t('reader.panel.tapZones')} hint={TAP_ZONES.find((z) => z.value === d.tapZones)?.hint} stack>
+          <ThumbPicker label={t('reader.panel.tapZones')} items={TAP_ZONES.map((z) => ({ ...z, thumb: <TapThumb zones={z.value} /> }))} value={d.tapZones} onChange={(tapZones) => set({ tapZones })} />
         </Row>
         <Row label={t('reader.panel.autoNext')}>
           <Switch on={d.autoNext} onChange={(autoNext) => set({ autoNext })} label={t('reader.panel.autoNext')} />
@@ -92,21 +90,8 @@ export function ReaderDefaults() {
       </Section>
 
       <Section title={t('cfg.reader.page')}>
-        <Row label={t('reader.panel.background')}>
-          <div className="flex gap-2.5">
-            {BGS.map((b) => (
-              <button
-                key={b.value}
-                type="button"
-                onClick={() => set({ bg: b.value })}
-                aria-label={t('reader.panel.bgAria', { label: b.label })}
-                title={b.label}
-                aria-pressed={d.bg === b.value}
-                className={cn('size-10 rounded-full border-2', d.bg === b.value ? 'border-accent shadow-[0_0_0_3px_var(--accent-soft)]' : 'border-line')}
-                style={{ background: b.color }}
-              />
-            ))}
-          </div>
+        <Row label={t('reader.panel.background')} stack>
+          <ThumbPicker label={t('reader.panel.background')} items={BGS.map((b) => ({ ...b, thumb: <BgThumb bg={b.value} /> }))} value={d.bg} onChange={(bg) => set({ bg })} />
         </Row>
         <Row label={t('reader.panel.preloadCount')}>
           <div className="flex items-center gap-1 rounded-full bg-accent-soft p-[3px]">

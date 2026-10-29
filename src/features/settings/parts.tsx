@@ -1,5 +1,5 @@
-import { Check, ChevronDown, CircleHelp, LoaderCircle, TriangleAlert, type LucideIcon } from 'lucide-react'
-import { createContext, useContext, useEffect, useId, useState, type InputHTMLAttributes, type ReactNode } from 'react'
+import { Check, ChevronDown, ChevronsUpDown, CircleHelp, LoaderCircle, TriangleAlert, type LucideIcon } from 'lucide-react'
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 import { Popover } from '@/components/ui/Popover'
 import { cn } from '@/lib/cn'
 import { t } from '@/i18n'
@@ -120,7 +120,8 @@ function InfoPop({ icon: Icon, danger, label, children }: { icon: LucideIcon; da
       id={id}
       label={label}
       rootClassName="-my-1 flex-none"
-      className="glass-legible w-[min(300px,calc(100vw-48px))] px-4 py-3 text-[13px] leading-relaxed font-normal text-text/90"
+      // 小窗直接压在设置文字上：「通透」底色加折射只糊 2px，下面的字会透出来，所以底色加厚并改回大半径模糊
+      className="glass-legible w-[min(300px,calc(100vw-48px))] !bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] ![backdrop-filter:blur(18px)_saturate(1.4)] px-4 py-3 text-[13px] leading-relaxed font-normal text-text/90"
       trigger={
         <button
           type="button"
@@ -221,7 +222,119 @@ export function TextInput({
   )
 }
 
-/** 选项多时用的下拉框（少于等于 4 个用 Seg） */
+/**
+ * 设置行右侧的下拉菜单：平时只显示当前值，点开是锚在按钮旁的玻璃菜单。
+ * 上下方向键在选项间移动，Esc 关闭后焦点回到按钮。
+ */
+export function Dropdown<T extends string | number>({
+  value,
+  options,
+  onChange,
+  label,
+  className,
+  align = 'right',
+}: {
+  value: T
+  options: { value: T; label: string; disabled?: boolean }[]
+  onChange: (v: T) => void
+  label: string
+  className?: string
+  /** 放在一行最左边时传 left，菜单往右展开，免得手机上被屏幕左缘切掉 */
+  align?: 'left' | 'right'
+}) {
+  const [open, setOpen] = useState(false)
+  const id = useId()
+  const trigger = useRef<HTMLButtonElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
+  const current = options.find((o) => o.value === value)
+  const close = useCallback(() => setOpen(false), [])
+  // 打开时把焦点放到当前选中项上，键盘用户直接从这里开始挑
+  useEffect(() => {
+    if (!open) return
+    const items = menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)')
+    const on = menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]:not(:disabled)')
+    ;(on ?? items?.[0])?.focus({ preventScroll: true })
+  }, [open])
+  const pick = (v: T) => {
+    setOpen(false)
+    trigger.current?.focus()
+    if (v !== value) onChange(v)
+  }
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') trigger.current?.focus()
+    // Tab 让焦点照常前进，同时收起菜单，免得它留在原处挡住内容
+    if (e.key === 'Tab') setOpen(false)
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return
+    e.preventDefault()
+    const items = [...(menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)') ?? [])]
+    const i = items.indexOf(document.activeElement as HTMLButtonElement)
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+    items[next]?.focus()
+  }
+  return (
+    <Popover
+      open={open}
+      onClose={close}
+      id={id}
+      label={label}
+      align={align}
+      fitViewport={options.length > 8}
+      rootClassName={cn('max-w-full', className)}
+      className="glass-legible min-w-full p-1.5"
+      trigger={
+        <button
+          ref={trigger}
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              setOpen(true)
+            }
+          }}
+          className={cn(
+            'plain flex h-11 w-full min-w-0 items-center justify-between gap-2 rounded-full pr-3 pl-4 text-[15px] transition-colors hover:bg-hover',
+            open && 'bg-hover',
+          )}
+        >
+          <span className="truncate">
+            <span className="sr-only">{label} </span>
+            {current?.label ?? String(value)}
+          </span>
+          <ChevronsUpDown className="size-4 flex-none text-muted" strokeWidth={1.8} />
+        </button>
+      }
+    >
+      <div ref={menu} role="menu" aria-label={label} onKeyDown={onKey} className="flex flex-col gap-0.5">
+        {options.map((o) => {
+          const on = o.value === value
+          return (
+            <button
+              key={String(o.value)}
+              type="button"
+              role="menuitemradio"
+              aria-checked={on}
+              disabled={o.disabled}
+              onClick={() => pick(o.value)}
+              className={cn(
+                'flex min-h-10 items-center justify-between gap-6 rounded-[14px] px-3 text-left text-[15px] whitespace-nowrap transition-colors outline-none hover:bg-hover focus-visible:bg-hover disabled:opacity-40',
+                on && 'font-semibold',
+              )}
+            >
+              {o.label}
+              <Check className={cn('size-4 flex-none', !on && 'invisible')} strokeWidth={2.2} aria-hidden />
+            </button>
+          )
+        })}
+      </div>
+    </Popover>
+  )
+}
+
+/** 选项多时用的原生下拉框；弹层、对话框里会被裁切的地方继续用它，设置行用 Dropdown */
 export function Select<T extends string | number>({
   value,
   options,

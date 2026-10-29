@@ -5,10 +5,9 @@ import { useAuth } from '@/api/auth'
 import { graphql } from '@/api/gql'
 import type { UserPermission, UserRole } from '@/api/gql/graphql'
 import { confirm } from '@/components/ui/Confirm'
-import { Seg } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { ALL_PERMISSIONS, PERMISSION_LABEL, ROLE_LABEL } from '@/features/auth/permissions'
-import { Row, Section, Switch, TextInput } from '../parts'
+import { Dropdown, Row, Section, Switch, TextInput } from '../parts'
 import { codeExpiryText, registerLink } from '../userCodes'
 import { t } from '@/i18n'
 
@@ -274,17 +273,21 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
   return (
     <div className="flex flex-col gap-4 pl-1 md:pl-4">
       {isAdmin && (
-        <Seg
-          glass={false}
-          label={t('cfg.users.role')}
-          value={role}
-          onChange={setRole}
-          items={[
-            { value: 'USER', label: ROLE_LABEL.USER },
-            { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
-            ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
-          ]}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-semibold">{t('cfg.users.role')}</span>
+          <Dropdown
+            label={t('cfg.users.role')}
+            value={role}
+            onChange={setRole}
+            className="min-w-[160px]"
+            align="left"
+            options={[
+              { value: 'USER', label: ROLE_LABEL.USER },
+              { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
+              ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
+            ]}
+          />
+        </div>
       )}
       {role === 'ADMIN' ? (
         <p className="m-0 text-sm text-muted">{t('cfg.users.adminNote')}</p>
