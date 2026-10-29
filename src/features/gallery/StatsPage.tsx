@@ -21,6 +21,7 @@ import { Clock, DIAL_UNITS, Strip, useDialTilt, type Tip, type YearRing } from '
 import { GROUP, RankScreen, maskRanked, type RankLayout, type Ranked } from './StatsRank'
 import { TasteScreen, type TasteLayout } from './StatsTaste'
 import { useNsfw } from '@/features/nsfw/useNsfw'
+import { useTagLookup } from '@/features/tags/useTags'
 import { LAST_SCREEN, createPager, ease, easeOut, seg, type Pager } from './statsPager'
 import { readTaste, type Taste } from './taste'
 import { useReadChapters } from './useReadChapters'
@@ -158,20 +159,22 @@ export function StatsPage() {
     () => (reads.chapters && totals ? summarize(reads.chapters, all.map((m) => ({ id: m.id, total: totals.get(m.id) ?? 0 })), now, userId) : null),
     [reads.chapters, totals, all, now, userId],
   )
-  const { ranked, taste } = useMemo(() => {
-    if (!stats) return { ranked: [] as Ranked[], taste: null }
+  const tagLookup = useTagLookup()
+  const { byId, read } = useMemo(() => {
     const byId = new Map(all.map((m) => [m.id, m]))
-    const read = stats.ranking.filter((r) => r.read > 0 && byId.has(r.id))
-    return {
-      ranked: read.slice(0, TOP).map((r, i) => {
+    return { byId, read: stats ? stats.ranking.filter((r) => r.read > 0 && byId.has(r.id)) : [] }
+  }, [stats, all])
+  const ranked = useMemo(
+    () =>
+      read.slice(0, TOP).map((r, i): Ranked => {
         const m = byId.get(r.id)!
         const masked = hidden(m)
         return { manga: masked ? maskRanked(m) : m, masked, rank: i + 1, read: r.read, total: r.total, pages: r.pages }
       }),
-      // 口味按全部读过的作品算，不只排行里的前几十部
-      taste: readTaste(read, byId, hidden),
-    }
-  }, [stats, all, hidden])
+    [read, byId, hidden],
+  )
+  // 口味按全部读过的作品算，不只排行里的前几十部；自建标签和来源标签一起排
+  const taste = useMemo<Taste | null>(() => (stats && tagLookup ? readTaste(read, byId, hidden, tagLookup) : null), [stats, read, byId, hidden, tagLookup])
   // 口味屏里作者那两张小封面
   const coverOf = useMemo(() => {
     const m = new Map(all.map((x) => [x.id, x.thumbnailUrl ?? null]))

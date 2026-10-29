@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { addTag, filterTags, hasTag, hideSource, knownTags, libraryTags, matchTags, mergeTags, NO_EDIT, parseTags, removeTag, serializeTags, sourceTags, tagsKey, tagsOf } from '../src/features/tags/tags.ts'
+import { addTag, changedTags, filterTags, hasTag, hideSource, knownTags, libraryTags, matchTags, mergeTags, NO_EDIT, parseTags, removeTag, renameTag, serializeTags, sourceTags, tagsKey, tagsOf, tagUsage } from '../src/features/tags/tags.ts'
 
 const genre = ['恋爱', '校园', '连载中', 'Romance']
 
@@ -67,4 +67,46 @@ test('标签筛选：书库标签按部数排序，包含任一、排除一个�
   assert.equal(matchTags(['恋爱', '恐怖'], { 恋爱: 1, 恐怖: 2 }), false)
   assert.equal(matchTags(['日常'], { 恐怖: 2 }), true)
   assert.equal(matchTags(['ROMANCE'], { romance: 1 }), true)
+})
+
+test('标签管理：统计自己加的标签用在几部上，大小写不同算一个', () => {
+  const usage = tagUsage([{ add: ['乙', '甲'], hide: [] }, { add: ['甲', 'Ab'], hide: [] }, { add: ['ab'], hide: ['丙'] }])
+  assert.deepEqual(usage, [{ name: '甲', count: 2 }, { name: 'Ab', count: 2 }, { name: '乙', count: 1 }])
+})
+
+test('标签管理：改名保持位置，改成已有的就合并，只改大小写也生效，不去取消隐藏', () => {
+  const edit = { add: ['甲', '乙', 'romance'], hide: ['丙'] }
+  assert.deepEqual(renameTag(edit, '甲', '丁'), { add: ['丁', '乙', 'romance'], hide: ['丙'] })
+  assert.deepEqual(renameTag(edit, '甲', ' 乙 '), { add: ['乙', 'romance'], hide: ['丙'] })
+  assert.deepEqual(renameTag(edit, 'romance', 'Romance'), { add: ['甲', '乙', 'Romance'], hide: ['丙'] })
+  assert.deepEqual(renameTag(edit, '甲', '丙'), { add: ['丙', '乙', 'romance'], hide: ['丙'] })
+  assert.equal(renameTag(edit, '没有', '丁'), edit)
+  assert.equal(renameTag(edit, '甲', '  '), edit)
+})
+
+test('标签管理：批量改动只返回变了的漫画，删空的给 null', () => {
+  const edits = new Map([
+    [1, { add: ['甲'], hide: [] }],
+    [2, { add: ['甲', '乙'], hide: [] }],
+    [3, { add: ['乙'], hide: [] }],
+    [4, { add: ['甲'], hide: ['丙'] }],
+  ])
+  const out = changedTags(edits, (e) => removeTag(e, '甲'))
+  assert.deepEqual([...out], [[1, null], [2, serializeTags({ add: ['乙'], hide: [] })], [4, serializeTags({ add: [], hide: ['丙'] })]])
+  assert.equal(changedTags(edits, (e) => renameTag(e, '没有', '丁')).size, 0)
+})
+
+test('口味统计：自建标签和来源标签一起排，隐藏的来源标签不计入，自己加的「完结」也算', async () => {
+  const { readTaste } = await import('../src/features/gallery/taste.ts')
+  const byId = new Map([
+    [1, { genre: ['恋爱', '奇幻'], author: '虚构作者甲' }],
+    [2, { genre: ['Romance'], author: '虚构作者乙' }],
+    [3, { genre: ['科幻'], author: '虚构作者丙', nsfw: true }],
+  ])
+  const edits = new Map([[1, { add: ['二刷', '完结'], hide: ['奇幻'] }]])
+  const read = [{ id: 1, read: 60, pages: 0 }, { id: 2, read: 30, pages: 0 }, { id: 3, read: 90, pages: 0 }]
+  const taste = readTaste(read, byId, (m) => !!m.nsfw, (id, m) => filterTags(m.genre, edits.get(id)))
+  assert.deepEqual(taste.genres.map((g) => [g.name, g.read, g.works]), [['恋爱', 50, 2], ['二刷', 20, 1], ['完结', 20, 1]])
+  // 不给取标签函数时照旧只按来源标签
+  assert.deepEqual(readTaste(read, byId, (m) => !!m.nsfw).genres.map((g) => g.name), ['恋爱', '奇幻'])
 })
