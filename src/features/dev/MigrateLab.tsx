@@ -9,6 +9,7 @@ import { useApplyAppearance } from '@/design/settings'
 import type { AuthUser } from '@/features/auth/permissions'
 import { favoriteKey } from '@/features/favorite/favorite'
 import { laterKey } from '@/features/later/later'
+import { tagsKey } from '@/features/tags/tags'
 import { MigrateView } from '@/features/manga/MigratePage'
 
 const ID = -500
@@ -35,9 +36,17 @@ const OLD = [
   chapter(-650, 2024, { name: '2024 新年特别篇', sourceOrder: 13, isRead: true }),
 ]
 
-/** 虚构账号 id 0（旧版单用户）；当前漫画在稍后再看和特别关心里 */
+/**
+ * 虚构账号 id 0（旧版单用户）；当前漫画在稍后再看和特别关心里，也有自建标签。
+ * 第一个候选（-700）已经有一个标签，用来验收迁移时两边合并、旧的不丢
+ */
 const USER: AuthUser = { id: 0, username: '', roles: ['ADMIN'], permissions: [], legacy: true }
-const metas = new Map([[laterKey(USER.id, ID), '1700000000'], [favoriteKey(USER.id, ID), '1700000500']])
+const metas = new Map([
+  [laterKey(USER.id, ID), '1700000000'],
+  [favoriteKey(USER.id, ID), '1700000500'],
+  [tagsKey(USER.id, ID), JSON.stringify({ add: ['虚构标签甲'], hide: [] })],
+  [tagsKey(USER.id, -700), JSON.stringify({ add: ['虚构标签乙'], hide: [] })],
+])
 
 const tracker = (id: number, name: string, loggedIn: boolean) => ({
   __typename: 'TrackerType', id, name, icon: '', isLoggedIn: loggedIn, isTokenExpired: false, authUrl: null, supportsPrivateTracking: false,

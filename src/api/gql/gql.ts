@@ -139,6 +139,9 @@ type Documents = {
     "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n": typeof types.TagShelfDocument,
     "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n": typeof types.MangaCategoriesDocument,
     "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n": typeof types.MangaCategoryIdsFragmentDoc,
+    "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": typeof types.TagMetasDocument,
+    "\n  mutation SetTags($key: String!, $value: String!) {\n    setGlobalMeta(input: { meta: { key: $key, value: $value } }) {\n      meta {\n        key\n        value\n      }\n    }\n  }\n": typeof types.SetTagsDocument,
+    "\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": typeof types.RemoveTagsDocument,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": typeof types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": typeof types.TrackRecordFieldsFragmentDoc,
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": typeof types.TrackSearchFieldsFragmentDoc,
@@ -288,6 +291,9 @@ const documents: Documents = {
     "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n": types.TagShelfDocument,
     "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n": types.MangaCategoriesDocument,
     "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n": types.MangaCategoryIdsFragmentDoc,
+    "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": types.TagMetasDocument,
+    "\n  mutation SetTags($key: String!, $value: String!) {\n    setGlobalMeta(input: { meta: { key: $key, value: $value } }) {\n      meta {\n        key\n        value\n      }\n    }\n  }\n": types.SetTagsDocument,
+    "\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n": types.RemoveTagsDocument,
     "\n  fragment TrackerFields on TrackerType {\n    id\n    name\n    icon\n    isLoggedIn\n    isTokenExpired\n    authUrl\n    supportsPrivateTracking\n    supportsReadingDates\n    supportsTrackDeletion\n    scores\n    statuses {\n      name\n      value\n    }\n  }\n": types.TrackerFieldsFragmentDoc,
     "\n  fragment TrackRecordFields on TrackRecordType {\n    id\n    trackerId\n    mangaId\n    remoteId\n    remoteUrl\n    title\n    status\n    lastChapterRead\n    totalChapters\n    score\n    displayScore\n    startDate\n    finishDate\n    private\n  }\n": types.TrackRecordFieldsFragmentDoc,
     "\n  fragment TrackSearchFields on TrackSearchType {\n    id\n    remoteId\n    title\n    coverUrl\n    summary\n    publishingStatus\n    publishingType\n    startDate\n    totalChapters\n    trackingUrl\n  }\n": types.TrackSearchFieldsFragmentDoc,
@@ -826,6 +832,18 @@ export function graphql(source: "\n  query MangaCategories($id: Int!) {\n    man
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n"): (typeof documents)["\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation SetTags($key: String!, $value: String!) {\n    setGlobalMeta(input: { meta: { key: $key, value: $value } }) {\n      meta {\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation SetTags($key: String!, $value: String!) {\n    setGlobalMeta(input: { meta: { key: $key, value: $value } }) {\n      meta {\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation RemoveTags($keys: [String!]!) {\n    deleteGlobalMetas(input: { keys: $keys }) {\n      metas {\n        key\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

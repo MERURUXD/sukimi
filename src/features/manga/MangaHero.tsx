@@ -1,7 +1,7 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
-import { Archive, ArchiveRestore, ArrowLeftRight, ChevronLeft, ClockCheck, ClockPlus, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Play, RefreshCw, Tags } from 'lucide-react'
-import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Archive, ArchiveRestore, ArrowLeftRight, ChevronLeft, ClockCheck, ClockPlus, Download, ExternalLink, EyeOff, Heart, ListChecks, MoreHorizontal, Pencil, Play, RefreshCw, Tags } from 'lucide-react'
+import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
@@ -16,6 +16,10 @@ import { FROM_DETAIL } from '@/features/reader/nav'
 import { LaterButton } from '@/features/later/LaterButton'
 import { useLaterToggle } from '@/features/later/useLater'
 import { FavoriteButton } from '@/features/favorite/FavoriteButton'
+import { sourceTags, tagsOf } from '@/features/tags/tags'
+import { TagEditor } from '@/features/tags/TagEditor'
+import { TagTarget } from '@/features/tags/target'
+import { useMangaTags } from '@/features/tags/useTags'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
 import { httpUrl } from '@/lib/url'
 import { cn } from '@/lib/cn'
@@ -76,6 +80,10 @@ export function MangaHero({
   const [same, setSame] = useState<LibraryManga[] | null>(null)
   const [zoom, setZoom] = useState(false)
   const zoomTrigger = useRef<HTMLButtonElement>(null)
+  const [editingTags, setEditingTags] = useState(false)
+  const tagTrigger = useRef<HTMLButtonElement>(null)
+  const { edit: tagEdit } = useMangaTags(manga.id)
+  const tagTarget = useMemo(() => ({ mangaId: manga.id, genre: manga.genre, edit: tagEdit }), [manga.id, manga.genre, tagEdit])
 
   const toggleLibrary = async () => {
     if (!manga.inLibrary) {
@@ -111,7 +119,9 @@ export function MangaHero({
     }
   }
 
-  const genres = manga.genre.slice(0, 6)
+  // 来源标签最多显示 6 个，免得撑高头部；自己加的全部显示
+  const shownSource = sourceTags(manga.genre, tagEdit).shown
+  const genres = [...shownSource.slice(0, 6), ...tagsOf(manga.genre, tagEdit).slice(shownSource.length)]
   // 作者字段常是「甲, 乙」，拆开后每个名字单独可搜，作画与作者相同时只留一份
   const people = [...new Set([manga.author, manga.artist].flatMap((s) => (s ?? '').split(/[,，、]/).map((n) => n.trim()).filter(Boolean)))]
 
@@ -163,9 +173,14 @@ export function MangaHero({
           </div>
           {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
           {/* 标签和按钮背后只是封面取色的氛围光，折射看不出来，关掉透镜省开销 */}
-          {genres.length > 0 && <div className="manga-hero-tags flex flex-wrap gap-1.5">
+          {!placeholder && <div className="manga-hero-tags flex flex-wrap gap-1.5">
             {genres.map((t, i) => <Glass suspendRefract as="span" key={t} style={delay(mangaIntro.tags + i * 30)} className={cn('manga-hero-genre', animate && 'rise')}>{t}</Glass>)}
+            <Glass suspendRefract ref={tagTrigger} as="button" type="button" style={delay(mangaIntro.tags + genres.length * 30)} className={cn('manga-hero-genre manga-hero-tag-edit', animate && 'rise')} aria-label={t('misc.tags.edit')} title={t('misc.tags.edit')} onClick={() => setEditingTags(true)}>
+              <Pencil className="size-3.5" strokeWidth={2} />
+              {genres.length === 0 && t('misc.tags.edit')}
+            </Glass>
           </div>}
+          <TagEditor open={editingTags} mangaId={manga.id} genre={manga.genre} onClose={() => { setEditingTags(false); tagTrigger.current?.focus({ preventScroll: true }) }} />
 
           <div className={cn('manga-hero-actions', placeholder && 'invisible')}>
             {target ? (
@@ -200,11 +215,11 @@ export function MangaHero({
             document.body,
           )}
           <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label={t('manga.hero.record')}>{recent}</p>
-          {!placeholder && <TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} />}
+          {!placeholder && <TagTarget value={tagTarget}><TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} /></TagTarget>}
         </div>
         {/* 宽屏放到右侧空白处直接展开，不把头部撑高；不在书库时只有 Bangumi 站内评分 */}
         {/* 右栏不整块进场，里面逐行接在作者行之后，和左栏同一节奏 */}
-        {!placeholder && <TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} delay={animate ? mangaIntro.side : undefined} className="manga-hero-side" />}
+        {!placeholder && <TagTarget value={tagTarget}><TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} delay={animate ? mangaIntro.side : undefined} className="manga-hero-side" /></TagTarget>}
       </div>
     </section>
   )

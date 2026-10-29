@@ -5,6 +5,7 @@ import { compareSortValues, libraryScore } from './sortValues'
 import type { NsfwSubject } from '@/features/nsfw/nsfw'
 import { favoritesFirst } from '@/features/favorite/favorite'
 import { isShelved } from '@/features/shelf/shelf'
+import { tagsOf, type TagEdit } from '@/features/tags/tags'
 import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 import { t } from '@/i18n'
 
@@ -56,9 +57,10 @@ export const SORTS: {
   { key: 'downloaded', label: t('library.sort.downloaded'), value: (m) => m.downloadCount },
   { key: 'score', label: t('library.sort.score'), value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsLow: true },
 ]
-export function matchesSearch(m: LibraryManga, q: string) {
+/** edit 是这部的标签编辑：搜索看最终的标签，隐藏的来源标签搜不到，自己加的搜得到 */
+export function matchesSearch(m: LibraryManga, q: string, edit?: TagEdit) {
   if (!q) return true
-  const hay = [m.title, m.author, m.artist, m.source?.displayName, ...m.genre].filter(Boolean).join('\n').toLowerCase()
+  const hay = [m.title, m.author, m.artist, m.source?.displayName, ...tagsOf(m.genre, edit)].filter(Boolean).join('\n').toLowerCase()
   return q
     .toLowerCase()
     .split(/\s+/)
@@ -81,6 +83,8 @@ export function applyView(
     shelf: ReadonlySet<number>
     /** 给了就把这些排到最前（「特别关心置顶」） */
     pinned?: ReadonlyMap<number, number>
+    /** 自建标签：漫画 id → 编辑 */
+    tags?: ReadonlyMap<number, TagEdit>
   },
 ) {
   const active = FILTERS.filter((f) => opts.filters[f.key] !== 0)
@@ -92,7 +96,7 @@ export function applyView(
       inCategory(m, opts.category, opts.defaultCategoryId ?? 0, opts.shelf) &&
       (opts.sources.length === 0 || (m.source != null && opts.sources.includes(m.source.id))) &&
       active.every((f) => f.test(m, ctx) === (opts.filters[f.key] === 1)) &&
-      matchesSearch(m, opts.query),
+      matchesSearch(m, opts.query, opts.tags?.get(m.id)),
   )
   const sortCtx: SortContext = { scales: opts.scales ?? new Map() }
   const keyed = out.map((m) => [sort.value(m, sortCtx), m] as const)

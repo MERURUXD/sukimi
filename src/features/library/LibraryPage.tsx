@@ -10,6 +10,7 @@ import { useMobile } from '@/features/gallery/hooks'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
 import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useFavoriteActions, useFavorites } from '@/features/favorite/useFavorites'
+import { useTags } from '@/features/tags/useTags'
 import { isShelved, shelfIds, withoutShelf } from '@/features/shelf/shelf'
 import { useShelfActions } from '@/features/shelf/useShelf'
 import { ContextMenu, useContextMenu } from '@/components/ui/ContextMenu'
@@ -64,6 +65,7 @@ export function LibraryPage() {
   const isLater = view.category === 'later'
   // 「特别关心」只认书库里的：服务端只检查书库漫画的更新，移出书库的标记保留但不显示
   const favorites = useFavorites()
+  const tags = useTags().edits
   const { setFavorite } = useFavoriteActions()
   const isFavorite = view.category === 'favorite'
   const favoriteList = useMemo(() => all.filter((m) => favorites.ids.has(m.id)), [all, favorites.ids])
@@ -93,8 +95,8 @@ export function LibraryPage() {
   )
   const pinned = view.favoriteFirst && !isFavorite ? favorites.ids : undefined
   const items = useMemo(
-    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned }),
-    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned],
+    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags }),
+    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned, tags],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])

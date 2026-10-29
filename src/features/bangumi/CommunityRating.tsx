@@ -9,6 +9,7 @@ import { timeAgo } from '@/lib/format'
 import { searchSubjects, setBgmMatch, useBgmGuess, useBgmSubject, type BgmMatch, type BgmState } from './api'
 import { shortCount, subjectUrl, type BgmSubject } from './rating'
 import { introRise as rise } from '@/features/manga/intro'
+import { ExternalTag } from '@/features/tags/TagTarget'
 import './CommunityRating.css'
 import { t } from '@/i18n'
 
@@ -327,7 +328,7 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
                 </div>
                 {subject.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {subject.tags.map((t) => <span key={t.name} className="plain rounded-full px-3 py-1 text-xs">{t.name} <span className="text-faint num">{shortCount(t.count)}</span></span>)}
+                    {subject.tags.map((t) => <ExternalTag key={t.name} name={t.name}>{t.name} <span className="text-faint num">{shortCount(t.count)}</span></ExternalTag>)}
                   </div>
                 )}
                 {guess && (guess.bind || !guess.match?.sure) && (
