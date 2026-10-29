@@ -86,7 +86,7 @@ The [`webui-latest` release](https://github.com/MERURUXD/sukimi/releases/tag/web
 On Windows, macOS or desktop Linux with an existing Suwayomi Server installation, there is no need to edit `server.conf` manually:
 
 1. **Stop Suwayomi Server**. Use the Launcher's `Root Directory` tab to locate the actual data directory (containing `server.conf`); back up its `server.conf` and existing `webUI/`.
-2. Download `sukimi-webui.zip` and extract its **contents** directly into `webUI/`, replacing the old frontend. Verify that `webUI/index.html` exists directly, without an extra `dist/` or `sukimi-webui/` directory.
+2. Download `sukimi-webui.zip`, empty the old `webUI/` after backing it up, then extract the ZIP **contents** directly into that directory. Verify that `webUI/index.html` exists directly, without an extra `dist/` or `sukimi-webui/` directory.
 3. In the official [Suwayomi Launcher](https://github.com/Suwayomi/Suwayomi-Launcher), open the `WebUI` tab, enable `WebUI`, and set `WebUI Flavor` to `Custom`. In the `Authentication` tab, select `UI_LOGIN` if it is not already selected.
 4. Click `Launch` and open your usual Suwayomi URL.
 
@@ -94,7 +94,7 @@ The Launcher can select `Custom` but **does not download or update Sukimi**. For
 
 ### Linux / VPS: headless deployment
 
-**No Launcher is needed** on a headless server. For a native Java or systemd installation, stop Suwayomi first and set the following in the actual data directory's `server.conf`:
+**No Launcher is needed** on a headless server. For a native Java or systemd installation, stop Suwayomi, back up the data directory's `server.conf`, then set:
 
 ```hocon
 server.webUIEnabled = true
@@ -135,7 +135,7 @@ services:
       - ./data:/home/suwayomi/.local/share/Tachidesk
 ```
 
-Here `./data` is the **host-side data directory** (relative to the Compose project). If you already have a different host path or a named volume, keep your mapping and locate `server.conf` and `webUI/` in that data volume. For a fresh setup, start Suwayomi once to initialize its data directory.
+Here `./data` is the **host-side data directory** (relative to the Compose project). If you already have a different host path or a named volume, keep your mapping and locate `server.conf` and `webUI/` in that data volume. For named volumes, use a maintenance container with that volume mounted rather than copying the host-path commands below verbatim. For a fresh setup, start Suwayomi once to initialize its data directory.
 
 1. Run `docker compose stop suwayomi` and back up the host data directory's `server.conf` and `webUI/`.
 2. Extract `sukimi-webui.tar` into the host data directory's `webUI/` (use the Linux commands above with `DATA_DIR` set to the mapped host path).
@@ -147,7 +147,7 @@ Docker environment variables override the corresponding server configuration whe
 
 ### Deploying from source
 
-The production build is written to `dist/`. `pnpm deploy:server` builds and copies the files into `webUI/` under the data directory given by `SUWAYOMI_DATA` in `.env.local`. On the first deployment, the existing official WebUI is backed up whole to `webUI-official-<timestamp>`. Back up `server.conf` first, confirm `server.webUIFlavor = CUSTOM`, and get authorization to operate the server. The script also updates the temporary copy the running server uses, which usually takes effect without a restart; if that copy cannot be found, a restart is still needed.
+The production build is written to `dist/`. `pnpm deploy:server` builds and copies the files into `webUI/` under the data directory given by `SUWAYOMI_DATA` in `.env.local`. On the first deployment, the existing official WebUI is backed up whole to `webUI-official-<timestamp>`. Back up `server.conf` first, confirm `server.webUIFlavor = "Custom"`, and get authorization to operate the server. The script also updates the temporary copy the running server uses, which usually takes effect without a restart; if that copy cannot be found, a restart is still needed.
 
 For a local Windows Java install, run `pnpm restart:server -WhatIf` for a pre-check, then `pnpm restart:server` to restart. The script verifies the process identity, backs up the configuration and frontend, and checks the HTTP response after startup. It does not elevate privileges on its own, and the backup does not include the running database. Windows services and other install types should use their own service management tools.
 
