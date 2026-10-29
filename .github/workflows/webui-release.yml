@@ -27,11 +27,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      # actions/checkout v4.4.0
+      # actions/checkout v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      # pnpm/action-setup v4.3.0
+      # pnpm/action-setup v6.1.0
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-      # actions/setup-node v4.4.0
+      # actions/setup-node v7.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
@@ -48,11 +48,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      # actions/checkout v4.4.0
+      # actions/checkout v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      # pnpm/action-setup v4.3.0
+      # pnpm/action-setup v6.1.0
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413
-      # actions/setup-node v4.4.0
+      # actions/setup-node v7.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
