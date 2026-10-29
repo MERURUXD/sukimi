@@ -77,24 +77,20 @@ Cloud development environments can run type checks, tests, builds and the fictio
 
 ## Deployment
 
-The recommended setup is to let Suwayomi Server host Sukimi as a `Custom` WebUI. This keeps the frontend and `/api` on the same origin, without an additional reverse proxy. Sukimi is a static frontend: **end users do not need Node.js or pnpm**. Serve it at the site root (`server.webUISubpath = ""`); deploying directly under `/sukimi/` or another subpath is not currently supported.
-
-The [`webui-latest` release](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest) is a rolling pre-release built from `main`. It provides `sukimi-webui.zip` for easy desktop extraction and `sukimi-webui.tar` for command-line use. The `sha256` field in `sukimi-webui.json` verifies the TAR; `zipSha256` verifies the ZIP.
+Download a build from the [webui-latest Release](https://github.com/MERURUXD/sukimi/releases/tag/webui-latest): use `sukimi-webui.zip` for desktop installations or `sukimi-webui.tar` for Linux command-line installations.
 
 ### Desktop: Suwayomi Launcher (recommended)
-
-On Windows, macOS or desktop Linux with an existing Suwayomi Server installation, there is no need to edit `server.conf` manually:
 
 1. **Stop Suwayomi Server**. Use the Launcher's `Root Directory` tab to locate the actual data directory (containing `server.conf`); back up its `server.conf` and existing `webUI/`.
 2. Download `sukimi-webui.zip`, empty the old `webUI/` after backing it up, then extract the ZIP **contents** directly into that directory. Verify that `webUI/index.html` exists directly, without an extra `dist/` or `sukimi-webui/` directory.
 3. In the official [Suwayomi Launcher](https://github.com/Suwayomi/Suwayomi-Launcher), open the `WebUI` tab, enable `WebUI`, and set `WebUI Flavor` to `Custom`. In the `Authentication` tab, select `UI_LOGIN` if it is not already selected.
 4. Click `Launch` and open your usual Suwayomi URL.
 
-The Launcher can select `Custom` but **does not download or update Sukimi**. For future updates, replace the `webUI/` files and restart the server.
+**Updating:** Download the new build, replace the `webUI/` files, and restart the server.
 
 ### Linux / VPS: headless deployment
 
-**No Launcher is needed** on a headless server. For a native Java or systemd installation, stop Suwayomi, back up the data directory's `server.conf`, then set:
+For native Java / systemd installations, stop Suwayomi, back up the data directory's `server.conf`, then set:
 
 ```hocon
 server.webUIEnabled = true
@@ -118,11 +114,11 @@ tar -xf sukimi-webui.tar -C "$DATA_DIR/webUI"
 test -f "$DATA_DIR/webUI/index.html"
 ```
 
-Start Suwayomi using your installation's service manager (for systemd, restart the actual service unit). Only static files are deployed; **do not run `pnpm dev` or keep Vite running on the VPS**. For internet-facing servers, use HTTPS at your reverse proxy and keep `UI_LOGIN` enabled.
+Start Suwayomi using your original launch method (for systemd, restart the corresponding service unit).
 
 ### Docker Compose (Linux / NAS)
 
-If you already use the [official Suwayomi Docker image](https://github.com/Suwayomi/Suwayomi-Server-docker), keep your existing Compose setup and ensure these fields are present in the `suwayomi` service (**this is a partial snippet, not a complete Compose file**):
+In your existing [Suwayomi Docker Compose](https://github.com/Suwayomi/Suwayomi-Server-docker), set the following in the `suwayomi` service (configuration snippet):
 
 ```yaml
 services:
@@ -139,7 +135,7 @@ Here `./data` is the **host-side data directory** (relative to the Compose proje
 
 1. Run `docker compose stop suwayomi` and back up the host data directory's `server.conf` and `webUI/`.
 2. Extract `sukimi-webui.tar` into the host data directory's `webUI/` (use the Linux commands above with `DATA_DIR` set to the mapped host path).
-3. Run `docker compose up -d suwayomi`. There is no need for Node.js in the container or a separate Sukimi container.
+3. Run `docker compose up -d suwayomi`.
 
 Docker environment variables override the corresponding server configuration when the container starts. Leaving `WEB_UI_FLAVOR=WebUI` may cause the official frontend to replace your extracted files.
 
