@@ -8,8 +8,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# 默认只读。permissions 不能按事件切换，写权限若放在 ci-release 上，拉取请求也会带上。
+# 检查作业 id 必须仍是 ci-release（main ruleset 按这个名字要求通过），不要另加 name。
+# 推送到 main 和手动触发走 publish：该作业显式 contents: write，才能强制更新 webui-latest
+# 标签并上传 sukimi-webui.tar、sukimi-webui.zip、sukimi-webui.json。发布命令和产物名不变。
 permissions:
-  contents: write
+  contents: read
 
 # 连续推送时只发布最后一次；拉取请求单独成组，不取消正在发布的作业
 concurrency:
@@ -18,7 +22,31 @@ concurrency:
 
 jobs:
   ci-release:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      # actions/checkout v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      # pnpm/action-setup v4.3.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1
+      # actions/setup-node v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  # 检查步骤与 ci-release 相同，后面才是原来的打包和发布。
+  publish:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       # actions/checkout v4.4.0
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
