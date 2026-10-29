@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  release:
+  ci-preview:
     runs-on: ubuntu-latest
     steps:
       # actions/checkout v4.4.0
