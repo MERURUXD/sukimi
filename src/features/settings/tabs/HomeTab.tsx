@@ -17,46 +17,6 @@ const HINTS: Record<HomeSection, string> = {
   later: t('cfg.home.hint.later'),
 }
 
-function MobileLayoutHelp() {
-  return (
-    <div className="grid grid-cols-2 gap-4 pt-1 text-xs">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex h-12 items-center justify-center rounded-lg bg-accent-soft">
-          <span className="h-9 w-6 rounded bg-track" />
-        </div>
-        <b className="text-text">{t('cfg.home.poster')}</b>
-        <span>{t('cfg.home.posterDesc')}</span>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <div className="h-12 w-full rounded-lg bg-track" />
-        <b className="text-text">{t('cfg.home.cover')}</b>
-        <span>{t('cfg.home.coverDesc')}</span>
-      </div>
-    </div>
-  )
-}
-
-function DesktopLayoutHelp() {
-  return (
-    <div className="grid grid-cols-2 gap-4 pt-1 text-xs">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex h-12 items-center justify-center gap-1 rounded-lg bg-accent-soft">
-          <span className="h-8 w-5 -rotate-6 rounded bg-track opacity-60" />
-          <span className="h-9 w-6 rounded bg-track" />
-          <span className="h-8 w-5 rotate-6 rounded bg-track opacity-60" />
-        </div>
-        <b className="text-text">{t('cfg.home.stage')}</b>
-        <span>{t('cfg.home.stageDesc')}</span>
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <div className="h-12 w-full rounded-lg bg-track" />
-        <b className="text-text">{t('cfg.home.cover')}</b>
-        <span>{t('cfg.home.coverDesc2')}</span>
-      </div>
-    </div>
-  )
-}
-
 export function HomeTab() {
   const {
     homeMobileLayout,
@@ -80,7 +40,7 @@ export function HomeTab() {
   return (
     <>
       <Section title={t('cfg.home.layout')} desc={t('cfg.home.layoutDesc')}>
-        <Row label={t('cfg.home.mobileLayout')} hint={t('cfg.home.mobileLayoutHint')} help={<MobileLayoutHelp />} stack>
+        <Row label={t('cfg.home.mobileLayout')} hint={t('cfg.home.mobileLayoutHint')} stack>
           <ThumbPicker
             label={t('cfg.home.mobileLayout')}
             items={[
@@ -91,7 +51,7 @@ export function HomeTab() {
             onChange={setHomeMobileLayout}
           />
         </Row>
-        <Row label={t('cfg.home.desktopLayout')} hint={t('cfg.home.desktopLayoutHint')} help={<DesktopLayoutHelp />} stack>
+        <Row label={t('cfg.home.desktopLayout')} hint={t('cfg.home.desktopLayoutHint')} stack>
           <ThumbPicker
             label={t('cfg.home.desktopLayout')}
             items={[
