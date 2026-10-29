@@ -42,8 +42,10 @@ jobs:
           now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           printf '{\n  "deployedAt": "%s",\n  "commit": "%s"\n}\n' "$now" "$commit" > dist/.suwayomi-web
           tar -cf sukimi-webui.tar -C dist .
+          (cd dist && zip -qr ../sukimi-webui.zip .)
           sha=$(sha256sum sukimi-webui.tar | cut -d' ' -f1)
-          printf '{"commit":"%s","sha256":"%s","builtAt":"%s"}\n' "$commit" "$sha" "$now" > sukimi-webui.json
+          zip_sha=$(sha256sum sukimi-webui.zip | cut -d' ' -f1)
+          printf '{"commit":"%s","sha256":"%s","zipSha256":"%s","builtAt":"%s"}\n' "$commit" "$sha" "$zip_sha" "$now" > sukimi-webui.json
           cat sukimi-webui.json
 
       - name: 发布到 webui-latest
@@ -66,4 +68,5 @@ jobs:
             retry gh release create webui-latest --prerelease --title '前端最新构建' --notes '由 webui-release 自动更新，服务器定时拉取。'
           # 清单最后上传：服务器读到新清单时，归档已经是同一版；万一读到一半，哈希不符会等下一轮
           retry gh release upload webui-latest sukimi-webui.tar --clobber
+          retry gh release upload webui-latest sukimi-webui.zip --clobber
           retry gh release upload webui-latest sukimi-webui.json --clobber
