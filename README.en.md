@@ -114,4 +114,4 @@ A Preview connected to the same Suwayomi Server **shares all server-side data** 
 
 ## License
 
-The project does not yet have a license. Third-party licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Sukimi's original code is licensed under the [Mozilla Public License 2.0](LICENSE) (MPL-2.0). Third-party code remains subject to its respective license terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
