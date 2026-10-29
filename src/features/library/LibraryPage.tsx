@@ -26,7 +26,7 @@ import type { SegItem } from '@/components/ui/Seg'
 import { toast, toastError } from '@/components/ui/toast'
 import { count } from '@/lib/format'
 import { useSelection } from '@/lib/useSelection'
-import { applyView, inCategory, librarySources, SORTS } from './filtering'
+import { applyView, inCategory, librarySources } from './filtering'
 import { LibraryGrid, LibrarySkeleton, type TileDisplay } from './LibraryGrid'
 import { LibraryToolbar } from './LibraryToolbar'
 import { libraryScore } from './sortValues'
@@ -289,7 +289,6 @@ export function LibraryPage() {
   /* 顶部摘要 */
   const unreadTotal = useMemo(() => all.reduce((n, m) => n + m.unreadCount, 0), [all])
   const dlTotal = useMemo(() => all.reduce((n, m) => n + m.downloadCount, 0), [all])
-  const sortLabel = SORTS.find((s) => s.key === view.sort)?.label
   const hasFilter = Object.values(view.filters).some((v) => v !== 0) || view.sources.length > 0 || deferredQuery.length > 0
   const clearAllFilters = () => {
     view.resetFilters()
@@ -304,8 +303,7 @@ export function LibraryPage() {
           title={t('library.title')}
           sub={data && <>
             {t('library.stats', { total: count(all.length), unread: count(unreadTotal), downloaded: count(dlTotal) })}
-            {items.length !== all.length && t('library.showing', { n: count(items.length) })}{t('library.sortedBy', { sort: sortLabel })}
-            {view.desc ? ' ↓' : ' ↑'}
+            {items.length !== all.length && t('library.showing', { n: count(items.length) })}
             {syncing && t('library.syncing')}
           </>}
           actions={<div className="flex-none self-start"><GalleryPill /></div>}
