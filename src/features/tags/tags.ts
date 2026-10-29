@@ -5,6 +5,8 @@
  * 这里只放纯逻辑（Node 测试直接导入），不依赖 React、Apollo 或路径别名。
  */
 
+import { canonicalTag, genresOf } from '../gallery/taste.ts'
+
 export const TAGS_PREFIX = 'sukimi.tags.'
 
 export const tagsPrefix = (userId: number) => `${TAGS_PREFIX}${userId}.`
@@ -109,3 +111,43 @@ export const mergeTags = (from: TagEdit, to: TagEdit = NO_EDIT): TagEdit => ({
   add: uniq([...to.add, ...from.add]),
   hide: uniq([...to.hide, ...from.hide]),
 })
+
+/* ───────── 书库按标签筛选 ───────── */
+
+/** 筛选里选中的标签：名字 → 1 包含 / 2 排除 */
+export type TagPicks = Readonly<Record<string, 1 | 2>>
+
+/**
+ * 筛选、统计用的标签：来源标签按口味屏的规则归一（同义合并、去掉「连载中」这类词），
+ * 自己加的只做同义合并：是自己特意写上的，哪怕是「完结」也要能筛出来
+ */
+export function filterTags(genre: readonly string[] | null | undefined, edit: TagEdit = NO_EDIT) {
+  const out: string[] = []
+  for (const name of [...genresOf(sourceTags(genre, edit).shown), ...edit.add.map(canonicalTag)]) {
+    if (!has(out, name)) out.push(name)
+  }
+  return out
+}
+
+/** 书库里出现过的标签和各自的部数，多的在前；部数相同按名字 */
+export function libraryTags(list: readonly { id: number; genre?: readonly string[] | null }[], edits: ReadonlyMap<number, TagEdit>) {
+  const count = new Map<string, { name: string; count: number }>()
+  for (const m of list) {
+    for (const name of filterTags(m.genre, edits.get(m.id))) {
+      const k = name.toLowerCase()
+      const hit = count.get(k)
+      if (hit) hit.count++
+      else count.set(k, { name, count: 1 })
+    }
+  }
+  const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
+  return [...count.values()].sort((a, b) => b.count - a.count || collator.compare(a.name, b.name))
+}
+
+/** 包含的标签满足任一即可（没选包含时不限），排除的一个都不能有 */
+export function matchTags(names: readonly string[], picks: TagPicks) {
+  const hit = (pick: 1 | 2) => Object.keys(picks).filter((k) => picks[k] === pick).map((k) => k.toLowerCase())
+  const own = new Set(names.map((n) => n.toLowerCase()))
+  const inc = hit(1)
+  return (!inc.length || inc.some((k) => own.has(k))) && !hit(2).some((k) => own.has(k))
+}

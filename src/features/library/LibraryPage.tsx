@@ -10,6 +10,7 @@ import { useMobile } from '@/features/gallery/hooks'
 import { useLaterActions, useLaterList } from '@/features/later/useLater'
 import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
 import { useFavoriteActions, useFavorites } from '@/features/favorite/useFavorites'
+import { libraryTags } from '@/features/tags/tags'
 import { useTags } from '@/features/tags/useTags'
 import { isShelved, shelfIds, withoutShelf } from '@/features/shelf/shelf'
 import { useShelfActions } from '@/features/shelf/useShelf'
@@ -95,11 +96,12 @@ export function LibraryPage() {
   )
   const pinned = view.favoriteFirst && !isFavorite ? favorites.ids : undefined
   const items = useMemo(
-    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags }),
+    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags, tagPicks: view.tags }),
     [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned, tags],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
+  const tagList = useMemo(() => libraryTags(base, tags), [base, tags])
 
   /* 分类：默认分类没有漫画时隐藏；可选标签排在最后 */
   const laterCount = later.items?.length
@@ -292,7 +294,7 @@ export function LibraryPage() {
   /* 顶部摘要 */
   const unreadTotal = useMemo(() => all.reduce((n, m) => n + m.unreadCount, 0), [all])
   const dlTotal = useMemo(() => all.reduce((n, m) => n + m.downloadCount, 0), [all])
-  const hasFilter = Object.values(view.filters).some((v) => v !== 0) || view.sources.length > 0 || deferredQuery.length > 0
+  const hasFilter = Object.values(view.filters).some((v) => v !== 0) || view.sources.length > 0 || Object.keys(view.tags).length > 0 || deferredQuery.length > 0
   const clearAllFilters = () => {
     view.resetFilters()
     setQuery('')
@@ -315,6 +317,7 @@ export function LibraryPage() {
         <LibraryToolbar
           categories={categories}
           sources={sources}
+          tags={tagList}
           query={query}
           onQuery={setQuery}
           selecting={selecting}

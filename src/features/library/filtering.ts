@@ -5,7 +5,7 @@ import { compareSortValues, libraryScore } from './sortValues'
 import type { NsfwSubject } from '@/features/nsfw/nsfw'
 import { favoritesFirst } from '@/features/favorite/favorite'
 import { isShelved } from '@/features/shelf/shelf'
-import { tagsOf, type TagEdit } from '@/features/tags/tags'
+import { filterTags, matchTags, tagsOf, type TagEdit, type TagPicks } from '@/features/tags/tags'
 import type { FilterKey, LibraryTab, SortKey, TriState } from './store'
 import { t } from '@/i18n'
 
@@ -85,18 +85,22 @@ export function applyView(
     pinned?: ReadonlyMap<number, number>
     /** 自建标签：漫画 id → 编辑 */
     tags?: ReadonlyMap<number, TagEdit>
+    /** 按标签筛选；空表不限 */
+    tagPicks?: TagPicks
   },
 ) {
   const active = FILTERS.filter((f) => opts.filters[f.key] !== 0)
   const ctx: FilterContext = { nsfw: opts.nsfw, shelf: opts.shelf }
   const sort = SORTS.find((s) => s.key === opts.sort) ?? SORTS[0]
+  const picks = opts.tagPicks && Object.keys(opts.tagPicks).length ? opts.tagPicks : null
 
   const out = list.filter(
     (m) =>
       inCategory(m, opts.category, opts.defaultCategoryId ?? 0, opts.shelf) &&
       (opts.sources.length === 0 || (m.source != null && opts.sources.includes(m.source.id))) &&
       active.every((f) => f.test(m, ctx) === (opts.filters[f.key] === 1)) &&
-      matchesSearch(m, opts.query, opts.tags?.get(m.id)),
+      matchesSearch(m, opts.query, opts.tags?.get(m.id)) &&
+      (!picks || matchTags(filterTags(m.genre, opts.tags?.get(m.id)), picks)),
   )
   const sortCtx: SortContext = { scales: opts.scales ?? new Map() }
   const keyed = out.map((m) => [sort.value(m, sortCtx), m] as const)

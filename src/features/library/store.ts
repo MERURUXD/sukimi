@@ -30,6 +30,8 @@ interface LibraryView {
   density: Density
   /** 只看这些来源（source id）；空 = 全部来源 */
   sources: string[]
+  /** 按标签筛选（来源标签和自建标签一视同仁）：名字 → 1 包含 / 2 排除 */
+  tags: Record<string, 1 | 2>
   /** 「稍后再看」里的漫画加入后读完已有章节时自动移出 */
   laterAutoRemove: boolean
   /** 不论按什么排序，特别关心都排在最前 */
@@ -48,6 +50,10 @@ interface LibraryView {
   setDensity: (d: Density) => void
   toggleSource: (id: string) => void
   clearSources: () => void
+  /** 不限 → 包含 → 排除 → 不限 */
+  cycleTag: (name: string) => void
+  clearTag: (name: string) => void
+  clearTags: () => void
   setLaterAutoRemove: (on: boolean) => void
   setFavoriteFirst: (on: boolean) => void
   setTabVisible: (tab: 'favorite' | 'later', on: boolean) => void
@@ -63,7 +69,7 @@ const NO_FILTERS: Record<FilterKey, TriState> = { unread: 0, downloaded: 0, star
 export const DEFAULT_BADGES: Record<BadgeKey, boolean> = { unread: true, downloaded: true, score: false, bookmarks: false, completed: false, lang: false, favorite: true }
 export const DEFAULT_SUBLINE: Record<SublineKey, boolean> = { source: true, time: true, author: false, genre: false }
 
-type Persisted = 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'laterAutoRemove' | 'favoriteFirst' | 'showFavoriteTab' | 'showLaterTab' | 'cols' | 'badges' | 'titleLines' | 'subline'
+type Persisted = 'category' | 'filters' | 'sort' | 'desc' | 'density' | 'sources' | 'tags' | 'laterAutoRemove' | 'favoriteFirst' | 'showFavoriteTab' | 'showLaterTab' | 'cols' | 'badges' | 'titleLines' | 'subline'
 
 const INITIAL: Pick<LibraryView, Persisted> = {
   category: 'all',
@@ -72,6 +78,7 @@ const INITIAL: Pick<LibraryView, Persisted> = {
   desc: true,
   density: 'comfy',
   sources: [],
+  tags: {},
   // 旧偏好里没有这个字段，合并默认值后开启
   laterAutoRemove: true,
   favoriteFirst: true,
@@ -90,13 +97,24 @@ export const useLibraryView = create<LibraryView>()(
       setCategory: (category) => set({ category }),
       cycleFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: ((s.filters[k] + 1) % 3) as TriState } })),
       clearFilter: (k) => set((s) => ({ filters: { ...s.filters, [k]: 0 } })),
-      resetFilters: () => set({ filters: NO_FILTERS, sources: [] }),
+      resetFilters: () => set({ filters: NO_FILTERS, sources: [], tags: {} }),
       // 再点一次当前排序 = 切换方向；标题默认正序，其他默认倒序
       pickSort: (k) => set((s) => (s.sort === k ? { desc: !s.desc } : { sort: k, desc: k !== 'title' })),
       setDensity: (density) => set({ density }),
       toggleSource: (id) =>
         set((s) => ({ sources: s.sources.includes(id) ? s.sources.filter((x) => x !== id) : [...s.sources, id] })),
       clearSources: () => set({ sources: [] }),
+      // 包含改排除时原地改值，选中的标签在面板里不跳位置
+      cycleTag: (name) => set((s) => {
+        const { [name]: _, ...rest } = s.tags
+        const now = Object.hasOwn(s.tags, name) ? s.tags[name] : 0
+        return { tags: now === 2 ? rest : { ...s.tags, [name]: now === 1 ? 2 : 1 } }
+      }),
+      clearTag: (name) => set((s) => {
+        const { [name]: _, ...rest } = s.tags
+        return { tags: rest }
+      }),
+      clearTags: () => set({ tags: {} }),
       setLaterAutoRemove: (laterAutoRemove) => set({ laterAutoRemove }),
       setFavoriteFirst: (favoriteFirst) => set({ favoriteFirst }),
       setTabVisible: (tab, on) => set((s) => ({
@@ -117,6 +135,7 @@ export const useLibraryView = create<LibraryView>()(
         return {
           ...merged,
           filters: { ...NO_FILTERS, ...merged.filters },
+          tags: merged.tags ?? {},
           cols: { ...INITIAL.cols, ...merged.cols },
           badges: { ...DEFAULT_BADGES, ...merged.badges },
           subline: { ...DEFAULT_SUBLINE, ...merged.subline },
@@ -124,8 +143,8 @@ export const useLibraryView = create<LibraryView>()(
       },
       version: 2,
       migrate: (old) => ({ sources: [], ...(old as Omit<LibraryView, 'sources'>) }),
-      partialize: ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, showFavoriteTab, showLaterTab, cols, badges, titleLines, subline }) =>
-        ({ category, filters, sort, desc, density, sources, laterAutoRemove, favoriteFirst, showFavoriteTab, showLaterTab, cols, badges, titleLines, subline }),
+      partialize: ({ category, filters, sort, desc, density, sources, tags, laterAutoRemove, favoriteFirst, showFavoriteTab, showLaterTab, cols, badges, titleLines, subline }) =>
+        ({ category, filters, sort, desc, density, sources, tags, laterAutoRemove, favoriteFirst, showFavoriteTab, showLaterTab, cols, badges, titleLines, subline }),
     },
   ),
 )

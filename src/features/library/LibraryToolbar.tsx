@@ -60,6 +60,7 @@ const PANEL_TABS: SegItem<PanelTab>[] = [
 export function LibraryToolbar({
   categories,
   sources,
+  tags,
   query,
   onQuery,
   selecting,
@@ -69,6 +70,8 @@ export function LibraryToolbar({
 }: {
   categories: SegItem<LibraryTab>[]
   sources: { id: string; name: string; count: number }[]
+  /** 书库里出现过的标签（来源与自建合在一起），多的在前 */
+  tags: { name: string; count: number }[]
   query: string
   onQuery: (q: string) => void
   selecting: boolean
@@ -83,7 +86,8 @@ export function LibraryToolbar({
   const mobile = useMobile()
   const activeFilters = FILTERS.filter((f) => view.filters[f.key] !== 0)
   const activeSources = view.sources.map((id) => ({ id, name: sources.find((x) => x.id === id)?.name ?? id }))
-  const filtering = activeFilters.length > 0 || activeSources.length > 0
+  const activeTags = Object.entries(view.tags)
+  const filtering = activeFilters.length > 0 || activeSources.length > 0 || activeTags.length > 0
   // 每行数目按当前屏幕宽窄分开记
   const device = mobile ? 'mobile' : 'desktop'
   const cols = view.cols[device]
@@ -166,6 +170,7 @@ export function LibraryToolbar({
               </div>
             </div>
           )}
+          {(tags.length > 0 || activeTags.length > 0) && <TagFilter tags={tags} />}
         </>
       )}
 
@@ -304,6 +309,19 @@ export function LibraryToolbar({
         </button>
       ))}
 
+      {activeTags.map(([name, st]) => (
+        <button
+          key={name}
+          type="button"
+          onClick={() => view.clearTag(name)}
+          aria-label={t('library.toolbar.removeTag', { name })}
+          className="inline-flex min-h-8 items-center gap-1 rounded-full bg-accent-soft py-0 pr-1.5 pl-3 text-[13px] font-semibold"
+        >
+          {st === 2 ? t('library.toolbar.excludeChip', { label: name }) : name}
+          <X className="size-4 opacity-70" />
+        </button>
+      ))}
+
       <span className="flex-1 max-sm:hidden" />
 
       <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-[1_1_120px]">
@@ -357,6 +375,63 @@ export function LibraryToolbar({
         >
         <RefreshCw className={cn('size-[18px]', updating && 'animate-spin')} strokeWidth={1.8} />
       </Glass>
+    </div>
+  )
+}
+
+/** 标签多到要翻时才给搜索框 */
+const TAG_SEARCH_MIN = 12
+
+/** 筛选面板里的标签组：和上面的筛选一样点一下包含、再点排除；选中的排在最前，搜索时也不藏起来 */
+function TagFilter({ tags }: { tags: { name: string; count: number }[] }) {
+  const picks = useLibraryView((s) => s.tags)
+  const cycleTag = useLibraryView((s) => s.cycleTag)
+  const clearTags = useLibraryView((s) => s.clearTags)
+  const [q, setQ] = useState('')
+  const needle = q.trim().toLowerCase()
+  const picked = Object.keys(picks)
+  const pickedSet = new Set(picked.map((n) => n.toLowerCase()))
+  const count = new Map(tags.map((x) => [x.name.toLowerCase(), x.count]))
+  const rest = tags.filter((x) => !pickedSet.has(x.name.toLowerCase()) && (!needle || x.name.toLowerCase().includes(needle)))
+  const shown = [...picked.map((name) => ({ name, count: count.get(name.toLowerCase()) ?? 0 })), ...rest]
+  return (
+    <div>
+      <h3 className="pop-h flex items-center">
+        <span className="flex-1">{t('library.toolbar.tags')}</span>
+        {picked.length > 0 && (
+          <button type="button" onClick={clearTags} className="font-semibold tracking-normal text-text">
+            {t('library.toolbar.clear')}
+          </button>
+        )}
+      </h3>
+      {tags.length > TAG_SEARCH_MIN && (
+        <label className="plain mb-2 flex h-9 items-center gap-2 rounded-full px-3 text-muted">
+          <Search className="size-4 flex-none" strokeWidth={1.8} />
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('library.toolbar.tagSearch')} aria-label={t('library.toolbar.tagSearch')} className="min-w-0 flex-1 border-0 bg-transparent text-[13px] text-text outline-none placeholder:text-faint" />
+        </label>
+      )}
+      {/* 内边距给胶囊的描边留位置，否则最后一行的下沿会被滚动容器裁掉 */}
+      <div className="-m-1 flex max-h-[180px] flex-wrap gap-1.5 overflow-y-auto p-1">
+        {shown.map(({ name, count: n }) => {
+          // 标签名可能撞上 constructor 这类对象自带的属性名，只认自己的键
+          const st = Object.hasOwn(picks, name) ? picks[name] : 0
+          return (
+            <button
+              key={name}
+              type="button"
+              className={cn('fopt', st === 1 && 'inc', st === 2 && 'exc')}
+              onClick={() => cycleTag(name)}
+              aria-label={t('library.toolbar.filterAria', { label: name, state: [t('library.toolbar.stateAny'), t('library.toolbar.stateInclude'), t('library.toolbar.stateExclude')][st] })}
+            >
+              {st === 1 && <Plus className="size-3.5" strokeWidth={2.6} />}
+              {st === 2 && <Minus className="size-3.5" strokeWidth={2.6} />}
+              {name}
+              <span className="text-[11px] opacity-60 num">{n}</span>
+            </button>
+          )
+        })}
+        {shown.length === 0 && <span className="px-1 text-[13px] text-muted">{t('library.toolbar.tagNone')}</span>}
+      </div>
     </div>
   )
 }

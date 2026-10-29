@@ -53,12 +53,17 @@ export function genresOf(raw: readonly string[] | null | undefined) {
   const out: string[] = []
   for (const g of raw ?? []) {
     const t = g.trim().replace(/\s+/g, ' ')
-    const key = t.toLowerCase()
-    if (!t || STOP.has(key)) continue
-    const name = ALIAS[key] ?? t
+    if (!t || STOP.has(t.toLowerCase())) continue
+    const name = canonicalTag(t)
     if (!out.includes(name)) out.push(name)
   }
   return out
+}
+
+/** 同义写法归一成一个名字（Romance、爱情 → 恋爱）；不在表里的原样返回，不过滤无意义的词 */
+export const canonicalTag = (raw: string) => {
+  const t = raw.trim().replace(/\s+/g, ' ')
+  return ALIAS[t.toLowerCase()] ?? t
 }
 
 /** 一部作品的作者：几个人写在一起时拆开，去重 */

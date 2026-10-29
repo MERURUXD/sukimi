@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { addTag, hasTag, hideSource, knownTags, mergeTags, NO_EDIT, parseTags, removeTag, serializeTags, sourceTags, tagsKey, tagsOf } from '../src/features/tags/tags.ts'
+import { addTag, filterTags, hasTag, hideSource, knownTags, libraryTags, matchTags, mergeTags, NO_EDIT, parseTags, removeTag, serializeTags, sourceTags, tagsKey, tagsOf } from '../src/features/tags/tags.ts'
 
 const genre = ['恋爱', '校园', '连载中', 'Romance']
 
@@ -49,4 +49,22 @@ test('自建标签：换源迁移时并进新漫画已有的标签，不丢任�
   const from = { add: ['甲', '乙'], hide: ['连载中'] }
   assert.deepEqual(mergeTags(from), { add: ['甲', '乙'], hide: ['连载中'] })
   assert.deepEqual(mergeTags(from, { add: ['乙', '丙'], hide: [] }), { add: ['乙', '丙', '甲'], hide: ['连载中'] })
+})
+
+test('标签筛选：来源归一并去掉无意义的词，自己加的只合并同义写法', () => {
+  const edit = { add: ['完结', 'romance', '虚构标签甲'], hide: ['校园'] }
+  assert.deepEqual(filterTags(['Romance', '爱情', '校园', '连载中', '日常'], edit), ['恋爱', '日常', '完结', '虚构标签甲'])
+  assert.deepEqual(filterTags(null), [])
+})
+
+test('标签筛选：书库标签按部数排序，包含任一、排除一个都不能有', () => {
+  const list = [{ id: 1, genre: ['恋爱', '校园'] }, { id: 2, genre: ['Romance'] }, { id: 3, genre: [] }]
+  const edits = new Map([[3, { add: ['虚构标签甲'], hide: [] }], [1, { add: [], hide: ['校园'] }]])
+  assert.deepEqual(libraryTags(list, edits), [{ name: '恋爱', count: 2 }, { name: '虚构标签甲', count: 1 }])
+  assert.equal(matchTags(['恋爱'], {}), true)
+  assert.equal(matchTags(['恋爱'], { 恋爱: 1, 日常: 1 }), true)
+  assert.equal(matchTags(['校园'], { 恋爱: 1 }), false)
+  assert.equal(matchTags(['恋爱', '恐怖'], { 恋爱: 1, 恐怖: 2 }), false)
+  assert.equal(matchTags(['日常'], { 恐怖: 2 }), true)
+  assert.equal(matchTags(['ROMANCE'], { romance: 1 }), true)
 })
