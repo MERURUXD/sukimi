@@ -120,8 +120,7 @@ function InfoPop({ icon: Icon, danger, label, children }: { icon: LucideIcon; da
       id={id}
       label={label}
       rootClassName="-my-1 flex-none"
-      // 小窗直接压在设置文字上：「通透」底色加折射只糊 2px，下面的字会透出来，所以底色加厚并改回大半径模糊
-      className="glass-legible w-[min(300px,calc(100vw-48px))] !bg-[color-mix(in_srgb,var(--bg)_88%,transparent)] ![backdrop-filter:blur(18px)_saturate(1.4)] px-4 py-3 text-[13px] leading-relaxed font-normal text-text/90"
+      className="glass-legible w-[min(300px,calc(100vw-48px))] px-4 py-3 text-[13px] leading-relaxed font-normal text-text/90"
       trigger={
         <button
           type="button"

@@ -680,9 +680,10 @@
     scale: 0.97;
   }
 }
+/* 填充模式只用 backwards：播完后不留末帧效果，否则动画元素会一直是背景采样的边界，里面的玻璃采不到背后的内容 */
 .rise,
 .rise-each > * {
-  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   animation-delay: var(--d, 0ms);
 }
 /* 一组按钮 / 标签：每个单独动画（透明度不能放在玻璃的父元素上，否则玻璃会失效），依次晚 30ms */
@@ -698,7 +699,7 @@
 }
 .rise-light,
 .rise-light-each > * {
-  animation: rise-light 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: rise-light 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   animation-delay: var(--d, 0ms);
 }
 .rise-light-each > * {
