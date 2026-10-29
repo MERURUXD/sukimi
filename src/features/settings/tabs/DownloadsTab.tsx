@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { toastError } from '@/components/ui/toast'
 import { SNumber, SSwitch, SText } from '../fields'
-import { Row, Section, Select, type SaveStatus } from '../parts'
+import { Dropdown, Row, Section, type SaveStatus } from '../parts'
 import { useSaveSettings, useServerSettings, type Settings } from '../server'
 import { RequireSettings, SettingsNotice } from '../gate'
 import { t as tl } from '@/i18n'
@@ -96,14 +96,14 @@ function Conversions({ k, label, hint }: { k: 'downloadConversions' | 'serveConv
           <div key={c.mimeType} className="flex flex-wrap items-center gap-2">
             <span className="w-[110px] font-semibold">{SOURCES.find((s) => s.value === c.mimeType)?.label ?? c.mimeType}</span>
             <span className="text-muted">{tl('cfg.downloads.convertTo')}</span>
-            <Select
+            <Dropdown
               label={tl('cfg.downloads.targetFormat')}
               value={c.target}
               options={TARGETS.some((t) => t.value === c.target) ? TARGETS : [...TARGETS, { value: c.target, label: c.target }]}
               onChange={(target) => void update(i, { target })}
               className="w-[120px]"
             />
-            <Select
+            <Dropdown
               label={tl('cfg.downloads.qualityLabel')}
               value={c.compressionLevel ?? -1}
               options={QUALITY}
@@ -118,8 +118,9 @@ function Conversions({ k, label, hint }: { k: 'downloadConversions' | 'serveConv
         {unused.length > 0 && (
           <div className="flex items-center gap-2">
             <Plus className="size-4 text-muted" />
-            <Select
+            <Dropdown
               label={tl('cfg.downloads.addConv')}
+              align="left"
               value=""
               options={[{ value: '', label: tl('cfg.downloads.addSource') }, ...unused]}
               onChange={(mimeType) =>

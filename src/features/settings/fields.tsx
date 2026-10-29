@@ -1,8 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { confirm } from '@/components/ui/Confirm'
-import { Seg } from '@/components/ui/Seg'
 import { toastError } from '@/components/ui/toast'
-import { Row, Select, Switch, TextInput, type SaveStatus } from './parts'
+import { Dropdown, Row, Switch, TextInput, type SaveStatus } from './parts'
 import {
   durationToMinutes,
   minutesToDuration,
@@ -80,10 +79,8 @@ export function SChoice<V extends string | number>({
     <Row label={label} hint={hint} help={help} warn={warn} restart={RESTART_KEYS.has(k)} status={s.status}>
       {s.value === undefined ? (
         <span className="text-muted">…</span>
-      ) : opts.length <= 4 && !opts.some((o) => o.disabled) ? (
-        <Seg glass={false} label={name} items={opts} value={s.value} onChange={(v) => void s.set(v)} />
       ) : (
-        <Select label={name} value={s.value} options={opts} onChange={(v) => void s.set(v)} className="min-w-[200px] max-w-full" />
+        <Dropdown label={name} value={s.value} options={opts} onChange={(v) => void s.set(v)} className="min-w-[200px]" />
       )}
     </Row>
   )

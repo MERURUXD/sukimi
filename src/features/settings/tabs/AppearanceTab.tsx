@@ -1,13 +1,13 @@
 import { RotateCcw } from 'lucide-react'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
-import { LanguageSeg } from '@/components/ui/LanguageSeg'
 import { Seg } from '@/components/ui/Seg'
 import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
-import { Row, Section, Switch } from '../parts'
-import { t } from '@/i18n'
+import { Dropdown, Row, Section, Switch } from '../parts'
+import { ThumbPicker, GlassThumb, ThemeThumb } from '../thumbs'
+import { readLocalePref, setLocalePref, t, type LocalePref } from '@/i18n'
 
 export function AppearanceTab() {
   const {
@@ -24,16 +24,25 @@ export function AppearanceTab() {
     <>
       <Section title={t('settings.appearance.title')} desc={t('settings.appearance.desc')}>
         <Row label={t('settings.language.label')} hint={t('settings.language.hint')}>
-          <LanguageSeg />
+          <Dropdown<LocalePref>
+            label={t('settings.language.label')}
+            className="min-w-[160px]"
+            options={[
+              { value: 'system', label: t('settings.language.system') },
+              { value: 'zh-CN', label: t('settings.language.zhCN') },
+              { value: 'en', label: t('settings.language.en') },
+            ]}
+            value={readLocalePref()}
+            onChange={setLocalePref}
+          />
         </Row>
-        <Row label={t('settings.appearance.theme')}>
-          <Seg
-            glass={false}
+        <Row label={t('settings.appearance.theme')} stack>
+          <ThumbPicker
             label={t('settings.appearance.theme')}
             items={[
-              { value: 'dark', label: t('common.theme.dark') },
-              { value: 'light', label: t('common.theme.light') },
-              { value: 'system', label: t('common.theme.system') },
+              { value: 'dark', label: t('common.theme.dark'), thumb: <ThemeThumb theme="dark" /> },
+              { value: 'light', label: t('common.theme.light'), thumb: <ThemeThumb theme="light" /> },
+              { value: 'system', label: t('common.theme.system'), thumb: <ThemeThumb theme="system" /> },
             ]}
             value={theme}
             onChange={setTheme}
@@ -41,16 +50,16 @@ export function AppearanceTab() {
         </Row>
         <Row
           label={t('settings.appearance.glass')}
+          stack
           hint={canRefract ? t('settings.appearance.glassHint') : undefined}
           warn={canRefract ? undefined : t('settings.appearance.glassWarn')}
         >
-          <Seg
-            glass={false}
+          <ThumbPicker
             label={t('settings.appearance.glass')}
             items={[
-              { value: 'refract', label: t('common.glass.refract') },
-              { value: 'frosted', label: t('common.glass.frosted') },
-              { value: 'solid', label: t('common.glass.solid') },
+              { value: 'refract', label: t('common.glass.refract'), thumb: <GlassThumb kind="refract" /> },
+              { value: 'frosted', label: t('common.glass.frosted'), thumb: <GlassThumb kind="frosted" /> },
+              { value: 'solid', label: t('common.glass.solid'), thumb: <GlassThumb kind="solid" /> },
             ]}
             value={glass}
             onChange={setGlass}
