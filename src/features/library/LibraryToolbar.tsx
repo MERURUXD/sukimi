@@ -115,7 +115,7 @@ export function LibraryToolbar({
   )
   const content = (
     <>
-      <Seg label={t('library.toolbar.panelTabs')} glass={false} items={PANEL_TABS} value={tab} onChange={setTab} className="grid w-full grid-cols-3 [&>button]:justify-center" />
+      <Seg label={t('library.toolbar.panelTabs')} glass={false} items={PANEL_TABS} value={tab} onChange={setTab} className="grid w-full shrink-0 grid-cols-3 [&>button]:justify-center" />
 
       {tab === 'filter' && (
         <>
