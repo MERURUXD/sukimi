@@ -12,7 +12,7 @@ import { t } from '@/i18n'
 export function NsfwSettings() {
   const { hide, bySource, blur, revealed, set } = useNsfwStore()
   return (
-    <Section title={t('settings.nsfw.title')} desc={t('settings.nsfw.desc')}>
+    <Section title={t('settings.nsfw.title')} desc={t('settings.nsfw.desc')} help={t('settings.nsfw.help')}>
       <Row label={t('settings.nsfw.hide')} hint={t('settings.nsfw.hideHint')}>
         <Switch label={t('settings.nsfw.hide')} on={hide} onChange={(v) => set({ hide: v })} />
       </Row>

@@ -1,59 +1,63 @@
-import { useId, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import type { HomeLayout } from '@/design/settings'
-import type { Fit, ReadMode, ReaderBg, TapZones } from '@/features/reader/settings'
-import { BGS } from '@/features/reader/settings'
+import type { Fit, ReadMode, TapZones } from '@/features/reader/settings'
 import { cn } from '@/lib/cn'
 
 export interface ThumbItem<T> {
   value: T
   label: string
-  thumb: ReactNode
+  /** 示意图；compact 时改用 icon，与文字排成一行 */
+  thumb?: ReactNode
+  icon?: ReactNode
 }
 
 /**
- * 能画出来的设置（主题、玻璃、布局、阅读方式）用小示意图来选，比一排文字直观。
- * 选中项外圈描边、文字加粗；整组放在标题下面左对齐，各行起点一致。
+ * 能画出来的设置（主题、玻璃、布局、阅读方式）用选项块来选：几个选项就把一行等分几份，
+ * 不再是一排固定大小的小方块、右边空一大截。选中项描边、文字加粗；未选中的不加边框。
+ * compact：方向、背景这类一个图标就说清的，图标和文字放一行，块更矮。
  */
 export function ThumbPicker<T extends string>({
   items,
   value,
   onChange,
   label,
+  compact,
 }: {
   items: ThumbItem<T>[]
   value: T
   onChange: (v: T) => void
   label: string
+  compact?: boolean
 }) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-x-2 gap-y-3 pt-1 pb-3">
+    <div role="group" aria-label={label} className="grid gap-2" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
       {items.map((it) => (
         <button
           key={it.value}
           type="button"
           aria-pressed={it.value === value}
           onClick={() => onChange(it.value)}
-          className="group flex w-[80px] flex-col md:w-[100px] items-center gap-1.5 rounded-[14px] pt-1 pb-0.5 outline-none"
+          className={cn(
+            'group flex min-w-0 items-center justify-center rounded-[14px] bg-accent-soft text-[13px] leading-tight text-muted outline-none transition-colors',
+            'shadow-[inset_0_0_0_1.5px_transparent] hover:text-text aria-pressed:font-semibold aria-pressed:text-text aria-pressed:shadow-[inset_0_0_0_1.5px_var(--accent)]',
+            // 焦点圈画在块外面一层，选中项拿到焦点时也看得出来
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-muted',
+            compact ? 'min-h-11 gap-2 px-2 py-2.5' : 'flex-col gap-1.5 px-1.5 pt-2.5 pb-2',
+          )}
         >
-          <span
-            className={cn(
-              'block h-[50px] w-[72px] overflow-hidden rounded-[10px] md:h-[64px] md:w-[92px] md:rounded-[12px] bg-accent-soft shadow-[inset_0_0_0_1px_var(--line)] outline-2 outline-offset-2 outline-transparent transition-[outline-color]',
-              // 焦点圈画在描边外面一层，选中项拿到焦点时也看得出来
-              'group-hover:outline-line group-aria-pressed:outline-accent group-focus-visible:shadow-[inset_0_0_0_1px_var(--line),0_0_0_6px_var(--muted)]',
-            )}
-          >
-            {it.thumb}
-          </span>
-          <span className="text-center text-xs leading-tight text-muted transition-colors group-hover:text-text group-aria-pressed:font-semibold group-aria-pressed:text-text">
-            {it.label}
-          </span>
+          {compact ? (
+            it.icon
+          ) : (
+            <span className="block h-[38px] w-[56px] flex-none overflow-hidden rounded-[8px] bg-bg shadow-[inset_0_0_0_1px_var(--line)] md:h-[44px] md:w-[64px]">{it.thumb}</span>
+          )}
+          <span className="min-w-0 text-center break-words">{it.label}</span>
         </button>
       ))}
     </div>
   )
 }
 
-/** 64×44 的画布；线条和色块都跟着主题取色，主题和阅读背景这类本身就是颜色的除外 */
+/** 64×44 的画布；线条和色块都跟着主题取色，主题这类本身就是颜色的除外 */
 function Canvas({ children }: { children: ReactNode }) {
   return (
     <svg viewBox="0 0 64 44" className="block size-full" aria-hidden>
@@ -88,68 +92,6 @@ export function ThemeThumb({ theme }: { theme: 'light' | 'dark' | 'system' }) {
           <rect x="8" y="17" width="48" height="19" rx="4" fill={THEME_COLORS[theme].card} />
         </>
       )}
-    </Canvas>
-  )
-}
-
-/**
- * 一排封面上浮着一条导航玻璃，和应用里玻璃的实际用法一致：
- * 液态是透镜放大背后的封面并带亮边，毛玻璃把背后糊开，不透明直接盖住
- */
-export function GlassThumb({ kind }: { kind: 'refract' | 'frosted' | 'solid' }) {
-  const id = useId()
-  // 封面上的浅色横条是标题位置，透镜放大后能看出它变粗、错位
-  const covers = (
-    <g>
-      {[
-        [2, '#9aa1ab'],
-        [23, '#c7ad89'],
-        [44, '#6c7380'],
-      ].map(([x, c]) => (
-        <g key={x}>
-          <rect x={x} y="3" width="18" height="38" rx="3" fill={c as string} />
-          <rect x={(x as number) + 3} y="29" width="12" height="3" rx="1.5" fill="#fff" fillOpacity=".55" />
-        </g>
-      ))}
-    </g>
-  )
-  const bar = { x: 7, y: 23, w: 50, h: 15, r: 7.5 }
-  return (
-    <Canvas>
-      <defs>
-        <clipPath id={`${id}c`}>
-          <rect x={bar.x} y={bar.y} width={bar.w} height={bar.h} rx={bar.r} />
-        </clipPath>
-        <filter id={`${id}b`} x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" />
-        </filter>
-      </defs>
-      {covers}
-      {kind === 'solid' ? (
-        <rect x={bar.x} y={bar.y} width={bar.w} height={bar.h} rx={bar.r} className="fill-solid" />
-      ) : (
-        <g clipPath={`url(#${id}c)`}>
-          {kind === 'refract' ? (
-            <g transform="translate(32 30.5) scale(1.55) translate(-32 -30.5)">{covers}</g>
-          ) : (
-            <g filter={`url(#${id}b)`}>{covers}</g>
-          )}
-          <rect width="64" height="44" fill="#fff" fillOpacity={kind === 'refract' ? 0.06 : 0.4} />
-        </g>
-      )}
-      {kind === 'refract' && (
-        <>
-          {/* 上沿亮、下沿暗，看上去是有厚度的透镜 */}
-          <rect x={bar.x + 0.5} y={bar.y + 0.5} width={bar.w - 1} height={bar.h - 1} rx={bar.r - 0.5} fill="none" stroke="#000" strokeOpacity=".25" strokeWidth="1" />
-          <path d={`M${bar.x + bar.r} ${bar.y + 0.7}H${bar.x + bar.w - bar.r}`} stroke="#fff" strokeOpacity=".95" strokeWidth="1.2" strokeLinecap="round" />
-          <rect x={bar.x + 0.5} y={bar.y + 0.5} width={bar.w - 1} height={bar.h - 1} rx={bar.r - 0.5} fill="none" stroke="#fff" strokeOpacity=".45" strokeWidth=".8" />
-        </>
-      )}
-      <g className={kind === 'solid' ? 'fill-on-solid' : 'fill-white'} opacity=".85">
-        <circle cx="19" cy="30.5" r="1.6" />
-        <circle cx="32" cy="30.5" r="1.6" />
-        <circle cx="45" cy="30.5" r="1.6" />
-      </g>
     </Canvas>
   )
 }
@@ -228,24 +170,6 @@ export function ModeThumb({ mode }: { mode: ReadMode }) {
   )
 }
 
-export function DirThumb({ dir }: { dir: 'rtl' | 'ltr' }) {
-  return (
-    <Canvas>
-      {/* 先读的那页颜色深，箭头指向往后翻的方向 */}
-      <rect x="14" y="7" width="17.5" height="24" rx="2" className={dir === 'ltr' ? block : soft} />
-      <rect x="32.5" y="7" width="17.5" height="24" rx="2" className={dir === 'rtl' ? block : soft} />
-      <path
-        d={dir === 'rtl' ? 'M42 37.5H22m4-3-4 3 4 3' : 'M22 37.5h20m-4-3 4 3-4 3'}
-        className="stroke-muted"
-        strokeWidth="1.5"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Canvas>
-  )
-}
-
 /** 虚线是屏幕，色块是漫画页；超出屏幕的部分照画，表示要滚动 */
 export function FitThumb({ fit }: { fit: Fit }) {
   return (
@@ -288,15 +212,6 @@ export function TapThumb({ zones }: { zones: TapZones }) {
         </g>
       )}
       {zones === 'off' && <path d="M26 16l12 12M38 16 26 28" className="stroke-muted" strokeWidth="1.5" strokeLinecap="round" />}
-    </Canvas>
-  )
-}
-
-export function BgThumb({ bg }: { bg: ReaderBg }) {
-  return (
-    <Canvas>
-      <rect width="64" height="44" fill={BGS.find((b) => b.value === bg)?.color} />
-      <rect x="23" y="6" width="18" height="32" rx="2" fill="#8a8a8f" />
     </Canvas>
   )
 }

@@ -1,4 +1,4 @@
-import { RotateCcw } from 'lucide-react'
+import { CloudFog, Droplet, RotateCcw, Square } from 'lucide-react'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
@@ -6,7 +6,7 @@ import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Dropdown, Row, Section, Switch } from '../parts'
-import { ThumbPicker, GlassThumb, ThemeThumb } from '../thumbs'
+import { ThumbPicker, ThemeThumb } from '../thumbs'
 import { readLocalePref, setLocalePref, t, type LocalePref } from '@/i18n'
 
 export function AppearanceTab() {
@@ -20,7 +20,7 @@ export function AppearanceTab() {
 
   return (
     <>
-      <Section title={t('settings.appearance.title')} desc={t('settings.appearance.desc')}>
+      <Section title={t('settings.appearance.title')} desc={t('settings.appearance.desc')} help={t('settings.appearance.help')}>
         <Row label={t('settings.language.label')} hint={t('settings.language.hint')}>
           <Dropdown<LocalePref>
             label={t('settings.language.label')}
@@ -49,15 +49,16 @@ export function AppearanceTab() {
         <Row
           label={t('settings.appearance.glass')}
           stack
-          hint={canRefract ? t('settings.appearance.glassHint') : undefined}
+          help={canRefract ? t('settings.appearance.glassHint') : undefined}
           warn={canRefract ? undefined : t('settings.appearance.glassWarn')}
         >
           <ThumbPicker
+            compact
             label={t('settings.appearance.glass')}
             items={[
-              { value: 'refract', label: t('common.glass.refract'), thumb: <GlassThumb kind="refract" /> },
-              { value: 'frosted', label: t('common.glass.frosted'), thumb: <GlassThumb kind="frosted" /> },
-              { value: 'solid', label: t('common.glass.solid'), thumb: <GlassThumb kind="solid" /> },
+              { value: 'refract', label: t('common.glass.refract'), icon: <Droplet className="size-4 flex-none" strokeWidth={1.8} /> },
+              { value: 'frosted', label: t('common.glass.frosted'), icon: <CloudFog className="size-4 flex-none" strokeWidth={1.8} /> },
+              { value: 'solid', label: t('common.glass.solid'), icon: <Square className="size-4 flex-none" strokeWidth={1.8} /> },
             ]}
             value={glass}
             onChange={setGlass}
@@ -96,16 +97,16 @@ export function AppearanceTab() {
         </Row>
       </Section>
 
-      <Section title={t('settings.appearance.topbar')} desc={t('settings.appearance.topbarDesc')}>
+      <Section title={t('settings.appearance.topbar')}>
         <Row label={t('settings.appearance.autoHideNav')} hint={t('settings.appearance.autoHideNavHint')}>
-          <Switch on={autoHideNav} onChange={setAutoHideNav} label={t('settings.appearance.autoHideNav')} />
+          <Switch on={autoHideNav} onChange={setAutoHideNav} label={t('settings.appearance.autoHideNavAria')} />
         </Row>
         <Row
           label={t('settings.appearance.navBlur')}
           hint={t('settings.appearance.navBlurHint')}
           warn={t('settings.appearance.navBlurWarn')}
         >
-          <Switch on={navBlur} onChange={setNavBlur} label={t('settings.appearance.navBlur')} />
+          <Switch on={navBlur} onChange={setNavBlur} label={t('settings.appearance.navBlurAria')} />
         </Row>
       </Section>
 

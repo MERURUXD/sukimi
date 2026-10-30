@@ -56,7 +56,7 @@ export function HomeTab() {
   return (
     <>
       <Section title={t('cfg.home.layout')} desc={t('cfg.home.layoutDesc')} help={t('cfg.home.layoutHelp')}>
-        <div className="grid gap-x-8 gap-y-2 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
           <Row label={t('cfg.home.mobile')} stack>
             <ThumbPicker
               label={t('cfg.home.mobileLayout')}
