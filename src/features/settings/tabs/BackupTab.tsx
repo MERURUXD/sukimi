@@ -79,7 +79,7 @@ function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => 
       <label className="flex items-start justify-between gap-4">
         <span>
           {tl('cfg.backup.serverRestore')}
-          <span className="block text-[13px] text-muted">{tl('cfg.backup.serverRestoreHint')}</span>
+          <span className="mt-0.5 block text-[13px] leading-snug text-muted">{tl('cfg.backup.serverRestoreHint')}</span>
         </span>
         <Switch
           label={tl('cfg.backup.serverRestore')}
@@ -93,7 +93,7 @@ function RestoreOptionsPicker({ onServer, onUser }: { onServer: (v: boolean) => 
       <label className="flex items-start justify-between gap-4">
         <span>
           {tl('cfg.backup.userRestore')}
-          <span className="block text-[13px] text-muted">{tl('cfg.backup.userRestoreHint')}</span>
+          <span className="mt-0.5 block text-[13px] leading-snug text-muted">{tl('cfg.backup.userRestoreHint')}</span>
         </span>
         <Switch
           label={tl('cfg.backup.userRestore')}
@@ -117,7 +117,7 @@ export function BackupTab() {
       <ManualBackup />
 
       <RequireSettings>
-        <Section title={tl('cfg.backup.autoTitle')} desc={tl('cfg.backup.autoDesc')}>
+        <Section title={tl('cfg.backup.autoTitle')} desc={tl('cfg.backup.autoDesc')} help={tl('cfg.sharedHelp')}>
           <SNumber k="backupInterval" label={tl('cfg.backup.interval')} unit={tl('cfg.backup.days')} min={0} hint={tl('cfg.backup.intervalHint')} />
           <SText k="backupTime" label={tl('cfg.backup.time')} type="time" width="w-[140px]" hint={tl('cfg.backup.timeHint')} />
           <SNumber k="backupTTL" label={tl('cfg.backup.ttl')} unit={tl('cfg.backup.days')} min={0} hint={tl('cfg.backup.ttlHint')} />
@@ -138,7 +138,6 @@ export function BackupTab() {
             <SSwitch
               k="autoBackupIncludeUserSettings"
               label={tl('cfg.backup.userSettings')}
-              hint={tl('cfg.backup.userSettingsHint')}
               help={tl('cfg.backup.userSettingsHelp')}
             />
           )}
@@ -238,13 +237,13 @@ function ManualBackup() {
 
   return (
     <Section title={tl('cfg.backup.title')} desc={tl('cfg.backup.desc')}>
-      <Row label={tl('cfg.backup.now')} hint={tl('cfg.backup.nowHint')}>
+      <Row label={tl('cfg.backup.now')} help={tl('cfg.backup.nowHint')}>
         <button type="button" className="solid min-h-11" onClick={() => void backupNow()} disabled={creating}>
           <DatabaseBackup className="size-[18px]" strokeWidth={2} />
           {creating ? tl('cfg.backup.creating') : tl('cfg.backup.createBtn')}
         </button>
       </Row>
-      <Row label={tl('cfg.backup.fromFile')} hint={tl('cfg.backup.fromFileHint')}>
+      <Row label={tl('cfg.backup.fromFile')} help={tl('cfg.backup.fromFileHint')}>
         <button type="button" className="gbtn plain rounded-full" onClick={() => fileRef.current?.click()} disabled={!!restore && !finished}>
           <Upload className="size-[18px]" strokeWidth={1.8} />
           {tl('cfg.backup.pick')}

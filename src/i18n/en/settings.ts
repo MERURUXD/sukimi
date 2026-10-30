@@ -80,7 +80,7 @@ export default {
     browse: { label: 'Sources & extensions', desc: 'Extension repositories, Cloudflare, cache' },
     backup: { label: 'Backup', desc: 'Backup and restore, automatic backups' },
     sync: { label: 'Sync', desc: 'SyncYomi, KOReader' },
-    tracking: { label: 'Tracking', desc: 'AniList, MyAnimeList and more; syncs reading progress' },
+    tracking: { label: 'Tracking', desc: 'AniList, MyAnimeList and other trackers' },
     server: { label: 'Server', desc: 'Network, sign-in, proxy, logs, OPDS' },
     users: { label: 'Users', desc: 'Invite new users, permissions, recovery codes' },
     about: { label: 'About', desc: 'Version, update check, sign out' },

@@ -81,7 +81,7 @@ export default {
     browse: { label: '来源与扩展', desc: '扩展仓库、Cloudflare、缓存' },
     backup: { label: '备份', desc: '备份与恢复、自动备份' },
     sync: { label: '同步', desc: 'SyncYomi、KOReader' },
-    tracking: { label: '追踪', desc: 'AniList、MyAnimeList 等，同步阅读进度' },
+    tracking: { label: '追踪', desc: 'AniList、MyAnimeList 等追踪服务' },
     server: { label: '服务端', desc: '网络、登录、代理、日志、OPDS' },
     users: { label: '用户', desc: '邀请新用户、权限、找回码' },
     about: { label: '关于', desc: '版本、检查更新、退出登录' },

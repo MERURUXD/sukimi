@@ -13,7 +13,7 @@ const NOTICE = t('settings.gate.notice')
 /** 整页都是服务端设置：没有权限就只显示说明 */
 export function SettingsGate({ children }: { children: ReactNode }) {
   const can = useCanManageSettings()
-  return can ? children : <p className="text-muted">{NOTICE}</p>
+  return can ? children : <p className="mb-8 max-w-[62ch] text-[13px] leading-snug text-muted">{NOTICE}</p>
 }
 
 /** 一整块服务端设置：没有权限就隐藏 */
@@ -23,5 +23,5 @@ export function RequireSettings({ children }: { children: ReactNode }) {
 
 /** 页内混有个人内容与服务端设置时，在顶部给一行说明 */
 export function SettingsNotice() {
-  return useCanManageSettings() ? null : <p className="text-muted">{NOTICE}</p>
+  return useCanManageSettings() ? null : <p className="mb-8 max-w-[62ch] text-[13px] leading-snug text-muted">{NOTICE}</p>
 }

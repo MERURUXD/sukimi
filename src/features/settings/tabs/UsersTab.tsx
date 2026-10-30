@@ -127,7 +127,7 @@ function IssuedCode({ issued, onClose }: { issued: Issued; onClose: () => void }
   const link = issued.kind === 'register' ? registerLink(window.location.origin, issued.code) : null
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-sm text-muted">
+      <div className="text-[13px] leading-snug text-muted">
         {t('cfg.users.shownOnce', { what: issued.kind === 'register' ? t('cfg.users.regCode') : t('cfg.users.recoveryOf', { name: issued.username }), expiry: codeExpiryText(issued.expiresAt) })}
       </div>
       <code className="font-mono text-lg break-all select-all">{issued.code}</code>
@@ -203,8 +203,8 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
 
   return (
     <Section title={t('cfg.users.title')} desc={t('cfg.users.desc')}>
-      <div className="flex flex-col gap-5">
-        {!users && <span className="text-muted">…</span>}
+      <div className="flex flex-col gap-4">
+        {!users && <span className="text-[13px] text-muted">…</span>}
         {users?.map((u) => (
           <div key={u.id} className="flex flex-col gap-3">
             <Row
@@ -222,7 +222,7 @@ function UserListSection({ onIssued }: { onIssued: (i: Issued) => void }) {
               }
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted">{u.roles.map((r) => ROLE_LABEL[r]).join(t('cfg.sep'))}</span>
+                <span className="text-[13px] text-muted">{u.roles.map((r) => ROLE_LABEL[r]).join(t('cfg.sep'))}</span>
                 {u.id !== BUILTIN_ADMIN_ID && u.id !== selfId && (
                   <>
                     <button type="button" className="gbtn plain rounded-full" onClick={() => setEditing(editing === u.id ? null : u.id)}>
@@ -273,26 +273,24 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
   return (
     <div className="flex flex-col gap-4 pl-1 md:pl-4">
       {isAdmin && (
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold">{t('cfg.users.role')}</span>
+        <Row label={t('cfg.users.role')}>
           <Dropdown
             label={t('cfg.users.role')}
             value={role}
             onChange={setRole}
             className="min-w-[160px]"
-            align="left"
             options={[
               { value: 'USER', label: ROLE_LABEL.USER },
               { value: 'ADMIN', label: ROLE_LABEL.ADMIN },
               ...(role === 'VISITOR' ? [{ value: 'VISITOR' as const, label: ROLE_LABEL.VISITOR }] : []),
             ]}
           />
-        </div>
+        </Row>
       )}
       {role === 'ADMIN' ? (
-        <p className="m-0 text-sm text-muted">{t('cfg.users.adminNote')}</p>
+        <p className="m-0 text-[13px] leading-snug text-muted">{t('cfg.users.adminNote')}</p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {ALL_PERMISSIONS.map((p) => (
             <Row key={p} label={PERMISSION_LABEL[p]}>
               <Switch on={perms.has(p)} onChange={() => toggle(p)} label={PERMISSION_LABEL[p]} />
@@ -301,7 +299,7 @@ function EditUser({ user, onDone }: { user: { id: number; username: string; role
         </div>
       )}
       <div className="flex gap-2">
-        <button type="button" className="solid" disabled={loading} onClick={() => void submit()}>
+        <button type="button" className="solid min-h-11" disabled={loading} onClick={() => void submit()}>
           {loading ? t('cfg.users.saving') : t('cfg.users.save')}
         </button>
         <button type="button" className="gbtn plain rounded-full" onClick={onDone}>
@@ -329,8 +327,8 @@ function CodesSection() {
   if (codes?.length === 0) return null
   return (
     <Section title={t('cfg.users.unusedTitle')} desc={t('cfg.users.unusedDesc')}>
-      <div className="flex flex-col gap-3">
-        {!codes && <span className="text-muted">…</span>}
+      <div className="flex flex-col gap-4">
+        {!codes && <span className="text-[13px] text-muted">…</span>}
         {codes?.map((c) => (
           <Row
             key={c.id}
@@ -374,7 +372,7 @@ function CreateUserSection() {
           <TextInput placeholder={t('cfg.username')} autoComplete="off" value={username} onChange={(e) => setUsername(e.target.value)} />
           <TextInput type="password" placeholder={t('cfg.users.initPw')} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           <div className="flex gap-2">
-            <button className="solid" disabled={loading || !username.trim() || !password}>
+            <button className="solid min-h-11" disabled={loading || !username.trim() || !password}>
               {loading ? t('cfg.users.creating') : t('cfg.users.create')}
             </button>
             <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(false)}>
@@ -386,7 +384,7 @@ function CreateUserSection() {
         <Row label={t('cfg.users.createRow')}>
           <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(true)}>
             <UserPlus className="size-[18px]" strokeWidth={1.8} />
-            {t('cfg.users.createRow')}
+            {t('cfg.users.create')}
           </button>
         </Row>
       )}

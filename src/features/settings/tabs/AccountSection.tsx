@@ -49,7 +49,7 @@ function ChangePassword() {
 
   if (!open) {
     return (
-      <Row label={t('cfg.account.changePw')} hint={t('cfg.account.changePwHint')}>
+      <Row label={t('cfg.password')} hint={t('cfg.account.changePwHint')}>
         <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(true)}>
           <KeyRound className="size-[18px]" strokeWidth={1.8} />
           {t('cfg.account.changePw')}
@@ -60,7 +60,7 @@ function ChangePassword() {
 
   return (
     <form onSubmit={submit} className="flex max-w-[360px] flex-col gap-3">
-      <div className="font-semibold">{t('cfg.account.changePw')}</div>
+      <div className="font-medium">{t('cfg.account.changePw')}</div>
       <TextInput type="password" placeholder={t('cfg.account.oldPw')} autoComplete="current-password" value={oldPassword} onChange={(e) => setOld(e.target.value)} />
       <TextInput type="password" placeholder={t('cfg.account.newPw')} autoComplete="new-password" value={newPassword} onChange={(e) => setNew(e.target.value)} />
       <TextInput type="password" placeholder={t('cfg.account.againPw')} autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
@@ -68,7 +68,7 @@ function ChangePassword() {
         {mismatch ? t('cfg.account.mismatch') : newPassword && newPassword === oldPassword ? t('cfg.account.same') : ''}
       </p>
       <div className="flex gap-2">
-        <button className="solid" disabled={!ready || loading}>
+        <button className="solid min-h-11" disabled={!ready || loading}>
           {loading ? t('cfg.account.changing') : t('cfg.account.confirmChange')}
         </button>
         <button type="button" className="gbtn plain rounded-full" onClick={() => setOpen(false)}>
@@ -94,7 +94,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
       )}
       {multi &&
         (user.id === BUILTIN_ADMIN_ID ? (
-          <Row label={t('cfg.account.changePw')} hint={t('cfg.account.builtinPw')} />
+          <Row label={t('cfg.password')} hint={t('cfg.account.builtinPw')} />
         ) : (
           <ChangePassword />
         ))}
@@ -108,7 +108,7 @@ export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
             }}
           >
             <LogOut className="size-[18px]" strokeWidth={1.8} />
-            {t('cfg.account.signOut')}
+            {t('cfg.account.signOutOk')}
           </button>
         </Row>
       )}
