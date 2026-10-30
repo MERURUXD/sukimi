@@ -99,36 +99,29 @@ test('页面主题：画廊深色保持兼容，重叠页面按挂载顺序生�
   assert.equal(f.themeForced(), false)
 })
 
-test('玻璃参数：深浅模式分别保存预设和滑块，恢复默认只影响当前模式', () => {
+test('玻璃参数：只保留通透，深浅模式分别保存滑块，恢复默认只影响当前模式', () => {
   const { store, defaults } = glassFixture()
   const state = () => store.getState()
   for (const [theme, tint] of [['light', 60], ['dark', 20]]) {
     const fresh = glassFixture(theme).store.getState()
-    assert.equal(fresh.tone, 'veil')
+    assert.equal('tone' in fresh, false)
+    assert.equal('switchPreset' in fresh, false)
+    assert.equal('saved' in fresh, false)
     assert.equal(fresh.tint, tint)
     assert.equal(fresh.denseTint, tint)
     assert.equal(fresh.blur, 2)
     assert.equal(fresh.denseBlur, 2)
   }
-  state().switchPreset('tint')
   state().set({ strength: 0.4 })
-  state().switchPreset('veil')
-  assert.equal(state().tint, 60, '未保存的通透参数随当前主题选择')
   state().set({ blur: 9 })
   state().setTheme('dark')
-  assert.equal(state().tone, 'veil')
   assert.equal(state().strength, defaults.strength)
-  state().switchPreset('tint')
   state().set({ tint: 65 })
-  state().switchPreset('veil')
   state().set({ blur: 15 })
   state().setTheme('light')
-  assert.equal(state().tone, 'veil')
   assert.equal(state().blur, 9)
-  state().switchPreset('tint')
   assert.equal(state().strength, 0.4)
   state().reset()
-  assert.equal(state().tone, 'veil')
   assert.equal(state().tint, 60)
   assert.equal(state().denseTint, 60)
   assert.equal(state().blur, 2)
@@ -136,34 +129,84 @@ test('玻璃参数：深浅模式分别保存预设和滑块，恢复默认只�
   assert.equal(state().strength, defaults.strength)
   state().setTheme('dark')
   assert.equal(state().blur, 15)
-  state().switchPreset('tint')
   assert.equal(state().tint, 65)
   state().reset()
-  assert.equal(state().tone, 'veil')
   assert.equal(state().tint, 20)
   assert.equal(state().denseTint, 20)
   assert.equal(state().blur, 2)
   assert.equal(state().denseBlur, 2)
 })
 
-test('玻璃参数：旧存储迁移保留两个预设，刷新时选择当前生效主题', () => {
+test('玻璃参数：旧共用存储保留通透参数，刷新时选择当前生效主题', () => {
   const original = glassFixture()
   const legacy = { ...original.defaults, tone: 'veil', blur: 11, saved: { tint: { ...original.defaults, tint: 70 } } }
   const { store, data } = glassFixture('dark', { version: 1, state: legacy })
   assert.equal(store.getState().blur, 11)
   store.getState().setTheme('light')
   assert.equal(store.getState().blur, 11)
-  store.getState().switchPreset('tint')
-  assert.equal(store.getState().tint, 70)
   store.getState().set({ strength: 0.25 })
   const persisted = JSON.parse(data.get('suwayomi-web.glass.demo'))
-  assert.equal(persisted.version, 2)
+  assert.equal(persisted.version, 3)
+  assert.equal('tone' in persisted.state.profiles.light, false)
+  assert.equal('saved' in persisted.state.profiles.light, false)
   assert.equal(data.size, 1)
   const reloaded = glassFixture('light', persisted).store
   assert.equal(reloaded.getState().strength, 0.25)
   reloaded.getState().setTheme('dark')
-  assert.equal(reloaded.getState().tone, 'veil')
   assert.equal(reloaded.getState().blur, 11)
+})
+
+test('玻璃参数：旧经典配置恢复缓存的通透，缺少缓存时按主题使用通透默认值', () => {
+  const { defaults } = glassFixture()
+  const saved = { version: 2, state: { profiles: {
+    light: { ...defaults, tone: 'tint', strength: 0.1, tint: 95, saved: { veil: { ...defaults, blur: 8, tint: 55 } } },
+    dark: { ...defaults, tone: 'tint', strength: 0.2, tint: 90, saved: {} },
+  } } }
+  const { store, data } = glassFixture('light', saved)
+  assert.equal(store.getState().blur, 8)
+  assert.equal(store.getState().tint, 55)
+  assert.equal(store.getState().strength, defaults.strength)
+  store.getState().setTheme('dark')
+  assert.equal(store.getState().tint, 20)
+  assert.equal(store.getState().strength, defaults.strength)
+  assert.equal(store.getState().blur, 2)
+  const persisted = JSON.parse(data.get('suwayomi-web.glass.demo'))
+  assert.equal(persisted.version, 3)
+  for (const profile of Object.values(persisted.state.profiles)) {
+    assert.equal('tone' in profile, false)
+    assert.equal('saved' in profile, false)
+  }
+  const reloaded = glassFixture('light', persisted).store
+  assert.equal(reloaded.getState().blur, 8)
+  assert.equal(reloaded.getState().tint, 55)
+
+  for (const version of [0, 1]) {
+    for (const tone of [undefined, 'tint']) {
+      for (const [theme, tint] of [['light', 60], ['dark', 20]]) {
+        const legacy = { ...defaults, tint: 95, strength: 0.1 }
+        if (tone) legacy.tone = tone
+        const fresh = glassFixture(theme, { version, state: legacy }).store.getState()
+        assert.equal(fresh.tint, tint)
+        assert.equal(fresh.strength, defaults.strength)
+      }
+    }
+  }
+})
+
+test('玻璃参数：分主题存储保留当前通透自定义值，缺少主题时补全默认参数', () => {
+  const { defaults } = glassFixture()
+  const saved = { version: 2, state: { profiles: {
+    light: { ...defaults, tone: 'veil', tint: 75, denseBlur: 12, saved: { tint: { tint: 90 } } },
+  } } }
+  const { store } = glassFixture('light', saved)
+  assert.equal(store.getState().tint, 75)
+  assert.equal(store.getState().denseBlur, 12)
+  store.getState().setTheme('dark')
+  assert.equal(store.getState().tint, 20)
+  assert.equal(store.getState().denseBlur, 2)
+  store.getState().setTheme('light')
+  assert.equal(store.getState().tint, 75)
+  assert.equal(store.getState().denseBlur, 12)
 })
 
 test('共用设置组件：帮助可访问、支持 Escape 关闭，保存失败常驻反馈', () => {

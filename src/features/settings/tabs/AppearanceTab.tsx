@@ -15,8 +15,6 @@ export function AppearanceTab() {
     setTheme, setGlass, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
-  const tone = useGlassTuning((s) => s.tone)
-  const switchPreset = useGlassTuning((s) => s.switchPreset)
   const glassTheme = useGlassTuning((s) => s.theme)
   const canRefract = supportsRefract()
 
@@ -141,22 +139,7 @@ export function AppearanceTab() {
               />
               <span className="text-[13px] text-faint">{t('settings.appearance.tuneModeHint')}</span>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm">{t('settings.appearance.preset')}</span>
-              <Seg
-                glass={false}
-                label={t('settings.appearance.presetAria')}
-                items={[
-                  { value: 'tint', label: t('settings.appearance.presetDefault') },
-                  { value: 'veil', label: t('settings.appearance.presetVeil') },
-                ]}
-                value={tone}
-                onChange={switchPreset}
-              />
-              <span className="text-[13px] text-faint">
-                {t('settings.appearance.presetHint')}
-              </span>
-            </div>
+            <p className="m-0 text-[13px] text-faint">{t('settings.appearance.tuningHint')}</p>
             <GlassSliders />
           </div>
         </div>

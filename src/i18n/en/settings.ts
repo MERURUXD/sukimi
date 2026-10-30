@@ -41,11 +41,7 @@ export default {
     tuneMode: 'Tuning mode',
     tuneModeAria: 'Glass tuning mode',
     tuneModeHint: 'Switching also previews that theme. With "Follow system", the matching parameters are used automatically.',
-    preset: 'Preset',
-    presetAria: 'Glass feel preset',
-    presetDefault: 'Classic',
-    presetVeil: 'Clear (default)',
-    presetHint: 'Clear: brightens or darkens the background inside the blur, with a neutral white / near-black base. Defaults: 60% tint in light mode, 20% in dark mode, and 2px blur for regular glass and floating bars. Each mode remembers its sliders per preset; "Restore defaults" resets only the current mode to Clear.',
+    tuningHint: 'Clear: brightens or darkens the background inside the blur, with a neutral white / near-black base. Defaults: 60% tint in light mode, 20% in dark mode, and 2px blur for regular glass and floating bars. Light and dark modes remember their sliders separately; "Restore defaults" resets only the current mode.',
   },
   nsfw: {
     title: 'Privacy',

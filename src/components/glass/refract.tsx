@@ -5,10 +5,9 @@
  * - 中间区域不位移，保持通透；
  * - 只有沿边缘一圈「透镜带」会把内容向外拉伸（越靠外缘越强，曲线由 falloff 控制）；
  * - 始终从内侧取样，不会取到元素外面的透明像素而出现黑边。
- * 最早基于 React Bits「GlassSurface」（MIT + Commons Clause, © David Haz）的滤镜结构，
- * 位移图与参数已完全重写。
+ * 色散先把输入拆为单色光，再分别沿透镜位移，最后用加法还原 RGB。
  */
-import { useLayoutEffect, useRef, type RefObject } from 'react'
+import { Fragment, useLayoutEffect, useRef, type RefObject } from 'react'
 
 export interface LensOptions {
   bezel: number
@@ -168,15 +167,26 @@ export function LensFilter({
           <feImage ref={feImage} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map" />
           {dispersion > 0 ? (
             <>
-              {/* 色散：三个通道的位移量略有差别，只在透镜带里可见 */}
-              <feDisplacementMap data-extra={-dispersion} in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G" result="dr" />
-              <feColorMatrix in="dr" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="r" />
-              <feDisplacementMap data-extra={0} in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G" result="dg" />
-              <feColorMatrix in="dg" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="g" />
-              <feDisplacementMap data-extra={dispersion} in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G" result="db" />
-              <feColorMatrix in="db" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="b" />
-              <feBlend in="r" in2="g" mode="screen" result="rg" />
-              <feBlend in="rg" in2="b" mode="screen" />
+              {(['R', 'G', 'B'] as const).map((channel, index) => (
+                <Fragment key={channel}>
+                  <feComponentTransfer in="SourceGraphic" result={`input-${channel}`}>
+                    <feFuncR type="linear" slope={channel === 'R' ? 1 : 0} />
+                    <feFuncG type="linear" slope={channel === 'G' ? 1 : 0} />
+                    <feFuncB type="linear" slope={channel === 'B' ? 1 : 0} />
+                  </feComponentTransfer>
+                  <feDisplacementMap
+                    in={`input-${channel}`}
+                    in2="map"
+                    xChannelSelector="R"
+                    yChannelSelector="G"
+                    data-extra={(index - 1) * dispersion}
+                    result={`lens-${channel}`}
+                  />
+                </Fragment>
+              ))}
+              {/* 单色通道互不重叠，加法合成不会把封面的颜色混成新的色调。 */}
+              <feComposite in="lens-R" in2="lens-G" operator="arithmetic" k2={1} k3={1} result="red-green" />
+              <feComposite in="red-green" in2="lens-B" operator="arithmetic" k2={1} k3={1} />
             </>
           ) : (
             <feDisplacementMap data-extra={0} in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G" />
