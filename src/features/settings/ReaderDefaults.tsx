@@ -7,8 +7,9 @@ import { ClearReaderMeta, ReaderMetaIndex } from '@/features/reader/queries'
 import { DEVICE_LABEL, READER_META_PREFIX, hasReaderMeta } from '@/features/reader/remote'
 import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, deviceKind, settleReaderWrites, uncacheReaderMeta, useMigrateReaderPrefs, useReaderStore } from '@/features/reader/settings'
 import { wakeLockSupported } from '@/features/reader/wakeLock'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { Row, Section, Switch } from './parts'
-import { ThumbPicker, BgThumb, DirThumb, FitThumb, ModeThumb, TapThumb } from './thumbs'
+import { ThumbPicker, FitThumb, ModeThumb, TapThumb } from './thumbs'
 import { t } from '@/i18n'
 
 /** 阅读器的全局默认值，分成三组；「按漫画记住」开着时，单部漫画里改过的模式 / 方向 / 缩放会覆盖这里 */
@@ -63,16 +64,17 @@ export function ReaderDefaults() {
 
   return (
     <>
-      <Section title={t('cfg.reader.way')} desc={t('cfg.reader.wayDesc')}>
+      <Section title={t('cfg.reader.way')} desc={t('cfg.reader.wayDesc')} help={t('cfg.reader.wayHelp')}>
         <Row label={t('reader.panel.mode')} stack>
           <ThumbPicker label={t('reader.panel.mode')} items={MODES.map((m) => ({ ...m, thumb: <ModeThumb mode={m.value} /> }))} value={d.mode} onChange={(mode) => set({ mode })} />
         </Row>
         <Row label={t('reader.panel.dir')} hint={t('cfg.reader.dirHint')} stack>
           <ThumbPicker
+            compact
             label={t('reader.panel.dir')}
             items={[
-              { value: 'rtl', label: t('cfg.reader.rtl'), thumb: <DirThumb dir="rtl" /> },
-              { value: 'ltr', label: t('cfg.reader.ltr'), thumb: <DirThumb dir="ltr" /> },
+              { value: 'rtl', label: t('cfg.reader.rtl'), icon: <ArrowLeft className="size-4 flex-none" strokeWidth={1.8} /> },
+              { value: 'ltr', label: t('cfg.reader.ltr'), icon: <ArrowRight className="size-4 flex-none" strokeWidth={1.8} /> },
             ]}
             value={d.dir}
             onChange={(dir) => set({ dir })}
@@ -91,7 +93,13 @@ export function ReaderDefaults() {
 
       <Section title={t('cfg.reader.page')}>
         <Row label={t('reader.panel.background')} stack>
-          <ThumbPicker label={t('reader.panel.background')} items={BGS.map((b) => ({ ...b, thumb: <BgThumb bg={b.value} /> }))} value={d.bg} onChange={(bg) => set({ bg })} />
+          <ThumbPicker
+            compact
+            label={t('reader.panel.background')}
+            items={BGS.map((b) => ({ ...b, icon: <span className="size-4 flex-none rounded-full shadow-[inset_0_0_0_1px_var(--line)]" style={{ background: b.color }} /> }))}
+            value={d.bg}
+            onChange={(bg) => set({ bg })}
+          />
         </Row>
         <Row label={t('reader.panel.preloadCount')}>
           <div className="flex items-center gap-1 rounded-full bg-accent-soft p-[3px]">
