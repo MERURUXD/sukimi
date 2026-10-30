@@ -8,13 +8,15 @@ import { t } from '@/i18n'
 export const SettingsPageTitle = createContext<string | undefined>(undefined)
 
 /**
- * 分栏里的一组设置：标题 + 说明，组与组之间只靠留白分开。
+ * 分栏里的一组设置：标题 + 一句短说明，组与组之间只靠留白分开。
+ * help：存储位置、共用范围这类不影响操作的细节放进标题旁的小窗，默认只露一句说明。
  * fold：不常改的高级项默认收起，点「展开」才渲染内容；说明留在外面，一眼知道里面是什么。
  * wide：双栏预览等需要占满内容区时打开；常规设置列限制阅读宽度，避免桌面端短标签与右侧控件相距过远。
  */
 export function Section({
   title,
   desc,
+  help,
   children,
   action,
   fold,
@@ -22,6 +24,7 @@ export function Section({
 }: {
   title: string
   desc?: ReactNode
+  help?: ReactNode
   children: ReactNode
   action?: ReactNode
   fold?: boolean
@@ -30,11 +33,14 @@ export function Section({
   const [open, setOpen] = useState(!fold)
   const pageTitle = useContext(SettingsPageTitle)
   return (
-    <section className={cn('flex flex-col gap-3.5 pb-10', !wide && 'max-w-[660px]')}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section className={cn('flex flex-col gap-4 pb-12', !wide && 'max-w-[660px]')}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className={cn('m-0 text-xl font-bold', title === pageTitle && 'max-md:sr-only')}>{title}</h2>
-          {desc && <p className="mt-1 mb-0 max-w-[62ch] text-[13px] leading-relaxed text-muted">{desc}</p>}
+          <div className={cn('flex items-center gap-1', title === pageTitle && !help && 'max-md:sr-only')}>
+            <h2 className={cn('m-0 text-xl leading-tight font-bold', title === pageTitle && 'max-md:sr-only')}>{title}</h2>
+            {help && <InfoPop icon={CircleHelp} label={t('settings.parts.helpAria', { label: title })}>{help}</InfoPop>}
+          </div>
+          {desc && <p className="mt-1 mb-0 max-w-[62ch] text-[13px] leading-snug text-muted">{desc}</p>}
         </div>
         {(action || fold) && (
           <div className="flex flex-wrap items-center gap-2">
@@ -94,7 +100,7 @@ export function Row({
       )}
     >
       <div className={cn('min-w-0', !stack && 'flex-[1_1_180px]')}>
-        <div className="flex flex-wrap items-center gap-1.5 font-semibold">
+        <div className="flex flex-wrap items-center gap-1.5 font-medium">
           <span>{label}</span>
           {help && <InfoPop icon={CircleHelp} label={t('settings.parts.helpAria', { label: labelText })}>{help}</InfoPop>}
           {warn && <InfoPop icon={TriangleAlert} danger label={t('settings.parts.warnAria', { label: labelText })}>{warn}</InfoPop>}
