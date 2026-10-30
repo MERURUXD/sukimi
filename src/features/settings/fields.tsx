@@ -25,6 +25,8 @@ interface Common<V> {
   warn?: ReactNode
   confirmChange?: Confirmer<V>
   disabled?: boolean
+  /** 可见标签缩短时，给读屏用的完整名称 */
+  aria?: string
 }
 
 /** 读一个服务端设置并提供保存；保存状态给 Row 显示 */
@@ -53,11 +55,11 @@ function useSetting<V>(k: string, confirmChange?: Confirmer<V>) {
   return { value, set, status, loaded: !!data }
 }
 
-export function SSwitch({ k, label, hint, help, warn, confirmChange, disabled }: Common<boolean>) {
+export function SSwitch({ k, label, hint, help, warn, confirmChange, disabled, aria }: Common<boolean>) {
   const s = useSetting<boolean>(k, confirmChange)
   return (
     <Row label={label} hint={hint} help={help} warn={warn} restart={RESTART_KEYS.has(k)} status={s.status}>
-      <Switch on={!!s.value} onChange={(v) => void s.set(v)} label={typeof label === 'string' ? label : k} disabled={!s.loaded || disabled} />
+      <Switch on={!!s.value} onChange={(v) => void s.set(v)} label={aria ?? (typeof label === 'string' ? label : k)} disabled={!s.loaded || disabled} />
     </Row>
   )
 }
@@ -70,9 +72,10 @@ export function SChoice<V extends string | number>({
   warn,
   options,
   confirmChange,
+  aria,
 }: Common<V> & { options: { value: V; label: string; disabled?: boolean }[] }) {
   const s = useSetting<V>(k, confirmChange)
-  const name = typeof label === 'string' ? label : k
+  const name = aria ?? (typeof label === 'string' ? label : k)
   // 服务端里是列表外的值（手改过配置文件）也要能显示出来
   const opts = s.value === undefined || options.some((o) => o.value === s.value) ? options : [...options, { value: s.value, label: String(s.value) }]
   return (
@@ -106,6 +109,7 @@ function Editable<V>({
   width = 'w-[220px]',
   stack,
   toPatch,
+  aria,
 }: Common<V> & {
   format: (v: V) => string
   parse: (s: string) => V | undefined
@@ -140,7 +144,7 @@ function Editable<V>({
         disabled={!s.loaded || disabled}
         suffix={suffix}
         className={stack ? 'w-full' : `${width} max-w-full`}
-        aria-label={typeof label === 'string' ? label : k}
+        aria-label={aria ?? (typeof label === 'string' ? label : k)}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={(e) => {

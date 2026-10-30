@@ -20,7 +20,7 @@ export function ServerTab() {
     <>
       <SettingsNotice />
       <RequireSettings>
-        <Section title={t('cfg.server.loginTitle')} desc={t('cfg.server.loginDesc')}>
+        <Section title={t('cfg.server.loginTitle')} desc={t('cfg.server.loginDesc')} help={t('cfg.sharedHelp')}>
           <Row
             label={t('cfg.server.method')}
             warn={t('cfg.server.methodWarn')}
@@ -38,11 +38,11 @@ export function ServerTab() {
             label={t('cfg.password')}
             confirmChange={() => ({ title: t('cfg.server.pwTitle'), body: t('cfg.server.pwBody'), ok: t('cfg.server.change') })}
           />
-          <SDuration k="jwtTokenExpiry" label={t('cfg.server.tokenExpiry')} unit="min" hint={t('cfg.server.tokenExpiryHint')} />
+          <SDuration k="jwtTokenExpiry" label={t('cfg.server.tokenExpiry')} unit="min" help={t('cfg.server.tokenExpiryHint')} />
           <SDuration k="jwtRefreshExpiry" label={t('cfg.server.keepLogin')} unit="d" hint={t('cfg.server.keepLoginHint')} />
         </Section>
 
-        <Section title={t('cfg.server.webTitle')} desc={t('cfg.server.webDesc')}>
+        <Section title={t('cfg.server.webTitle')} desc={t('cfg.server.webDesc')} help={t('cfg.sharedHelp')}>
           <SChoice<WebUiFlavor>
             k="webUIFlavor"
             label={t('cfg.server.ui')}
@@ -77,7 +77,7 @@ export function ServerTab() {
           <SSwitch k="systemTrayEnabled" label={t('cfg.server.tray')} />
         </Section>
 
-        <Section fold title={t('cfg.server.netTitle')} desc={t('cfg.server.netDesc')}>
+        <Section fold title={t('cfg.server.netTitle')} desc={t('cfg.server.netDesc')} help={t('cfg.sharedHelp')}>
           <SText
             k="ip"
             label={t('cfg.server.bind')}
@@ -95,7 +95,7 @@ export function ServerTab() {
           />
         </Section>
 
-        <Section fold title={t('cfg.server.proxyTitle')} desc={t('cfg.server.proxyDesc')}>
+        <Section fold title={t('cfg.server.proxyTitle')} desc={t('cfg.server.proxyDesc')} help={t('cfg.sharedHelp')}>
           <SSwitch k="socksProxyEnabled" label={t('cfg.server.proxyUse')} />
           <SChoice<number> k="socksProxyVersion" label={t('cfg.server.proxyVersion')} options={[{ value: 4, label: 'SOCKS4' }, { value: 5, label: 'SOCKS5' }]} />
           <SText k="socksProxyHost" label={t('cfg.server.proxyHost')} width="w-[200px]" placeholder="127.0.0.1" />
@@ -104,7 +104,7 @@ export function ServerTab() {
           <SSecret k="socksProxyPassword" label={t('cfg.server.proxyPw')} />
         </Section>
 
-        <Section fold title={t('cfg.server.logTitle')} desc={t('cfg.server.logDesc')}>
+        <Section fold title={t('cfg.server.logTitle')} desc={t('cfg.server.logDesc')} help={t('cfg.sharedHelp')}>
           <SSwitch k="debugLogsEnabled" label={t('cfg.server.logDebug')} hint={t('cfg.server.logDebugHint')} />
           <SNumber k="maxLogFiles" label={t('cfg.server.logKeep')} unit={t('cfg.server.logDays')} min={0} />
           <SText k="maxLogFileSize" label={t('cfg.server.logFileMax')} width="w-[120px]" hint={t('cfg.server.logFileMaxHint')} />
@@ -112,7 +112,7 @@ export function ServerTab() {
         </Section>
       </RequireSettings>
 
-      <Section fold title="OPDS" desc={t('cfg.server.opdsDesc')}>
+      <Section fold title="OPDS" desc={t('cfg.server.opdsDesc')} help={t('cfg.server.opdsHelp')}>
         <SNumber k="opdsItemsPerPage" label={t('cfg.server.opdsPerPage')} min={10} max={5000} />
         <SChoice<SortOrder>
           k="opdsChapterSortOrder"
@@ -126,7 +126,7 @@ export function ServerTab() {
         <SSwitch k="opdsShowOnlyDownloadedChapters" label={t('cfg.server.opdsDownloaded')} />
         <SSwitch k="opdsEnablePageReadProgress" label={t('cfg.server.opdsPageProgress')} />
         <SSwitch k="opdsMarkAsReadOnDownload" label={t('cfg.server.opdsMarkRead')} />
-        <SSwitch k="opdsSkipChapterMetadataFeed" label={t('cfg.server.opdsSkipMeta')} hint={t('cfg.server.opdsSkipMetaHint')} />
+        <SSwitch k="opdsSkipChapterMetadataFeed" label={t('cfg.server.opdsSkipMeta')} help={t('cfg.server.opdsSkipMetaHint')} />
         <SSwitch k="opdsUseBinaryFileSizes" label={t('cfg.server.opdsBinary')} hint={t('cfg.server.opdsBinaryHint')} />
         <SChoice<CbzMediaType>
           k="opdsCbzMimetype"
@@ -141,10 +141,11 @@ export function ServerTab() {
       </Section>
 
       <RequireSettings>
-        <Section fold title={t('cfg.server.dbTitle')} desc={t('cfg.server.dbDesc')}>
+        <Section fold title={t('cfg.server.dbTitle')} desc={t('cfg.server.dbDesc')} help={t('cfg.sharedHelp')}>
           <SChoice
             k="databaseType"
-            label={t('cfg.server.dbTitle')}
+            label={t('cfg.server.dbType')}
+            aria={t('cfg.server.dbTypeAria')}
             options={[
               { value: 'H2', label: t('cfg.server.dbH2') },
               { value: 'POSTGRESQL', label: 'PostgreSQL' },

@@ -16,25 +16,26 @@ export function DownloadsTab() {
         <Section
           title={tl('cfg.downloads.title')}
           desc={tl('cfg.downloads.desc')}
+          help={tl('cfg.sharedHelp')}
           action={
-            <Link to="/downloads" className="gbtn min-h-9 rounded-full bg-g-hi px-3.5 text-[13px] text-text no-underline">
+            <Link to="/downloads" className="gbtn plain min-h-9 rounded-full px-3.5 text-[13px] text-text no-underline">
               {tl('cfg.downloads.viewQueue')}
             </Link>
           }
         >
           <SText k="downloadsPath" label={tl('cfg.downloads.path')} hint={tl('cfg.downloads.pathHint')} placeholder={tl('cfg.default')} stack />
-          <SSwitch k="downloadAsCbz" label={tl('cfg.downloads.cbz')} hint={tl('cfg.downloads.cbzHint')} />
+          <SSwitch k="downloadAsCbz" label={tl('cfg.downloads.cbz')} help={tl('cfg.downloads.cbzHint')} />
         </Section>
       </RequireSettings>
 
-      <Section title={tl('cfg.downloads.autoTitle')} desc={tl('cfg.downloads.autoDesc')}>
+      <Section title={tl('cfg.downloads.autoSection')} desc={tl('cfg.downloads.autoDesc')} help={tl('cfg.selfHelp')}>
         <SSwitch k="autoDownloadNewChapters" label={tl('cfg.downloads.autoTitle')} />
         <SSwitch k="excludeEntryWithUnreadChapters" label={tl('cfg.lib.skipUnread')} />
         <SNumber k="autoDownloadNewChaptersLimit" label={tl('cfg.downloads.limit')} unit={tl('cfg.downloads.chaptersUnit')} min={0} hint={tl('cfg.downloads.limitHint')} />
         <SSwitch k="autoDownloadIgnoreReUploads" label={tl('cfg.downloads.ignoreReupload')} />
       </Section>
 
-      <Section fold title={tl('cfg.downloads.convTitle')} desc={tl('cfg.downloads.convDesc')}>
+      <Section fold title={tl('cfg.downloads.convTitle')} desc={tl('cfg.downloads.convDesc')} help={tl('cfg.downloads.convHelp')}>
         <RequireSettings>
           <Conversions k="downloadConversions" label={tl('cfg.downloads.dlConv')} hint={tl('cfg.downloads.dlConvHint')} />
         </RequireSettings>
@@ -91,7 +92,7 @@ function Conversions({ k, label, hint }: { k: 'downloadConversions' | 'serveConv
   return (
     <Row label={label} hint={hint} status={status} stack>
       <div className="flex flex-col gap-2.5">
-        {list.length === 0 && <span className="text-sm text-muted">{tl('cfg.downloads.none')}</span>}
+        {list.length === 0 && <span className="text-[13px] text-muted">{tl('cfg.downloads.none')}</span>}
         {list.map((c, i) => (
           <div key={c.mimeType} className="flex flex-wrap items-center gap-2">
             <span className="w-[110px] font-semibold">{SOURCES.find((s) => s.value === c.mimeType)?.label ?? c.mimeType}</span>

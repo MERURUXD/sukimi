@@ -73,7 +73,7 @@ export function BrowseTab() {
       </Can>
 
       <RequireSettings>
-        <Section title={t('cfg.browse.srcTitle')} desc={t('cfg.browse.srcDesc')}>
+        <Section title={t('cfg.browse.srcTitle')} help={t('cfg.sharedHelp')}>
           <SNumber
             k="maxSourcesInParallel"
             label={t('cfg.browse.concurrency')}
@@ -82,7 +82,7 @@ export function BrowseTab() {
             hint={t('cfg.browse.concurrencyHint')}
             help={t('cfg.browse.concurrencyHelp')}
           />
-          <SText k="localSourcePath" label={t('cfg.browse.localPath')} hint={t('cfg.browse.localPathHint')} placeholder={t('cfg.default')} stack />
+          <SText k="localSourcePath" label={t('cfg.browse.localPath')} hint={t('cfg.browse.localPathHint')} help={t('cfg.browse.localPathHelp')} placeholder={t('cfg.default')} stack />
           <SSwitch k="kcefEnabled" label={t('cfg.browse.kcef')} hint={t('cfg.browse.kcefHint')} />
         </Section>
       </RequireSettings>
@@ -92,13 +92,14 @@ export function BrowseTab() {
           fold
           title={t('cfg.browse.flareTitle')}
           desc={t('cfg.browse.flareDesc')}
+          help={t('cfg.browse.flareHelp')}
         >
           <SSwitch k="flareSolverrEnabled" label={t('cfg.browse.flareUse')} />
           <SText k="flareSolverrUrl" label={t('cfg.browse.flareUrl')} placeholder="http://localhost:8191" width="w-[260px]" />
           <SNumber k="flareSolverrTimeout" label={t('cfg.browse.timeout')} unit={t('cfg.browse.seconds')} min={0} />
           <SText k="flareSolverrSessionName" label={t('cfg.browse.sessionName')} />
           <SNumber k="flareSolverrSessionTtl" label={t('cfg.browse.sessionTtl')} unit={t('cfg.browse.minutes')} min={0} />
-          <SSwitch k="flareSolverrAsResponseFallback" label={t('cfg.browse.fallback')} hint={t('cfg.browse.fallbackHint')} />
+          <SSwitch k="flareSolverrAsResponseFallback" label={t('cfg.browse.fallback')} help={t('cfg.browse.fallbackHint')} />
         </Section>
       </RequireSettings>
 
@@ -148,8 +149,8 @@ function ExtensionStoresSection() {
   return (
     <Section title={t('cfg.browse.storesTitle')} desc={t('cfg.browse.storesDesc')}>
       <div className="flex flex-col gap-1">
-        {!stores && <span className="text-muted">…</span>}
-        {stores?.length === 0 && <span className="text-sm text-muted">{t('cfg.browse.noStores')}</span>}
+        {!stores && <span className="text-[13px] text-muted">…</span>}
+        {stores?.length === 0 && <span className="text-[13px] text-muted">{t('cfg.browse.noStores')}</span>}
         {stores?.map((s) => (
           <div key={s.indexUrl} className="flex items-center gap-3 rounded-2xl py-2 pr-1 pl-3 hover:bg-hover">
             <span className="grid h-7 min-w-7 flex-none place-items-center rounded-lg bg-accent-soft px-1.5 text-[11px] font-bold">{s.badgeLabel}</span>
@@ -220,8 +221,8 @@ function CacheSection() {
   }
 
   return (
-    <Section title={t('cfg.browse.cacheTitle')} desc={t('cfg.browse.cacheDesc')}>
-      <Row label={t('cfg.browse.imgCache')} hint={t('cfg.browse.imgCacheHint')}>
+    <Section title={t('cfg.browse.cacheTitle')} help={t('cfg.sharedHelp')}>
+      <Row label={t('cfg.browse.imgCache')} help={t('cfg.browse.imgCacheHint')}>
         <button type="button" className="gbtn plain rounded-full" onClick={() => void images()} disabled={c2}>
           {t('cfg.browse.clear')}
         </button>

@@ -26,19 +26,19 @@ export function LibraryTab() {
         <CategoryManager />
       </Section>
 
-      <Section title={t('misc.tags.title')} desc={t('misc.tags.manageDesc')}>
+      <Section title={t('misc.tags.title')} desc={t('misc.tags.manageDesc')} help={t('misc.tags.manageHelp')}>
         <TagManager />
       </Section>
 
-      <Section title={t('home.section.later')} desc={t('cfg.lib.laterDesc')}>
-        <Row label={t('cfg.lib.autoRemove')} hint={t('cfg.lib.autoRemoveHint')}>
+      <Section title={t('home.section.later')} help={t('cfg.lib.laterHelp')}>
+        <Row label={t('cfg.lib.autoRemove')}>
           <Switch label={t('cfg.lib.autoRemoveLabel')} on={laterAutoRemove} onChange={setLaterAutoRemove} />
         </Row>
       </Section>
 
-      <Section title={t('cfg.lib.updTitle')} desc={t('cfg.lib.updDesc')}>
+      <Section title={t('cfg.lib.updTitle')} desc={t('cfg.lib.updDesc')} help={t('cfg.lib.updHelp')}>
         <RequireSettings>
-          <SChoice<number> k="globalUpdateInterval" label={t('cfg.lib.freq')} options={INTERVALS} hint={t('cfg.lib.freqHint')} />
+          <SChoice<number> k="globalUpdateInterval" label={t('cfg.lib.freq')} options={INTERVALS} />
         </RequireSettings>
         <SSwitch k="excludeUnreadChapters" label={t('cfg.lib.skipUnread')} />
         <SSwitch k="excludeNotStarted" label={t('cfg.lib.skipNotStarted')} />

@@ -30,7 +30,7 @@ function ReadingTab() {
 
 /** 正式的书库分栏要连服务端设置，演示里只放能用虚构数据跑的标签管理 */
 function LibraryTab() {
-  return <Section title={t('misc.tags.title')} desc={t('misc.tags.manageDesc')}><TagManager /></Section>
+  return <Section title={t('misc.tags.title')} desc={t('misc.tags.manageDesc')} help={t('misc.tags.manageHelp')}><TagManager /></Section>
 }
 
 function AccountTab() {

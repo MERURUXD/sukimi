@@ -133,11 +133,8 @@ export function AboutTab() {
       <Section title="Sukimi">
         <Row
           label={t('cfg.about.version')}
-          hint={
-            isPreview
-              ? t('cfg.about.previewHint')
-              : t('cfg.about.deployHint')
-          }
+          hint={isPreview ? t('cfg.about.previewHint') : undefined}
+          help={t('cfg.about.deployHint')}
         >
           <div className="flex items-center gap-3">
             <span className="text-muted num">

@@ -110,6 +110,7 @@ function SyncYomiSection() {
     <Section
       title="SyncYomi"
       desc={t('cfg.sync.desc')}
+      help={t('cfg.selfHelp')}
       action={
         <button type="button" className="gbtn plain min-h-9 rounded-full px-3.5 text-[13px]" onClick={() => void syncNow()} disabled={loading}>
           <RefreshCw className="size-4" strokeWidth={1.8} />
@@ -118,12 +119,12 @@ function SyncYomiSection() {
       }
     >
       {s && (
-        <p className="m-0 text-[13px] text-muted">
+        <p className="m-0 text-[13px] leading-snug text-muted">
           {t('cfg.sync.last', { state: SYNC_STATE[s.state], time: timeAgo(Number(s.endDate ?? s.startDate)) })}
           {s.errorMessage && ` · ${s.errorMessage}`}
         </p>
       )}
-      <SSwitch k="syncYomiEnabled" label={t('cfg.sync.enable')} />
+      <SSwitch k="syncYomiEnabled" label={t('cfg.sync.enable')} aria={t('cfg.sync.enableAria')} />
       <SText k="syncYomiHost" label={t('cfg.sync.host')} placeholder="https://" width="w-[280px]" />
       <SSecret k="syncYomiApiKey" label="API Key" />
       <SDuration k="syncInterval" label={t('cfg.sync.interval')} unit="min" hint={t('cfg.sync.intervalHint')} />
@@ -158,7 +159,7 @@ function KoReaderSection() {
   }
 
   return (
-    <Section title={t('cfg.sync.koTitle')} desc={t('cfg.sync.koDesc')}>
+    <Section title={t('cfg.sync.koTitle')} desc={t('cfg.sync.koDesc')} help={t('cfg.selfHelp')}>
       {st?.isLoggedIn ? (
         <Row label={t('cfg.sync.koConnectedAs', { name: st.username ?? '' })} hint={st.serverAddress ?? undefined}>
           <button type="button" className="gbtn plain rounded-full" onClick={() => void logout().catch((e) => toastError(t('cfg.sync.koDisconnectFailed'), e))}>
@@ -200,7 +201,7 @@ function KoReaderSection() {
       <SChoice
         k="koreaderSyncChecksumMethod"
         label={t('cfg.sync.docId')}
-        hint={t('cfg.sync.docIdHint')}
+        help={t('cfg.sync.docIdHint')}
         options={[
           { value: 'BINARY', label: t('cfg.sync.binary') },
           { value: 'FILENAME', label: t('cfg.sync.filename') },

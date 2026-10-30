@@ -15,9 +15,10 @@ export function TrackingTab() {
     <Section
       title={tl('cfg.tracking.title')}
       desc={tl('cfg.tracking.desc')}
+      help={tl('cfg.tracking.help')}
     >
-      {error && !trackers && <span className="text-sm text-danger">{tl('cfg.tracking.loadFailed', { reason: error.message.split('\n')[0] })}</span>}
-      {!trackers && !error && <span className="text-muted">…</span>}
+      {error && !trackers && <span className="text-[13px] text-danger">{tl('cfg.tracking.loadFailed', { reason: error.message.split('\n')[0] })}</span>}
+      {!trackers && !error && <span className="text-[13px] text-muted">…</span>}
       <div className="flex flex-col gap-1">
         {trackers?.map((t) => <TrackerRow key={t.id} t={t} />)}
       </div>
@@ -89,7 +90,7 @@ function TrackerRow({ t }: { t: Tracker }) {
           </button>
         ) : (
           !form && (
-            <button type="button" className="solid min-h-10" onClick={signIn}>
+            <button type="button" className="solid min-h-11" onClick={signIn}>
               {t.isLoggedIn ? tl('cfg.tracking.relogin') : tl('cfg.tracking.login')}
             </button>
           )
