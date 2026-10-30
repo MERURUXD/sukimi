@@ -359,6 +359,11 @@
   .gicon:hover {
     background: var(--g-bg-hi);
   }
+  /* 深色主题按钮的图标悬停时已经在发光，底色只提亮一半，免得整颗按钮变成一片灰；
+     权重压到和 .gicon:hover 一样，「通透」底色压住图标悬停时它也照样被压住，和旁边的按钮一致 */
+  :where(.theme-btn[data-dark]) .gicon:hover {
+    background: color-mix(in srgb, var(--g-bg) 50%, var(--g-bg-hi));
+  }
   /* 精确指针按需显示次要操作；保留占位防止行宽跳动，触屏与键盘仍可直接操作。 */
   @media (hover: hover) and (pointer: fine) {
     .action-row .row-action {
@@ -807,13 +812,17 @@ html[data-reader-vt='out']::view-transition-group(reader-src) {
   opacity: 0;
 }
 
-/* 主题按钮的悬停效果（参考 BewlyCat 的 Dock）：深色下浮出偏移的月光并让星星闪烁，浅色下太阳光芒自转 */
-.theme-halo {
-  opacity: 0;
-  filter: blur(12px);
-  transition:
-    opacity 0.3s,
-    translate 0.3s;
+/* 主题按钮的悬停效果：深色下月牙自己发光、侧转并让星星闪烁，浅色下太阳光芒自转。
+   光只加在图标上，不在按钮后面另放光团：玻璃会把背后的光团糊开、溢出按钮边缘，看起来像一块污渍 */
+.theme-btn svg {
+  transition: filter 0.3s;
+}
+.theme-btn[data-dark]:hover svg {
+  filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.55)) drop-shadow(0 0 10px rgb(255 255 255 / 0.18));
+}
+.theme-moon {
+  transform-origin: 12px 12px;
+  transition: rotate 0.35s cubic-bezier(0.2, 0, 0, 1);
 }
 .theme-star {
   opacity: 0;
@@ -846,9 +855,8 @@ html[data-reader-vt='out']::view-transition-group(reader-src) {
   .theme-btn[data-dark]:hover .theme-star {
     animation: theme-twinkle 1.4s ease-in-out infinite;
   }
-  .theme-btn[data-dark]:hover .theme-halo {
-    opacity: 0.28;
-    translate: -5px 4px;
+  .theme-btn[data-dark]:hover .theme-moon {
+    rotate: -14deg;
   }
 }
 ::view-transition-group(manga-cover) {

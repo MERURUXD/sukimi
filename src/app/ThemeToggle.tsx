@@ -25,7 +25,10 @@ function SunMoon({ dark }: { dark: boolean }) {
         <rect width="24" height="24" fill="white" stroke="none" />
         <motion.circle r="7" fill="black" stroke="none" initial={false} animate={dark ? { cx: 17, cy: 7 } : { cx: 32, cy: -8 }} transition={transition} />
       </mask>
-      <motion.circle cx="12" cy="12" fill="currentColor" mask={`url(#${mask})`} initial={false} animate={{ r: dark ? 8.5 : 4.5 }} transition={transition} />
+      {/* 深色悬停时月牙侧转（CSS），连同遮罩一起转，所以包在 g 上 */}
+      <g className="theme-moon">
+        <motion.circle cx="12" cy="12" fill="currentColor" mask={`url(#${mask})`} initial={false} animate={{ r: dark ? 8.5 : 4.5 }} transition={transition} />
+      </g>
       {/* 外层 g 负责悬停时的持续自转（CSS），里层 g 负责切换时的收起（motion），两个 transform 不能放同一个元素 */}
       <g className="theme-rays">
         <motion.g initial={false} animate={dark ? { rotate: 90, scale: 0.4, opacity: 0 } : { rotate: 0, scale: 1, opacity: 1 }} transition={transition} style={{ transformOrigin: '12px 12px' }}>
@@ -55,7 +58,7 @@ let latestToggle = 0
 /**
  * 顶栏的深浅色切换。
  * 页面颜色用 View Transitions 做「从按钮位置向外扩散」的圆形揭开，做法参考 BewlyCat 的 useDark；
- * 悬停效果也参考它：深色下按钮后面浮出一团偏移的月光、月牙里的星星闪烁，浅色下太阳光芒缓慢自转。
+ * 悬停时深色下月牙自己发光、轻轻侧转，缺口里的星星闪烁；浅色下太阳光芒缓慢自转。
  * 不支持、开了「减少动态效果」，或过渡被跳过时直接切换。
  */
 export function ThemeToggle() {
@@ -133,9 +136,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="theme-btn relative" data-dark={dark || undefined}>
-      {/* 月光：只在深色悬停时浮出，略偏向左下，隔着玻璃只透出一团柔光（样式在 index.css） */}
-      <span className="theme-halo pointer-events-none absolute inset-0 rounded-full bg-solid" aria-hidden />
+    <div className="theme-btn" data-dark={dark || undefined}>
       <Glass as="button" data-vt-glass="topnav-theme" type="button" className="gicon rounded-full" onClick={toggle} aria-label={t('app.themeToggle.switchTo', { theme: t(`common.themeName.${dark ? 'light' : 'dark'}`) })} title={t('app.themeToggle.switchToShort', { theme: t(`common.themeName.${dark ? 'light' : 'dark'}`) })}>
         <SunMoon dark={dark} />
       </Glass>
