@@ -172,9 +172,10 @@ function SectionRow({
         <div className="font-medium">{label}</div>
         <p className="mt-0.5 mb-0 text-[13px] leading-snug text-muted">{HINTS[id]}</p>
       </div>
-      {/* 读屏在手机上双击只产生一次点击，拖不动也按不了方向键，给它留一对上移 / 下移 */}
-      <button type="button" className="sr-only" onClick={() => onNudge(-1)}>{t('cfg.home.upAria', { label })}</button>
-      <button type="button" className="sr-only" onClick={() => onNudge(1)}>{t('cfg.home.downAria', { label })}</button>
+      {/* 读屏在手机上双击只产生一次点击，拖不动也按不了方向键，给它留一对上移 / 下移。
+          移出 Tab 顺序，免得键盘用户多出看不见的焦点；键盘在拖动柄上用方向键 */}
+      <button type="button" tabIndex={-1} className="sr-only" onClick={() => onNudge(-1)}>{t('cfg.home.upAria', { label })}</button>
+      <button type="button" tabIndex={-1} className="sr-only" onClick={() => onNudge(1)}>{t('cfg.home.downAria', { label })}</button>
       <button
         type="button"
         data-drag-handle=""
