@@ -129,6 +129,9 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
       const size = `${w}:${h}:${radius}:${bezel}`
       if (lastSize === size) return
       lastSize = size
+      // 百分比图范围可能与宿主尺寸不匹配，边缘错位会产生色散伪色；与位移图同步使用布局尺寸。
+      feImage.current?.setAttribute('width', String(w))
+      feImage.current?.setAttribute('height', String(h))
       feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
       // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
       const shift = bezel * o.strength

@@ -18,7 +18,11 @@ function fixture(dispersion = 0) {
     setAttribute(name, value) { if (name === 'scale') this.scale = Number(value) },
   }))
   const image = {
-    setAttribute(name, value) { if (name === 'href') { mapSize = value; draws++ } },
+    width: '100%', height: '100%',
+    setAttribute(name, value) {
+      if (name === 'width' || name === 'height') this[name] = value
+      if (name === 'href') { mapSize = value; draws++ }
+    },
     parentElement: { querySelectorAll: () => shifts },
   }
   const canvas = {
@@ -46,11 +50,11 @@ function fixture(dispersion = 0) {
   })
   exports.useLensMap({ current: host }, true, { bezel: 0, strength: 1, falloff: 2, dispersion })
   const flushFrames = () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(f => f()) }
-  flushFrames()
   return {
     host, resize: () => resize(), flushFrames,
     cleanup: () => cleanup(),
     get mapSize() { return mapSize },
+    get imageSize() { return `${image.width}x${image.height}` },
     get draws() { return draws },
     get pending() { return frames.size + timers.size },
     get scales() { return shifts.map(fe => fe.scale) },
@@ -60,10 +64,13 @@ function fixture(dispersion = 0) {
 test('玻璃缩放：每次布局交付前位移图匹配当前尺寸，结束后没有延迟跳变', () => {
   const f = fixture()
   assert.equal(f.mapSize, '360x480')
-  for (const height of [440, 360, 280, 240, 300, 480]) {
+  assert.equal(f.imageSize, '360x480', '首帧图范围必须与位移图使用同一布局尺寸')
+  for (const [width, height] of [[360, 440], [320, 360], [280, 280], [320, 240], [360, 300], [360, 480]]) {
+    f.host.offsetWidth = width
     f.host.offsetHeight = height
     f.resize()
-    assert.equal(f.mapSize, `360x${height}`, '不能先拉伸旧位移图，停下后再换图')
+    assert.equal(f.mapSize, `${width}x${height}`, '不能先拉伸旧位移图，停下后再换图')
+    assert.equal(f.imageSize, f.mapSize, 'resize 必须同步更新图范围，避免百分比范围导致边缘色散伪色')
   }
   assert.equal(f.pending, 0, '尺寸稳定后不能还有延迟换图')
 })
