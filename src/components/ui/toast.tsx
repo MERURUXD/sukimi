@@ -92,7 +92,6 @@ function ToastCard({ item }: { item: Toast }) {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
       transition={reduced ? { duration: 0 } : spring.fast}
-      suspendRefract
       onMouseEnter={hold}
       onMouseLeave={release}
       onFocus={hold}

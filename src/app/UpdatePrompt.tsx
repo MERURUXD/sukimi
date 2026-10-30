@@ -116,7 +116,6 @@ export function UpdatePrompt() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={spring.default}
-            suspendRefract
             className="pointer-events-auto flex w-full max-w-[380px] items-center gap-3.5 rounded-[26px] py-3 pr-3 pl-3.5"
           >
             <span className="grid size-10 shrink-0 place-items-center rounded-full bg-solid text-on-solid">

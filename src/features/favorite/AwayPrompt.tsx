@@ -135,7 +135,6 @@ export function AwayPrompt() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 6, scale: 0.97 }}
             transition={spring.default}
-            suspendRefract
             className="pointer-events-auto flex max-w-full items-center gap-1 rounded-full p-1.5 [--g-drop:0_24px_60px_rgba(0,0,0,.45)]"
           >
             <button type="button" className="flex min-h-10 min-w-0 items-center gap-2.5 rounded-full border-0 bg-transparent py-1 pr-2 pl-3 text-left text-[14px] font-semibold text-text" onClick={go}>
