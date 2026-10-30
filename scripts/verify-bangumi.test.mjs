@@ -5,6 +5,13 @@ import { CACHE_MS, isFresh, parseSubject, pickMatch, shortCount } from '../src/f
 import { resolve } from 'node:path'
 import { build } from 'vite'
 import { ApolloClient, ApolloLink, InMemoryCache, Observable } from '@apollo/client/core'
+import { createRequire } from 'node:module'
+import { runInNewContext } from 'node:vm'
+import ts from 'typescript'
+import { JSDOM } from 'jsdom'
+import { act, createElement, Fragment } from 'react'
+import { createRoot } from 'react-dom/client'
+import { introRise, mangaIntro } from '../src/features/manga/intro.ts'
 
 /** 和公开接口同形的虚构条目 */
 const raw = (id, o = {}) => ({
@@ -156,4 +163,104 @@ test('本地有缓存但服务端记录已清空时仍重新搜索', async () =>
   await bindBgmSubject(client, 11, 3, subject, () => {})
   assert.deepEqual(calls.map(x => x.name), ['SearchTracker', 'BindTrack', 'SearchTracker', 'BindTrack'])
   client.stop()
+})
+
+test('详情进场结束后，已绑定和自动匹配的 Bangumi 评分都不会再次从零计数', async (t) => {
+  const require = createRequire(import.meta.url)
+  const dom = new JSDOM('<div id="rating"></div>')
+  const globals = { window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true }
+  const previous = Object.fromEntries(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]))
+  for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, value })
+  const host = dom.window.document.getElementById('rating')
+  let now = 0, nextId = 0, reduced = false
+  const frames = new Map(), timers = new Map()
+  let currentSubject = parseSubject(raw(701))
+  const view = () => ({ subject: currentSubject, state: 'ok', at: 1, match: { id: 701, sure: false }, refresh() {} })
+  const exports = {}
+  const source = readFileSync(new URL('../src/features/bangumi/CommunityRating.tsx', import.meta.url), 'utf8')
+  const code = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2023 },
+  }).outputText
+  runInNewContext(code, {
+    exports,
+    performance: { now: () => now },
+    matchMedia: () => ({ matches: reduced }),
+    requestAnimationFrame: callback => { frames.set(++nextId, callback); return nextId },
+    cancelAnimationFrame: id => frames.delete(id),
+    setTimeout: (callback, ms) => { timers.set(++nextId, { callback, at: now + ms }); return nextId },
+    clearTimeout: id => timers.delete(id),
+    require: name => {
+      if (name === 'react' || name === 'react/jsx-runtime') return require(name)
+      if (name === './api') return { useBgmSubject: view, useBgmGuess: view }
+      if (name === './rating') return { shortCount, subjectUrl: id => `https://example.invalid/${id}` }
+      if (name === '@/features/manga/intro') return { introRise }
+      if (name === '@/features/tracking/tracking') return { scoreWord: () => '良好' }
+      if (name === '@/lib/cn') return { cn: (...values) => values.filter(Boolean).join(' ') }
+      if (name === '@/i18n') return { t: key => key }
+      if (name === 'motion/react') return { AnimatePresence: Fragment }
+      if (name === '@/components/ui/Dialog') return { usePopMotion: () => ({}) }
+      if (name === 'lucide-react') return { ChevronRight: () => null }
+      if (['@/components/glass/Glass', '@/features/tags/TagTarget', '@/lib/format', './CommunityRating.css'].includes(name)) return {}
+      throw new Error(`未模拟的依赖：${name}`)
+    },
+  }, { filename: 'CommunityRating.tsx' })
+  const advance = async ms => {
+    now += ms
+    await act(async () => {
+      const pending = [...frames.values()]
+      frames.clear()
+      pending.forEach(callback => callback(now))
+      for (const [id, timer] of timers) {
+        if (timer.at <= now) { timers.delete(id); timer.callback() }
+      }
+    })
+  }
+  const score = () => host.querySelector('.font-bold.num')?.textContent
+  try {
+    for (const [name, Component, props, delay] of [
+      ['已绑定', exports.BgmBlock, { id: 701, mine: 0 }, mangaIntro.side + 120],
+      ['自动匹配', exports.BgmGuess, { mangaId: 71, title: '虚构漫画', placement: 'side' }, mangaIntro.side],
+    ]) {
+      await t.test(name, async () => {
+        const root = createRoot(host)
+        try {
+          currentSubject = parseSubject(raw(701))
+          await act(async () => root.render(createElement(Component, { ...props, delay })))
+          await advance(1400)
+          assert.equal(score(), '7.4')
+          // useIntro 到时关闭，MangaHero 不再传进场延迟，组件保持挂载。
+          await act(async () => root.render(createElement(Component, props)))
+          await advance(16)
+          assert.equal(score(), '7.4', '进场结束不应重播评分动画')
+          assert.equal(frames.size, 0, '同一个分数不再启动逐帧计数')
+          // 刷新后分数确实变化时仍要能更新。
+          currentSubject = parseSubject(raw(701, { rating: { score: 8.2 } }))
+          await act(async () => root.render(createElement(Component, props)))
+          await advance(1400)
+          assert.equal(score(), '8.2')
+        } finally {
+          await act(async () => root.unmount())
+        }
+      })
+    }
+    await t.test('减少动态效果时直接显示分数', async () => {
+      reduced = true
+      currentSubject = parseSubject(raw(701, { rating: { score: 8.2 } }))
+      const root = createRoot(host)
+      try {
+        await act(async () => root.render(createElement(exports.BgmBlock, { id: 701, mine: 0, delay: 290 })))
+        assert.equal(score(), '8.2')
+        assert.equal(frames.size, 0)
+        assert.equal(timers.size, 0)
+      } finally {
+        await act(async () => root.unmount())
+      }
+    })
+  } finally {
+    dom.window.close()
+    for (const [key, descriptor] of Object.entries(previous)) {
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else delete globalThis[key]
+    }
+  }
 })

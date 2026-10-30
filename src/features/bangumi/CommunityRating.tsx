@@ -53,11 +53,13 @@ function Histogram({ counts, mine = 0, height, labels = 'ends', delay = 0 }: { c
 
 /** 分数从 0 数上来，和柱子一起到位；减少动态效果时直接显示 */
 function Score({ value, delay = 0 }: { value: number; delay?: number }) {
+  // 进场结束后父组件会清掉延迟；保留挂载时的节奏，避免同一分数重新从零数起。
+  const [initialDelay] = useState(delay)
   const [shown, setShown] = useState(() => (value && !matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : value))
   useEffect(() => {
     if (!value || matchMedia('(prefers-reduced-motion: reduce)').matches) return
     let frame = 0
-    const start = performance.now() + delay
+    const start = performance.now() + initialDelay
     const tick = (now: number) => {
       const p = Math.min(1, Math.max(0, (now - start) / 600))
       setShown(value * (1 - (1 - p) ** 3))
@@ -65,12 +67,12 @@ function Score({ value, delay = 0 }: { value: number; delay?: number }) {
     }
     frame = requestAnimationFrame(tick)
     // 后台标签页等不跑逐帧回调时，到点直接落到最终分数，不卡在 0.0
-    const done = setTimeout(() => setShown(value), delay + 700)
+    const done = setTimeout(() => setShown(value), initialDelay + 700)
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(done)
     }
-  }, [value, delay])
+  }, [value, initialDelay])
   return <>{value ? shown.toFixed(1) : '—'}</>
 }
 
