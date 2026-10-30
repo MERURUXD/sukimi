@@ -504,6 +504,16 @@
   .seg[data-fade='lr'] {
     mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent);
   }
+  /* 竖向滚动区的同款提示：隐藏滚动条，哪头还有内容哪头渐隐 */
+  .vfade[data-fade='b'] {
+    mask-image: linear-gradient(#000 calc(100% - 32px), transparent);
+  }
+  .vfade[data-fade='t'] {
+    mask-image: linear-gradient(transparent, #000 32px);
+  }
+  .vfade[data-fade='tb'] {
+    mask-image: linear-gradient(transparent, #000 32px, #000 calc(100% - 32px), transparent);
+  }
   .seg > button {
     position: relative;
     display: inline-flex;

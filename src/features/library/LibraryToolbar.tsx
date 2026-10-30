@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Check, CheckSquare, Minus, Plus, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Glass } from '@/components/glass/Glass'
 import { BottomSheet } from '@/components/ui/BottomSheet'
@@ -94,6 +94,7 @@ export function LibraryToolbar({
   const range = COLS[device]
   const stepCols = (d: number) => view.setCols(device, Math.min(range.max, Math.max(range.min, (cols || range.start) + (cols ? d : 0))))
 
+  const [sourceList, sourceFade] = useScrollFade(sources.length)
   const closePanel = () => setPanel(false)
   const sortLabel = SORTS.find((s) => s.key === view.sort)?.label ?? ''
   const SortDir = view.desc ? ArrowDown : ArrowUp
@@ -151,7 +152,7 @@ export function LibraryToolbar({
                 )}
               </h3>
               {/* 内边距给胶囊的描边留位置，否则最后一行的下沿会被滚动容器裁掉 */}
-              <div className="-m-1 flex max-h-[180px] flex-wrap gap-1.5 overflow-y-auto p-1">
+              <div ref={sourceList} data-fade={sourceFade} className="vfade no-scrollbar -m-1 flex max-h-[180px] flex-wrap gap-1.5 overflow-y-auto overscroll-contain p-1">
                 {sources.map((src) => {
                   const on = view.sources.includes(src.id)
                   return (
@@ -382,6 +383,30 @@ export function LibraryToolbar({
 /** 标签多到要翻时才给搜索框 */
 const TAG_SEARCH_MIN = 12
 
+/** 系统滚动条在玻璃面板上很突兀：隐藏它，改为哪头还有内容哪头渐隐，提示这里能滚 */
+function useScrollFade(dep: number) {
+  // 用回调 ref：来源列表只在「筛选」页签挂载，切页签时要重新绑定
+  const [el, ref] = useState<HTMLDivElement | null>(null)
+  const [fade, setFade] = useState<'t' | 'b' | 'tb' | undefined>()
+  useEffect(() => {
+    if (!el) return
+    const measure = () => {
+      const top = el.scrollTop > 2
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 2
+      setFade(top && bottom ? 'tb' : top ? 't' : bottom ? 'b' : undefined)
+    }
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => {
+      el.removeEventListener('scroll', measure)
+      ro.disconnect()
+    }
+  }, [el, dep])
+  return [ref, fade] as const
+}
+
 /** 筛选面板里的标签组：和上面的筛选一样点一下包含、再点排除；选中的排在最前，搜索时也不藏起来 */
 function TagFilter({ tags }: { tags: { name: string; count: number }[] }) {
   const picks = useLibraryView((s) => s.tags)
@@ -394,6 +419,7 @@ function TagFilter({ tags }: { tags: { name: string; count: number }[] }) {
   const count = new Map(tags.map((x) => [x.name.toLowerCase(), x.count]))
   const rest = tags.filter((x) => !pickedSet.has(x.name.toLowerCase()) && (!needle || x.name.toLowerCase().includes(needle)))
   const shown = [...picked.map((name) => ({ name, count: count.get(name.toLowerCase()) ?? 0 })), ...rest]
+  const [list, fade] = useScrollFade(shown.length)
   return (
     <div>
       <h3 className="pop-h flex items-center">
@@ -411,7 +437,7 @@ function TagFilter({ tags }: { tags: { name: string; count: number }[] }) {
         </label>
       )}
       {/* 内边距给胶囊的描边留位置，否则最后一行的下沿会被滚动容器裁掉 */}
-      <div className="-m-1 flex max-h-[180px] flex-wrap gap-1.5 overflow-y-auto p-1">
+      <div ref={list} data-fade={fade} className="vfade no-scrollbar -m-1 flex max-h-[180px] flex-wrap gap-1.5 overflow-y-auto overscroll-contain p-1">
         {shown.map(({ name, count: n }) => {
           // 标签名可能撞上 constructor 这类对象自带的属性名，只认自己的键
           const st = Object.hasOwn(picks, name) ? picks[name] : 0
