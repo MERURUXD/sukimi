@@ -15,6 +15,8 @@ export default {
     saveName: '保存名称',
     titles: '{{n}} 部',
     excluded: ' · 不参与检查更新',
+    only: ' · 整库检查只查「只检查」的分类',
+    onlyOff: '取消「只检查此分类」，恢复默认',
     up: '上移',
     down: '下移',
     include: '恢复参与检查更新',

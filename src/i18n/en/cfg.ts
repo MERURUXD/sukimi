@@ -15,6 +15,8 @@ export default {
     titles_one: '{{n}} title',
     titles_other: '{{n}} titles',
     excluded: ' · Skipped in update checks',
+    only: ' · Library-wide checks only cover categories marked like this',
+    onlyOff: 'Stop checking only this category and restore the default',
     up: 'Move up',
     down: 'Move down',
     include: 'Include in update checks again',

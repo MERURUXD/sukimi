@@ -66,6 +66,7 @@ export function LibraryToolbar({
   selecting,
   onToggleSelect,
   updating,
+  updateScope,
   onRefresh,
 }: {
   categories: SegItem<LibraryTab>[]
@@ -77,9 +78,12 @@ export function LibraryToolbar({
   selecting: boolean
   onToggleSelect: () => void
   updating: { finished: number; total: number } | null
+  /** 当前分类名；有值时检查更新只查这个分类 */
+  updateScope?: string
   onRefresh: () => void
 }) {
   const view = useLibraryView()
+  const updateLabel = updateScope ? t('library.checkUpdatesIn', { name: updateScope }) : t('library.checkUpdates')
   const [panel, setPanel] = useState(false)
   const [tab, setTab] = useState<PanelTab>('filter')
   // 手机上用底部面板，桌面用锚定在按钮旁的弹出层
@@ -371,8 +375,8 @@ export function LibraryToolbar({
           className="gicon rounded-full"
           onClick={onRefresh}
           disabled={!!updating}
-          aria-label={t('library.checkUpdates')}
-          title={updating ? t('library.checking', { done: updating.finished, total: updating.total }) : t('library.checkUpdates')}
+          aria-label={updateLabel}
+          title={updating ? t('library.checking', { done: updating.finished, total: updating.total }) : updateLabel}
         >
         <RefreshCw className={cn('size-[18px]', updating && 'animate-spin')} strokeWidth={1.8} />
       </Glass>

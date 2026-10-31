@@ -13,6 +13,8 @@ export default {
   checkStarted: '开始检查书库更新',
   checkFailed: '无法开始检查',
   checkUpdates: '检查书库更新',
+  checkUpdatesIn: '检查「{{name}}」的更新',
+  checkStartedIn: '开始检查「{{name}}」的更新',
   checking: '正在检查更新 {{done}}/{{total}}',
   actionFailed: '{{label}}失败',
   empty: {

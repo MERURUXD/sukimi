@@ -159,13 +159,16 @@ export function LibraryPage() {
   const updating = updater.isRunning ? { finished: updater.finished, total: updater.total } : null
   const client = useApolloClient()
   const [startUpdate] = useMutation(UpdateLibrary)
+  // 在某个分类里点检查只查这个分类，按钮提示里写明
+  const scopeLabel = typeof view.category === 'number' ? categories.find((c) => c.value === view.category)?.label : undefined
+  const scope = typeof scopeLabel === 'string' ? scopeLabel : undefined
 
   const refresh = async () => {
     try {
       // 「稍后再看」里有不在书库的漫画，检查更新时按整个书库算
       const cat = typeof view.category === 'number' ? [view.category] : undefined
       await startUpdate({ variables: { categories: cat } })
-      toast(t('library.checkStarted'))
+      toast(scope ? t('library.checkStartedIn', { name: scope }) : t('library.checkStarted'))
     } catch (e) {
       toastError(t('library.checkFailed'), e)
     }
@@ -323,6 +326,7 @@ export function LibraryPage() {
           selecting={selecting}
           onToggleSelect={() => (selecting ? exitSelect() : setSelecting(true))}
           updating={updating}
+          updateScope={scope}
           onRefresh={refresh}
         />
 

@@ -148,7 +148,7 @@ export function CategoryManager() {
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold">{c.name}</span>
                 <span className="text-[13px] text-muted num">
-                  {t('cfg.cat.titles', { count: c.mangas.totalCount, n: c.mangas.totalCount })}{c.includeInUpdate === 'EXCLUDE' && t('cfg.cat.excluded')}
+                  {t('cfg.cat.titles', { count: c.mangas.totalCount, n: c.mangas.totalCount })}{c.includeInUpdate === 'EXCLUDE' && t('cfg.cat.excluded')}{c.includeInUpdate === 'INCLUDE' && t('cfg.cat.only')}
                 </span>
               </span>
               <button type="button" className="gicon size-10" aria-label={t('cfg.cat.up')} disabled={i === 0} onClick={() => void move({ variables: { id: c.id, position: cats[i - 1].order } })}>
@@ -161,8 +161,10 @@ export function CategoryManager() {
                 type="button"
                 className={cn('gicon size-10', c.includeInUpdate === 'EXCLUDE' && 'text-muted')}
                 aria-pressed={c.includeInUpdate === 'EXCLUDE'}
-                title={c.includeInUpdate === 'EXCLUDE' ? t('cfg.cat.include') : t('cfg.cat.exclude')}
-                onClick={() => void update({ variables: { id: c.id, patch: { includeInUpdate: c.includeInUpdate === 'EXCLUDE' ? 'INCLUDE' : 'EXCLUDE' } } })}
+                title={c.includeInUpdate === 'EXCLUDE' ? t('cfg.cat.include') : c.includeInUpdate === 'INCLUDE' ? t('cfg.cat.onlyOff') : t('cfg.cat.exclude')}
+                // 只在「排除」和「未设置」之间切换：服务端只要有分类是「包含」，整库检查就只查这些分类。
+                // 别的客户端留下的「包含」也在这里恢复成未设置
+                onClick={() => void update({ variables: { id: c.id, patch: { includeInUpdate: c.includeInUpdate === 'UNSET' ? 'EXCLUDE' : 'UNSET' } } })}
               >
                 <RefreshCwOff className="size-[18px]" />
               </button>

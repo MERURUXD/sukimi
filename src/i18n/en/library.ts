@@ -12,6 +12,8 @@ export default {
   checkStarted: 'Checking the library for updates',
   checkFailed: "Couldn't start the check",
   checkUpdates: 'Check library for updates',
+  checkUpdatesIn: 'Check "{{name}}" for updates',
+  checkStartedIn: 'Checking "{{name}}" for updates',
   checking: 'Checking for updates {{done}}/{{total}}',
   actionFailed: '{{label}} failed',
   empty: {
