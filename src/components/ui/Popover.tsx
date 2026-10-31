@@ -184,6 +184,7 @@ function MorphPanel({
   const radius = useRef<number | null>(null)
   const measuredSize = useRef({ width: 0, height: 0 })
   const progress = useMotionValue(0)
+  const contentOpacity = useMotionValue(0)
   // 量到之前保持隐藏，避免第一帧在终点闪一下
   const geo = useMotionValue<Geometry | null>(null)
 
@@ -207,7 +208,7 @@ function MorphPanel({
     const ry = Math.round(r / sy * 4) / 4
     return `${rx}px / ${ry}px`
   })
-  // 玻璃先出现，内容等形状基本长开再淡入；收起时反过来
+  // 玻璃先出现，内容等形状落定再淡入；收起时反过来
   const opacity = useTransform(() => {
     const g = geo.get()
     const v = progress.get()
@@ -215,16 +216,14 @@ function MorphPanel({
   })
   // 内容透明度直接写在面板的直接子元素上：用继承的 CSS 变量会让整棵子树每帧重算样式。
   // 不能给整个内容包一层：调用方的 className 按直接子元素排布（flex、gap）。
-  // 跟着 progress 每帧写：若只在内容透明度变化时写，0～0.3 段一直是 0 不触发，内容会先露一下
   const showContent = (v: number) => {
     const el = panel.current
     if (!el) return
-    const o = clamp01((v - 0.3) / 0.65)
     for (const child of el.children) {
-      if (child instanceof HTMLElement) child.style.opacity = o >= 1 ? '' : String(o)
+      if (child instanceof HTMLElement) child.style.opacity = v >= 1 ? '' : String(v)
     }
   }
-  useMotionValueEvent(progress, 'change', showContent)
+  useMotionValueEvent(contentOpacity, 'change', showContent)
 
   const measure = () => {
     const el = panel.current
@@ -265,7 +264,7 @@ function MorphPanel({
       if (g) geo.set(g)
     }
     sync()
-    showContent(progress.get())
+    showContent(contentOpacity.get())
     // 内容异步加载会让面板在展开途中变高，起点比例要跟着重算，否则会从比按钮大得多的形状开始
     const ro = new ResizeObserver(([entry]) => {
       // 订阅会立即交付一次当前尺寸；没变时不再读取布局或重新发布几何值。
@@ -280,21 +279,34 @@ function MorphPanel({
 
   useEffect(() => {
     let live = true
+    let contentRun: { stop(): void } | undefined
     if (isPresent) {
       const run = animate(progress, 1, reduced ? fade.fast : morph.open)
+      // 跟形变进度淡入会让内容先完全显现，再随弹簧尾段横移几像素。
+      // 等面板落定后再淡入；减少动态效果时没有形变，可以同时渐显。
+      if (reduced) contentRun = animate(contentOpacity, 1, fade.fast)
+      else {
+        contentOpacity.set(0)
+        run.then(() => {
+          if (live) contentRun = animate(contentOpacity, 1, fade.fast)
+        })
+      }
       return () => {
         live = false
         run.stop()
+        contentRun?.stop()
       }
     }
     // 收起时重新量一次：打开期间页面可能滚过、按钮可能挪了位置
     const g = measure()
     if (g) geo.set(g)
+    contentRun = animate(contentOpacity, 0, fade.fast)
     const run = animate(progress, 0, reduced ? fade.fast : morph.close)
     run.then(() => live && safeToRemove?.())
     return () => {
       live = false
       run.stop()
+      contentRun?.stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPresent])
