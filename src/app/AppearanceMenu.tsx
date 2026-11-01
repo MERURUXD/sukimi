@@ -53,11 +53,12 @@ export function AppearanceMenu() {
         <Seg glass={false} label={t('app.appearanceMenu.glass')} items={GLASSES} value={glass} onChange={setGlass} className="w-full [&>button]:flex-1 [&>button]:justify-center [&>button]:px-2" />
       </div>
       <div className="-mx-2 flex flex-col">
-        <Link to="/settings" onClick={close} className="gbtn min-h-10 justify-start text-muted no-underline hover:text-text">
+        {/* 保持菜单项的绘制层，避免非整数显示缩放下 SVG 在弹层落定时单独跳动。 */}
+        <Link to="/settings" onClick={close} className="gbtn min-h-10 justify-start text-muted no-underline will-change-transform hover:text-text">
           <SlidersHorizontal className="size-4" />
           {t('app.appearanceMenu.allSettings')}
         </Link>
-        <button type="button" className="gbtn min-h-10 justify-start text-muted hover:text-text" onClick={() => void leave()}>
+        <button type="button" className="gbtn min-h-10 justify-start text-muted will-change-transform hover:text-text" onClick={() => void leave()}>
           <LogOut className="size-4" />
           {t('app.appearanceMenu.signOut')}
         </button>
