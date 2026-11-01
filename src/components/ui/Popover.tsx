@@ -299,6 +299,7 @@ function MorphPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPresent])
 
+  // 保留整个弹层的变换绘制层，避免非整数显示缩放下，落定时图标或文字重新取整而跳动。
   return (
     <MotionGlass
       ref={panel}
@@ -308,7 +309,7 @@ function MorphPanel({
       data-vt-glass={vtGlass}
       dense={dense}
       layoutScroll={layoutScroll}
-      style={{ ...style, x, y, scaleX, scaleY, opacity, borderRadius, transformOrigin: '0 0', pointerEvents: isPresent ? undefined : 'none' }}
+      style={{ ...style, x, y, scaleX, scaleY, opacity, borderRadius, transformOrigin: '0 0', willChange: reduced ? undefined : 'transform', pointerEvents: isPresent ? undefined : 'none' }}
       className={className}
     >
       {children}
