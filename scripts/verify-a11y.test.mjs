@@ -87,6 +87,7 @@ g.IS_REACT_ACT_ENVIRONMENT = true
 
 const { createServer } = await import('vite')
 const vite = await createServer({
+  resolve: { preserveSymlinks: true },
   server: { middlewareMode: true, hmr: false, watch: null },
   appType: 'custom',
   logLevel: 'error',
@@ -143,6 +144,129 @@ function quietClient() {
   return { client, calls: () => calls }
 }
 const dialogs = () => document.querySelector('[role="dialog"], [role="alertdialog"]')
+
+// 用可控的本地链路延迟标签响应，复现书库快照先到、标签元数据后到的冷启动。
+async function tagClient() {
+  const { createCache } = await mod('/src/api/cache.ts')
+  const { createDemoData } = await mod('/src/features/demo/data.ts')
+  const { buildSchema, executeSync } = await import('graphql')
+  const { readFileSync } = await import('node:fs')
+  const schema = buildSchema(readFileSync(new URL('../src/api/schema.graphql', import.meta.url), 'utf8'))
+  const data = createDemoData(1_700_000_000_000)
+  const pending = []
+  const writes = []
+  const client = new ApolloClient({
+    cache: createCache(),
+    link: new ApolloLink((op) => new Observable((observer) => {
+      const deliver = () => {
+        observer.next(executeSync({ schema, rootValue: data, document: op.query, variableValues: op.variables }))
+        observer.complete()
+      }
+      if (op.operationName === 'TagMetas') pending.push({ observer, deliver })
+      else {
+        if (op.query.definitions.some((d) => d.operation === 'mutation')) writes.push(op.operationName)
+        deliver()
+      }
+    })),
+  })
+  return { client, data, pending, writes }
+}
+
+test('标签编辑：元数据未到前只显示加载，收到后才允许隐藏和添加', async () => {
+  const { TagEditor } = await mod('/src/features/tags/TagEditor.tsx')
+  const { useAuth } = await mod('/src/api/auth.ts')
+  const previous = useAuth.getState()
+  useAuth.setState({ status: 'signedIn', user: { id: 7, username: '虚构用户', roles: ['ADMIN'], permissions: [] } })
+  const { client, pending, writes } = await tagClient()
+  try {
+    await render(createElement(ApolloProvider, { client }, createElement(TagEditor, { open: true, mangaId: 1, genre: ['Romance'], onClose() {} })))
+    await until(() => pending.length === 1)
+    assert.match(document.body.textContent, /正在加载标签/)
+    assert.equal(document.querySelector('input'), null)
+    assert.equal(document.querySelector('[aria-label="隐藏来源标签「Romance」"]'), null)
+    assert.deepEqual(writes, [])
+    await act(async () => { pending.shift().deliver() })
+    await until(() => document.querySelector('[aria-label="隐藏来源标签「Romance」"]'))
+    await act(async () => { document.querySelector('[aria-label="隐藏来源标签「Romance」"]').click() })
+    await until(() => writes.includes('SetTags'))
+    assert.ok(document.querySelector('[aria-label="恢复来源标签「Romance」"]'))
+  } finally {
+    await cleanup()
+    client.stop()
+    useAuth.setState(previous)
+  }
+})
+
+test('标签编辑：加载失败后不开放写入，重试成功才恢复编辑', async () => {
+  const { TagEditor } = await mod('/src/features/tags/TagEditor.tsx')
+  const { useAuth } = await mod('/src/api/auth.ts')
+  const previous = useAuth.getState()
+  useAuth.setState({ status: 'signedIn', user: { id: 7, username: '虚构用户', roles: ['ADMIN'], permissions: [] } })
+  const { client, pending, writes } = await tagClient()
+  try {
+    await render(createElement(ApolloProvider, { client }, createElement(TagEditor, { open: true, mangaId: 1, genre: ['Romance'], onClose() {} })))
+    await until(() => pending.length === 1)
+    await act(async () => { pending.shift().observer.error(new Error('虚构加载失败')) })
+    await until(() => document.querySelector('[role="alert"]'))
+    assert.match(document.body.textContent, /标签加载失败/)
+    assert.equal(document.querySelector('input'), null)
+    assert.deepEqual(writes, [])
+    await act(async () => { [...document.querySelectorAll('button')].find((b) => b.textContent === '重试').click() })
+    await until(() => pending.length === 1)
+    await act(async () => { pending.shift().deliver() })
+    await until(() => document.querySelector('input'))
+    assert.equal(document.querySelector('[role="alert"]'), null)
+  } finally {
+    await cleanup()
+    client.stop()
+    useAuth.setState(previous)
+  }
+})
+
+test('标签搜索：来源原名、归一名都能命中，隐藏的标签两种名字都不能命中', async () => {
+  const { matchesSearch, applyView } = await mod('/src/features/library/filtering.ts')
+  const m = { id: 1, title: '虚构作品', genre: ['Romance'], categories: { nodes: [] } }
+  assert.equal(matchesSearch(m, 'Romance'), true)
+  assert.equal(matchesSearch(m, '恋爱'), true)
+  const hidden = { add: [], hide: ['Romance'] }
+  assert.equal(matchesSearch(m, 'Romance', hidden), false)
+  assert.equal(matchesSearch(m, '恋爱', hidden), false)
+  const opts = { category: 'all', filters: { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0, nsfw: 0, shelved: 0 }, sources: [], sort: 'title', desc: false, query: '恋爱', nsfw: () => false, shelf: new Set(), tagPicks: { 恋爱: 1 } }
+  assert.deepEqual(applyView([m], opts).map((x) => x.id), [1])
+})
+
+test('书库：持久化自建标签筛选等待元数据，失败可重试，不先显示空结果', async () => {
+  const { LibraryPage } = await mod('/src/features/library/LibraryPage.tsx')
+  const { useAuth } = await mod('/src/api/auth.ts')
+  const { useLibraryView } = await mod('/src/features/library/store.ts')
+  const { tagsKey } = await mod('/src/features/tags/tags.ts')
+  const previous = useAuth.getState(), view = useLibraryView.getState()
+  useAuth.setState({ status: 'signedIn', user: { id: 7, username: '虚构用户', roles: ['ADMIN'], permissions: [] } })
+  useLibraryView.setState({ category: 'all', density: 'list', tags: { 虚构自建标签: 1 }, filters: Object.fromEntries(Object.keys(view.filters).map((key) => [key, 0])), sources: [] })
+  const { client, data, pending } = await tagClient()
+  data.setGlobalMeta({ input: { meta: { key: tagsKey(7, 1), value: JSON.stringify({ add: ['虚构自建标签'], hide: [] }) } } })
+  try {
+    await render(createElement(ApolloProvider, { client }, createElement(MemoryRouter, null, createElement(LibraryPage))))
+    await until(() => pending.length === 1 && document.body.textContent.includes('书库'))
+    assert.doesNotMatch(document.body.textContent, /没有符合|没有匹配|还没有漫画/)
+    assert.doesNotMatch(document.body.textContent, /当前显示 0 部/)
+    assert.equal(document.querySelector('[href="/manga/1"]'), null)
+    await act(async () => { pending.shift().observer.error(new Error('虚构加载失败')) })
+    await until(() => document.querySelector('[role="alert"]'))
+    assert.match(document.body.textContent, /标签加载失败/)
+    assert.doesNotMatch(document.body.textContent, /没有符合|没有匹配/)
+    await act(async () => { [...document.querySelectorAll('button')].find((b) => b.textContent === '重试').click() })
+    await until(() => pending.length === 1)
+    await act(async () => { pending.shift().deliver() })
+    await until(() => document.body.textContent.includes('当前显示 1 部')).catch(() => assert.fail(document.body.textContent))
+    assert.doesNotMatch(document.body.textContent, /没有符合|没有匹配/)
+  } finally {
+    await cleanup()
+    client.stop()
+    useLibraryView.setState(view)
+    useAuth.setState(previous)
+  }
+})
 
 test('纵向跳页在图片尺寸变化后保持物理落点，用户滚动后解除', async () => {
   const { ScrollView } = await mod('/src/features/reader/ScrollView.tsx')

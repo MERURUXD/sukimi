@@ -137,6 +137,8 @@ type Documents = {
     "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n": typeof types.RegisterUserDocument,
     "\n  mutation CreateShelf($name: String!) {\n    createCategory(input: { name: $name, includeInUpdate: EXCLUDE, includeInDownload: EXCLUDE }) {\n      category {\n        id\n        name\n        order\n        default\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": typeof types.CreateShelfDocument,
     "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n": typeof types.TagShelfDocument,
+    "\n  query ShelfRollbackState($id: Int!) {\n    category(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n      mangas {\n        totalCount\n      }\n    }\n  }\n": typeof types.ShelfRollbackStateDocument,
+    "\n  mutation DeleteShelf($id: Int!) {\n    deleteCategory(input: { categoryId: $id }) {\n      category {\n        id\n      }\n    }\n  }\n": typeof types.DeleteShelfDocument,
     "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n": typeof types.MangaCategoriesDocument,
     "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n": typeof types.MangaCategoryIdsFragmentDoc,
     "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": typeof types.TagMetasDocument,
@@ -290,6 +292,8 @@ const documents: Documents = {
     "\n  mutation RegisterUser($input: RegisterInput!) {\n    register(input: $input) {\n      clientMutationId\n    }\n  }\n": types.RegisterUserDocument,
     "\n  mutation CreateShelf($name: String!) {\n    createCategory(input: { name: $name, includeInUpdate: EXCLUDE, includeInDownload: EXCLUDE }) {\n      category {\n        id\n        name\n        order\n        default\n        meta {\n          key\n          value\n        }\n      }\n    }\n  }\n": types.CreateShelfDocument,
     "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n": types.TagShelfDocument,
+    "\n  query ShelfRollbackState($id: Int!) {\n    category(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n      mangas {\n        totalCount\n      }\n    }\n  }\n": types.ShelfRollbackStateDocument,
+    "\n  mutation DeleteShelf($id: Int!) {\n    deleteCategory(input: { categoryId: $id }) {\n      category {\n        id\n      }\n    }\n  }\n": types.DeleteShelfDocument,
     "\n  query MangaCategories($id: Int!) {\n    manga(id: $id) {\n      id\n      ...MangaCategoryIds\n    }\n  }\n": types.MangaCategoriesDocument,
     "\n  fragment MangaCategoryIds on MangaType {\n    categories {\n      nodes {\n        id\n      }\n    }\n  }\n": types.MangaCategoryIdsFragmentDoc,
     "\n  query TagMetas($prefix: String!) {\n    metas(filter: { key: { startsWith: $prefix } }) {\n      nodes {\n        key\n        value\n      }\n    }\n  }\n": types.TagMetasDocument,
@@ -826,6 +830,14 @@ export function graphql(source: "\n  mutation CreateShelf($name: String!) {\n   
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */
 export function graphql(source: "\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation TagShelf($id: Int!, $key: String!) {\n    setCategoryMeta(input: { meta: { categoryId: $id, key: $key, value: \"1\" } }) {\n      meta {\n        categoryId\n        key\n        value\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  query ShelfRollbackState($id: Int!) {\n    category(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n      mangas {\n        totalCount\n      }\n    }\n  }\n"): (typeof documents)["\n  query ShelfRollbackState($id: Int!) {\n    category(id: $id) {\n      id\n      meta {\n        key\n        value\n      }\n      mangas {\n        totalCount\n      }\n    }\n  }\n"];
+/**
+ * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
+ */
+export function graphql(source: "\n  mutation DeleteShelf($id: Int!) {\n    deleteCategory(input: { categoryId: $id }) {\n      category {\n        id\n      }\n    }\n  }\n"): (typeof documents)["\n  mutation DeleteShelf($id: Int!) {\n    deleteCategory(input: { categoryId: $id }) {\n      category {\n        id\n      }\n    }\n  }\n"];
 /**
  * The graphql function is used to parse GraphQL queries into a document that can be used by GraphQL clients.
  */

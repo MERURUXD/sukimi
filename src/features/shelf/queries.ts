@@ -30,6 +30,32 @@ export const TagShelf = graphql(`
   }
 `)
 
+// 清理前确认本次新建分类仍为空；不凭创建时的状态删除，避免影响后来放入的漫画。
+export const ShelfRollbackState = graphql(`
+  query ShelfRollbackState($id: Int!) {
+    category(id: $id) {
+      id
+      meta {
+        key
+        value
+      }
+      mangas {
+        totalCount
+      }
+    }
+  }
+`)
+
+export const DeleteShelf = graphql(`
+  mutation DeleteShelf($id: Int!) {
+    deleteCategory(input: { categoryId: $id }) {
+      category {
+        id
+      }
+    }
+  }
+`)
+
 // 发现、更新页的条目不带分类，缓存里没有时菜单按需补取，结果按 MangaType 归一化后 MangaCategoryIds 就能读到
 export const MangaCategories = graphql(`
   query MangaCategories($id: Int!) {

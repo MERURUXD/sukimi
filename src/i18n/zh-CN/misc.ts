@@ -85,6 +85,12 @@ export default {
     // 服务端上的隐藏分类名，只在别的客户端里看得到
     category: '搁置',
     createFailed: '创建搁置分类失败',
+    tagRetryFailed: '首次打标失败：{{first}}；重试失败：{{retry}}',
+    rollbackStateUnknown: '无法确认新建分类的状态，已保留分类',
+    rollbackHasMangas: '新建分类已有漫画，已保留分类',
+    rollbackAlreadyTagged: '新建分类已有搁置标记，已保留分类',
+    rollbackDeleteUnknown: '无法确认新建分类已删除',
+    rollbackFailed: '搁置标记失败：{{tagReason}}；新建分类（ID {{id}}）清理未完成：{{rollbackReason}}。分类可能仍然保留，请检查。',
   },
   later: {
     on: '已加入稍后再看',

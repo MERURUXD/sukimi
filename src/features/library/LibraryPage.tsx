@@ -66,7 +66,9 @@ export function LibraryPage() {
   const isLater = view.category === 'later'
   // 「特别关心」只认书库里的：服务端只检查书库漫画的更新，移出书库的标记保留但不显示
   const favorites = useFavorites()
-  const tags = useTags().edits
+  const tagState = useTags()
+  const tags = tagState.edits
+  const tagsUnavailable = !tagState.ready
   const { setFavorite } = useFavoriteActions()
   const isFavorite = view.category === 'favorite'
   const favoriteList = useMemo(() => all.filter((m) => favorites.ids.has(m.id)), [all, favorites.ids])
@@ -96,12 +98,13 @@ export function LibraryPage() {
   )
   const pinned = view.favoriteFirst && !isFavorite ? favorites.ids : undefined
   const items = useMemo(
-    () => applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags, tagPicks: view.tags }),
-    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned, tags],
+    // 空表只在查询完成后才表示没有编辑，避免快照先到时短暂搜到已隐藏的标签。
+    () => tagsUnavailable ? [] : applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags, tagPicks: view.tags }),
+    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned, tags, tagsUnavailable],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
-  const tagList = useMemo(() => libraryTags(base, tags), [base, tags])
+  const tagList = useMemo(() => tagsUnavailable ? [] : libraryTags(base, tags), [base, tags, tagsUnavailable])
 
   /* 分类：默认分类没有漫画时隐藏；可选标签排在最后 */
   const laterCount = later.items?.length
@@ -311,7 +314,7 @@ export function LibraryPage() {
           title={t('library.title')}
           sub={data && <>
             {t('library.stats', { total: count(all.length), unread: count(unreadTotal), downloaded: count(dlTotal) })}
-            {items.length !== all.length && t('library.showing', { n: count(items.length) })}
+            {!tagsUnavailable && items.length !== all.length && t('library.showing', { n: count(items.length) })}
             {syncing && t('library.syncing')}
           </>}
           actions={<div className="flex-none self-start"><GalleryPill /></div>}
@@ -330,7 +333,11 @@ export function LibraryPage() {
           onRefresh={refresh}
         />
 
-        {isFavorite ? <>
+        {tagsUnavailable ? (
+          tagState.error
+            ? <LoadError prefix={t('misc.tags.loadFailed')} message={tagState.error.message} onRetry={() => void tagState.refetch().catch(() => {})} />
+            : <LibrarySkeleton density={view.density} />
+        ) : isFavorite ? <>
           {(!favorites.map || !data) && !favorites.error && !error && <LibrarySkeleton density={view.density} />}
           {(favorites.error ?? error) && <LoadError message={(favorites.error ?? error)!.message} onRetry={() => void (favorites.error ? favorites.refetch() : refetch()).catch(() => {})} />}
           {favorites.map && data && items.length === 0 && (
@@ -400,7 +407,7 @@ export function LibraryPage() {
         </>}
 
         <div className="pb-28">
-          <LibraryGrid
+          {!tagsUnavailable && <LibraryGrid
             items={items}
             intro={intro}
             scoreOf={scoreOf}
@@ -415,7 +422,7 @@ export function LibraryPage() {
               setSelecting(true)
               sel.toggle(id, index)
             }}
-          />
+          />}
         </div>
       </div>
 

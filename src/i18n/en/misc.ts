@@ -83,6 +83,12 @@ export default {
     unaction: 'Unshelve',
     category: 'Shelved',
     createFailed: 'Could not create the Shelved category',
+    tagRetryFailed: 'Initial tag attempt failed: {{first}}; retry failed: {{retry}}',
+    rollbackStateUnknown: 'Could not verify the new category; it has been kept',
+    rollbackHasMangas: 'The new category already contains manga; it has been kept',
+    rollbackAlreadyTagged: 'The new category already has a shelf tag; it has been kept',
+    rollbackDeleteUnknown: 'Could not confirm deletion of the new category',
+    rollbackFailed: 'Could not tag the shelf: {{tagReason}}; cleanup of the new category (ID {{id}}) is incomplete: {{rollbackReason}}. The category may still exist; please check it.',
   },
   later: {
     on: 'Added to Read Later',

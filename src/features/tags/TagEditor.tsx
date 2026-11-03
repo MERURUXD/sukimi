@@ -3,6 +3,7 @@ import { EyeOff, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { Dialog, usePopMotion } from '@/components/ui/Dialog'
+import { LoadError } from '@/components/ui/LoadError'
 import { toastError } from '@/components/ui/toast'
 import { StaleSessionError } from '@/api/userContext'
 import { addTag, cleanTag, hasTag, hideSource, knownTags, removeTag, sourceTags, type TagEdit } from './tags'
@@ -43,6 +44,11 @@ function Body({ mangaId, genre }: { mangaId: number; genre: readonly string[] })
   const { save } = useTagActions()
   const edit = stored.edit
   const [input, setInput] = useState('')
+
+  // 整份标签覆盖保存，现有编辑未到达前不开放任何修改入口。
+  if (!stored.ready) return stored.error
+    ? <LoadError prefix={t('misc.tags.loadFailed')} message={stored.error.message} onRetry={() => void stored.refetch().catch(() => {})} />
+    : <p className="m-0 text-sm text-muted" role="status">{t('misc.tags.loading')}</p>
 
   const apply = (change: (edit: TagEdit) => TagEdit) => save(mangaId, change).catch((e: unknown) => {
     if (!(e instanceof StaleSessionError)) toastError(t('misc.tags.saveFailed'), e)

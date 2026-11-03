@@ -33,7 +33,7 @@ export function useTags({ skip = false } = {}) {
     skip: skip || userId === undefined,
   })
   const map = useMemo(() => (q.data && userId !== undefined ? parseTags(userId, q.data.metas.nodes) : undefined), [q.data, userId])
-  return { map, edits: map ?? EMPTY, ready: map !== undefined, error: q.error }
+  return { map, edits: map ?? EMPTY, ready: map !== undefined, error: q.error, refetch: q.refetch }
 }
 
 /**
@@ -50,7 +50,7 @@ export function useTagLookup() {
 /** 一部漫画的编辑 */
 export function useMangaTags(mangaId: number) {
   const tags = useTags()
-  return { edit: tags.edits.get(mangaId) ?? NO_EDIT, all: tags.edits, ready: tags.ready }
+  return { edit: tags.edits.get(mangaId) ?? NO_EDIT, all: tags.edits, ready: tags.ready, error: tags.error, refetch: tags.refetch }
 }
 
 export function useTagActions() {

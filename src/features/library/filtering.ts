@@ -57,10 +57,10 @@ export const SORTS: {
   { key: 'downloaded', label: t('library.sort.downloaded'), value: (m) => m.downloadCount },
   { key: 'score', label: t('library.sort.score'), value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsLow: true },
 ]
-/** edit 是这部的标签编辑：搜索看最终的标签，隐藏的来源标签搜不到，自己加的搜得到 */
+/** 搜索兼容原名和筛选面板里的归一名；隐藏的来源标签两种写法都不参与 */
 export function matchesSearch(m: LibraryManga, q: string, edit?: TagEdit) {
   if (!q) return true
-  const hay = [m.title, m.author, m.artist, m.source?.displayName, ...tagsOf(m.genre, edit)].filter(Boolean).join('\n').toLowerCase()
+  const hay = [m.title, m.author, m.artist, m.source?.displayName, ...tagsOf(m.genre, edit), ...filterTags(m.genre, edit)].filter(Boolean).join('\n').toLowerCase()
   return q
     .toLowerCase()
     .split(/\s+/)
