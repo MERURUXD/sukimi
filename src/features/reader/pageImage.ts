@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { acquireImage } from './imageLoad'
 import { forgetWarm, rememberAspect } from './pageCache'
 import { forgetDecoded } from './pageDecode'
-import { FULL, contentBox, halfBox, type Box, type Half } from './pageTools'
+import { FULL, bust, contentBox, halfBox, type Box, type Half } from './pageTools'
 
 /**
  * 裁白边、拆半页后的图片。处理在浏览器里完成：用画布读出原图像素找白边，
@@ -27,8 +27,7 @@ const KEEP_SOURCES = 12
 
 const keyOf = (url: string, v: Variant) => `${v.crop ? 'c' : ''}${v.half === undefined ? '' : `h${v.half}${v.rtl ? 'r' : 'l'}`}|${url}`
 
-/** 给原图地址加参数，绕开浏览器可能留着的失败记录。Blob 和 data 地址不能加。 */
-export const bust = (src: string, n: number) => (n && !/^(data|blob):/.test(src) ? `${src}${src.includes('?') ? '&' : '?'}reload=${n}` : src)
+export { bust } from './pageTools'
 
 /** 原图与白边检测结果，同一张图的两半、裁与不裁共用 */
 const sources = new Map<string, Promise<{ img: HTMLImageElement; box: Box | null } | null>>()
@@ -41,6 +40,8 @@ const sizes = new Map<string, { width: number; height: number }>()
 export const processedSizeOf = (src: string | undefined) => src ? sizes.get(src) : undefined
 /** 文档里正在显示的 Blob。回收会把还挂着的页变成空白 */
 const shown = new Map<string, number>()
+/** 已失效但仍显示的结果，在最后一处图片卸载后释放。 */
+const retired = new Set<string>()
 const running = new Set<string>()
 /** 重新加载后递增。晚到的旧处理不能把刚清掉的结果写回去 */
 const urlGen = new Map<string, number>()
@@ -66,7 +67,10 @@ export function retainShown(url: string | undefined) {
 export function releaseShown(url: string | undefined) {
   if (!url?.startsWith('blob:')) return
   const n = (shown.get(url) ?? 1) - 1
-  if (n <= 0) shown.delete(url)
+  if (n <= 0) {
+    shown.delete(url)
+    if (retired.delete(url)) revokeProcessed(url)
+  }
   else shown.set(url, n)
 }
 
@@ -207,7 +211,10 @@ export function reloadPage(url: string, fresh?: HTMLImageElement) {
   for (const key of [...done.keys()]) {
     if (!key.endsWith(`|${url}`)) continue
     const out = done.get(key)
-    if (out && !isShown(out)) revokeProcessed(out)
+    if (out) {
+      if (isShown(out)) retired.add(out)
+      else revokeProcessed(out)
+    }
     done.delete(key)
   }
   for (const key of [...running]) if (key.endsWith(`|${url}`)) running.delete(key)

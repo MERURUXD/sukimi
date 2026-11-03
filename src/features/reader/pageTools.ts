@@ -6,6 +6,9 @@
 /** 宽高比超过这个值的页当作跨页大图（双页模式独占一屏、单页模式可拆成两半） */
 export const WIDE = 1.1
 
+/** 给原图地址加参数，绕开浏览器可能留着的失败记录。Blob 和 data 地址不能加。 */
+export const bust = (src: string, n: number) => (n && !/^(data|blob):/.test(src) ? `${src}${src.includes('?') ? '&' : '?'}reload=${n}` : src)
+
 /** 裁剪框，取值是占原图宽 / 高的比例（0–1） */
 export interface Box {
   left: number

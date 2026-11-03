@@ -1,17 +1,28 @@
 import type { ApolloClient } from '@apollo/client'
 import { forgetImage, acquireImage } from './imageLoad'
 import { FetchChapterPages } from './queries'
+import { bust } from './pageTools'
 
 /** 各章节的页面地址，切话、预取下一话时复用 */
-const pageLists = new Map<number, Promise<string[]>>()
+const clients = new WeakMap<ApolloClient, Map<number, Promise<string[]>>>()
+let revision = Date.now()
 
-export function loadPages(client: ApolloClient, chapterId: number) {
+export function loadPages(client: ApolloClient, chapterId: number, reload = false) {
+  let pageLists = clients.get(client)
+  if (!pageLists) clients.set(client, pageLists = new Map())
+  if (reload) pageLists.delete(chapterId)
   let p = pageLists.get(chapterId)
   if (!p) {
     p = client
       .mutate({ mutation: FetchChapterPages, variables: { chapterId } })
-      .then((r) => r.data?.fetchChapterPages?.pages ?? [])
-    p.catch(() => pageLists.delete(chapterId))
+      .then((r) => {
+        const urls = r.data?.fetchChapterPages?.pages ?? []
+        const version = reload ? ++revision : 0
+        return urls.map((url) => bust(url, version))
+      })
+    p.catch(() => {
+      if (pageLists.get(chapterId) === p) pageLists.delete(chapterId)
+    })
     pageLists.set(chapterId, p)
   }
   return p

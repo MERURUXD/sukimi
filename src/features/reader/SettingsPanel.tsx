@@ -1,4 +1,5 @@
 import { AnimatePresence } from 'motion/react'
+import { RotateCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { Seg } from '@/components/ui/Seg'
@@ -85,6 +86,8 @@ export function SettingsPanel({
   onRememberChange,
   bookmarks,
   onJump,
+  reloading,
+  onReload,
 }: {
   open: boolean
   settings: ReaderSettings
@@ -95,6 +98,8 @@ export function SettingsPanel({
   /** 本话的页面书签；不传时不显示这一节 */
   bookmarks?: number[]
   onJump?: (page: number) => void
+  reloading?: boolean
+  onReload?: () => void
 }) {
   const [scrolling, setScrolling] = useState(false)
   const scrollIdle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -132,6 +137,15 @@ export function SettingsPanel({
           transition={spring.fast}
           className="no-scrollbar absolute top-[84px] right-4 bottom-24 z-10 flex w-[340px] max-w-[calc(100vw-32px)] flex-col gap-[22px] overflow-y-auto overscroll-contain rounded-[26px] px-[18px] pt-[18px] pb-[22px] [&>div]:shrink-0"
         >
+          {onReload && (
+            <div>
+              <button type="button" className="gbtn plain min-h-11 w-full justify-center" disabled={reloading} aria-busy={reloading} onClick={onReload}>
+                <RotateCw className={cn('size-4', reloading && 'animate-spin')} strokeWidth={1.8} />
+                {reloading ? t('reader.reloading') : t('reader.reload')}
+              </button>
+              <Hint>{t('reader.reloadHint')}</Hint>
+            </div>
+          )}
           <div>
             <H>{t('reader.panel.mode')}</H>
             <div className="grid grid-cols-2 gap-2">

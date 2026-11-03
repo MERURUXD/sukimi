@@ -225,6 +225,25 @@ test('还在处理的原图不会被缓存淘汰后再解码一次', async () =>
   assert.equal(cache.loads('kept'), 1)
 })
 
+test('整话刷新：正在显示的旧处理结果最后一处卸载后释放', async () => {
+  const cache = imageCache({ unique: true })
+  const v = { crop: true, rtl: false }
+  cache.pageSrc('old-page', v)
+  await tick()
+  cache.finish()
+  await tick()
+  const old = cache.pageSrc('old-page', v)
+  cache.retainShown(old)
+  cache.retainShown(old)
+  cache.reloadPage('old-page')
+  assert.equal(cache.revoked.includes(old), false)
+  cache.releaseShown(old)
+  assert.equal(cache.revoked.includes(old), false)
+  cache.releaseShown(old)
+  assert.equal(cache.revoked.includes(old), true)
+  assert.equal(cache.processedSizeOf(old), undefined)
+})
+
 function warmModule() {
   const source = readFileSync(new URL('../src/features/reader/pageCache.ts', import.meta.url), 'utf8')
   const exports = {}
@@ -243,6 +262,7 @@ function warmModule() {
   runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 } }).outputText, {
     exports,
     require(name) {
+      if (name === './pageTools') return tools
       if (name !== './imageLoad' && name !== './queries') throw new Error(name)
       if (name === './queries') return {}
       return {
@@ -274,6 +294,53 @@ test('已经预加载过的图不再重复通知宽高比，忘掉之后才会�
   forgetWarm(url)
   warm(url, notify)
   assert.equal(notices, 2)
+})
+
+test('重新加载本话：绕过旧页列表与浏览器图片缓存，其他章节和客户端不受影响', async () => {
+  const { loadPages } = warmModule()
+  const calls = []
+  const client = { mutate: async ({ variables: { chapterId } }) => {
+    calls.push(chapterId)
+    return { data: { fetchChapterPages: { pages: chapterId === 1 && calls.filter(id => id === 1).length > 1
+      ? ['/page/1?format=webp', '/page/2', 'data:image/svg+xml,demo', 'blob:demo'] : [`/chapter/${chapterId}/error`] } } }
+  } }
+  const first = await loadPages(client, 1)
+  const other = await loadPages(client, 2)
+  assert.equal(await loadPages(client, 1), first)
+  const fresh = await loadPages(client, 1, true)
+  assert.match(fresh[0], /^\/page\/1\?format=webp&reload=\d+$/)
+  assert.match(fresh[1], /^\/page\/2\?reload=\d+$/)
+  assert.equal(fresh[2], 'data:image/svg+xml,demo')
+  assert.equal(fresh[3], 'blob:demo')
+  assert.equal(await loadPages(client, 1), fresh)
+  assert.equal(await loadPages(client, 2), other)
+  assert.deepEqual(calls, [1, 2, 1])
+  const second = await loadPages(client, 1, true)
+  assert.notEqual(second[0], fresh[0])
+  const separate = { mutate: async () => ({ data: { fetchChapterPages: { pages: ['/separate'] } } }) }
+  assert.equal((await loadPages(separate, 1))[0], '/separate')
+})
+
+test('重新加载本话：旧预取迟到失败不会删除新列表，刷新失败后仍能重试', async () => {
+  const { loadPages } = warmModule()
+  let rejectOld
+  let fail = false
+  let calls = 0
+  const client = { mutate: () => {
+    calls++
+    if (calls === 1) return new Promise((_, reject) => { rejectOld = reject })
+    return fail ? Promise.reject(new Error('虚构网络故障')) : Promise.resolve({ data: { fetchChapterPages: { pages: ['/fresh'] } } })
+  } }
+  const pending = loadPages(client, 1)
+  const fresh = await loadPages(client, 1, true)
+  rejectOld(new Error('旧预取失败'))
+  await assert.rejects(pending)
+  assert.equal(await loadPages(client, 1), fresh)
+  fail = true
+  await assert.rejects(loadPages(client, 1, true))
+  fail = false
+  assert.equal((await loadPages(client, 1)).length, 1)
+  assert.equal(calls, 4)
 })
 
 test('处理失败后重试重新请求原图，成功后再给出新的结果', async () => {

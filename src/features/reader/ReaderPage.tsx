@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn'
 import { isDemo } from '@/lib/demo'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
-import { pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { reloadPage, pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
 import { prefetchIndexes } from './scrollWindow'
 import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
@@ -38,12 +38,19 @@ export function ReaderPage() {
   const client = useApolloClient()
   const manga = useQuery(MangaDetail, { variables: { id: mangaId } })
   const chapters = useQuery(MangaChapters, { variables: { mangaId } })
-  const [pages, setPages] = useState<{ id: number; urls: string[] } | null>(null)
+  const [pages, setPages] = useState<{ id: number; urls: string[]; revision?: number; startPage?: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [reloading, setReloading] = useState(false)
+  const request = useRef({ active: false })
+  const reloadLock = useRef(false)
   // 加载失败后点「重试」递增，重新拉取本话页面
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
+    const current = { active: true }
+    request.current = current
+    reloadLock.current = false
+    setReloading(false)
     let alive = true
     setError(null)
     loadPages(client, chapterId)
@@ -51,8 +58,32 @@ export function ReaderPage() {
       .catch((e: Error) => alive && setError(e.message.split('\n')[0]))
     return () => {
       alive = false
+      current.active = false
     }
   }, [client, chapterId, attempt])
+
+  const reloadChapter = async (currentPage = () => 0) => {
+    if (reloadLock.current) return
+    const current = request.current
+    reloadLock.current = true
+    setReloading(true)
+    try {
+      const urls = await loadPages(client, chapterId, true)
+      if (!current.active) return
+      // 图片地址相同也重新请求，避免来源的错误提示图继续命中浏览器缓存。
+      // 服务端磁盘缓存没有按话清理接口，这里不调用全局清理。
+      for (const url of pages?.urls ?? []) reloadPage(url)
+      setPages({ id: chapterId, urls, revision: (pages?.revision ?? 0) + 1, startPage: currentPage() })
+      setError(null)
+    } catch (e) {
+      if (current.active) toastError(t('reader.reloadFailed'), e)
+    } finally {
+      if (current.active) {
+        reloadLock.current = false
+        setReloading(false)
+      }
+    }
+  }
 
   const list = chapters.data?.chapters.nodes
   const idx = list?.findIndex((c) => c.id === chapterId) ?? -1
@@ -119,6 +150,9 @@ export function ReaderPage() {
             <button type="button" onClick={() => setAttempt((n) => n + 1)} className="gbtn bg-accent-soft">
               {t('common.retry')}
             </button>
+            <button type="button" disabled={reloading} onClick={() => void reloadChapter()} className="gbtn">
+              {reloading ? t('reader.reloading') : t('reader.reload')}
+            </button>
             <button type="button" onClick={back} className="gbtn">
               {t('reader.backToDetail')}
             </button>
@@ -131,16 +165,22 @@ export function ReaderPage() {
       ) : pages.urls.length === 0 ? (
         <Center>
           <p className="text-muted">{t('reader.noPages')}</p>
+          <button type="button" disabled={reloading} onClick={() => void reloadChapter()} className="gbtn mt-4">
+            {reloading ? t('reader.reloading') : t('reader.reload')}
+          </button>
         </Center>
       ) : (
         <ReaderSession
-          key={chapterId}
+          key={`${chapterId}:${pages.revision ?? 0}`}
           mangaId={mangaId}
           title={manga.data.manga.title}
           chapter={chapter}
           prev={list[idx - 1]}
           next={list[idx + 1]}
           pages={pages.urls}
+          resumePage={pages.startPage}
+          reloading={reloading}
+          onReload={(currentPage) => void reloadChapter(currentPage)}
         />
       )}
     </div>
@@ -199,6 +239,9 @@ function ReaderSession({
   prev,
   next,
   pages,
+  resumePage,
+  reloading,
+  onReload,
 }: {
   mangaId: number
   title: string
@@ -206,6 +249,9 @@ function ReaderSession({
   prev: Chapter | undefined
   next: Chapter | undefined
   pages: string[]
+  resumePage?: number
+  reloading: boolean
+  onReload: (currentPage: () => number) => void
 }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -219,12 +265,16 @@ function ReaderSession({
   // 从页面书签进来时（?page=第几页）直接到那一页；否则没读完的话从上次的页开始
   const wanted = Number(new URLSearchParams(location.search).get('page'))
   const startPage =
-    Number.isInteger(wanted) && wanted >= 1
-      ? Math.min(wanted - 1, last)
-      : !chapter.isRead && chapter.lastPageRead > 0
-        ? Math.min(chapter.lastPageRead, last)
-        : 0
+    resumePage !== undefined
+      ? Math.min(resumePage, last)
+      : Number.isInteger(wanted) && wanted >= 1
+        ? Math.min(wanted - 1, last)
+        : !chapter.isRead && chapter.lastPageRead > 0
+          ? Math.min(chapter.lastPageRead, last)
+          : 0
   const [page, setPage] = useState(startPage)
+  const currentPage = useRef(page)
+  useEffect(() => { currentPage.current = page }, [page])
   // 书签页参数只用一次：去掉它，刷新或返回时按阅读进度续读
   useEffect(() => {
     if (location.search) navigate(location.pathname, { replace: true, state: location.state })
@@ -596,7 +646,7 @@ function ReaderSession({
         saving={saving}
         onSave={saveCurrent}
       />
-      <SettingsPanel open={ui && panel} settings={settings} set={set} syncLabel={syncLabel} bookmarks={bookmarks} onJump={jump} />
+      <SettingsPanel open={ui && panel} settings={settings} set={set} syncLabel={syncLabel} bookmarks={bookmarks} onJump={jump} reloading={reloading} onReload={() => onReload(() => currentPage.current)} />
     </>
   )
 }
