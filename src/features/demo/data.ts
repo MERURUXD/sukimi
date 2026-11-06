@@ -429,7 +429,8 @@ export function createDemoData(now = Date.now(), openWorks: { work: OpenWork; ur
     // 特别关心（features/favorite）：第 1、3、9 部最近刚抓到新话，第 6 部一周前；第 4 部来源是 NSFW（首页不出现），
     // 第 12 部不在书库（标记保留但不显示）
     ...[1, 3, 4, 6, 9, 12].map((id): [string, string] => [`sukimi.favorite.${PREVIEW_ADMIN.id}.${id}`, String(nowSec - 20 * 86400)]),
-    // NSFW 标记（features/nsfw）：第 7 部手动标记，第 5 部来源是 NSFW 但手动放行
+    // NSFW 标记（features/nsfw）：9003 号来源标为 NSFW，第 7 部手动标记，第 5 部来源是 NSFW 但手动放行
+    [`sukimi.nsfw.${PREVIEW_ADMIN.id}.s.9003`, '1'],
     [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.7`, '1'],
     [`sukimi.nsfw.${PREVIEW_ADMIN.id}.m.5`, '0'],
     // 自建标签（features/tags）：第 1 部加了两个并隐藏了来源的「奇幻」，第 3 部用了其中一个，补全按用过的部数排

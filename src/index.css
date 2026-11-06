@@ -1021,21 +1021,24 @@ html:not(:has(.nav-blur-layer))::view-transition-group(.nav-blur) { display: non
 }
 
 /* ───────── NSFW 封面模糊（见 features/nsfw）─────────
-   书库、更新、历史里给 NSFW 作品的整行或格子加 data-nsfw；桌面指上去或键盘聚焦时显示原图。
+   书库、更新、历史、发现页里给 NSFW 作品的整行或格子加 data-nsfw；桌面指上去或键盘聚焦时显示原图。
    放大一点再模糊，边缘不会透出底色 */
-[data-nsfw] .cv img {
+[data-nsfw] .cv img,
+[data-nsfw].cv img {
   filter: blur(18px) saturate(0.6);
   scale: 1.15;
   transition: filter 0.25s, scale 0.25s;
 }
 @media (hover: hover) {
-  [data-nsfw]:hover .cv img {
+  [data-nsfw]:hover .cv img,
+  [data-nsfw].cv:hover img {
     filter: none;
     scale: 1;
   }
 }
 [data-nsfw]:focus-within .cv img,
-[data-nsfw]:focus-visible .cv img {
+[data-nsfw]:focus-visible .cv img,
+[data-nsfw].cv:focus-visible img {
   filter: none;
   scale: 1;
 }

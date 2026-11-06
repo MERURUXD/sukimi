@@ -21,6 +21,17 @@ export function onlineSources<T extends { id: string }>(sources: readonly T[]): 
   return sources.filter((s) => s.id !== '0')
 }
 
+/** 发现页漫画源排序：普通在线源在前，标为 NSFW 的源排在后面，本地源（id='0'）放最后；同类内按名称排 */
+export function sortSources<T extends { id: string; displayName: string }>(sources: readonly T[], nsfwSources: readonly string[] = []): T[] {
+  const nsfw = new Set(nsfwSources)
+  return [...sources].sort(
+    (a, b) =>
+      Number(a.id === '0') - Number(b.id === '0') ||
+      Number(nsfw.has(a.id)) - Number(nsfw.has(b.id)) ||
+      a.displayName.localeCompare(b.displayName),
+  )
+}
+
 /** 统计多源搜索进度：区分已完成（成功或失败）、成功与失败数量 */
 export function summarizeMultiSearch(sources: readonly { id: string }[], results: SearchResults) {
   let done = 0

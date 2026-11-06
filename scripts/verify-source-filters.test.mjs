@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
-import { fetchSourceMangas, globalSearchSources, onlineSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
+import { fetchSourceMangas, globalSearchSources, onlineSources, sortSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
 import { libraryMark } from '../src/features/browse/libraryMark.ts'
 import { buildSchema, experimentalExecuteIncrementally as execute, parse, validate } from 'graphql'
 import { SourceFiltersDocument, FetchSourceMangaDocument } from '../src/api/gql/graphql.ts'
@@ -189,6 +189,21 @@ test('全局搜索跳过当前正在浏览的源', () => {
   const online = [{ id: '101' }, { id: '102' }, { id: '103' }]
   assert.deepEqual(globalSearchSources(online, '102').map((source) => source.id), ['101', '103'])
   assert.deepEqual(globalSearchSources(online, undefined).map((source) => source.id), ['101', '102', '103'])
+})
+
+test('发现页来源排序：手动标为 NSFW 的源排在普通源后面，本地源放最后，首屏默认选普通源', () => {
+  const raw = [
+    { id: '0', displayName: 'Local source' },
+    { id: '101', displayName: '18 虚构源（首字母靠前）' },
+    { id: '103', displayName: 'Zeta 虚构源' },
+    { id: '102', displayName: 'Beta 虚构源' },
+  ]
+  // 未标记时按名称排，本地源在最后
+  assert.deepEqual(sortSources(raw).map((s) => s.id), ['101', '102', '103', '0'])
+  // 将 101 标为 NSFW 后，101 排到普通源 102、103 之后、本地源之前；首屏首个在线源变成 102
+  const sorted = sortSources(raw, ['101'])
+  assert.deepEqual(sorted.map((s) => s.id), ['102', '103', '101', '0'])
+  assert.equal(sorted.find((s) => s.id !== '0')?.id, '102')
 })
 
 test('在库标记以缓存为准，缓存还没有这部漫画时用来源结果', () => {
