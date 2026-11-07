@@ -1,5 +1,5 @@
 import { useApolloClient, useFragment, useQuery } from '@apollo/client/react'
-import { BookmarkCheck, ExternalLink, Puzzle, Search, SlidersHorizontal } from 'lucide-react'
+import { BookmarkCheck, EyeOff, ExternalLink, Puzzle, Search, SlidersHorizontal } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
@@ -8,8 +8,10 @@ import { LoadError } from '@/components/ui/LoadError'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Seg } from '@/components/ui/Seg'
 import { Popover } from '@/components/ui/Popover'
+import { toast, toastError } from '@/components/ui/toast'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
+import { useNsfwActions, useNsfwBlur, useNsfwStore } from '@/features/nsfw/useNsfw'
 import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -17,24 +19,27 @@ import { httpUrl } from '@/lib/url'
 import { riseStep } from '@/lib/intro'
 import { LibrarySkeleton } from '@/features/library/LibraryGrid'
 import type { FilterChangeInput } from '@/api/gql/graphql'
-import { resetOnUserContext } from '@/api/userContext'
+import { resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { sourceBrowseKey } from './filters'
 import { SourceFilterPanel } from './SourceFilterPanel'
 import { SourceIcon } from './SourceIcon'
 import { libraryMark } from './libraryMark'
-import { fetchSourceMangas, globalSearchSources, onlineSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
+import { fetchSourceMangas, globalSearchSources, groupSources, onlineSources, sortSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
 import { ExtensionUpdateCount, langLabel, MangaInLibrary, Sources, type Source, type SourceManga } from './queries'
 import { t } from '@/i18n'
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
 
-/** 角标和菜单都看缓存里的在库状态，从详情页回来不用重新搜索 */
-function useLibraryMark(id: number, listed: boolean) {
+/** 角标、菜单和分类 NSFW 判定都优先看缓存里的最新状态，从详情页改完回来不用重新搜索 */
+function useCachedManga(m: Pick<SourceManga, 'id' | 'inLibrary'> & { categories?: SourceManga['categories'] }) {
   const { complete, data } = useFragment({
     fragment: MangaInLibrary,
-    from: { __typename: 'MangaType', id },
+    from: { __typename: 'MangaType', id: m.id },
   })
-  return libraryMark(complete ? data.inLibrary : undefined, listed)
+  return {
+    inLibrary: libraryMark(complete ? data.inLibrary : undefined, m.inLibrary),
+    categories: complete ? data.categories : m.categories,
+  }
 }
 
 /** 封面触屏长按、鼠标右键打开「稍后再看 / 特别关心」菜单；单来源网格和全局搜索结果共用 */
@@ -43,7 +48,7 @@ function MangaMenu({ m, align = 'left', children }: {
   align?: 'left' | 'right'
   children: (open: ReturnType<typeof useLongPress> & { onContextMenu: (e: MouseEvent) => void; 'aria-haspopup': 'menu' }) => ReactNode
 }) {
-  const inLibrary = useLibraryMark(m.id, m.inLibrary)
+  const { inLibrary } = useCachedManga(m)
   const [menu, setMenu] = useState(false)
   const close = useCallback(() => setMenu(false), [])
   const press = useLongPress(() => setMenu(true))
@@ -63,16 +68,18 @@ function MangaMenu({ m, align = 'left', children }: {
 }
 
 /** 浏览结果的封面网格 */
-function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?: CSSProperties }) {
+function MangaTile({ m, source, rise }: { m: SourceManga; source: Pick<Source, 'id' | 'displayName'>; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
-  const inLibrary = useLibraryMark(m.id, m.inLibrary)
+  const { inLibrary, categories } = useCachedManga(m)
+  const nsfw = useNsfwBlur({ id: m.id, source, categories })
   return <MangaMenu m={m}>{(open) => (
     <Link
       to={`/manga/${m.id}`}
       viewTransition
       {...prefetch}
       {...open}
-      data-sfw={sfwAttr(source)}
+      data-sfw={sfwAttr(source.displayName)}
+      data-nsfw={nsfw}
       style={rise}
       className={cn('group flex min-w-0 flex-col gap-2 text-text no-underline', rise && 'rise')}
     >
@@ -95,10 +102,11 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: string; rise?:
 
 export function BrowsePage() {
   const { data, error, refetch } = useQuery(Sources)
+  const nsfwSources = useNsfwStore((s) => s.marks.sources)
   const sources = useMemo(
-    // 本地源放最后
-    () => [...(data?.sources.nodes ?? [])].sort((a, b) => Number(a.id === '0') - Number(b.id === '0') || a.displayName.localeCompare(b.displayName)),
-    [data],
+    // 普通源在前，标为 NSFW 的源排在后面，本地源放最后
+    () => sortSources(data?.sources.nodes ?? [], nsfwSources),
+    [data, nsfwSources],
   )
   const [params, setParams] = useSearchParams()
   const q = params.get('q') ?? ''
@@ -126,11 +134,7 @@ export function BrowsePage() {
     set({ q: v || null, mode: v ? 'SEARCH' : null })
   }
 
-  const groups = useMemo(() => {
-    const m = new Map<string, Source[]>()
-    for (const s of sources) m.set(s.lang, [...(m.get(s.lang) ?? []), s])
-    return [...m.entries()]
-  }, [sources])
+  const groups = useMemo(() => groupSources(sources, nsfwSources), [sources, nsfwSources])
   const searchSources = useMemo(() => onlineSources(sources), [sources])
   const globalSources = useMemo(() => globalSearchSources(searchSources, sourceId), [searchSources, sourceId])
   // 有可更新的扩展时在入口上显示数量
@@ -174,9 +178,9 @@ export function BrowsePage() {
             </Link>
           </div>
           {error && !data && <LoadError prefix={t('browse.loadSourcesFailed')} message={error.message} onRetry={() => void refetch()} />}
-          {groups.map(([lang, list]) => (
-            <div key={lang}>
-              <div className="px-3 pt-3.5 pb-1.5 text-xs font-bold tracking-[.08em] text-muted">{langLabel(lang)}</div>
+          {groups.map(({ key, lang, nsfw, list }) => (
+            <div key={key}>
+              <div className="px-3 pt-3.5 pb-1.5 text-xs font-bold tracking-[.08em] text-muted">{nsfw ? `${langLabel(lang)} · NSFW` : langLabel(lang)}</div>
               {list.map((s) => (
                 <button
                   key={s.id}
@@ -192,7 +196,16 @@ export function BrowsePage() {
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="line-clamp-2 leading-snug font-semibold break-words" title={s.displayName}>{s.displayName}</span>
                     <span className="truncate text-[13px] text-muted">
-                      {[s.supportsLatest ? t('browse.supportsLatest') : null, s.contentWarning === 'NSFW' ? t('browse.adult') : s.contentWarning === 'MIXED' ? t('browse.mixedAdult') : null]
+                      {[
+                        s.supportsLatest ? t('browse.supportsLatest') : null,
+                        nsfwSources.includes(s.id)
+                          ? 'NSFW'
+                          : s.contentWarning === 'NSFW'
+                            ? t('browse.adult')
+                            : s.contentWarning === 'MIXED'
+                              ? t('browse.mixedAdult')
+                              : null,
+                      ]
                         .filter(Boolean)
                         .join(' · ') || ' '}
                     </span>
@@ -270,9 +283,10 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
               </Glass>
             }
           >
-            <SourceFilterPanel sourceId={source.id} applied={filters} onApply={apply} onClose={closePanel} />
+            <SourceFilterPanel sourceId={source.id} applied={filters} onClose={closePanel} onApply={apply} />
           </Popover>
         )}
+        {source.id !== '0' && <SourceNsfwButton source={source} />}
         {home && (
           <Glass flat as="a" href={home} target="_blank" rel="noreferrer" className="gicon size-10 rounded-full" aria-label={t('browse.openSite')} title={t('browse.openSite')}>
             <ExternalLink className="size-[18px]" strokeWidth={1.8} />
@@ -287,6 +301,40 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
       )}
       <SourceResults key={`${key}|${revision}`} source={source} mode={mode} q={q} filters={filters} />
     </section>
+  )
+}
+
+function SourceNsfwButton({ source }: { source: Source }) {
+  const on = useNsfwStore((s) => s.marks.sources.includes(source.id))
+  const { setSource } = useNsfwActions()
+  const [busy, setBusy] = useState(false)
+  const label = on ? t('browse.unmarkNsfwSource') : t('browse.markNsfwSource')
+  const toggle = async () => {
+    setBusy(true)
+    try {
+      await setSource(source.id, !on)
+      toast(on ? t('browse.sourceNsfwUnmarked', { name: source.displayName }) : t('browse.sourceNsfwMarked', { name: source.displayName }))
+    } catch (e) {
+      if (!(e instanceof StaleSessionError)) toastError(t('settings.nsfw.sourceFailed'), e)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Glass
+      flat
+      as="button"
+      type="button"
+      aria-pressed={on}
+      aria-label={label}
+      title={label}
+      disabled={busy}
+      onClick={() => void toggle()}
+      className={cn('gbtn rounded-full [--g-drop:0_0_0_transparent]', on && 'bg-g-hi')}
+    >
+      <EyeOff className="size-[18px]" strokeWidth={1.8} />
+      NSFW
+    </Glass>
   )
 }
 
@@ -352,7 +400,7 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
       {items.length > 0 && <p className="mb-4 text-xs text-muted">{t('browse.loaded', { n: items.length })}</p>}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-x-[18px] gap-y-[26px]">
         {items.map((m, i) => (
-          <MangaTile key={m.id} m={m} source={source.displayName} rise={i >= batchFrom ? riseStep(i - batchFrom) : undefined} />
+          <MangaTile key={m.id} m={m} source={source} rise={i >= batchFrom ? riseStep(i - batchFrom) : undefined} />
         ))}
       </div>
       {loading && items.length === 0 && <LibrarySkeleton density="comfy" />}
@@ -380,6 +428,27 @@ resetOnUserContext(() => {
   appliedFilters.clear()
   searched.clear()
 })
+
+function GlobalSearchThumb({ m, source, align }: { m: SourceManga; source: Pick<Source, 'id' | 'displayName'>; align: 'left' | 'right' }) {
+  const { categories } = useCachedManga(m)
+  const nsfw = useNsfwBlur({ id: m.id, source, categories })
+  return (
+    <MangaMenu m={m} align={align}>{(open) => (
+      <Link
+        to={`/manga/${m.id}`}
+        viewTransition
+        {...open}
+        data-sfw={sfwAttr(source.displayName)}
+        data-nsfw={nsfw}
+        className="cv block rounded-lg"
+        aria-label={m.title}
+        title={m.title}
+      >
+        <CoverImg src={m.thumbnailUrl} loading="lazy" />
+      </Link>
+    )}</MangaMenu>
+  )
+}
 
 function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; onOpen: (id: string) => void }) {
   const { results, retry } = useMultiSourceSearch(q, sources, searched)
@@ -429,11 +498,7 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
                 {r?.items.slice(0, 4).map((m, i) => (
                   // 一行四个，右半边的菜单向左展开，不超出屏幕
-                  <MangaMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
-                    <Link to={`/manga/${m.id}`} viewTransition {...open} data-sfw={sfwAttr(s.displayName)} className="cv block rounded-lg" aria-label={m.title} title={m.title}>
-                      <CoverImg src={m.thumbnailUrl} loading="lazy" />
-                    </Link>
-                  )}</MangaMenu>
+                  <GlobalSearchThumb key={m.id} m={m} source={s} align={i < 2 ? 'left' : 'right'} />
                 ))}
               </div>
             </div>

@@ -21,11 +21,16 @@ export const Sources = graphql(`
 
 export type Source = SourcesQuery['sources']['nodes'][number]
 
-/** 发现页角标只看缓存里的在库状态，不把来源结果上的副本当成最新值 */
+/** 发现页角标与分类 NSFW 判定优先看缓存里的最新状态，不把来源结果上的副本当成最新值 */
 export const MangaInLibrary = graphql(`
   fragment MangaInLibrary on MangaType {
     id
     inLibrary
+    categories {
+      nodes {
+        id
+      }
+    }
   }
 `)
 
@@ -39,6 +44,11 @@ export const FetchSourceManga = graphql(`
         thumbnailUrl
         author
         inLibrary
+        categories {
+          nodes {
+            id
+          }
+        }
       }
     }
   }

@@ -8,25 +8,24 @@ import { captureUser } from '@/api/userContext'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { toast } from '@/components/ui/toast'
 import { USER_KEYS } from '@/features/auth/userScope'
-import { categoryNsfwKey, isNsfw, mangaNsfwKey, NO_MARKS, nsfwPrefix, nsfwReason, nsfwWrite, parseNsfw, type NsfwMarks, type NsfwSubject } from './nsfw'
+import { categoryNsfwKey, isNsfw, mangaNsfwKey, NO_MARKS, nsfwPrefix, nsfwReason, nsfwWrite, parseNsfw, sourceNsfwKey, type NsfwMarks, type NsfwSubject } from './nsfw'
 import { NsfwMetas, RemoveNsfwMetas, SetNsfwMetas } from './queries'
 import { t } from '@/i18n'
 
 interface NsfwState {
   /** 首页和画廊不显示 NSFW 作品 */
   hide: boolean
-  /** 来源本身是 NSFW 时自动算作 NSFW */
-  bySource: boolean
-  /** 书库、更新、历史等其余列表里模糊 NSFW 封面 */
+  /** 书库、更新、历史、发现页等其余列表里模糊 NSFW 封面 */
   blur: boolean
   /** 上次从服务端取到的标记：刷新页面后先用它过滤，首屏不会先露出来再消失 */
   marks: NsfwMarks
   /** 临时显示全部（Shift + H）；不保存，刷新页面后恢复 */
   revealed: boolean
-  set: (patch: Partial<Pick<NsfwState, 'hide' | 'bySource' | 'blur' | 'marks' | 'revealed'>>) => void
+  set: (patch: Partial<Pick<NsfwState, 'hide' | 'blur' | 'marks' | 'revealed'>>) => void
 }
 
-const INITIAL = { hide: true, bySource: true, blur: true, marks: NO_MARKS }
+const INITIAL = { hide: true, blur: true, marks: NO_MARKS }
+const baseMerge = scopedMerge<NsfwState>(INITIAL)!
 
 /** 按账号分开存在本机：开关是这台设备的偏好，标记本身在服务端 */
 export const useNsfwStore = create<NsfwState>()(
@@ -35,8 +34,11 @@ export const useNsfwStore = create<NsfwState>()(
     {
       name: USER_KEYS.nsfw,
       storage: userStorage<NsfwState>(),
-      partialize: ({ hide, bySource, blur, marks }) => ({ hide, bySource, blur, marks }) as NsfwState,
-      merge: scopedMerge<NsfwState>(INITIAL),
+      partialize: ({ hide, blur, marks }) => ({ hide, blur, marks }) as NsfwState,
+      merge: (persisted, current) => {
+        const merged = baseMerge(persisted, current)
+        return { ...merged, marks: { ...NO_MARKS, ...merged.marks } }
+      },
     },
   ),
 )
@@ -90,18 +92,17 @@ export function NsfwSync() {
  * 临时显示时两者都放行；reason 不受开关影响，详情页据此显示标记来源。
  */
 export function useNsfw() {
-  const { hide, blur, bySource, marks, revealed } = useNsfwStore()
+  const { hide, blur, marks, revealed } = useNsfwStore()
   return useMemo(() => {
-    const test = (m: NsfwSubject) => isNsfw(m, marks, bySource)
+    const test = (m: NsfwSubject) => isNsfw(m, marks)
     return {
       marks,
-      bySource,
       test,
-      reason: (m: NsfwSubject) => nsfwReason(m, marks, bySource),
+      reason: (m: NsfwSubject) => nsfwReason(m, marks),
       hidden: (m: NsfwSubject) => hide && !revealed && test(m),
       blurred: (m: NsfwSubject) => blur && !revealed && test(m),
     }
-  }, [hide, blur, bySource, marks, revealed])
+  }, [hide, blur, marks, revealed])
 }
 
 /**
@@ -109,7 +110,7 @@ export function useNsfw() {
  * 模糊效果见 index.css 的 [data-nsfw]
  */
 export function useNsfwBlur(m: NsfwSubject): '' | undefined {
-  return useNsfwStore((s) => s.blur && !s.revealed && isNsfw(m, s.marks, s.bySource)) ? '' : undefined
+  return useNsfwStore((s) => s.blur && !s.revealed && isNsfw(m, s.marks)) ? '' : undefined
 }
 
 export function useNsfwActions() {
@@ -145,6 +146,7 @@ export function useNsfwActions() {
     const prev: Node[] = [
       ...Object.entries(marks.manga).map(([id, on]) => ({ key: mangaNsfwKey(userId, Number(id)), value: on ? '1' : '0' })),
       ...marks.categories.map((id) => ({ key: categoryNsfwKey(userId, id), value: '1' })),
+      ...marks.sources.map((id) => ({ key: sourceNsfwKey(userId, id), value: '1' })),
     ]
     set({ marks: parseNsfw(userId, apply(prev)) })
   }, [client])
@@ -152,10 +154,10 @@ export function useNsfwActions() {
   /** 把这些漫画设为（或取消）NSFW；和分类、来源判定一致的不留手动键 */
   const setManga = useCallback(async (mangas: readonly NsfwSubject[], want: boolean) => {
     const userId = currentUserId()
-    const { marks, bySource } = useNsfwStore.getState()
+    const { marks } = useNsfwStore.getState()
     const entries: [string, '1' | '0' | null][] = []
     for (const m of mangas) {
-      const v = nsfwWrite(m, marks, bySource, want)
+      const v = nsfwWrite(m, marks, want)
       const manual = marks.manga[m.id]
       const has = manual === undefined ? null : manual ? '1' : '0'
       // 服务端已经是这个值（含本来就没有手动键）的跳过
@@ -168,6 +170,10 @@ export function useNsfwActions() {
     await write([[categoryNsfwKey(currentUserId(), categoryId), on ? '1' : null]])
   }, [write])
 
+  const setSource = useCallback(async (sourceId: string, on: boolean) => {
+    await write([[sourceNsfwKey(currentUserId(), sourceId), on ? '1' : null]])
+  }, [write])
+
   /** 换源迁移：手动标记（或手动放行）跟着作品走，原样复制到新版本；没有手动标记时什么都不写 */
   const copyManga = useCallback(async (fromId: number, toId: number) => {
     const manual = useNsfwStore.getState().marks.manga[fromId]
@@ -175,5 +181,5 @@ export function useNsfwActions() {
     await write([[mangaNsfwKey(currentUserId(), toId), manual ? '1' : '0']])
   }, [write])
 
-  return { setManga, setCategory, copyManga }
+  return { setManga, setCategory, setSource, copyManga }
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { ApolloClient, ApolloLink, Observable } from '@apollo/client'
-import { fetchSourceMangas, globalSearchSources, onlineSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
+import { fetchSourceMangas, globalSearchSources, groupSources, onlineSources, sortSources, sourcesToFetch, summarizeMultiSearch } from '../src/features/browse/multiSearch.ts'
 import { libraryMark } from '../src/features/browse/libraryMark.ts'
 import { buildSchema, experimentalExecuteIncrementally as execute, parse, validate } from 'graphql'
 import { SourceFiltersDocument, FetchSourceMangaDocument } from '../src/api/gql/graphql.ts'
@@ -191,6 +191,29 @@ test('全局搜索跳过当前正在浏览的源', () => {
   assert.deepEqual(globalSearchSources(online, undefined).map((source) => source.id), ['101', '102', '103'])
 })
 
+test('发现页来源排序与语言分组：手动标为 NSFW 的源跨语言也排在普通源后面，本地源放最后，首屏默认选普通源', () => {
+  const raw = [
+    { id: '0', displayName: 'Local source', lang: 'localsourcelang' },
+    { id: '101', displayName: '18 虚构源（首字母靠前）', lang: 'en' },
+    { id: '103', displayName: 'Zeta 虚构源', lang: 'ja' },
+    { id: '102', displayName: 'Beta 虚构源', lang: 'en' },
+  ]
+  // 未标记时按名称排，本地源在最后
+  assert.deepEqual(sortSources(raw).map((s) => s.id), ['101', '102', '103', '0'])
+  // 将 101 标为 NSFW 后，101 排到普通源 102、103 之后、本地源之前；首屏首个在线源变成 102
+  const sorted = sortSources(raw, ['101'])
+  assert.deepEqual(sorted.map((s) => s.id), ['102', '103', '101', '0'])
+  assert.equal(sorted.find((s) => s.id !== '0')?.id, '102')
+  // 按语言分组后仍保持「普通源分组 → NSFW 源分组 → 本地源」顺序，同为 en 的 101 不会跟 102 挤到 ja 的 103 前面
+  const groups = groupSources(sorted, ['101'])
+  assert.deepEqual(groups.map((g) => [g.key, g.nsfw, g.list.map((s) => s.id)]), [
+    ['en', false, ['102']],
+    ['ja', false, ['103']],
+    ['nsfw:en', true, ['101']],
+    ['localsourcelang', false, ['0']],
+  ])
+})
+
 test('在库标记以缓存为准，缓存还没有这部漫画时用来源结果', () => {
   assert.equal(libraryMark(true, false), true)
   assert.equal(libraryMark(false, true), false)
@@ -209,7 +232,7 @@ test('来源抓取不盖掉缓存里已有的漫画', async () => {
           fetchSourceManga: {
             __typename: 'FetchSourceMangaPayload',
             hasNextPage: false,
-            mangas: [{ __typename: 'MangaType', id: 1, title: '来源标题', thumbnailUrl: null, author: null, inLibrary: false }],
+            mangas: [{ __typename: 'MangaType', id: 1, title: '来源标题', thumbnailUrl: null, author: null, inLibrary: false, categories: { __typename: 'CategoryNodeList', nodes: [] } }],
           },
         },
       })

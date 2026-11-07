@@ -21,6 +21,37 @@ export function onlineSources<T extends { id: string }>(sources: readonly T[]): 
   return sources.filter((s) => s.id !== '0')
 }
 
+/** 发现页漫画源排序：普通在线源在前，标为 NSFW 的源排在后面，本地源（id='0'）放最后；同类内按名称排 */
+export function sortSources<T extends { id: string; displayName: string }>(sources: readonly T[], nsfwSources: readonly string[] = []): T[] {
+  const nsfw = new Set(nsfwSources)
+  return [...sources].sort(
+    (a, b) =>
+      Number(a.id === '0') - Number(b.id === '0') ||
+      Number(nsfw.has(a.id)) - Number(nsfw.has(b.id)) ||
+      a.displayName.localeCompare(b.displayName),
+  )
+}
+
+/**
+ * 发现页侧栏按语言分组：保持「普通源分组 → 标为 NSFW 的源分组 → 本地源」的三段顺序，
+ * 避免多语言下已标为 NSFW 的源因为和普通源同属一种语言而重新排到别的普通源前面。
+ */
+export function groupSources<T extends { id: string; lang: string }>(
+  sorted: readonly T[],
+  nsfwSources: readonly string[] = [],
+): { key: string; lang: string; nsfw: boolean; list: T[] }[] {
+  const nsfw = new Set(nsfwSources)
+  const m = new Map<string, { key: string; lang: string; nsfw: boolean; list: T[] }>()
+  for (const s of sorted) {
+    const isNsfw = s.id !== '0' && nsfw.has(s.id)
+    const key = `${isNsfw ? 'nsfw:' : ''}${s.lang}`
+    const g = m.get(key)
+    if (g) g.list.push(s)
+    else m.set(key, { key, lang: s.lang, nsfw: isNsfw, list: [s] })
+  }
+  return [...m.values()]
+}
+
 /** 统计多源搜索进度：区分已完成（成功或失败）、成功与失败数量 */
 export function summarizeMultiSearch(sources: readonly { id: string }[], results: SearchResults) {
   let done = 0
