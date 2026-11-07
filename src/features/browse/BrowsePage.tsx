@@ -277,7 +277,7 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
             onClose={closePanel}
             className="w-[400px] max-w-[calc(100vw-32px)] px-4 py-4 [--g-drop:0_0_0_transparent] [&_.solid]:shadow-none max-md:fixed max-md:inset-x-4 max-md:top-4 max-md:w-auto"
             trigger={
-              <Glass flat as="button" ref={filterButton} type="button" aria-expanded={panel} aria-controls={panelId} aria-haspopup="dialog" onClick={() => setPanel((value) => !value)} className={cn('gbtn rounded-full [--g-drop:0_0_0_transparent]', (panel || (mode === 'SEARCH' && filters.length > 0)) && 'bg-g-hi')}>
+              <Glass flat as="button" ref={filterButton} type="button" aria-expanded={panel} aria-controls={panelId} aria-haspopup="dialog" onClick={() => setPanel((value) => !value)} className={cn('gbtn rounded-full', (panel || (mode === 'SEARCH' && filters.length > 0)) && 'bg-g-hi')}>
                 <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />
                 {t('browse.sourceFilter')}{mode === 'SEARCH' && filters.length > 0 && <span className="text-xs num">{filters.length}</span>}
               </Glass>
@@ -330,7 +330,7 @@ function SourceNsfwButton({ source }: { source: Source }) {
       title={label}
       disabled={busy}
       onClick={() => void toggle()}
-      className={cn('gbtn rounded-full [--g-drop:0_0_0_transparent]', on && 'bg-g-hi')}
+      className={cn('gbtn rounded-full', on && 'bg-g-hi')}
     >
       <EyeOff className="size-[18px]" strokeWidth={1.8} />
       NSFW
