@@ -11,7 +11,7 @@ import { Popover } from '@/components/ui/Popover'
 import { toast, toastError } from '@/components/ui/toast'
 import { usePrefetchManga } from '@/features/manga/prefetch'
 import { MangaMenuItems } from '@/features/favorite/MangaMenuItems'
-import { useNsfw, useNsfwActions, useNsfwBlur, useNsfwStore } from '@/features/nsfw/useNsfw'
+import { useNsfwActions, useNsfwBlur, useNsfwStore } from '@/features/nsfw/useNsfw'
 import { useLongPress } from '@/lib/useLongPress'
 import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
@@ -24,19 +24,22 @@ import { sourceBrowseKey } from './filters'
 import { SourceFilterPanel } from './SourceFilterPanel'
 import { SourceIcon } from './SourceIcon'
 import { libraryMark } from './libraryMark'
-import { fetchSourceMangas, globalSearchSources, onlineSources, sortSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
+import { fetchSourceMangas, globalSearchSources, groupSources, onlineSources, sortSources, summarizeMultiSearch, useMultiSourceSearch, type SearchResults } from './multiSearch'
 import { ExtensionUpdateCount, langLabel, MangaInLibrary, Sources, type Source, type SourceManga } from './queries'
 import { t } from '@/i18n'
 
 type Mode = 'POPULAR' | 'LATEST' | 'SEARCH'
 
-/** 角标和菜单都看缓存里的在库状态，从详情页回来不用重新搜索 */
-function useLibraryMark(id: number, listed: boolean) {
+/** 角标、菜单和分类 NSFW 判定都优先看缓存里的最新状态，从详情页改完回来不用重新搜索 */
+function useCachedManga(m: Pick<SourceManga, 'id' | 'inLibrary'> & { categories?: SourceManga['categories'] }) {
   const { complete, data } = useFragment({
     fragment: MangaInLibrary,
-    from: { __typename: 'MangaType', id },
+    from: { __typename: 'MangaType', id: m.id },
   })
-  return libraryMark(complete ? data.inLibrary : undefined, listed)
+  return {
+    inLibrary: libraryMark(complete ? data.inLibrary : undefined, m.inLibrary),
+    categories: complete ? data.categories : m.categories,
+  }
 }
 
 /** 封面触屏长按、鼠标右键打开「稍后再看 / 特别关心」菜单；单来源网格和全局搜索结果共用 */
@@ -45,7 +48,7 @@ function MangaMenu({ m, align = 'left', children }: {
   align?: 'left' | 'right'
   children: (open: ReturnType<typeof useLongPress> & { onContextMenu: (e: MouseEvent) => void; 'aria-haspopup': 'menu' }) => ReactNode
 }) {
-  const inLibrary = useLibraryMark(m.id, m.inLibrary)
+  const { inLibrary } = useCachedManga(m)
   const [menu, setMenu] = useState(false)
   const close = useCallback(() => setMenu(false), [])
   const press = useLongPress(() => setMenu(true))
@@ -67,8 +70,8 @@ function MangaMenu({ m, align = 'left', children }: {
 /** 浏览结果的封面网格 */
 function MangaTile({ m, source, rise }: { m: SourceManga; source: Pick<Source, 'id' | 'displayName'>; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
-  const inLibrary = useLibraryMark(m.id, m.inLibrary)
-  const nsfw = useNsfwBlur({ id: m.id, source })
+  const { inLibrary, categories } = useCachedManga(m)
+  const nsfw = useNsfwBlur({ id: m.id, source, categories })
   return <MangaMenu m={m}>{(open) => (
     <Link
       to={`/manga/${m.id}`}
@@ -131,11 +134,7 @@ export function BrowsePage() {
     set({ q: v || null, mode: v ? 'SEARCH' : null })
   }
 
-  const groups = useMemo(() => {
-    const m = new Map<string, Source[]>()
-    for (const s of sources) m.set(s.lang, [...(m.get(s.lang) ?? []), s])
-    return [...m.entries()]
-  }, [sources])
+  const groups = useMemo(() => groupSources(sources, nsfwSources), [sources, nsfwSources])
   const searchSources = useMemo(() => onlineSources(sources), [sources])
   const globalSources = useMemo(() => globalSearchSources(searchSources, sourceId), [searchSources, sourceId])
   // 有可更新的扩展时在入口上显示数量
@@ -179,9 +178,9 @@ export function BrowsePage() {
             </Link>
           </div>
           {error && !data && <LoadError prefix={t('browse.loadSourcesFailed')} message={error.message} onRetry={() => void refetch()} />}
-          {groups.map(([lang, list]) => (
-            <div key={lang}>
-              <div className="px-3 pt-3.5 pb-1.5 text-xs font-bold tracking-[.08em] text-muted">{langLabel(lang)}</div>
+          {groups.map(({ key, lang, nsfw, list }) => (
+            <div key={key}>
+              <div className="px-3 pt-3.5 pb-1.5 text-xs font-bold tracking-[.08em] text-muted">{nsfw ? `${langLabel(lang)} · NSFW` : langLabel(lang)}</div>
               {list.map((s) => (
                 <button
                   key={s.id}
@@ -430,10 +429,30 @@ resetOnUserContext(() => {
   searched.clear()
 })
 
+function GlobalSearchThumb({ m, source, align }: { m: SourceManga; source: Pick<Source, 'id' | 'displayName'>; align: 'left' | 'right' }) {
+  const { categories } = useCachedManga(m)
+  const nsfw = useNsfwBlur({ id: m.id, source, categories })
+  return (
+    <MangaMenu m={m} align={align}>{(open) => (
+      <Link
+        to={`/manga/${m.id}`}
+        viewTransition
+        {...open}
+        data-sfw={sfwAttr(source.displayName)}
+        data-nsfw={nsfw}
+        className="cv block rounded-lg"
+        aria-label={m.title}
+        title={m.title}
+      >
+        <CoverImg src={m.thumbnailUrl} loading="lazy" />
+      </Link>
+    )}</MangaMenu>
+  )
+}
+
 function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; onOpen: (id: string) => void }) {
   const { results, retry } = useMultiSourceSearch(q, sources, searched)
   const summary = summarizeMultiSearch(sources, results)
-  const { blurred } = useNsfw()
 
   return (
     <section aria-labelledby="h-gs" className="mb-9">
@@ -479,20 +498,7 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
                 {r?.items.slice(0, 4).map((m, i) => (
                   // 一行四个，右半边的菜单向左展开，不超出屏幕
-                  <MangaMenu key={m.id} m={m} align={i < 2 ? 'left' : 'right'}>{(open) => (
-                    <Link
-                      to={`/manga/${m.id}`}
-                      viewTransition
-                      {...open}
-                      data-sfw={sfwAttr(s.displayName)}
-                      data-nsfw={blurred({ id: m.id, source: s }) ? '' : undefined}
-                      className="cv block rounded-lg"
-                      aria-label={m.title}
-                      title={m.title}
-                    >
-                      <CoverImg src={m.thumbnailUrl} loading="lazy" />
-                    </Link>
-                  )}</MangaMenu>
+                  <GlobalSearchThumb key={m.id} m={m} source={s} align={i < 2 ? 'left' : 'right'} />
                 ))}
               </div>
             </div>
