@@ -27,31 +27,30 @@ export interface GlassTuning {
 }
 
 export const GLASS_DEFAULTS: GlassTuning = {
-  bezel: 0,
-  strength: 1.6,
-  falloff: 2,
-  dispersion: 2,
+  bezel: 30,
+  strength: 1.32,
+  falloff: 2.6,
+  // 在约 20px 宽的透镜带上接近 Lumno 的 ±15%，保留滑块原有的固定偏移单位。
+  dispersion: 8,
   blur: 2,
   denseBlur: 2,
   tint: 20,
   denseTint: 20,
-  saturate: 1.2,
+  saturate: 1.6,
 }
 
 /**
- * 通透：滤镜里提亮 / 压暗、中性底色、饱和度降到 1.2（彩色封面不再把玻璃染色）；
- * 普通和浮动条模糊均为 2px，保留背后的条纹、封面边缘和折射细节。
- * 「厚玻璃」质感靠边缘弯折：强度 1.6、曲线 2，外缘把画面弯成镜像的弧线；色散 2 让弧线带一点彩边。
- * 底色思路参考 lumno-extension，代码自写。
+ * 通透：参考 Lumno 1.4.1 的搜索框和浮层，折射强度按 1.2 × 1.1 换算。
+ * 浅色用固定 50% 的中性底色，为没有自适应着色时的文字保留对比。
  */
 export function glassDefaults(theme: GlassTheme): GlassTuning {
-  return theme === 'light' ? { ...GLASS_DEFAULTS, tint: 60, denseTint: 60 } : { ...GLASS_DEFAULTS }
+  return theme === 'light' ? { ...GLASS_DEFAULTS, blur: 3, denseBlur: 3, tint: 50, denseTint: 50 } : { ...GLASS_DEFAULTS }
 }
 
 /** 设置页与调参页共用的滑块定义 */
 export const GLASS_PARAMS: { key: keyof GlassTuning; label: string; min: number; max: number; step: number; hint?: string }[] = [
   { key: 'bezel', label: t('misc.glass.bezel'), min: 0, max: 40, step: 1, hint: t('misc.glass.bezelHint') },
-  { key: 'strength', label: t('misc.glass.strength'), min: 0, max: 2, step: 0.05 },
+  { key: 'strength', label: t('misc.glass.strength'), min: 0, max: 2, step: 0.01 },
   { key: 'falloff', label: t('misc.glass.falloff'), min: 0.5, max: 5, step: 0.1 },
   { key: 'dispersion', label: t('misc.glass.dispersion'), min: 0, max: 8, step: 0.5, hint: t('misc.glass.dispersionHint') },
   { key: 'blur', label: t('misc.glass.blur'), min: 0, max: 30, step: 1 },

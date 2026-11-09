@@ -102,15 +102,15 @@ test('页面主题：画廊深色保持兼容，重叠页面按挂载顺序生�
 test('玻璃参数：只保留通透，深浅模式分别保存滑块，恢复默认只影响当前模式', () => {
   const { store, defaults } = glassFixture()
   const state = () => store.getState()
-  for (const [theme, tint] of [['light', 60], ['dark', 20]]) {
+  for (const [theme, tint, blur] of [['light', 50, 3], ['dark', 20, 2]]) {
     const fresh = glassFixture(theme).store.getState()
     assert.equal('tone' in fresh, false)
     assert.equal('switchPreset' in fresh, false)
     assert.equal('saved' in fresh, false)
     assert.equal(fresh.tint, tint)
     assert.equal(fresh.denseTint, tint)
-    assert.equal(fresh.blur, 2)
-    assert.equal(fresh.denseBlur, 2)
+    assert.equal(fresh.blur, blur)
+    assert.equal(fresh.denseBlur, blur)
   }
   state().set({ strength: 0.4 })
   state().set({ blur: 9 })
@@ -122,10 +122,10 @@ test('玻璃参数：只保留通透，深浅模式分别保存滑块，恢复�
   assert.equal(state().blur, 9)
   assert.equal(state().strength, 0.4)
   state().reset()
-  assert.equal(state().tint, 60)
-  assert.equal(state().denseTint, 60)
-  assert.equal(state().blur, 2)
-  assert.equal(state().denseBlur, 2)
+  assert.equal(state().tint, 50)
+  assert.equal(state().denseTint, 50)
+  assert.equal(state().blur, 3)
+  assert.equal(state().denseBlur, 3)
   assert.equal(state().strength, defaults.strength)
   state().setTheme('dark')
   assert.equal(state().blur, 15)
@@ -182,7 +182,7 @@ test('玻璃参数：旧经典配置恢复缓存的通透，缺少缓存时按�
 
   for (const version of [0, 1]) {
     for (const tone of [undefined, 'tint']) {
-      for (const [theme, tint] of [['light', 60], ['dark', 20]]) {
+      for (const [theme, tint] of [['light', 50], ['dark', 20]]) {
         const legacy = { ...defaults, tint: 95, strength: 0.1 }
         if (tone) legacy.tone = tone
         const fresh = glassFixture(theme, { version, state: legacy }).store.getState()
