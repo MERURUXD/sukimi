@@ -9,10 +9,14 @@ import { JSDOM } from 'jsdom'
 import ts from 'typescript'
 
 // 执行正式尺寸订阅，只替换浏览器的布局、画布和帧调度。
-function fixture(dispersion = 0) {
+function fixture(dispersion = 0, options = {}) {
   const frames = new Map(), timers = new Map()
   let sequence = 0, resize, cleanup, mapSize, draws = 0
-  const host = { offsetWidth: 360, offsetHeight: 480, dataset: {} }
+  const {
+    width = 360, height = 480, radius = 22, bezel = 0, falloff = 2,
+  } = options
+  const host = { offsetWidth: width, offsetHeight: height, dataset: {} }
+  let pixels
   const shifts = (dispersion > 0 ? [-dispersion, 0, dispersion] : [0]).map(extra => ({
     dataset: { extra }, scale: 0,
     setAttribute(name, value) { if (name === 'scale') this.scale = Number(value) },
@@ -26,7 +30,10 @@ function fixture(dispersion = 0) {
     parentElement: { querySelectorAll: () => shifts },
   }
   const canvas = {
-    getContext: () => ({ createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} }),
+    getContext: () => ({
+      createImageData: (w, h) => ({ data: new Uint8ClampedArray(w * h * 4) }),
+      putImageData: image => { pixels = image.data },
+    }),
     toDataURL: () => `${canvas.width}x${canvas.height}`,
   }
   const exports = {}
@@ -35,7 +42,7 @@ function fixture(dispersion = 0) {
     exports,
     require: () => ({ useRef: () => ({ current: image }), useLayoutEffect: effect => { cleanup = effect() } }),
     document: { createElement: () => canvas },
-    getComputedStyle: () => ({ borderTopLeftRadius: '22px' }),
+    getComputedStyle: () => ({ borderTopLeftRadius: `${radius}px` }),
     requestAnimationFrame: callback => { frames.set(++sequence, callback); return sequence },
     cancelAnimationFrame: id => frames.delete(id),
     window: {
@@ -48,11 +55,15 @@ function fixture(dispersion = 0) {
       disconnect() { resize = () => {} }
     },
   })
-  exports.useLensMap({ current: host }, true, { bezel: 0, strength: 1, falloff: 2, dispersion })
+  exports.useLensMap({ current: host }, true, { bezel, strength: 1, falloff, dispersion })
   const flushFrames = () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(f => f()) }
   return {
     host, resize: () => resize(), flushFrames,
     cleanup: () => cleanup(),
+    pixel: (x, y) => {
+      const i = (y * width + x) * 4
+      return { r: pixels[i], g: pixels[i + 1] }
+    },
     get mapSize() { return mapSize },
     get imageSize() { return `${image.width}x${image.height}` },
     get draws() { return draws },
@@ -60,6 +71,19 @@ function fixture(dispersion = 0) {
     get scales() { return shifts.map(fe => fe.scale) },
   }
 }
+
+test('玻璃折射：小圆角沿内缩轮廓连续转向，直边与中区保持原样', () => {
+  const f = fixture(0, { width: 32, height: 32, radius: 4, bezel: 8 })
+  const upper = f.pixel(3, 4)
+  const lower = f.pixel(4, 3)
+  assert.notEqual(upper.r, 128, '小圆角不能在对角线一侧退化为水平位移')
+  assert.notEqual(upper.g, 128, '小圆角不能在对角线一侧退化为水平位移')
+  assert.ok(Math.abs(upper.r - lower.g) <= 1, '对角两侧应沿轮廓对称转向')
+  assert.ok(Math.abs(upper.g - lower.r) <= 1, '对角两侧应沿轮廓对称转向')
+  assert.deepEqual(f.pixel(16, 1), { r: 128, g: 212 }, '直边仍只沿单轴折射')
+  assert.deepEqual(f.pixel(16, 16), { r: 128, g: 128 }, '中区仍不位移')
+  f.cleanup()
+})
 
 test('玻璃缩放：每次布局交付前位移图匹配当前尺寸，结束后没有延迟跳变', () => {
   const f = fixture()

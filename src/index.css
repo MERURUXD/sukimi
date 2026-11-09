@@ -259,6 +259,7 @@
     --g-veil-line: rgba(0, 0, 0, 0.08);
     --g-veil-inner-line: rgba(0, 0, 0, 0.1);
     --g-veil-outline: transparent;
+    --g-veil-rim: rgb(255 255 255 / 0.65);
     --g-veil-shadow: rgba(0, 0, 0, 0.08);
   }
   html:root[data-theme='dark'],
@@ -271,6 +272,7 @@
     --g-veil-line: rgba(255, 255, 255, 0.14);
     --g-veil-inner-line: rgba(255, 255, 255, 0.26);
     --g-veil-outline: rgba(0, 0, 0, 0.28);
+    --g-veil-rim: rgb(255 255 255 / 0.45);
     --g-veil-shadow: rgba(0, 0, 0, 0.22);
   }
   html:root .glass {
@@ -279,19 +281,21 @@
   html:root .glass.dense {
     --g-veil: var(--g-veil-float);
   }
-  /* 边缘：一圈均匀的细线（深色是亮线加外侧暗线，浅色是墨线），去掉向内的柔光（会让玻璃像鼓起的软垫），投影更短更淡 */
+  /* 保留一圈均匀的细线：深色是亮线加外侧暗线，浅色是墨线。 */
   html:root .glass[data-refract] {
     --g-line: var(--g-veil-inner-line);
-    background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint, 20%) * var(--g-tint-scale))), transparent);
-    border-color: var(--g-veil-line);
-    box-shadow:
+    --g-veil-outer-shadow:
       0 0 0 0.5px var(--g-veil-outline),
       var(--g-drop, 0 4px 14px var(--g-veil-shadow));
+    background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint, 20%) * var(--g-tint-scale))), transparent);
+    border-color: var(--g-veil-line);
+    box-shadow: var(--g-veil-outer-shadow);
   }
-  /* 筛选面板不再单独加厚底色（深色下的 78% 也不套），和其他浮动条一样，先看可读性够不够 */
+  /* 只在浮动条和面板的内缘补一点光；光带太宽会洗淡背后的画面。 */
   html:root .glass.dense[data-refract],
   html:root .glass.glass-legible[data-refract] {
     background: color-mix(in srgb, var(--g-neutral) min(100%, calc(var(--refract-tint-dense, 20%) * var(--g-tint-scale))), transparent);
+    box-shadow: inset 0 0 6px -2px var(--g-veil-rim), var(--g-veil-outer-shadow);
   }
 
   /*

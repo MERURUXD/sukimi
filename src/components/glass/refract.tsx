@@ -33,6 +33,35 @@ export const autoBezel = (w: number, h: number) => Math.max(6, Math.min(22, Math
 const cache = new Map<string, string>()
 let canvas: HTMLCanvasElement | null = null
 
+/** 小圆角在两条边缘带交叠处沿内缩轮廓转向，避免法线沿对角线从水平瞬跳到竖直。 */
+function cornerBend(
+  x: number,
+  y: number,
+  radius: number,
+  bezel: number,
+  falloff: number,
+): [number, number] {
+  // 轮廓圆心沿对角线渐近边缘带内侧，半径耗尽时仍保留连续法线。
+  const center = (distance: number) =>
+    bezel - (bezel - radius) * (1 - distance / bezel) ** 2
+  let lo = 0
+  let hi = Math.min(x, y, bezel)
+  for (let i = 0; i < 12; i++) {
+    const distance = (lo + hi) / 2
+    const centerCoord = center(distance)
+    if (Math.hypot(Math.max(0, centerCoord - x), Math.max(0, centerCoord - y)) <= centerCoord - distance) {
+      lo = distance
+    } else hi = distance
+  }
+  const centerCoord = center(lo)
+  const nx = Math.max(0, centerCoord - x)
+  const ny = Math.max(0, centerCoord - y)
+  const normal = Math.hypot(nx, ny)
+  const weight = (1 - lo / bezel) ** falloff
+  if (normal === 0) return x < y ? [weight, 0] : [0, weight]
+  return [(nx / normal) * weight, (ny / normal) * weight]
+}
+
 /**
  * 生成位移图。R / G 通道 = 128 ± 位移方向，最大位移对应 ±127。
  * 返回 data URL；同尺寸同参数复用。
@@ -68,25 +97,31 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
       const sx = px < 0 ? -1 : 1
       const qx = ax - (hw - r)
       const qy = ay - (hh - r)
-      let dist: number
+      const edgeX = hw - ax
+      const edgeY = hh - ay
+      let dist = bezel
       let nx = 0
       let ny = 0
-      if (qx > 0 && qy > 0) {
+      let ox = 0
+      let oy = 0
+      if (r > 0 && r < bezel && edgeX < bezel && edgeY < bezel) {
+        const [dx, dy] = cornerBend(edgeX, edgeY, r, bezel, falloff)
+        ox = -sx * dx
+        oy = -sy * dy
+      } else if (qx > 0 && qy > 0) {
         // 圆角区域：法线沿圆心指向外
         const len = Math.hypot(qx, qy)
         dist = r - len
         nx = qx / len
         ny = qy / len
-      } else if (hw - ax < hh - ay) {
-        dist = hw - ax
+      } else if (edgeX < edgeY) {
+        dist = edgeX
         nx = 1
       } else {
-        dist = hh - ay
+        dist = edgeY
         ny = 1
       }
       const i = (y * W + x) * 4
-      let ox = 0
-      let oy = 0
       if (dist < bezel) {
         // 圆角外侧只露出半个像素的边缘也按最外缘位移：不弯的话它们取到原样的背景，
         // 紧挨着弯折最强的一圈，沿圆角的像素台阶会露出锯齿
