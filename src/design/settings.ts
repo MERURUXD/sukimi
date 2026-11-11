@@ -13,6 +13,7 @@ export type HomeLayout = 'poster' | 'cover'
 interface AppearanceState {
   theme: ThemePref
   glass: GlassMode
+  glassAdaptiveTint: boolean
   mangaDetailMotion: boolean
   /** 进出阅读器时从入口展开 / 缩回 */
   readerMotion: boolean
@@ -31,6 +32,7 @@ interface AppearanceState {
   galleryInterval: number
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
+  setGlassAdaptiveTint: (on: boolean) => void
   setMangaDetailMotion: (on: boolean) => void
   setReaderMotion: (on: boolean) => void
   setAutoHideNav: (on: boolean) => void
@@ -53,6 +55,7 @@ export const useAppearance = create<AppearanceState>()(
     (set) => ({
       theme: 'dark',
       glass: defaultGlass(navigator.hardwareConcurrency),
+      glassAdaptiveTint: false,
       mangaDetailMotion: true,
       // 旧偏好里没有这个字段，合并默认值后开启
       readerMotion: true,
@@ -71,6 +74,7 @@ export const useAppearance = create<AppearanceState>()(
       galleryInterval: 7,
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
+      setGlassAdaptiveTint: (glassAdaptiveTint) => set({ glassAdaptiveTint }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
       setReaderMotion: (readerMotion) => set({ readerMotion }),
       setAutoHideNav: (autoHideNav) => set({ autoHideNav }),
@@ -86,11 +90,16 @@ export const useAppearance = create<AppearanceState>()(
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
+      partialize: ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
         homeSections, homeSectionOrder, homeGallery }) =>
-        ({ theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
+        ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
           homeSections, homeSectionOrder, homeGallery }),
-      merge: (saved, current) => ({ ...current, ...saved as Partial<AppearanceState>, ...normalizeHomePreferences(saved) }),
+      merge: (saved, current) => ({
+        ...current,
+        ...(saved as Partial<AppearanceState>),
+        ...normalizeHomePreferences(saved),
+        glassAdaptiveTint: (saved as Partial<AppearanceState>)?.glassAdaptiveTint ?? false,
+      }),
     },
   ),
 )

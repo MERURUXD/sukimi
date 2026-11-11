@@ -4,7 +4,7 @@ import { Download, Play, Shuffle } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type WheelEvent } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { Can } from '@/features/auth/Can'
-import { Glass } from '@/components/glass/Glass'
+import { Glass, AdaptiveGlassContainer } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { spring } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
@@ -224,7 +224,7 @@ interface Target { id: number; label: string; page: string; pct: number | null; 
  * 冷启动时封面从中间展开、文字依次出现（开屏动画，可在外观设置关闭）。
  * 鼠标悬停两侧封面时，背景先换成那部的颜色。
  */
-export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownload, background, target, meta, entrance }: {
+export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownload, background, target, meta, entrance, tint, denseTint }: {
   items: ReadChapter[]
   active: number
   onSelect: (i: number) => void
@@ -236,7 +236,10 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   target: Target | null
   meta: string
   entrance: ReturnType<typeof useEntrance>
+  tint?: number
+  denseTint?: number
 }) {
+  const glassAdaptiveTint = useAppearance((s) => s.glassAdaptiveTint)
   const reduced = useReducedMotion()
   // 进场动画播完前用它的时间线，之后切换都用弹簧
   const { mode, entering } = entrance
@@ -324,7 +327,16 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   const riseEach = rise && `${rise}-each`
 
   return (
-    <section aria-label={t('home.continue')} className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]" data-desktop-layout="stage" data-sfw={sfwAttr(m.source?.displayName)}>
+    <AdaptiveGlassContainer
+      as="section"
+      enabled={glassAdaptiveTint}
+      tint={tint}
+      denseTint={denseTint}
+      aria-label={t('home.continue')}
+      className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]"
+      data-desktop-layout="stage"
+      data-sfw={sfwAttr(m.source?.displayName)}
+    >
       {/* 背景：流动模糊封面原样保留；开屏时整体淡入并从略大缩回，轻进场只轻微缩回。
           裁切放在外层、缩放放在里层：缩放的元素自己带 overflow 时，放大的那圈会溢出到下一段，露出一条灰带 */}
       <div aria-hidden className="absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden">
@@ -429,7 +441,7 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
           )}
         </div>
       </div>
-    </section>
+    </AdaptiveGlassContainer>
   )
 }
 
