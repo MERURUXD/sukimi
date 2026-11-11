@@ -9,7 +9,7 @@ import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { Can } from '@/features/auth/Can'
-import { Glass } from '@/components/glass/Glass'
+import { Glass, AdaptiveGlassContainer } from '@/components/glass/Glass'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { LoadError } from '@/components/ui/LoadError'
@@ -30,6 +30,7 @@ import { sfwAttr } from '@/lib/devSafe'
 import { cn } from '@/lib/cn'
 import { spring } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
+import { useAdaptiveHeroTint } from '@/design/useAdaptiveHeroTint'
 import { isDemo } from '@/lib/demo'
 import { useNsfw } from '@/features/nsfw/useNsfw'
 import { chapterLabel, sec, timeAgo } from '@/lib/format'
@@ -277,6 +278,9 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
     onShuffle?.()
   }
   const cur = items[activeIdx]
+  const m = cur?.manga
+  const bg = (stage && previewId !== null && items.find((c) => c.manga.id === previewId)?.manga) || m
+  const { enabled: adaptiveEnabled, tint: adaptiveTint, denseTint: adaptiveDenseTint, onPaletteChange } = useAdaptiveHeroTint(bg?.thumbnailUrl)
   const reducedMotion = useReducedMotion()
   // 首页共用同一条进场时间线；其余布局只浮起文字和按钮，封面保持详情页飞回的落点。
   const { entering } = entrance
@@ -332,9 +336,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
     )
   }
 
-  const m = cur.manga
   const target = resume(cur)
-  const bg = (stage && previewId !== null && items.find((c) => c.manga.id === previewId)?.manga) || m
   const staticBg = (
     <AnimatePresence initial={false}>
       <motion.img
@@ -362,19 +364,31 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
         onShuffle={onShuffle && shuffle}
         onDownload={downloadRest}
         onPreview={(i) => setPreview(i === null ? null : items[i]?.manga.id ?? null)}
-        background={homeMotionBg ? <CoverFlow src={bg.thumbnailUrl} className="absolute inset-0" fallback={staticBg} pull /> : staticBg}
+        background={homeMotionBg ? <CoverFlow src={bg.thumbnailUrl} className="absolute inset-0" fallback={staticBg} pull onPaletteChange={onPaletteChange} /> : staticBg}
         target={target}
         meta={[m.author, m.genre.slice(0, 2).join(' · ')].filter(Boolean).join(' · ')}
+        tint={adaptiveTint}
+        denseTint={adaptiveDenseTint}
       />
     )
   }
 
   return (
-    <section aria-label={t('home.continue')} className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)] md:min-h-[min(760px,92vh)]" data-mobile-layout={homeMobileLayout} data-desktop-layout={homeDesktopLayout} data-sfw={sfwAttr(m.source?.displayName)}>
+    <AdaptiveGlassContainer
+      as="section"
+      enabled={adaptiveEnabled}
+      tint={adaptiveTint}
+      denseTint={adaptiveDenseTint}
+      aria-label={t('home.continue')}
+      className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)] md:min-h-[min(760px,92vh)]"
+      data-mobile-layout={homeMobileLayout}
+      data-desktop-layout={homeDesktopLayout}
+      data-sfw={sfwAttr(m.source?.displayName)}
+    >
       {/* 背景：当前漫画封面的大幅模糊，默认缓慢流动、切换时交叉淡入；底边短 2px，避免模糊层取整后漏出亮线 */}
       <div className={cn('absolute inset-x-0 top-0 bottom-0.5 -z-20 overflow-hidden', immersive && 'hidden md:block', desktopImmersive && 'md:hidden')} aria-hidden>
         {homeMotionBg && !(immersive && desktopImmersive) ? (
-          <CoverFlow src={m.thumbnailUrl} className="absolute inset-0" fallback={staticBg} />
+          <CoverFlow src={m.thumbnailUrl} className="absolute inset-0" fallback={staticBg} onPaletteChange={onPaletteChange} />
         ) : (
           staticBg
         )}
@@ -571,7 +585,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
           </div>
         )}
       </div>
-    </section>
+    </AdaptiveGlassContainer>
   )
 }
 

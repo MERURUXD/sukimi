@@ -5,6 +5,16 @@ import { cn } from '@/lib/cn'
 import { useGlassTuning } from '@/design/glassTuning'
 import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
 import { MovingGlassBackdrop } from './MovingGlassBackdrop'
+import { AdaptiveGlassContext } from './AdaptiveGlassContext'
+
+export {
+  AdaptiveGlassContext,
+  AdaptiveGlassContainer,
+  AdaptiveGlassProvider,
+  useAdaptiveGlass,
+  type AdaptiveGlassContextValue,
+  type AdaptiveGlassContainerProps,
+} from './AdaptiveGlassContext'
 
 type Tag = 'div' | 'span' | 'nav' | 'header' | 'section' | 'aside' | 'form' | 'footer' | 'label' | 'button' | 'a'
 
@@ -18,6 +28,10 @@ type GlassProps<T extends Tag> = {
   flat?: boolean
   /** 单独覆盖折射参数 */
   lens?: Partial<LensOptions & { blur: number }>
+  /** 单独覆盖自适应或折射底色浓度 (0-100) */
+  tint?: number
+  /** 单独覆盖 dense 状态折射底色浓度 (0-100) */
+  denseTint?: number
   ref?: Ref<HTMLElement>
 } & ComponentPropsWithoutRef<T>
 
@@ -34,6 +48,8 @@ export function Glass<T extends Tag = 'div'>({
   suspendRefract,
   flat,
   lens,
+  tint,
+  denseTint,
   className,
   style,
   children,
@@ -43,6 +59,7 @@ export function Glass<T extends Tag = 'div'>({
   const mode = useAppearance((s) => s.glass)
   const t = useGlassTuning()
   const moving = useContext(MovingGlassBackdrop)
+  const adaptive = useContext(AdaptiveGlassContext)
   const host = useRef<HTMLElement>(null)
   const filterId = `lens${useId().replace(/[:«»]/g, '')}`
   const tone = !flat && mode === 'refract' && supportsRefract()
@@ -54,6 +71,8 @@ export function Glass<T extends Tag = 'div'>({
     dispersion: lens?.dispersion ?? (moving ? 0 : t.dispersion),
   }
   const blur = lens?.blur ?? (dense ? t.denseBlur : t.blur)
+  // 透镜位移图生成仅依赖几何参数（bezel, strength, falloff, dispersion），
+  // tint 变化绝不触发布局位移图重绘或滤镜重建。
   const feImage = useLensMap(host, on, o)
   const setRef = useCallback(
     (el: HTMLElement | null) => {
@@ -63,6 +82,17 @@ export function Glass<T extends Tag = 'div'>({
     },
     [ref],
   )
+
+  const activeTint = tint ?? (adaptive?.enabled ? adaptive.tint : undefined)
+  const activeDenseTint = denseTint ?? (adaptive?.enabled ? adaptive.denseTint : undefined)
+
+  const adaptiveStyle: CSSProperties | undefined =
+    activeTint !== undefined
+      ? ({
+          '--refract-tint': `${activeTint}%`,
+          '--refract-tint-dense': `${activeDenseTint ?? activeTint}%`,
+        } as CSSProperties)
+      : undefined
 
   const refractStyle: CSSProperties | undefined = on
     ? {
@@ -83,7 +113,7 @@ export function Glass<T extends Tag = 'div'>({
       'data-refract': tone || undefined,
       'data-flat': flat || undefined,
       className: cn('glass', dense && 'dense', className),
-      style: { ...refractStyle, ...style },
+      style: { ...adaptiveStyle, ...refractStyle, ...style },
     },
     on && <LensFilter id={filterId} feImage={feImage} dispersion={o.dispersion} />,
     children,

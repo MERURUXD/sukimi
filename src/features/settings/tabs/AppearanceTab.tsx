@@ -11,8 +11,8 @@ import { readLocalePref, setLocalePref, t, type LocalePref } from '@/i18n'
 
 export function AppearanceTab() {
   const {
-    theme, glass, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMotionBg, homeIntro,
-    setTheme, setGlass, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
+    theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMotionBg, homeIntro,
+    setTheme, setGlass, setGlassAdaptiveTint, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const glassTheme = useGlassTuning((s) => s.theme)
@@ -63,6 +63,13 @@ export function AppearanceTab() {
             value={glass}
             onChange={setGlass}
           />
+        </Row>
+        <Row
+          label={t('settings.appearance.glassAdaptiveTint')}
+          hint={t('settings.appearance.glassAdaptiveTintHint')}
+          help={t('settings.appearance.glassAdaptiveTintHelp')}
+        >
+          <Switch on={glassAdaptiveTint} onChange={setGlassAdaptiveTint} label={t('settings.appearance.glassAdaptiveTint')} />
         </Row>
       </Section>
 

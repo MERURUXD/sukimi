@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { cn } from '@/lib/cn'
-import { extractPalette, type Rgb } from '@/lib/palette'
+import { NEUTRAL_SWATCHES } from '@/lib/coverColor'
+import { extractPalette, type Rgb, type Swatch } from '@/lib/palette'
 
 /**
  * 首页的动态封面背景：从封面取 4 种主色，让 4 团色块沿各自的轨道缓慢游走、相互交融，
@@ -18,6 +19,7 @@ export function CoverFlow({
   speed = 1,
   still = false,
   pull = false,
+  onPaletteChange,
 }: {
   src?: string | null
   className?: string
@@ -28,18 +30,36 @@ export function CoverFlow({
   still?: boolean
   /** 光标周围的背景被吸向光标（首页舞台）；触控和减弱动态效果时不做 */
   pull?: boolean
+  /** 色板提取或回退时的回调 */
+  onPaletteChange?: (swatches: Swatch[]) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
   const flow = useRef<Flow | null>(null)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
+  const onPaletteRef = useRef(onPaletteChange)
+
+  useEffect(() => {
+    onPaletteRef.current = onPaletteChange
+  }, [onPaletteChange])
 
   useEffect(() => {
     const el = host.current
     if (!el) return
     // 每次挂载新建画布：严格模式下重复挂载时，旧画布的上下文已被释放
-    const f = createFlow(el, () => setFailed(true))
-    if (!f) return setFailed(true)
+    const f = createFlow(
+      el,
+      () => {
+        setFailed(true)
+        onPaletteRef.current?.(NEUTRAL_SWATCHES)
+      },
+      (swatches) => onPaletteRef.current?.(swatches),
+    )
+    if (!f) {
+      setFailed(true)
+      onPaletteRef.current?.(NEUTRAL_SWATCHES)
+      return
+    }
     flow.current = f
     return () => {
       f.dispose()
@@ -56,7 +76,11 @@ export function CoverFlow({
   }, [pull, failed])
 
   useEffect(() => {
-    if (!src || failed) return
+    if (!src) {
+      onPaletteRef.current?.(NEUTRAL_SWATCHES)
+      return
+    }
+    if (failed) return
     let alive = true
     const img = new Image()
     img.decoding = 'async'
@@ -66,11 +90,17 @@ export function CoverFlow({
       .then(() => {
         if (!alive || !flow.current) return
         // 封面跨域时读取像素会抛错，退回静态背景
-        if (!flow.current.show(img)) setFailed(true)
-        else setReady(true)
+        if (!flow.current.show(img)) {
+          setFailed(true)
+          onPaletteRef.current?.(NEUTRAL_SWATCHES)
+        } else {
+          setReady(true)
+        }
       })
       .catch(() => {
         /* 封面加载失败就保留上一张的颜色，没有上一张则停在底色 */
+        if (!alive) return
+        onPaletteRef.current?.(NEUTRAL_SWATCHES)
       })
     return () => {
       alive = false
@@ -167,7 +197,11 @@ void main() {
 
 type Palette = { c: Rgb[]; k: number[] }
 
-function createFlow(host: HTMLElement, onLost: () => void): Flow | null {
+function createFlow(
+  host: HTMLElement,
+  onLost: () => void,
+  onPalette?: (swatches: Swatch[]) => void,
+): Flow | null {
   const canvas = document.createElement('canvas')
   canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block'
   const gl = canvas.getContext('webgl', { antialias: false, alpha: false, depth: false, powerPreference: 'low-power' })
@@ -312,13 +346,18 @@ function createFlow(host: HTMLElement, onLost: () => void): Flow | null {
   return {
     show(img) {
       if (!ctx) return false
-      let swatches
+      let swatches: Swatch[]
       try {
         ctx.clearRect(0, 0, SAMPLE, SAMPLE)
         ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
         swatches = extractPalette(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data, N)
       } catch {
         return false
+      }
+      try {
+        onPalette?.(swatches)
+      } catch {
+        /* ignore callback errors to protect WebGL loop */
       }
       // 从当前画面（可能正在过渡）出发，连续切换时不会跳色
       from = cur

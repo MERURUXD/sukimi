@@ -221,6 +221,15 @@ test('共用设置组件：帮助可访问、支持 Escape 关闭，保存失败
   assert.match(parts, /role="alert"/)
 })
 
+test('外观设置：glassAdaptiveTint 默认为 false，并能持久化与安全合并', () => {
+  const f = pageThemeFixture()
+  assert.equal(f.useAppearance.getState().glassAdaptiveTint, false)
+  f.useAppearance.getState().setGlassAdaptiveTint(true)
+  assert.equal(f.useAppearance.getState().glassAdaptiveTint, true)
+  f.useAppearance.getState().setGlassAdaptiveTint(false)
+  assert.equal(f.useAppearance.getState().glassAdaptiveTint, false)
+})
+
 test('设置布局验收页覆盖全部 12 个分栏所需的虚构查询，且拒绝真实写入', () => {
   const lab = read('src/features/dev/SettingsLayoutLab.tsx')
   for (const op of [
