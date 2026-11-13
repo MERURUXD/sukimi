@@ -550,6 +550,9 @@
     inset: 0;
     z-index: -1;
     border-radius: 999px;
+  }
+  .seg-on,
+  .nav-pill {
     background: var(--seg-on);
     box-shadow: var(--seg-on-edge);
   }

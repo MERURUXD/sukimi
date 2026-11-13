@@ -36,7 +36,7 @@ export function NavPill({ box, className }: { box: PillBox | null; className?: s
       animate={box}
       transition={reduced ? still : spring.fast}
       style={reduced ? { x, y, scaleX: 1, scaleY: 1 } : { x, y, scaleX, scaleY }}
-      className={cn('pointer-events-none absolute top-0 left-0 -z-10 bg-g-hi shadow-[inset_0_0_0_1px_var(--g-glow)]', className)}
+      className={cn('nav-pill pointer-events-none absolute top-0 left-0 -z-10', className)}
     />
   )
 }
