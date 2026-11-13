@@ -76,9 +76,9 @@ function poseAt(off: number, n: number) {
 const wrap = (d: number, n: number) => ((((d + n / 2) % n) + n) % n) - n / 2
 const mod = (k: number, n: number) => ((k % n) + n) % n
 
-/** 封面区的设计高度；封面区以下（指示条、标题、按钮）加上方留白约占 RESERVED */
+/** 封面区的设计高度；封面区以下（指示条、固定双行标题槽位、进度条槽位、按钮）加上方留白约占 RESERVED */
 const DECK_H = 420
-const RESERVED = 470
+const RESERVED = 520
 /** 矮窗口里整组封面等比缩小，让「继续阅读」按钮留在首屏 */
 const fitOf = () => Math.max(0.5, Math.min(1, (window.innerHeight - RESERVED) / DECK_H))
 
@@ -391,18 +391,24 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
             className="flex w-full flex-col items-center"
           >
             <div className="flex w-full max-w-[760px] flex-col items-center gap-3 text-center">
-              <span style={delay(0.85, 0.06)} className={cn('text-[13px] font-bold tracking-[.12em] text-muted', rise)}>{t('home.continueAgo', { time: timeAgo(sec(cur.lastReadAt)) })}</span>
-              <h1 title={m.title} style={delay(0.92, 0.1)} className={cn('m-0 line-clamp-2 font-cjk text-[46px] font-black tracking-[-.02em] text-balance break-words xl:text-[60px]', m.title.length > 22 && 'text-[36px] xl:text-[40px]', m.title.length > 40 && 'text-[28px] xl:text-[32px]',
-                // 行高放在字号之后：tailwind-merge 换字号时会把前面的行高一起去掉
-                'leading-[1.12]', rise)}>{m.title}</h1>
-              <span style={delay(1, 0.14)} className={cn('max-w-full truncate text-[15px] text-muted num', rise)}>
+              <span style={delay(0.85, 0.06)} className={cn('h-[18px] max-w-full truncate text-[13px] leading-[18px] font-bold tracking-[.12em] text-muted', rise)}>{t('home.continueAgo', { time: timeAgo(sec(cur.lastReadAt)) })}</span>
+              {/* 固定双行最大字号槽位，避免不同标题行数或字号切换时挤压下方进度条与按钮 */}
+              <div className="flex h-[104px] w-full items-center justify-center xl:h-[136px]">
+                <h1 title={m.title} style={delay(0.92, 0.1)} className={cn('m-0 w-full min-w-0 line-clamp-2 font-cjk text-[46px] font-black tracking-[-.02em] text-balance break-words xl:text-[60px]', m.title.length > 22 && 'text-[36px] xl:text-[40px]', m.title.length > 40 && 'text-[28px] xl:text-[32px]',
+                  // 行高放在字号之后：tailwind-merge 换字号时会把前面的行高一起去掉
+                  'leading-[1.12]', rise)}>{m.title}</h1>
+              </div>
+              <span style={delay(1, 0.14)} className={cn('h-[22px] max-w-full truncate text-[15px] leading-[22px] text-muted num', rise)}>
                 {[meta, target && `${target.isNext ? t('home.nextUp') : ''}${target.label} · ${target.page}`].filter(Boolean).join(' · ')}
               </span>
-              {target?.pct != null && (
-                <span style={delay(1.08, 0.18)} className={cn('prog mt-1 w-[300px] max-w-[80%]', rise)}>
-                  <motion.i style={{ width: '100%', transformOrigin: 'left' }} initial={entering ? { scaleX: 0 } : false} animate={{ scaleX: target.pct / 100 }} transition={{ duration: entering === 'intro' ? 1.1 : 0.8, delay: entering === 'intro' ? 1.35 : entering ? 0.3 : 0, ease: EASE }} />
-                </span>
-              )}
+              {/* 始终保留进度条占位高度，避免无进度漫画切换时下方按钮上移 */}
+              <div className="mt-1 flex h-1 w-[300px] max-w-[80%]">
+                {target?.pct != null && (
+                  <span style={delay(1.08, 0.18)} className={cn('prog size-full', rise)}>
+                    <motion.i style={{ width: '100%', transformOrigin: 'left' }} initial={entering ? { scaleX: 0 } : false} animate={{ scaleX: target.pct / 100 }} transition={{ duration: entering === 'intro' ? 1.1 : 0.8, delay: entering === 'intro' ? 1.35 : entering ? 0.3 : 0, ease: EASE }} />
+                  </span>
+                )}
+              </div>
             </div>
           </motion.div>
         </AnimatePresence>
