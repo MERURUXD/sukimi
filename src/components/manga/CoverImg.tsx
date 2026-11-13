@@ -1,7 +1,6 @@
 import { ImageOff } from 'lucide-react'
 import { useCallback, useRef, useState, type ImgHTMLAttributes } from 'react'
-import { refreshAccessToken, tokenExpiring, useAuth } from '@/api/auth'
-import { isDemo, isDevLab } from '@/lib/demo'
+import { refreshAccessToken, tokenExpiring, tokenRecentlyApplied, useAuth, useAuthChecking } from '@/api/auth'
 import { onCoverVisibility } from '@/lib/coverVisibility'
 import { CoverSkeleton } from './CoverSkeleton'
 
@@ -22,7 +21,7 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
   const [failed, setFailed] = useState<string | null>(null)
   // 令牌续期后重试的地址
   const [deferred, setDeferred] = useState<string | null>(null)
-  const checking = useAuth((s) => s.status === 'checking') && !isDemo && !isDevLab
+  const checking = useAuthChecking()
   const [renewing, setRenewing] = useState(false)
   // 已载入的地址；只对在屏内等待后载入的封面渐显
   const [loaded, setLoaded] = useState<{ src: string; fade: boolean } | null>(null)
@@ -69,6 +68,10 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
         onError={() => {
           const { status } = useAuth.getState()
           if (retry) return setFailed(src)
+          if (status === 'signedIn' && tokenRecentlyApplied()) {
+            setDeferred(src)
+            return
+          }
           if (status === 'signedIn' && tokenExpiring()) {
             setDeferred(src)
             setRenewing(true)

@@ -104,6 +104,7 @@ const RefreshMutation = graphql(`
 
 let accessToken: string | null = null
 let accessExp = 0
+let tokenAppliedAt = 0
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 let inflight: Promise<string> | null = null
 /**
@@ -160,6 +161,7 @@ function jwtExpiry(token: string) {
 function applyAccessToken(token: string) {
   accessToken = token
   accessExp = jwtExpiry(token)
+  tokenAppliedAt = Date.now()
   const expires = accessExp ? `; expires=${new Date(accessExp).toUTCString()}` : ''
   document.cookie = `${COOKIE}=${token}; path=/; SameSite=Strict${expires}`
 
@@ -177,6 +179,27 @@ const RETRY_MS = 20_000
 
 /** 令牌已过期或快过期。封面等 <img> 请求靠 Cookie，Cookie 的过期时间就是令牌的过期时间 */
 export const tokenExpiring = () => !!accessExp && accessExp - Date.now() < LEEWAY
+
+/** 登录校验尚未结束，且不在免登录的演示 / 虚构验收页：此时不应发出依赖 Cookie 的图片请求 */
+export const isAuthChecking = (status: AuthStatus = useAuth.getState().status) => status === 'checking' && !isDemo && !isDevLab
+
+export const useAuthChecking = () => useAuth((s) => isAuthChecking(s.status))
+
+/** 等待登录校验离开 checking，返回是否可以继续发出带 Cookie 的请求 */
+export function waitUntilAuthChecked(): Promise<boolean> {
+  const { status } = useAuth.getState()
+  if (!isAuthChecking(status)) return Promise.resolve(status !== 'signedOut' && status !== 'unreachable')
+  return new Promise((resolve) => {
+    const unsub = useAuth.subscribe((s) => {
+      if (s.status === 'checking') return
+      unsub()
+      resolve(s.status !== 'signedOut' && s.status !== 'unreachable')
+    })
+  })
+}
+
+/** 令牌刚写入 Cookie 不久：先前在途的未鉴权或过期请求可能在续期后才返回 401 */
+export const tokenRecentlyApplied = (withinMs = 5_000) => !!tokenAppliedAt && Date.now() - tokenAppliedAt < withinMs
 
 /**
  * 给 WebSocket 握手用：令牌快过期或没有就先续期，免得带着过期令牌被当作访客。
@@ -273,6 +296,7 @@ export function signOut() {
   clearTimeout(refreshTimer)
   accessToken = null
   accessExp = 0
+  tokenAppliedAt = 0
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(USER_KEY)
   document.cookie = `${COOKIE}=; path=/; max-age=0`

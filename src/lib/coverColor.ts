@@ -1,3 +1,4 @@
+import { waitUntilAuthChecked } from '@/api/auth'
 import { extractPalette, type Rgb, type Swatch } from './palette'
 
 export type { Rgb, Swatch }
@@ -28,24 +29,33 @@ export function coverPalette(url: string | null | undefined): Promise<Swatch[]> 
   if (typeof Image === 'undefined' || typeof document === 'undefined') {
     return Promise.resolve(NEUTRAL_SWATCHES)
   }
-  const p = new Promise<Swatch[]>((resolve) => {
-    const img = new Image()
-    img.decoding = 'async'
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = canvas.height = SAMPLE
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })
-        if (!ctx) return resolve(NEUTRAL_SWATCHES)
-        ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
-        const swatches = extractPalette(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data, 4)
-        resolve(swatches)
-      } catch {
+  const p = waitUntilAuthChecked().then((ready) => {
+    if (!ready) {
+      if (paletteCache.get(url) === p) paletteCache.delete(url)
+      return NEUTRAL_SWATCHES
+    }
+    return new Promise<Swatch[]>((resolve) => {
+      const img = new Image()
+      img.decoding = 'async'
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = canvas.height = SAMPLE
+          const ctx = canvas.getContext('2d', { willReadFrequently: true })
+          if (!ctx) return resolve(NEUTRAL_SWATCHES)
+          ctx.drawImage(img, 0, 0, SAMPLE, SAMPLE)
+          const swatches = extractPalette(ctx.getImageData(0, 0, SAMPLE, SAMPLE).data, 4)
+          resolve(swatches)
+        } catch {
+          resolve(NEUTRAL_SWATCHES)
+        }
+      }
+      img.onerror = () => {
+        if (paletteCache.get(url) === p) paletteCache.delete(url)
         resolve(NEUTRAL_SWATCHES)
       }
-    }
-    img.onerror = () => resolve(NEUTRAL_SWATCHES)
-    img.src = url
+      img.src = url
+    })
   })
   paletteCache.set(url, p)
   return p

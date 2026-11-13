@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, type CSSProperties, type PointerEvent } from 'react'
 import { Link } from 'react-router'
-import { useAuth } from '@/api/auth'
+import { isAuthChecking, useAuth } from '@/api/auth'
 import { isVisible } from '@/features/history/history'
 import type { LibraryManga } from '@/features/library/queries'
 import { useNsfw } from '@/features/nsfw/useNsfw'
@@ -56,7 +56,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
   // 指到橱窗上就把画廊整屏会用到的封面先取回来，窗口揭开时不会一块块冒出来
   const preloaded = useRef(false)
   const preloadCovers = () => {
-    if (preloaded.current || !items.length) return
+    if (preloaded.current || !items.length || isAuthChecking()) return
     preloaded.current = true
     const grid = mobile ? MOBILE_GRID : DESKTOP_GRID
     const w = document.documentElement.clientWidth

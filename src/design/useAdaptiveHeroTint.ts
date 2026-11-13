@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useAuthChecking } from '@/api/auth'
 import { useAppearance } from './settings'
 import { useGlassTuning } from './glassTuning'
 import { computeAdaptiveTint, sampleFromSwatches, type Swatch } from './adaptiveTone'
@@ -45,6 +46,7 @@ export function getCachedCoverPalette(url: string | null | undefined): Swatch[] 
  */
 export function useAdaptiveHeroTint(coverUrl?: string | null) {
   const glassAdaptiveTint = useAppearance((s) => s.glassAdaptiveTint)
+  const checking = useAuthChecking()
   const theme = useGlassTuning((s) => s.theme)
   const baseTint = useGlassTuning((s) => s.tint)
   const baseDenseTint = useGlassTuning((s) => s.denseTint)
@@ -63,7 +65,7 @@ export function useAdaptiveHeroTint(coverUrl?: string | null) {
   )
 
   useEffect(() => {
-    if (!glassAdaptiveTint) return
+    if (!glassAdaptiveTint || checking) return
     if (!coverUrl) {
       setSwatches(NEUTRAL_SWATCHES)
       return
@@ -94,7 +96,7 @@ export function useAdaptiveHeroTint(coverUrl?: string | null) {
       alive = false
       unsubscribe()
     }
-  }, [coverUrl, glassAdaptiveTint])
+  }, [coverUrl, glassAdaptiveTint, checking])
 
   const sample = useMemo(() => (swatches ? sampleFromSwatches(swatches) : null), [swatches])
 

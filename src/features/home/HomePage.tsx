@@ -3,7 +3,7 @@ import { AnimatePresence, motion, MotionConfig, useReducedMotion } from 'motion/
 import { ChevronLeft, ChevronRight, Download, Heart, History, Play, Shuffle } from 'lucide-react'
 import { Children, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
-import { useAuth } from '@/api/auth'
+import { useAuth, useAuthChecking } from '@/api/auth'
 import { withSnapshot } from '@/api/persist'
 import { isVisible } from '@/features/history/history'
 import { EnqueueDownloads } from '@/api/chapters'
@@ -253,6 +253,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
   const homeMobileLayout = useAppearance((s) => s.homeMobileLayout)
   const homeDesktopLayout = useAppearance((s) => s.homeDesktopLayout)
   const homeMotionBg = useAppearance((s) => s.homeMotionBg)
+  const checking = useAuthChecking()
   const immersive = homeMobileLayout === 'cover'
   const desktopImmersive = homeDesktopLayout === 'cover'
   // 背后只是氛围光时折射看不出来，关掉透镜省开销；封面铺满时封面就在按钮背后，透镜才留着
@@ -337,7 +338,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
   }
 
   const target = resume(cur)
-  const staticBg = (
+  const staticBg = checking ? null : (
     <AnimatePresence initial={false}>
       <motion.img
         key={bg.id}

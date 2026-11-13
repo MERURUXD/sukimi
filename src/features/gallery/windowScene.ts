@@ -1,3 +1,4 @@
+import { isAuthChecking, useAuth } from '@/api/auth'
 import type { LibraryManga } from '@/features/library/queries'
 import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, visibleCells, type Cell, type Grid } from './canvasMath'
 import { WINDOW_K, WINDOW_K_ON, cellsInWindow, ensureWall, wallItem, wallRange, wallScale, wallState, wallTransform, windowCells, windowOrder } from './wall'
@@ -136,7 +137,7 @@ function createScene() {
     }
   }
   const paint = (w: number, h: number, full = false) => {
-    if (!current?.items.length || !w || !h) return
+    if (!current?.items.length || !w || !h || isAuthChecking()) return
     const grid = current.mobile ? MOBILE_GRID : DESKTOP_GRID
     ensureWall(w, h, grid)
     const k = current.kind === 'gallery' ? 1 : WINDOW_K
@@ -175,12 +176,15 @@ function createScene() {
   const sync = () => {
     cancelAnimationFrame(raf); raf = 0; last = 0
     if (flight && reduced()) { if (flight.copy) finish(flight); else activeTransition()?.skipTransition() }
-    if (!current || flight || !near || document.hidden) return
+    if (!current || flight || !near || document.hidden || isAuthChecking()) return
     const { w, h } = size(); paint(w, h)
     if (!reduced()) raf = requestAnimationFrame(step)
   }
   const io = new IntersectionObserver(([e]) => { near = e.isIntersecting; sync() }, { rootMargin: '400px 0px' })
   const ro = new ResizeObserver(sync)
+  const unsubAuth = useAuth.subscribe((state, prev) => {
+    if (prev.status === 'checking' && state.status !== 'checking') sync()
+  })
   document.addEventListener('visibilitychange', sync)
   const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
   mq.addEventListener('change', sync)
@@ -246,7 +250,7 @@ function createScene() {
     paint(w, h, true)
   }
   const destroy = () => {
-    cancelAnimationFrame(raf); root.remove(); io.disconnect(); ro.disconnect()
+    cancelAnimationFrame(raf); root.remove(); io.disconnect(); ro.disconnect(); unsubAuth()
     document.removeEventListener('visibilitychange', sync); mq.removeEventListener('change', sync)
     window.removeEventListener('resize', resize)
   }

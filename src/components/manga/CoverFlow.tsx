@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useAuthChecking } from '@/api/auth'
 import { cn } from '@/lib/cn'
 import { NEUTRAL_SWATCHES } from '@/lib/coverColor'
 import { extractPalette, type Rgb, type Swatch } from '@/lib/palette'
@@ -37,6 +38,7 @@ export function CoverFlow({
   const flow = useRef<Flow | null>(null)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
+  const checking = useAuthChecking()
   const onPaletteRef = useRef(onPaletteChange)
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export function CoverFlow({
       onPaletteRef.current?.(NEUTRAL_SWATCHES)
       return
     }
-    if (failed) return
+    if (failed || checking) return
     let alive = true
     const img = new Image()
     img.decoding = 'async'
@@ -105,9 +107,9 @@ export function CoverFlow({
     return () => {
       alive = false
     }
-  }, [src, failed])
+  }, [src, failed, checking])
 
-  if (failed) return fallback
+  if (failed) return checking ? null : fallback
   return (
     <div
       ref={host}
