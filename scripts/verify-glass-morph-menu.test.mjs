@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { crc32 as zlibCrc32, inflateSync } from 'node:zlib'
 import { createServer } from 'vite'
 
 let vite
@@ -16,6 +17,7 @@ let morphGeometryMod
 let morphContourMod
 let morphOverlayMod
 let morphRefractMod
+let morphRefractMapMod
 
 test.before(async () => {
   vite = await createServer({
@@ -35,6 +37,7 @@ test.before(async () => {
   morphContourMod = await vite.ssrLoadModule('/src/components/glass/morph/contour.ts')
   morphOverlayMod = await vite.ssrLoadModule('/src/components/glass/morph/overlayRenderer.ts')
   morphRefractMod = await vite.ssrLoadModule('/src/components/glass/morph/refractOptics.ts')
+  morphRefractMapMod = await vite.ssrLoadModule('/src/components/glass/morph/refractMap.ts')
 })
 
 test.after(async () => {
@@ -1072,5 +1075,263 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     'Popover must disable morph transition when popoverMotion setting is turned off',
   )
 })
+
+function decodeStoredRgbaPng(dataUrl) {
+  const prefix = 'data:image/png;base64,'
+  assert.ok(dataUrl.startsWith(prefix), 'expected PNG data URL')
+  const bytes = Buffer.from(dataUrl.slice(prefix.length), 'base64')
+  assert.deepEqual([...bytes.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10], 'valid PNG signature')
+
+  let offset = 8
+  let width = 0
+  let height = 0
+  const idatParts = []
+  let sawIend = false
+  while (offset < bytes.length) {
+    const len = bytes.readUInt32BE(offset)
+    const type = bytes.subarray(offset + 4, offset + 8).toString('ascii')
+    const dataStart = offset + 8
+    const dataEnd = dataStart + len
+    const storedCrc = bytes.readUInt32BE(dataEnd)
+    const computedCrc = zlibCrc32(bytes.subarray(offset + 4, dataEnd)) >>> 0
+    assert.equal(storedCrc, computedCrc, `CRC mismatch in PNG chunk ${type}`)
+    if (type === 'IHDR') {
+      width = bytes.readUInt32BE(dataStart)
+      height = bytes.readUInt32BE(dataStart + 4)
+      assert.equal(bytes[dataStart + 8], 8, '8-bit depth')
+      assert.equal(bytes[dataStart + 9], 6, 'RGBA color type 6')
+    } else if (type === 'IDAT') {
+      idatParts.push(bytes.subarray(dataStart, dataEnd))
+    } else if (type === 'IEND') {
+      sawIend = true
+      break
+    }
+    offset = dataEnd + 4
+  }
+  assert.ok(sawIend && idatParts.length > 0, 'PNG must contain IDAT and IEND')
+  const raw = inflateSync(Buffer.concat(idatParts))
+  const stride = 1 + width * 4
+  assert.equal(raw.length, height * stride, 'inflated scanline byte count matches dimensions')
+  for (let y = 0; y < height; y++) {
+    assert.equal(raw[y * stride], 0, `row ${y} uses PNG filter 0`)
+  }
+  const pixelAt = (px, py) => {
+    const idx = py * stride + 1 + px * 4
+    return { r: raw[idx], g: raw[idx + 1], b: raw[idx + 2], a: raw[idx + 3] }
+  }
+  return { width, height, raw, pixelAt }
+}
+
+test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal polarity, bevel decay, inward AA alpha, smin neck, and cache reuse', () => {
+  const { createMorphRefractMapBuilder } = morphRefractMapMod
+  const builder = createMorphRefractMapBuilder()
+
+  // 1. Multi-block (>65535B) 0.5x stored PNG validity on 400x400 CSS bounds (200x200 PNG -> 160,200 scanline bytes)
+  const bounds = { x: 0, y: 0, width: 400, height: 400 }
+  const platter = { center: { x: 200, y: 200 }, size: { width: 240, height: 240 }, radius: 24 }
+  const singleRes = builder.build({
+    bounds,
+    platter,
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 20,
+    mapScale: 0.5,
+  })
+  assert.equal(singleRes.changed, true)
+  assert.equal(singleRes.width, 400)
+  assert.equal(singleRes.height, 400)
+
+  const decoded = decodeStoredRgbaPng(singleRes.dataUrl)
+  assert.equal(decoded.width, 200)
+  assert.equal(decoded.height, 200)
+
+  // Map CSS world point (wx, wy) -> PNG pixel index (step=2 at 0.5x, pixel center at x = 2*(px+0.5))
+  const sampleCss = (wx, wy) => {
+    const px = Math.round((wx - bounds.x) / 2 - 0.5)
+    const py = Math.round((wy - bounds.y) / 2 - 0.5)
+    return decoded.pixelAt(px, py)
+  }
+
+  // Platter spans [80..320] x [80..320], bezel=20 -> interior starts at <= 100 / >= 300
+  // Left bevel edge (wx=83, wy=200): inward normal points +X -> R > 128, G == 128
+  const leftEdge = sampleCss(83, 200)
+  assert.ok(leftEdge.r > 135 && Math.abs(leftEdge.g - 128) <= 1, `left bevel expected R>135,G~128 got ${JSON.stringify(leftEdge)}`)
+  // Right bevel edge (wx=317, wy=200): inward normal points -X -> R < 128, G == 128
+  const rightEdge = sampleCss(317, 200)
+  assert.ok(rightEdge.r < 121 && Math.abs(rightEdge.g - 128) <= 1, `right bevel expected R<121,G~128 got ${JSON.stringify(rightEdge)}`)
+  // Top bevel edge (wx=200, wy=83): inward normal points +Y -> G > 128, R == 128
+  const topEdge = sampleCss(200, 83)
+  assert.ok(topEdge.g > 135 && Math.abs(topEdge.r - 128) <= 1, `top bevel expected G>135,R~128 got ${JSON.stringify(topEdge)}`)
+  // Bottom bevel edge (wx=200, wy=317): inward normal points -Y -> G < 128, R == 128
+  const bottomEdge = sampleCss(200, 317)
+  assert.ok(bottomEdge.g < 121 && Math.abs(bottomEdge.r - 128) <= 1, `bottom bevel expected G<121,R~128 got ${JSON.stringify(bottomEdge)}`)
+
+  // Bevel decay across bezel: displacement amplitude near edge (distIn=3) > mid-bezel (distIn=11) > deep interior (distIn>=20 -> 0)
+  const leftMid = sampleCss(91, 200)
+  const centerPx = sampleCss(200, 200)
+  assert.ok(Math.abs(leftEdge.r - 128) > Math.abs(leftMid.r - 128), 'displacement must decay toward interior across bezel')
+  assert.deepEqual(centerPx, { r: 128, g: 128, b: 128, a: 255 }, 'deep interior must be neutral (128,128,128,255)')
+
+  // Inward-shifted AA alpha: sd >= 0.25 -> A=0; sd in (-1.25, 0.25) -> 0 < A < 255; sd <= -1.25 -> A=255
+  const outsidePx = sampleCss(77, 200) // sd = +3 -> outside
+  assert.deepEqual(outsidePx, { r: 128, g: 128, b: 128, a: 0 }, 'outside sd >= 0.25 must be transparent neutral')
+  // At wx=79, step=2 gives pixel center 79 -> sd = +1; test wx=80 at sd=0 -> px=39 -> wx=79 or px=40 -> wx=81 (sd=-1):
+  // Let's sample a mapScale=1 strip around the top edge to check exact sub-pixel sd = 0 vs sd = -1.25!
+  const aaRes = builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 8,
+    mapScale: 1,
+  })
+  const aaPng = decodeStoredRgbaPng(aaRes.dataUrl)
+  // Top edge at y = 16. Pixel py=15 -> wy=15.5 (sd=+0.5 >= 0.25 -> a=0); py=16 -> wy=16.5 (sd=-0.5 -> partial AA); py=17 -> wy=17.5 (sd=-1.5 <= -1.25 -> a=255)
+  assert.equal(aaPng.pixelAt(32, 15).a, 0, 'sd=+0.5 must be alpha 0')
+  const edgeAa = aaPng.pixelAt(32, 16).a
+  assert.ok(edgeAa > 0 && edgeAa < 255, `sd=-0.5 must lie on AA ramp, got alpha ${edgeAa}`)
+  assert.equal(aaPng.pixelAt(32, 17).a, 255, 'sd=-1.5 <= -1.25 must be opaque 255')
+
+  // 2. Cache reuse: identical or <0.1px jittered geometry hits cache (changed: false)
+  const hit1 = builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32.04, y: 32.02 }, size: { width: 32, height: 32 }, radius: 6 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 8,
+    mapScale: 1,
+  })
+  assert.equal(hit1.changed, false, 'sub-quarter-pixel quantized geometry must reuse cached PNG')
+  builder.reset()
+  const afterReset = builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 8,
+    mapScale: 1,
+  })
+  assert.equal(afterReset.changed, true, 'reset() must invalidate cached PNG')
+
+  // 3. Dual-shape smin neck vs hard-union / single-rect
+  const dualBounds = { x: 0, y: 0, width: 200, height: 220 }
+  const dualPlatter = { center: { x: 100, y: 150 }, size: { width: 120, height: 100 }, radius: 20 } // top at y=100
+  const bridgedDroplet = { center: { x: 100, y: 70 }, size: { width: 60, height: 40 }, radius: 20 } // bottom at y=90, 10px gap -> mid y=95 (sd=5 -> smin(5,5,28)=-2 -> alpha 255)
+  const sminNeckRes = builder.build({
+    bounds: dualBounds,
+    platter: dualPlatter,
+    droplet: bridgedDroplet,
+    blendK: 28,
+    isMerged: false,
+    bezel: 12,
+    mapScale: 1,
+  })
+  const sminPng = decodeStoredRgbaPng(sminNeckRes.dataUrl)
+  assert.equal(sminPng.pixelAt(100, 95).a, 255, 'smin blendK=28 must form solid opaque goo neck across 10px gap')
+
+  const unblendedRes = builder.build({
+    bounds: dualBounds,
+    platter: dualPlatter,
+    droplet: bridgedDroplet,
+    blendK: 0,
+    isMerged: false,
+    bezel: 12,
+    mapScale: 1,
+  })
+  const unblendedPng = decodeStoredRgbaPng(unblendedRes.dataUrl)
+  assert.equal(unblendedPng.pixelAt(100, 95).a, 0, 'blendK=0 hard union must leave 10px gap transparent')
+})
+
+test('motion.ts P2 #5: open() interrupting closing preserves optical channels without snapping (normal & reducedMotion)', () => {
+  const { createMotionController } = morphMotionMod
+
+  // 1. Normal spring mode: mid-closing open() must preserve contentOpacity, contentBlurPx, triggerGlyphOpacity, bareGlassOpacity
+  const ctrl = createMotionController({ reducedMotion: false })
+  ctrl.open(true)
+  ctrl.step(0.6)
+  assert.equal(ctrl.getState().phase, 'open')
+
+  ctrl.close()
+  ctrl.step(0.05) // during 100ms content fade-out window
+  const midClose = ctrl.getState()
+  assert.equal(midClose.phase, 'closing')
+  assert.ok(midClose.contentOpacity > 0 && midClose.contentOpacity < 1, `expected partial contentOpacity, got ${midClose.contentOpacity}`)
+  assert.ok(midClose.contentBlurPx > 0, `expected non-zero closing blur, got ${midClose.contentBlurPx}`)
+  assert.ok(midClose.triggerGlyphOpacity > 0 && midClose.triggerGlyphOpacity < 1, `expected partial glyph opacity, got ${midClose.triggerGlyphOpacity}`)
+
+  ctrl.open(true)
+  const resumed = ctrl.getState()
+  assert.equal(resumed.phase, 'opening')
+  approx(resumed.contentOpacity, midClose.contentOpacity, 1e-4, 'closing->open preserves contentOpacity seamlessly')
+  approx(resumed.contentBlurPx, midClose.contentBlurPx, 1e-3, 'closing->open preserves contentBlurPx seamlessly')
+  approx(resumed.triggerGlyphOpacity, midClose.triggerGlyphOpacity, 1e-4, 'closing->open preserves triggerGlyphOpacity seamlessly')
+  approx(resumed.bareGlassOpacity, midClose.bareGlassOpacity, 1e-4, 'closing->open preserves bareGlassOpacity seamlessly')
+
+  ctrl.step(0.5)
+  const settled = ctrl.getState()
+  assert.equal(settled.phase, 'open')
+  assert.equal(settled.contentOpacity, 1)
+  assert.equal(settled.contentBlurPx, 0)
+  assert.equal(settled.triggerGlyphOpacity, 0)
+
+  // Also test interrupting later in closing (0.18s) where contentOpacity=0 and bareGlassOpacity/glyph are mid-way
+  ctrl.close()
+  ctrl.step(0.18)
+  const lateClose = ctrl.getState()
+  assert.equal(lateClose.phase, 'closing')
+  assert.ok(lateClose.triggerGlyphOpacity > 0 && lateClose.triggerGlyphOpacity < 1)
+  ctrl.open(true)
+  const resumedLate = ctrl.getState()
+  assert.equal(resumedLate.phase, 'opening')
+  approx(resumedLate.contentOpacity, lateClose.contentOpacity, 1e-4, 'late closing->open preserves contentOpacity=0')
+  approx(resumedLate.triggerGlyphOpacity, lateClose.triggerGlyphOpacity, 1e-4, 'late closing->open preserves glyph opacity')
+  approx(resumedLate.bareGlassOpacity, lateClose.bareGlassOpacity, 1e-4, 'late closing->open preserves bareGlassOpacity')
+  ctrl.dispose()
+
+  // 2. Reduced motion mode: closing -> open() preserves crossfade opacity & settles cleanly; setReducedMotion mid-flight cleans press & completes
+  const rCtrl = createMotionController({ reducedMotion: true })
+  rCtrl.open(true)
+  rCtrl.step(0.3)
+  assert.equal(rCtrl.getState().phase, 'open')
+
+  rCtrl.close()
+  rCtrl.step(0.08)
+  const rMidClose = rCtrl.getState()
+  assert.equal(rMidClose.phase, 'closing')
+  assert.ok(rMidClose.contentOpacity > 0.05 && rMidClose.contentOpacity < 0.95)
+
+  rCtrl.open(true)
+  const rResumed = rCtrl.getState()
+  assert.equal(rResumed.phase, 'opening')
+  approx(rResumed.contentOpacity, rMidClose.contentOpacity, 1e-4, 'reducedMotion closing->open preserves contentOpacity')
+  approx(rResumed.triggerGlyphOpacity, rMidClose.triggerGlyphOpacity, 1e-4, 'reducedMotion closing->open preserves triggerGlyphOpacity')
+  approx(rResumed.bareGlassOpacity, rMidClose.bareGlassOpacity, 1e-4, 'reducedMotion closing->open preserves bareGlassOpacity')
+
+  rCtrl.step(0.25)
+  assert.equal(rCtrl.getState().phase, 'open')
+  assert.equal(rCtrl.getState().contentOpacity, 1)
+
+  // Mid-flight setReducedMotion(true) resets press offsets/lift and lets step() finish cleanly
+  rCtrl.setReducedMotion(false)
+  rCtrl.pressStart({ width: 120, height: 40 })
+  rCtrl.pressMove({ x: 18, y: 12 }, { width: 120, height: 40 })
+  rCtrl.step(0.05)
+  rCtrl.close()
+  rCtrl.step(0.05)
+  rCtrl.setReducedMotion(true)
+  const switched = rCtrl.getState()
+  assert.equal(switched.reducedMotion, true)
+  assert.equal(switched.pressLift, 0)
+  assert.equal(switched.pressOffsetX, 0)
+  assert.equal(switched.pressOffsetY, 0)
+  rCtrl.step(0.25)
+  assert.equal(rCtrl.getState().phase, 'closed')
+  rCtrl.dispose()
+})
+
 
 

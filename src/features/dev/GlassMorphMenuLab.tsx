@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useApplyAppearance, useAppearance } from '@/design/settings'
+import { t } from '@/i18n'
 import { cn } from '@/lib/cn'
 import { BACKDROP_PRESETS, type BackdropPreset } from './glassMorphMenu/backdropScene'
 import type { MorphPhase, PlacementMode, Point } from './glassMorphMenu/contracts'
@@ -36,21 +37,37 @@ import {
 } from './glassMorphMenu/LiquidGlassMorphMenu'
 import type { GlassDebugMode } from './glassMorphMenu/renderer'
 
-const MENU_ITEMS: readonly LiquidGlassMenuItem[] = [
-  { id: 'read-next', label: 'Continue Reading', icon: <BookOpen className="size-4" />, shortcut: '↵' },
-  { id: 'favorite', label: 'Add to Favorites', icon: <Heart className="size-4" />, shortcut: 'F' },
-  { id: 'bookmark', label: 'Bookmark Chapter', icon: <Bookmark className="size-4" />, shortcut: 'B' },
-  { id: 'download', label: 'Queue Offline Pack', icon: <Download className="size-4" />, shortcut: 'D' },
-  { id: 'share', label: 'Copy Share Card', icon: <Share2 className="size-4" /> },
-  { id: 'remove', label: 'Remove from Shelf', icon: <Trash2 className="size-4" />, destructive: true },
+const PRESET_LABEL_KEYS = {
+  'manga-shelf': 'misc.devMorphLab.presets.mangaShelf',
+  'editorial-contrast': 'misc.devMorphLab.presets.editorialContrast',
+  'vivid-mesh': 'misc.devMorphLab.presets.vividMesh',
+} as const satisfies Record<BackdropPreset, string>
+
+const ANCHOR_SPOTS: readonly {
+  id: string
+  labelKey:
+    | 'misc.devMorphLab.spots.topRight'
+    | 'misc.devMorphLab.spots.topLeft'
+    | 'misc.devMorphLab.spots.center'
+    | 'misc.devMorphLab.spots.bottom'
+  point: Point
+}[] = [
+  { id: 'top-right', labelKey: 'misc.devMorphLab.spots.topRight', point: { x: 0.82, y: 0.16 } },
+  { id: 'top-left', labelKey: 'misc.devMorphLab.spots.topLeft', point: { x: 0.18, y: 0.16 } },
+  { id: 'center', labelKey: 'misc.devMorphLab.spots.center', point: { x: 0.5, y: 0.45 } },
+  { id: 'bottom', labelKey: 'misc.devMorphLab.spots.bottom', point: { x: 0.72, y: 0.86 } },
 ]
 
-const ANCHOR_SPOTS: readonly { id: string; label: string; point: Point }[] = [
-  { id: 'top-right', label: 'Top Right', point: { x: 0.82, y: 0.16 } },
-  { id: 'top-left', label: 'Top Left', point: { x: 0.18, y: 0.16 } },
-  { id: 'center', label: 'Center', point: { x: 0.5, y: 0.45 } },
-  { id: 'bottom', label: 'Bottom Edge', point: { x: 0.72, y: 0.86 } },
-]
+function buildMenuItems(): readonly LiquidGlassMenuItem[] {
+  return [
+    { id: 'read-next', label: t('misc.devMorphLab.menu.readNext'), icon: <BookOpen className="size-4" />, shortcut: '↵' },
+    { id: 'favorite', label: t('misc.devMorphLab.menu.favorite'), icon: <Heart className="size-4" />, shortcut: 'F' },
+    { id: 'bookmark', label: t('misc.devMorphLab.menu.bookmark'), icon: <Bookmark className="size-4" />, shortcut: 'B' },
+    { id: 'download', label: t('misc.devMorphLab.menu.download'), icon: <Download className="size-4" />, shortcut: 'D' },
+    { id: 'share', label: t('misc.devMorphLab.menu.share'), icon: <Share2 className="size-4" /> },
+    { id: 'remove', label: t('misc.devMorphLab.menu.remove'), icon: <Trash2 className="size-4" />, destructive: true },
+  ]
+}
 
 export function GlassMorphMenuLab() {
   useApplyAppearance()
@@ -82,6 +99,8 @@ export function GlassMorphMenuLab() {
 
   const [telemetry, setTelemetry] = useState<MenuTelemetry | null>(null)
   const [lastSelected, setLastSelected] = useState<{ label: string; time: string } | null>(null)
+
+  const menuItems = useMemo(() => buildMenuItems(), [])
 
   const anchorNormalized = useMemo(
     () => ANCHOR_SPOTS.find((s) => s.id === anchorSpotId)?.point ?? ANCHOR_SPOTS[0].point,
@@ -126,10 +145,10 @@ export function GlassMorphMenuLab() {
           </div>
           <div>
             <h1 className="m-0 text-sm font-bold tracking-tight sm:text-base">
-              Liquid Glass Morphing Menu · PoC Lab
+              {t('misc.devMorphLab.title')}
             </h1>
             <p className="m-0 text-xs opacity-65">
-              Clean-room WebGL2 SDF goo (`smin k=28`) + spring trajectory + DOM content lockstep (fictional backdrop)
+              {t('misc.devMorphLab.subtitle')}
             </p>
           </div>
         </div>
@@ -143,20 +162,20 @@ export function GlassMorphMenuLab() {
                 isDark ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-600/12 text-emerald-700',
               )}
             >
-              Deferred callback: <strong>{lastSelected.label}</strong> @ {lastSelected.time}
+              {t('misc.devMorphLab.deferredPrefix')} <strong>{lastSelected.label}</strong> @ {lastSelected.time}
             </div>
           )}
 
           <button
             type="button"
-            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
             className={cn(
               'flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold',
               isDark ? 'border-white/15 bg-white/8 hover:bg-white/14' : 'border-black/12 bg-black/5 hover:bg-black/10',
             )}
           >
             {isDark ? <Sun className="size-3.5" /> : <Moon className="size-3.5" />}
-            <span>{isDark ? 'Dark' : 'Light'}</span>
+            <span>{isDark ? t('misc.devMorphLab.themeDark') : t('misc.devMorphLab.themeLight')}</span>
           </button>
         </div>
       </header>
@@ -172,8 +191,12 @@ export function GlassMorphMenuLab() {
             )}
           >
             <LiquidGlassMorphMenu
-              items={MENU_ITEMS}
-              triggerLabel={triggerStyle === 'point-context' ? 'Click Stage' : 'Actions'}
+              items={menuItems}
+              triggerLabel={
+                triggerStyle === 'point-context'
+                  ? t('misc.devMorphLab.triggerClickStage')
+                  : t('misc.devMorphLab.triggerActions')
+              }
               triggerIcon={
                 triggerStyle === 'bare-icon' ? (
                   <MoreHorizontal className="size-5" />
@@ -212,27 +235,39 @@ export function GlassMorphMenuLab() {
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span>
-                    phase: <strong className="text-sky-500">{telemetry.phase}</strong>
+                    {t('misc.devMorphLab.hud.phase')} <strong className="text-sky-500">{telemetry.phase}</strong>
                   </span>
                   <span>t: {telemetry.normalizedT.toFixed(2)}</span>
-                  <span>prog: {telemetry.morphProgress.toFixed(2)}</span>
                   <span>
-                    mergeDepth: <strong>{telemetry.mergeDepth.toFixed(1)}</strong> (
-                    {telemetry.isMerged ? 'merged' : 'goo'})
+                    {t('misc.devMorphLab.hud.progress')} {telemetry.morphProgress.toFixed(2)}
+                  </span>
+                  <span>
+                    {t('misc.devMorphLab.hud.mergeDepth')} <strong>{telemetry.mergeDepth.toFixed(1)}</strong> (
+                    {telemetry.isMerged ? t('misc.devMorphLab.hud.merged') : t('misc.devMorphLab.hud.goo')})
                   </span>
                   <span>k: {telemetry.blendK.toFixed(1)}</span>
-                  <span>settled: {telemetry.settled.toFixed(2)}</span>
-                  <span>blurBump: {telemetry.blurBumpPx.toFixed(2)}px</span>
-                  <span>styleMix: {telemetry.styleMix.toFixed(2)}</span>
-                  <span>rim: {telemetry.rimOpacity.toFixed(2)}</span>
-                  <span>{telemetry.fps} FPS</span>
+                  <span>
+                    {t('misc.devMorphLab.hud.settled')} {telemetry.settled.toFixed(2)}
+                  </span>
+                  <span>
+                    {t('misc.devMorphLab.hud.blurBump')} {telemetry.blurBumpPx.toFixed(2)}px
+                  </span>
+                  <span>
+                    {t('misc.devMorphLab.hud.styleMix')} {telemetry.styleMix.toFixed(2)}
+                  </span>
+                  <span>
+                    {t('misc.devMorphLab.hud.rim')} {telemetry.rimOpacity.toFixed(2)}
+                  </span>
+                  <span>{t('misc.devMorphLab.hud.fps', { fps: telemetry.fps })}</span>
                   <span
                     className={cn(
                       'font-semibold',
                       telemetry.capabilities.webgl2 ? 'text-emerald-500' : 'text-amber-500',
                     )}
                   >
-                    {telemetry.capabilities.webgl2 ? 'WebGL2' : 'CSS Fallback'}
+                    {telemetry.capabilities.webgl2
+                      ? t('misc.devMorphLab.hud.webgl2')
+                      : t('misc.devMorphLab.hud.cssFallback')}
                   </span>
                 </div>
                 {!telemetry.capabilities.webgl2 && telemetry.capabilities.fallbackNotice && (
@@ -249,8 +284,8 @@ export function GlassMorphMenuLab() {
               )}
             >
               {triggerStyle === 'point-context'
-                ? 'Click or right-click anywhere on the stage · Drag background to pan'
-                : 'Click or press-and-drag from button into menu items · Drag stage to pan backdrop'}
+                ? t('misc.devMorphLab.hintPoint')
+                : t('misc.devMorphLab.hintControl')}
             </div>
           </div>
         </main>
@@ -263,13 +298,13 @@ export function GlassMorphMenuLab() {
           )}
         >
           {/* Trigger Style */}
-          <Section title="Trigger Style" isDark={isDark}>
+          <Section title={t('misc.devMorphLab.sections.triggerStyle')} isDark={isDark}>
             <div className="grid grid-cols-3 gap-1.5">
               {(
                 [
-                  ['glass-pill', 'Glass Pill'],
-                  ['bare-icon', 'Bare Icon'],
-                  ['point-context', 'Point'],
+                  ['glass-pill', t('misc.devMorphLab.triggers.glassPill')],
+                  ['bare-icon', t('misc.devMorphLab.triggers.bareIcon')],
+                  ['point-context', t('misc.devMorphLab.triggers.pointContext')],
                 ] as const
               ).map(([id, label]) => (
                 <Chip
@@ -285,13 +320,13 @@ export function GlassMorphMenuLab() {
           </Section>
 
           {/* Placement & Anchor */}
-          <Section title="Placement & Anchor" isDark={isDark}>
+          <Section title={t('misc.devMorphLab.sections.placementAnchor')} isDark={isDark}>
             <div className="grid grid-cols-3 gap-1.5">
               {(
                 [
-                  ['overAnchorEnd', 'End'],
-                  ['overAnchorStart', 'Start'],
-                  ['belowPoint', 'Below'],
+                  ['overAnchorEnd', t('misc.devMorphLab.placements.overAnchorEnd')],
+                  ['overAnchorStart', t('misc.devMorphLab.placements.overAnchorStart')],
+                  ['belowPoint', t('misc.devMorphLab.placements.belowPoint')],
                 ] as const
               ).map(([id, label]) => (
                 <Chip
@@ -312,14 +347,14 @@ export function GlassMorphMenuLab() {
                   isDark={isDark}
                   onClick={() => setAnchorSpotId(spot.id)}
                 >
-                  {spot.label}
+                  {t(spot.labelKey)}
                 </Chip>
               ))}
             </div>
           </Section>
 
           {/* Backdrop Preset */}
-          <Section title="Backdrop Scene" isDark={isDark}>
+          <Section title={t('misc.devMorphLab.sections.backdropScene')} isDark={isDark}>
             <div className="grid grid-cols-3 gap-1.5">
               {BACKDROP_PRESETS.map((p) => (
                 <Chip
@@ -328,7 +363,7 @@ export function GlassMorphMenuLab() {
                   isDark={isDark}
                   onClick={() => setPreset(p.id)}
                 >
-                  {p.labelEn.split(' ')[0]}
+                  {t(PRESET_LABEL_KEYS[p.id])}
                 </Chip>
               ))}
             </div>
@@ -339,7 +374,7 @@ export function GlassMorphMenuLab() {
                 onClick={() => setAnimateBackdrop((v) => !v)}
                 className="flex-1"
               >
-                {animateBackdrop ? 'Drift: On' : 'Drift: Off'}
+                {animateBackdrop ? t('misc.devMorphLab.driftOn') : t('misc.devMorphLab.driftOff')}
               </Chip>
               <Chip
                 active={false}
@@ -348,13 +383,13 @@ export function GlassMorphMenuLab() {
                 className="flex items-center justify-center gap-1"
               >
                 <RotateCcw className="size-3" />
-                <span>Reset</span>
+                <span>{t('misc.devMorphLab.reset')}</span>
               </Chip>
             </div>
           </Section>
 
           {/* Playback & Timeline Scrubber */}
-          <Section title="Playback & Scrubber" isDark={isDark}>
+          <Section title={t('misc.devMorphLab.sections.playbackScrubber')} isDark={isDark}>
             <div className="flex items-center gap-1.5">
               {[1, 0.25, 0.1].map((spd) => (
                 <Chip
@@ -364,7 +399,7 @@ export function GlassMorphMenuLab() {
                   onClick={() => setPlaybackSpeed(spd)}
                   className="flex-1"
                 >
-                  {spd}x
+                  {t('misc.devMorphLab.speedFactor', { speed: spd })}
                 </Chip>
               ))}
               <Chip
@@ -379,13 +414,13 @@ export function GlassMorphMenuLab() {
 
             <div className="mt-2.5 space-y-2 rounded-xl border border-current/10 p-2.5">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium opacity-80">Timeline Scrub</span>
+                <span className="text-xs font-medium opacity-80">{t('misc.devMorphLab.timelineScrub')}</span>
                 <Chip
                   active={scrubActive}
                   isDark={isDark}
                   onClick={() => setScrubActive((s) => !s)}
                 >
-                  {scrubActive ? 'Active' : 'Off'}
+                  {scrubActive ? t('misc.devMorphLab.scrubActive') : t('misc.devMorphLab.scrubOff')}
                 </Chip>
               </div>
               {scrubActive && (
@@ -396,19 +431,19 @@ export function GlassMorphMenuLab() {
                       isDark={isDark}
                       onClick={() => setScrubPhase('opening')}
                     >
-                      Opening (0.45s)
+                      {t('misc.devMorphLab.openingPhase')}
                     </Chip>
                     <Chip
                       active={scrubPhase === 'closing'}
                       isDark={isDark}
                       onClick={() => setScrubPhase('closing')}
                     >
-                      Closing (0.50s)
+                      {t('misc.devMorphLab.closingPhase')}
                     </Chip>
                   </div>
                   <label className="block">
                     <div className="mb-1 flex justify-between text-[11px] opacity-75">
-                      <span>Progress</span>
+                      <span>{t('misc.devMorphLab.scrubProgress')}</span>
                       <span>{Math.round(scrubT * 100)}%</span>
                     </div>
                     <input
@@ -427,13 +462,13 @@ export function GlassMorphMenuLab() {
           </Section>
 
           {/* Shader & Accessibility */}
-          <Section title="Shader & Accessibility" isDark={isDark}>
+          <Section title={t('misc.devMorphLab.sections.shaderA11y')} isDark={isDark}>
             <div className="grid grid-cols-3 gap-1.5">
               {(
                 [
-                  ['off', 'Glass'],
-                  ['sdf', 'SDF'],
-                  ['normals', 'Normals'],
+                  ['off', t('misc.devMorphLab.debugOff')],
+                  ['sdf', t('misc.devMorphLab.debugSdf')],
+                  ['normals', t('misc.devMorphLab.debugNormals')],
                 ] as const
               ).map(([mode, label]) => (
                 <Chip
@@ -452,7 +487,9 @@ export function GlassMorphMenuLab() {
 
             <div className="mt-2.5">
               <div className="mb-1 flex items-center justify-between text-xs">
-                <span className="opacity-80">Dispersion ({dispersion.toFixed(1)}px)</span>
+                <span className="opacity-80">
+                  {t('misc.devMorphLab.dispersionLabel', { px: dispersion.toFixed(1) })}
+                </span>
                 <div className="flex gap-1">
                   <button
                     type="button"
@@ -482,7 +519,7 @@ export function GlassMorphMenuLab() {
             </div>
 
             <label className="mt-2 flex cursor-pointer items-center justify-between rounded-xl border border-current/10 px-3 py-2 text-xs">
-              <span>Reduced Motion (0.15s crossfade)</span>
+              <span>{t('misc.devMorphLab.reducedMotion')}</span>
               <input
                 type="checkbox"
                 checked={reducedMotion}
@@ -500,26 +537,20 @@ export function GlassMorphMenuLab() {
             )}
           >
             <summary className="cursor-pointer font-semibold">
-              Fidelity & Web Limitations Notes
+              {t('misc.devMorphLab.notesSummary')}
             </summary>
             <ul className="mt-2 list-disc space-y-1.5 pl-4 opacity-80">
               <li>
-                <strong>Gooey SDF Union:</strong> Polynomial smooth-min (<code>k=28</code>) between platter and
-                droplet with <code>gooPairDepth &gt;= 0</code> merge handoff and 8px rim fade-in.
+                <strong>{t('misc.devMorphLab.notesGooTitle')}</strong> {t('misc.devMorphLab.notesGooBody')}
               </li>
               <li>
-                <strong>Asymmetric Spring Physics:</strong> 450ms open (<code>k=400/ζ=0.754</code> + 70ms delayed
-                corners, 98ms dip, 69ms blur bump) and 500ms return (<code>k=165/ζ=0.8</code> + 400–500ms ringing
-                damper, 72ms dip, 176ms droplet overshoot, 300–450ms absorption).
+                <strong>{t('misc.devMorphLab.notesSpringTitle')}</strong> {t('misc.devMorphLab.notesSpringBody')}
               </li>
               <li>
-                <strong>Optical Shader:</strong> Circular bevel refraction, 3-level pre-blurred FBO pyramid + 16-tap
-                Vogel disc, 5-point behind-luma adaptive contrast, outside-only shadow, and 0.67px hairline.
+                <strong>{t('misc.devMorphLab.notesShaderTitle')}</strong> {t('misc.devMorphLab.notesShaderBody')}
               </li>
               <li>
-                <strong>Web Limitation:</strong> Browser <code>backdrop-filter</code> cannot be sampled inside WebGL2,
-                so this PoC rasterizes a procedural backdrop canvas into a GPU atlas; DOM-arbitrary pages would need a
-                static snapshot or SVG fallback.
+                <strong>{t('misc.devMorphLab.notesWebTitle')}</strong> {t('misc.devMorphLab.notesWebBody')}
               </li>
             </ul>
           </details>

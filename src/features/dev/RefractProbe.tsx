@@ -11,6 +11,7 @@ import type { GlassOpticalStyle, GlassShapeState, GooFrameGeometry, IMorphOverla
 import { LensFilter, useLensMap } from '@/components/glass/refract'
 import { glassDefaults, prismGlassDefaults } from '@/design/glassTuning'
 import { createLiquidGlassRenderer, type ILiquidGlassRendererWithDebug } from '@/features/dev/glassMorphMenu/renderer'
+import { t } from '@/i18n'
 
 const W = 240
 const H = 200
@@ -35,36 +36,36 @@ interface UnifiedOpticalParams {
 
 function getUnifiedParams(preset: ProbePresetId): UnifiedOpticalParams {
   if (preset === 'clear-menu') {
-    const t = glassDefaults('dark')
+    const tokens = glassDefaults('dark')
     return {
-      label: 'Clear (通透)',
-      bezel: t.bezel,
-      strength: t.strength,
-      falloff: t.falloff,
-      blurPx: t.denseBlur,
-      saturate: t.saturate,
+      label: t('misc.devRefractProbe.presetClearLabel'),
+      bezel: tokens.bezel,
+      strength: tokens.strength,
+      falloff: tokens.falloff,
+      blurPx: tokens.denseBlur,
+      saturate: tokens.saturate,
       brightness: 0.78,
       contrastCss: 1.0,
       tintRgbNormalized: [30 / 255, 30 / 255, 34 / 255],
-      effectiveTintAlpha: Math.min(1, (t.denseTint / 100) * 1.6),
-      dispersion: t.dispersion,
+      effectiveTintAlpha: Math.min(1, (tokens.denseTint / 100) * 1.6),
+      dispersion: tokens.dispersion,
       rimScale: 0.45,
     }
   }
-  const t = prismGlassDefaults('dark')
+  const tokens = prismGlassDefaults('dark')
   const isMenu = preset === 'prism-menu'
   return {
-    label: isMenu ? 'PrismUI Menu' : 'PrismUI Control',
-    bezel: t.bezel,
-    strength: t.strength,
-    falloff: t.falloff,
-    blurPx: isMenu ? t.denseBlur : t.blur,
-    saturate: t.saturate,
+    label: isMenu ? t('misc.devRefractProbe.presetMenuLabel') : t('misc.devRefractProbe.presetControlLabel'),
+    bezel: tokens.bezel,
+    strength: tokens.strength,
+    falloff: tokens.falloff,
+    blurPx: isMenu ? tokens.denseBlur : tokens.blur,
+    saturate: tokens.saturate,
     brightness: isMenu ? 1.1 : 1.04,
     contrastCss: isMenu ? 0.94 : 0.95,
     tintRgbNormalized: [53 / 255, 53 / 255, 56 / 255],
-    effectiveTintAlpha: Math.min(1, ((isMenu ? t.denseTint : t.tint) / 100) * 1.55),
-    dispersion: t.dispersion,
+    effectiveTintAlpha: Math.min(1, ((isMenu ? tokens.denseTint : tokens.tint) / 100) * 1.55),
+    dispersion: tokens.dispersion,
     rimScale: isMenu ? 0.9 : 0.85,
   }
 }
@@ -140,7 +141,12 @@ function makeProbeGeometry(platter: GlassShapeState, droplet: GlassShapeState, b
 
 const STRIPE_COLORS = ['#ff5f6d', '#ffc371', '#24c6dc', '#514a9d'] as const
 
-function drawProbeScene(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+function drawProbeScene(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  sampleText: string,
+): void {
   ctx.save()
   ctx.clearRect(0, 0, width, height)
   ctx.fillStyle = '#141418'
@@ -167,7 +173,7 @@ function drawProbeScene(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.font = '900 24px ui-sans-serif, system-ui, -apple-system, sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.fillText('REFRACT TEST 0123', width / 2, height / 2)
+  ctx.fillText(sampleText, width / 2, height / 2)
   ctx.restore()
 }
 
@@ -361,7 +367,7 @@ function buildChains(bezel: number): ChainConfig[] {
     {
       key: 'b1',
       id: 'probe-filter-b1',
-      label: 'B1: Gauss(6.5) Rim + Div(1.15)',
+      label: t('misc.devRefractProbe.chainB1'),
       blurStd: 6.5,
       divisor: 1.15,
       postBlurStd: 0.8,
@@ -370,7 +376,7 @@ function buildChains(bezel: number): ChainConfig[] {
     {
       key: 'b2',
       id: 'probe-filter-b2',
-      label: 'B2: Exact E-Bevel(7.5) Full-Rim',
+      label: t('misc.devRefractProbe.chainB2'),
       blurStd: 7.5,
       tableValues: bevelG75.tableValues,
       divisor: Number((bevelG75.peakSobelEffective / 0.48).toFixed(2)),
@@ -380,7 +386,7 @@ function buildChains(bezel: number): ChainConfig[] {
     {
       key: 'b3',
       id: 'probe-filter-b3',
-      label: 'B3: Exact E-Bevel(8.5) Deep Parity',
+      label: t('misc.devRefractProbe.chainB3'),
       blurStd: 8.5,
       tableValues: bevelG85.tableValues,
       divisor: Number((bevelG85.peakSobelEffective / 0.48).toFixed(2)),
@@ -401,7 +407,12 @@ export function RefractProbe() {
 
   const optical = useMemo(() => getUnifiedParams(preset), [preset])
   const allChains = useMemo(() => buildChains(optical.bezel), [optical.bezel])
-  const activeChains = viewMode === 'all' ? allChains : allChains.filter((c) => c.key === viewMode)
+  const activeChains = useMemo(
+    () => (viewMode === 'all' ? allChains : allChains.filter((c) => c.key === viewMode)),
+    [allChains, viewMode],
+  )
+  const activeChainIds = useMemo(() => activeChains.map((c) => c.id).join(','), [activeChains])
+  const sampleText = t('misc.devRefractProbe.sampleText')
 
   const phaseRef = useRef(phase)
   const rimOverlayRef = useRef(rimOverlay)
@@ -446,13 +457,18 @@ export function RefractProbe() {
         size: { width: W, height: H },
         dpr,
         version: 1,
-        source: (ctx, w, h) => drawProbeScene(ctx, w, h),
+        source: (ctx, w, h) => drawProbeScene(ctx, w, h, sampleText),
       })
       showcaseRendererRef.current = showcaseRenderer
     }
 
+    const chainCount = activeChains.length
+    feRefs.current.length = chainCount
+    clipBoxRefs.current.length = chainCount
+    rimCanvasRefs.current.length = chainCount
+
     const overlays: (IMorphOverlayRenderer | null)[] = []
-    for (let i = 0; i < activeChains.length; i++) {
+    for (let i = 0; i < chainCount; i++) {
       const c = rimCanvasRefs.current[i]
       if (!c) {
         overlays.push(null)
@@ -474,7 +490,7 @@ export function RefractProbe() {
       }
       rimRenderersRef.current = []
     }
-  }, [syncFrame, activeChains.length])
+  }, [syncFrame, viewMode, activeChainIds, activeChains.length, sampleText])
 
   useEffect(() => {
     phaseRef.current = phase
@@ -535,42 +551,42 @@ export function RefractProbe() {
   return (
     <div className="min-h-screen bg-[#141418] p-6 text-white">
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="m-0 text-lg font-bold">Unified Optical Parity: Route B vs WebGL2 E vs Static D</h1>
+        <h1 className="m-0 text-lg font-bold">{t('misc.devRefractProbe.title')}</h1>
         <select
           value={preset}
           onChange={(e) => setPreset(e.target.value as ProbePresetId)}
           className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1 text-sm text-white"
         >
-          <option value="prism-menu" className="bg-[#1c1c20]">PrismUI Menu (bezel=20, str=1.5, blur=12, tint=62%)</option>
-          <option value="prism-control" className="bg-[#1c1c20]">PrismUI Control (bezel=20, str=1.5, blur=3, tint=62%)</option>
-          <option value="clear-menu" className="bg-[#1c1c20]">Clear 通透 (bezel=30, str=1.32, blur=2, tint=32%)</option>
+          <option value="prism-menu" className="bg-[#1c1c20]">{t('misc.devRefractProbe.presetMenuOption')}</option>
+          <option value="prism-control" className="bg-[#1c1c20]">{t('misc.devRefractProbe.presetControlOption')}</option>
+          <option value="clear-menu" className="bg-[#1c1c20]">{t('misc.devRefractProbe.presetClearOption')}</option>
         </select>
         <select
           value={viewMode}
           onChange={(e) => setViewMode(e.target.value as ViewMode)}
           className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1 text-sm text-white"
         >
-          <option value="all" className="bg-[#1c1c20]">All (B1+B2+B3 vs E vs D)</option>
-          <option value="b2" className="bg-[#1c1c20]">Solo B2 vs E vs D</option>
-          <option value="b3" className="bg-[#1c1c20]">Solo B3 vs E vs D</option>
+          <option value="all" className="bg-[#1c1c20]">{t('misc.devRefractProbe.viewAll')}</option>
+          <option value="b2" className="bg-[#1c1c20]">{t('misc.devRefractProbe.viewB2')}</option>
+          <option value="b3" className="bg-[#1c1c20]">{t('misc.devRefractProbe.viewB3')}</option>
         </select>
         <button
           type="button"
           onClick={() => setRunning((v) => !v)}
           className="rounded-full bg-white/15 px-3.5 py-1 text-sm font-semibold"
         >
-          {running ? 'Pause' : 'Resume'}
+          {running ? t('misc.devRefractProbe.pause') : t('misc.devRefractProbe.resume')}
         </button>
         <label className="flex items-center gap-1.5 text-sm text-white/80">
           <input type="checkbox" checked={rimOverlay} onChange={(e) => setRimOverlay(e.target.checked)} />
-          <span>WebGL2 Rim</span>
+          <span>{t('misc.devRefractProbe.webgl2Rim')}</span>
         </label>
         <label className="flex items-center gap-1.5 text-sm text-white/80">
           <input type="checkbox" checked={dispersion} onChange={(e) => setDispersion(e.target.checked)} />
-          <span>Dispersion</span>
+          <span>{t('misc.devRefractProbe.dispersion')}</span>
         </label>
         <label className="flex items-center gap-2 text-sm text-white/80">
-          <span>Phase</span>
+          <span>{t('misc.devRefractProbe.phase')}</span>
           <input
             type="range"
             min={0}
@@ -588,7 +604,11 @@ export function RefractProbe() {
           <span className="num w-10">{phase.toFixed(2)}</span>
         </label>
         <div className="text-sm text-white/80 num" data-testid="probe-stats">
-          FPS: {stats.fps} | contour: {stats.pathMs}ms | svg-dataurl: {stats.svgUrlMs}ms
+          {t('misc.devRefractProbe.stats', {
+            fps: stats.fps,
+            pathMs: stats.pathMs,
+            svgUrlMs: stats.svgUrlMs,
+          })}
         </div>
       </div>
 
@@ -616,7 +636,7 @@ export function RefractProbe() {
               <div className="text-xs font-semibold text-white/90">{c.label}</div>
               <div className="relative overflow-hidden rounded-2xl border border-white/15" style={{ width: W, height: H, background: stripeBg }}>
                 <div className="absolute inset-0 flex items-center justify-center text-2xl font-black tracking-wider text-black/75 select-none">
-                  REFRACT TEST 0123
+                  {sampleText}
                 </div>
                 <div
                   className="pointer-events-none absolute inset-0"
@@ -647,11 +667,11 @@ export function RefractProbe() {
 
         <div className="flex flex-col gap-2" style={{ width: W }}>
           <div className="text-xs font-semibold text-sky-300">
-            E: Unified WebGL2 ({optical.label})
+            {t('misc.devRefractProbe.cardWebglTitle', { label: optical.label })}
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-sky-400/35" style={{ width: W, height: H, background: stripeBg }}>
             <div className="absolute inset-0 flex items-center justify-center text-2xl font-black tracking-wider text-black/75 select-none">
-              REFRACT TEST 0123
+              {sampleText}
             </div>
             <canvas
               ref={showcaseCanvasRef}
@@ -663,11 +683,11 @@ export function RefractProbe() {
 
         <div className="flex flex-col gap-2" style={{ width: W }}>
           <div className="text-xs font-semibold text-white/90">
-            D: Static Sukimi LensMap ({optical.label})
+            {t('misc.devRefractProbe.cardStaticTitle', { label: optical.label })}
           </div>
           <div className="relative overflow-hidden rounded-2xl border border-white/15" style={{ width: W, height: H, background: stripeBg }}>
             <div className="absolute inset-0 flex items-center justify-center text-2xl font-black tracking-wider text-black/75 select-none">
-              REFRACT TEST 0123
+              {sampleText}
             </div>
             <div
               ref={baselineHostRef}

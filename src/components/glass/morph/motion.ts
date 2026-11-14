@@ -45,7 +45,10 @@ export interface MotionInterruptStart {
   contentOpacity?: number
   contentBlurPx?: number
   triggerGlyphOpacity?: number
+  triggerGlyphBlurPx?: number
   bareGlassOpacity?: number
+  startNormalizedT?: number
+  startSettled?: number
 }
 
 export interface EvaluateMotionFrameOptions {
@@ -392,6 +395,20 @@ export function evaluateMotionFrame(
 
     if (reducedMotion) {
       const fade = easeOutCubic(u)
+      const interrupt = options.interruptStart
+      let settled = fade
+      let contentOpacity = fade
+      let triggerGlyphOpacity = 1 - fade
+      let bareGlassOpacity = fade
+      if (interrupt) {
+        const startU = clamp(interrupt.startNormalizedT ?? 0, 0, 1 - 1e-6)
+        const remT = clamp((u - startU) / (1 - startU), 0, 1)
+        const ramp = easeOutCubic(remT)
+        settled = lerp(interrupt.startSettled ?? fade, 1, ramp)
+        contentOpacity = lerp(interrupt.contentOpacity ?? fade, 1, ramp)
+        triggerGlyphOpacity = lerp(interrupt.triggerGlyphOpacity ?? 1 - fade, 0, ramp)
+        bareGlassOpacity = lerp(interrupt.bareGlassOpacity ?? fade, 1, ramp)
+      }
       return {
         phase: 'opening',
         hasControlSource,
@@ -405,12 +422,12 @@ export function evaluateMotionFrame(
         platterDipEnvelope: 0,
         dropletOvershootEnvelope: 0,
         blurBumpPx: 0,
-        settled: fade,
-        contentOpacity: fade,
+        settled,
+        contentOpacity,
         contentBlurPx: 0,
-        triggerGlyphOpacity: 1 - fade,
+        triggerGlyphOpacity,
         triggerGlyphBlurPx: 0,
-        bareGlassOpacity: fade,
+        bareGlassOpacity,
         pointScale: 1,
         pressScaleX,
         pressScaleY,
@@ -444,6 +461,51 @@ export function evaluateMotionFrame(
       )
     const settled = clamp(morphProgress, 0, 1)
     const glyphT = clamp(settled / PRISM_CONSTANTS.OPEN_SETTLED_GLYPH_END, 0, 1)
+    const normalContentBlurPx = Math.hypot(
+      PRISM_CONSTANTS.OPEN_CONTENT_BLUR_BASE_PX * (1 - settled),
+      blurBumpPx,
+    )
+    const normalBareGlassOpacity = clamp(
+      elapsedSec / PRISM_CONSTANTS.BARE_SOURCE_FADE_IN_SEC,
+      0,
+      1,
+    )
+
+    let contentOpacity = settled
+    let contentBlurPx = normalContentBlurPx
+    let triggerGlyphOpacity = 1 - glyphT
+    let triggerGlyphBlurPx = PRISM_CONSTANTS.OPEN_GLYPH_BLUR_MAX_PX * glyphT
+    let bareGlassOpacity = normalBareGlassOpacity
+
+    const interrupt = options.interruptStart
+    if (interrupt) {
+      const startSettled = clamp(interrupt.startSettled ?? 0, 0, 0.999)
+      const settledRamp = clamp((settled - startSettled) / (1 - startSettled), 0, 1)
+      contentOpacity = lerp(interrupt.contentOpacity ?? settled, 1, settledRamp)
+      contentBlurPx = lerp(
+        interrupt.contentBlurPx ?? normalContentBlurPx,
+        normalContentBlurPx,
+        settledRamp,
+      )
+      const glyphSpan = Math.max(
+        1e-4,
+        Math.min(PRISM_CONSTANTS.OPEN_SETTLED_GLYPH_END, 1 - startSettled),
+      )
+      const interruptGlyphT = clamp((settled - startSettled) / glyphSpan, 0, 1)
+      triggerGlyphOpacity = lerp(interrupt.triggerGlyphOpacity ?? 1, 0, interruptGlyphT)
+      triggerGlyphBlurPx = lerp(
+        interrupt.triggerGlyphBlurPx ?? 0,
+        PRISM_CONSTANTS.OPEN_GLYPH_BLUR_MAX_PX,
+        interruptGlyphT,
+      )
+      const startElapsedSec = clamp(interrupt.startNormalizedT ?? 0, 0, 1) * duration
+      const bareRamp = clamp(
+        (elapsedSec - startElapsedSec) / PRISM_CONSTANTS.BARE_SOURCE_FADE_IN_SEC,
+        0,
+        1,
+      )
+      bareGlassOpacity = lerp(interrupt.bareGlassOpacity ?? normalBareGlassOpacity, 1, bareRamp)
+    }
 
     return {
       phase: 'opening',
@@ -459,14 +521,11 @@ export function evaluateMotionFrame(
       dropletOvershootEnvelope: 0,
       blurBumpPx,
       settled,
-      contentOpacity: settled,
-      contentBlurPx: Math.hypot(
-        PRISM_CONSTANTS.OPEN_CONTENT_BLUR_BASE_PX * (1 - settled),
-        blurBumpPx,
-      ),
-      triggerGlyphOpacity: 1 - glyphT,
-      triggerGlyphBlurPx: PRISM_CONSTANTS.OPEN_GLYPH_BLUR_MAX_PX * glyphT,
-      bareGlassOpacity: clamp(elapsedSec / PRISM_CONSTANTS.BARE_SOURCE_FADE_IN_SEC, 0, 1),
+      contentOpacity,
+      contentBlurPx,
+      triggerGlyphOpacity,
+      triggerGlyphBlurPx,
+      bareGlassOpacity,
       pointScale: 1,
       pressScaleX,
       pressScaleY,
@@ -736,7 +795,7 @@ export function createMotionController(options?: { reducedMotion?: boolean }): M
       hasControlSource,
       reducedMotion,
       press: computePressValues(),
-      interruptStart: phase === 'closing' ? interruptStart : undefined,
+      interruptStart: phase === 'opening' || phase === 'closing' ? interruptStart : undefined,
     })
     return {
       ...frame,
@@ -778,6 +837,7 @@ export function createMotionController(options?: { reducedMotion?: boolean }): M
       if (phase === 'opening' || phase === 'closing') {
         const nextDuration = getPhaseDurationSec(phase, hasControlSource, reducedMotion)
         elapsedSec = Math.min(elapsedSec, nextDuration)
+        interruptStart = undefined
       }
       notify()
     },
@@ -785,6 +845,7 @@ export function createMotionController(options?: { reducedMotion?: boolean }): M
     open(controlSource = true): void {
       if (disposed) return
       let nextElapsedSec = 0
+      let nextInterruptStart: MotionInterruptStart | undefined
       if (phase === 'closing') {
         const current = buildState()
         const openFraction = reducedMotion
@@ -798,10 +859,26 @@ export function createMotionController(options?: { reducedMotion?: boolean }): M
             nextElapsedSec = solveOpenElapsedForProgress(openFraction)
           }
         }
+        if (current.normalizedT < 1) {
+          const nextDuration = getPhaseDurationSec('opening', controlSource, reducedMotion)
+          const startNormalizedT = nextDuration > 0 ? clamp(nextElapsedSec / nextDuration, 0, 1) : 0
+          const startSettled = reducedMotion
+            ? easeOutCubic(startNormalizedT)
+            : clamp(evaluateSpring(nextElapsedSec, PRISM_CONSTANTS.SPRINGS.open), 0, 1)
+          nextInterruptStart = {
+            contentOpacity: current.contentOpacity,
+            contentBlurPx: current.contentBlurPx,
+            triggerGlyphOpacity: current.triggerGlyphOpacity,
+            triggerGlyphBlurPx: current.triggerGlyphBlurPx,
+            bareGlassOpacity: current.bareGlassOpacity,
+            startNormalizedT,
+            startSettled,
+          }
+        }
       }
       hasControlSource = controlSource
       closeSnapshot = null
-      interruptStart = undefined
+      interruptStart = nextInterruptStart
       phase = 'opening'
       elapsedSec = nextElapsedSec
       notify()
@@ -925,6 +1002,7 @@ export function createMotionController(options?: { reducedMotion?: boolean }): M
           if (phase === 'opening') {
             phase = 'open'
             elapsedSec = duration
+            interruptStart = undefined
           } else {
             phase = 'closed'
             elapsedSec = 0

@@ -1,24 +1,25 @@
 /**
  * Route B3 dynamic SVG refraction filter component for Live-DOM Hybrid Liquid Glass morphing.
  *
- * Uses Gaussian half-plane blur -> circular-bevel integral lookup -> discrete Sobel normal gradient ->
- * `feDisplacementMap` + chromatic dispersion, self-masked to `shapeAlpha` and merged over untouched
- * `SourceGraphic` so Chromium never leaks a rectangular `backdrop-filter` bounds box.
+ * Uses a 0.5x stored-PNG RGBA displacement + inward-AA alpha map (`refractMap.ts`) ->
+ * background blur + color optics -> 1x/3x RGB `feDisplacementMap` with full dispersion ->
+ * self-masked to `map` alpha and merged over untouched `SourceGraphic` so Chromium never leaks
+ * a rectangular `backdrop-filter` bounds box.
  *
  * SPDX-License-Identifier: MPL-2.0
  */
 
-import { Fragment, useImperativeHandle, useMemo, useRef, type Ref } from 'react'
-import {
-  buildCircularBevelTable,
-  buildColorOpticsMatrix,
-  buildContourAlphaDataUrl,
-} from './refractOptics'
+import { Fragment, useImperativeHandle, useRef, type Ref } from 'react'
+import type { GlassShapeState, Rect } from './contracts'
+import { createMorphRefractMapBuilder, type MorphRefractMapBuilder } from './refractMap'
+import { buildColorOpticsMatrix } from './refractOptics'
 
 export interface MorphRefractFrame {
-  width: number
-  height: number
-  contourPath: string
+  bounds: Rect
+  platter: GlassShapeState
+  droplet: GlassShapeState | null
+  blendK: number
+  isMerged: boolean
   blurSigma: number
   saturate: number
   brightness: number
@@ -35,37 +36,31 @@ export function MorphRefractFilter({
   bezel,
   strength,
   dispersion,
-  bevelBlurStd,
-  postBlurStd = 0.35,
   scaleMultiplier = 1.1,
+  mapScale = 0.5,
   ref,
 }: {
   id: string
   bezel: number
   strength: number
   dispersion: number
-  bevelBlurStd?: number
-  postBlurStd?: number
   scaleMultiplier?: number
+  mapScale?: number
   ref?: Ref<MorphRefractFilterHandle>
 }) {
   const feImageRef = useRef<SVGFEImageElement>(null)
   const bgBlurRef = useRef<SVGFEGaussianBlurElement>(null)
   const colorMatrixRef = useRef<SVGFEColorMatrixElement>(null)
 
+  const mapBuilderRef = useRef<MorphRefractMapBuilder | null>(null)
+  const safeBezel = Math.max(1, bezel)
+
   const lastFrameRef = useRef({
     width: -1,
     height: -1,
-    contourPath: '',
     sigma: '',
     matrix: '',
   })
-
-  const safeBezel = Math.max(1, bezel)
-  const bevel = useMemo(
-    () => buildCircularBevelTable(safeBezel, bevelBlurStd),
-    [safeBezel, bevelBlurStd],
-  )
 
   const targetScale = Math.max(0, Math.round(2 * safeBezel * strength * scaleMultiplier))
 
@@ -73,22 +68,29 @@ export function MorphRefractFilter({
     ref,
     () => ({
       updateFrame(frame) {
-        const w = Math.max(1, Math.round(frame.width))
-        const h = Math.max(1, Math.round(frame.height))
         const prev = lastFrameRef.current
         const fe = feImageRef.current
 
         if (fe) {
-          if (w !== prev.width || h !== prev.height) {
-            fe.setAttribute('width', String(w))
-            fe.setAttribute('height', String(h))
+          const builder = (mapBuilderRef.current ??= createMorphRefractMapBuilder())
+          const mapResult = builder.build({
+            bounds: frame.bounds,
+            platter: frame.platter,
+            droplet: frame.droplet,
+            blendK: frame.blendK,
+            isMerged: frame.isMerged,
+            bezel: safeBezel,
+            mapScale,
+          })
+          if (mapResult.width !== prev.width || mapResult.height !== prev.height) {
+            fe.setAttribute('width', String(mapResult.width))
+            fe.setAttribute('height', String(mapResult.height))
+            prev.width = mapResult.width
+            prev.height = mapResult.height
           }
-          if (frame.contourPath && (frame.contourPath !== prev.contourPath || w !== prev.width || h !== prev.height)) {
-            fe.setAttribute('href', buildContourAlphaDataUrl(frame.contourPath, w, h))
-            prev.contourPath = frame.contourPath
+          if (mapResult.changed) {
+            fe.setAttribute('href', mapResult.dataUrl)
           }
-          prev.width = w
-          prev.height = h
         }
 
         const sigma = frame.blurSigma > 0.05 ? frame.blurSigma.toFixed(2) : '0'
@@ -109,7 +111,7 @@ export function MorphRefractFilter({
         }
       },
     }),
-    [],
+    [safeBezel, mapScale],
   )
 
   return (
@@ -123,45 +125,8 @@ export function MorphRefractFilter({
             width={1}
             height={1}
             preserveAspectRatio="none"
-            result="shapeAlpha"
+            result="map"
           />
-          <feGaussianBlur in="shapeAlpha" stdDeviation={bevel.blurStd} result="blurredAlpha" />
-          <feColorMatrix
-            in="blurredAlpha"
-            type="matrix"
-            values="0 0 0 1 0  0 0 0 1 0  0 0 0 1 0  0 0 0 0 1"
-            result="blurBase"
-          />
-          <feComponentTransfer in="blurBase" result="blurShaped">
-            <feFuncR type="table" tableValues={bevel.tableValues} />
-            <feFuncG type="table" tableValues={bevel.tableValues} />
-            <feFuncB type="table" tableValues={bevel.tableValues} />
-          </feComponentTransfer>
-
-          <feConvolveMatrix
-            in="blurShaped"
-            order="3 3"
-            divisor={bevel.divisor}
-            bias="0.5"
-            edgeMode="duplicate"
-            preserveAlpha="true"
-            kernelMatrix="1 0 -1 2 0 -2 1 0 -1"
-            result="gradX"
-          />
-          <feConvolveMatrix
-            in="blurShaped"
-            order="3 3"
-            divisor={bevel.divisor}
-            bias="0.5"
-            edgeMode="duplicate"
-            preserveAlpha="true"
-            kernelMatrix="1 2 1 0 0 0 -1 -2 -1"
-            result="gradY"
-          />
-          <feColorMatrix in="gradX" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="rx" />
-          <feColorMatrix in="gradY" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="gy" />
-          <feComposite in="rx" in2="gy" operator="arithmetic" k2={1} k3={1} result="mapRaw" />
-          <feGaussianBlur in="mapRaw" stdDeviation={postBlurStd} edgeMode="duplicate" result="map" />
 
           <feGaussianBlur ref={bgBlurRef} in="SourceGraphic" stdDeviation="0" edgeMode="duplicate" result="bgBlur" />
           <feColorMatrix
@@ -205,8 +170,7 @@ export function MorphRefractFilter({
             />
           )}
 
-          <feGaussianBlur in="refractRaw" stdDeviation="0.5" edgeMode="duplicate" result="refractSmooth" />
-          <feComposite in="refractSmooth" in2="shapeAlpha" operator="in" result="glassOnly" />
+          <feComposite in="refractRaw" in2="map" operator="in" result="glassOnly" />
           <feMerge>
             <feMergeNode in="SourceGraphic" />
             <feMergeNode in="glassOnly" />

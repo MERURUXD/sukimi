@@ -9,8 +9,8 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import { MotionGlass } from '@/components/glass/Glass'
-import { extractGooContourPath } from '@/components/glass/morph/contour'
+import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
+import { computeMorphUnionBounds, extractGooContourPath } from '@/components/glass/morph/contour'
 import {
   PRISM_CONSTANTS,
   type AnchorConfig,
@@ -173,6 +173,13 @@ export function Popover({
   )
 }
 
+interface ElementTintVars {
+  tint: number | null
+  denseTint: number | null
+  tintScale: number | null
+  isDense: boolean
+}
+
 interface MeasuredMorphAnchors {
   triggerEl: HTMLElement | null
   anchorRect: Rect
@@ -185,11 +192,21 @@ interface MeasuredMorphAnchors {
   startSurface: ExtractedCssGlassSurface
   panelSurface: ExtractedCssGlassSurface
   startVeil: MorphBackdropVeilOptics
+  startTintVars: ElementTintVars
+  panelTintVars: ElementTintVars
+}
+
+function parseCssNumberVar(cs: CSSStyleDeclaration, name: string): number | null {
+  const raw = cs.getPropertyValue(name).trim()
+  if (!raw) return null
+  const parsed = Number.parseFloat(raw)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function readElementGlassSurface(el: HTMLElement): {
   surface: ExtractedCssGlassSurface
   plateVeil: MorphBackdropVeilOptics
+  tintVars: ElementTintVars
 } {
   const wasMorphing = el.hasAttribute('data-morphing')
   const prevTransition = el.style.transition
@@ -209,16 +226,41 @@ function readElementGlassSurface(el: HTMLElement): {
   })
   const plateVeilStr = cs.getPropertyValue('--g-veil-plate').trim()
   const plateVeil = plateVeilStr ? parseCssFilterOptics(plateVeilStr) : surface.veil
+  const tintVars: ElementTintVars = {
+    tint: parseCssNumberVar(cs, '--refract-tint'),
+    denseTint: parseCssNumberVar(cs, '--refract-tint-dense'),
+    tintScale: parseCssNumberVar(cs, '--g-tint-scale'),
+    isDense: el.classList.contains('dense') || el.classList.contains('glass-legible'),
+  }
   if (wasMorphing) {
     el.setAttribute('data-morphing', 'true')
     el.style.transition = prevTransition
     el.style.opacity = prevOpacity
   }
-  return { surface, plateVeil }
+  return { surface, plateVeil, tintVars }
 }
 
 const OVERLAY_UNION_PADDING_PX = 48
+const MORPH_BACKDROP_MARGIN_PX = 6
 const LARGE_TRIGGER_AREA_RATIO = 0.45
+
+function computeClampedBackdropBounds(
+  platter: GooFrameGeometry['platter'],
+  droplet: GooFrameGeometry['droplet'],
+  transitionBounds: Rect,
+): Rect {
+  const raw = computeMorphUnionBounds(platter, droplet, MORPH_BACKDROP_MARGIN_PX)
+  const minX = Math.max(transitionBounds.x, Math.floor(raw.x))
+  const minY = Math.max(transitionBounds.y, Math.floor(raw.y))
+  const maxX = Math.min(transitionBounds.x + transitionBounds.width, Math.ceil(raw.x + raw.width))
+  const maxY = Math.min(transitionBounds.y + transitionBounds.height, Math.ceil(raw.y + raw.height))
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(1, maxX - minX),
+    height: Math.max(1, maxY - minY),
+  }
+}
 
 function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v))
@@ -351,6 +393,7 @@ function MorphPanel({
   const reduced = systemReduced || !popoverMotion
   const glassMode = useAppearance((s) => s.glass)
   const tuning = useGlassTuning()
+  const adaptive = useAdaptiveGlass()
   const refractSupported = supportsRefract()
   const morphFilterId = `morphRefract${useId().replace(/[:«»]/g, '')}`
   const [morphBezel, setMorphBezel] = useState(() => (tuning.bezel > 0 ? tuning.bezel : 20))
@@ -391,6 +434,7 @@ function MorphPanel({
     reduced,
     glassMode,
     tuning,
+    adaptive,
     dense,
     isLegible: className.includes('glass-legible'),
     side,
@@ -400,6 +444,7 @@ function MorphPanel({
     reduced,
     glassMode,
     tuning,
+    adaptive,
     dense,
     isLegible: className.includes('glass-legible'),
     side,
@@ -588,7 +633,7 @@ function MorphPanel({
       height: Math.max(1, maxY - minY),
     }
 
-    const { surface: panelSurface, plateVeil } = readElementGlassSurface(panelEl)
+    const { surface: panelSurface, plateVeil, tintVars: panelTintVars } = readElementGlassSurface(panelEl)
     let startSurface: ExtractedCssGlassSurface = {
       ...panelSurface,
       veil: plateVeil,
@@ -605,11 +650,16 @@ function MorphPanel({
       shadowAlpha: 0,
     }
     let startVeil: MorphBackdropVeilOptics = plateVeil
+    let startTintVars: ElementTintVars = {
+      ...panelTintVars,
+      isDense: false,
+    }
 
     if (!bareSource && triggerEl) {
-      const { surface: triggerSurface } = readElementGlassSurface(triggerEl)
+      const { surface: triggerSurface, tintVars: triggerTintVars } = readElementGlassSurface(triggerEl)
       startSurface = triggerSurface
       startVeil = triggerSurface.veil
+      startTintVars = triggerTintVars
     }
 
     const measured: MeasuredMorphAnchors = {
@@ -624,6 +674,8 @@ function MorphPanel({
       startSurface,
       panelSurface,
       startVeil,
+      startTintVars,
+      panelTintVars,
     }
     anchorsRef.current = measured
     return measured
@@ -638,8 +690,15 @@ function MorphPanel({
     const anchors = anchorsRef.current
     if (!panelEl || !anchors) return
 
-    const { reduced: isReduced, glassMode: gMode, tuning: gTuning, dense: isDense, isLegible, align: curAlign } =
-      latestVisualRef.current
+    const {
+      reduced: isReduced,
+      glassMode: gMode,
+      tuning: gTuning,
+      adaptive: gAdaptive,
+      dense: isDense,
+      isLegible,
+      align: curAlign,
+    } = latestVisualRef.current
 
     lastMotionRef.current = mState
 
@@ -821,13 +880,16 @@ function MorphPanel({
         morphGlassEl.style.clipPath = contourPath ? `path("${contourPath}")` : 'none'
         morphGlassEl.style.opacity = `${glassAlpha}`
 
-        if (gMode === 'solid') {
+        const effectiveMode = gMode === 'refract' && !refractSupported ? 'frosted' : gMode
+        if (effectiveMode === 'solid') {
           if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
+          morphGlassEl.style.removeProperty('--g-tint-scale')
           morphGlassEl.style.backdropFilter = 'none'
           morphGlassEl.style.setProperty('-webkit-backdrop-filter', 'none')
           morphGlassEl.style.background = 'var(--surface)'
-        } else if (gMode === 'frosted') {
+        } else if (effectiveMode === 'frosted') {
           if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
+          morphGlassEl.style.removeProperty('--g-tint-scale')
           const blurPx = 22 + mState.blurBumpPx
           const bf = `blur(${blurPx.toFixed(2)}px) saturate(1.7)`
           morphGlassEl.style.backdropFilter = bf
@@ -840,25 +902,59 @@ function MorphPanel({
             morphGlassEl.style.background = 'var(--g-bg)'
           }
         } else {
-          // 'refract' mode: match resting Glass.tsx blur, saturate, veil, and neutral tint continuously
+          // 'refract' mode (refractSupported === true): match resting Glass.tsx blur, saturate, veil, adaptive tint, and --g-tint-scale
           const startBlur = gTuning.blur
           const targetBlur = isDense ? gTuning.denseBlur : gTuning.blur
           const baseBlur = startBlur + (targetBlur - startBlur) * geometry.styleMix
           const activeBlur = baseBlur + (gTuning.preset === 'prism' ? mState.blurBumpPx : 0)
-          const startTint = gTuning.tint
-          const targetTint = isDense || isLegible ? gTuning.denseTint : gTuning.tint
+
+          const fallbackStartTint = anchors.startTintVars.isDense ? gTuning.denseTint : gTuning.tint
+          const fallbackTargetTint = isDense || isLegible ? gTuning.denseTint : gTuning.tint
+          const adaptiveStartTint = gAdaptive?.enabled
+            ? (anchors.startTintVars.isDense
+                ? (gAdaptive.denseTint ?? gAdaptive.tint ?? gTuning.denseTint)
+                : (gAdaptive.tint ?? gTuning.tint))
+            : fallbackStartTint
+          const adaptiveTargetTint = gAdaptive?.enabled
+            ? (isDense || isLegible
+                ? (gAdaptive.denseTint ?? gAdaptive.tint ?? gTuning.denseTint)
+                : (gAdaptive.tint ?? gTuning.tint))
+            : fallbackTargetTint
+          const startCssTint = anchors.startTintVars.isDense
+            ? (anchors.startTintVars.denseTint ?? anchors.startTintVars.tint)
+            : anchors.startTintVars.tint
+          const panelCssTint = isDense || isLegible
+            ? (anchors.panelTintVars.denseTint ?? anchors.panelTintVars.tint)
+            : anchors.panelTintVars.tint
+
+          const startTint = !anchors.bareSource
+            ? (startCssTint ?? adaptiveStartTint)
+            : (gAdaptive?.enabled ? (gAdaptive.tint ?? gTuning.tint) : (anchors.panelTintVars.tint ?? gTuning.tint))
+          const targetTint = gAdaptive?.enabled
+            ? adaptiveTargetTint
+            : (panelCssTint ?? adaptiveTargetTint)
           const activeTint = startTint + (targetTint - startTint) * geometry.styleMix
-          morphGlassEl.style.background = `color-mix(in srgb, var(--g-neutral) min(100%, calc(${activeTint.toFixed(2)}% * var(--g-tint-scale, 1))), transparent)`
+
+          const themeDefaultScale = resolvedTheme === 'dark' ? (gTuning.preset === 'prism' ? 1.55 : 1.6) : 1
+          const startScale = anchors.startTintVars.tintScale ?? anchors.panelTintVars.tintScale ?? themeDefaultScale
+          const targetScale = anchors.panelTintVars.tintScale ?? themeDefaultScale
+          const activeTintScale = startScale + (targetScale - startScale) * geometry.styleMix
+
+          morphGlassEl.style.setProperty('--g-tint-scale', `${activeTintScale.toFixed(4)}`)
+          morphGlassEl.style.background = `color-mix(in srgb, var(--g-neutral) min(100%, calc(${activeTint.toFixed(2)}% * var(--g-tint-scale, ${activeTintScale.toFixed(4)}))), transparent)`
 
           const refractHandle = morphRefractHandleRef.current
-          if (refractSupported && contourPath && morphBackdropEl && refractHandle) {
+          if (contourPath && morphBackdropEl && refractHandle) {
             // Route B3: place backdrop-filter: url(#svg) on an unclipped sibling while SVG self-masks to shapeAlpha,
             // preventing Chromium's clip-path rectangular bounding-box leak.
+            const backdropBounds = computeClampedBackdropBounds(geometry.platter, geometry.droplet, bounds)
             const veilOptics = interpolateVeilOptics(anchors.startVeil, anchors.panelSurface.veil, geometry.styleMix)
             refractHandle.updateFrame({
-              width: bounds.width,
-              height: bounds.height,
-              contourPath,
+              bounds: backdropBounds,
+              platter: geometry.platter,
+              droplet: geometry.droplet,
+              blendK: geometry.blendK,
+              isMerged: geometry.isMerged,
               blurSigma: activeBlur,
               saturate: gTuning.saturate,
               brightness: veilOptics.brightness,
@@ -866,9 +962,9 @@ function MorphPanel({
               contrastFirst: veilOptics.contrastFirst,
             })
             morphBackdropEl.style.visibility = 'visible'
-            morphBackdropEl.style.transform = `translate3d(${bounds.x}px, ${bounds.y}px, 0)`
-            morphBackdropEl.style.width = `${bounds.width}px`
-            morphBackdropEl.style.height = `${bounds.height}px`
+            morphBackdropEl.style.transform = `translate3d(${backdropBounds.x}px, ${backdropBounds.y}px, 0)`
+            morphBackdropEl.style.width = `${backdropBounds.width}px`
+            morphBackdropEl.style.height = `${backdropBounds.height}px`
             morphBackdropEl.style.opacity = `${glassAlpha}`
             const refractBf = `url(#${morphFilterId})`
             morphBackdropEl.style.backdropFilter = refractBf
@@ -888,7 +984,6 @@ function MorphPanel({
         morphGlassEl.style.visibility = 'hidden'
       }
     }
-
     // 3. Update sibling Morph Overlay Canvas inside constant transitionBounds (0 canvas reallocations)
     if (overlayCanvasEl) {
       if (glassAlpha > 0.005) {
@@ -959,7 +1054,7 @@ function MorphPanel({
       applyFrameToDom(motionRef.current.getState())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [style, glassMode, tuning, dense, className])
+  }, [style, glassMode, tuning, adaptive, dense, className])
 
   // Measure anchors & react to dynamic content size changes via ResizeObserver
   useLayoutEffect(() => {
