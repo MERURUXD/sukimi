@@ -230,16 +230,20 @@ test('外观设置：glassAdaptiveTint 默认为 false，并能持久化与安�
   assert.equal(f.useAppearance.getState().glassAdaptiveTint, false)
 })
 
-test('外观设置：popoverMotion 默认为 true，可关闭与重新开启并接入 AppearanceTab 与 Popover', () => {
+test('外观设置：popoverMotion 默认为 false，可开启与重新关闭并接入性能警告与 Popover', () => {
   const f = pageThemeFixture()
-  assert.equal(f.useAppearance.getState().popoverMotion, true)
-  f.useAppearance.getState().setPopoverMotion(false)
   assert.equal(f.useAppearance.getState().popoverMotion, false)
   f.useAppearance.getState().setPopoverMotion(true)
   assert.equal(f.useAppearance.getState().popoverMotion, true)
-  assert.match(read('src/features/settings/tabs/AppearanceTab.tsx'), /popoverMotion/)
+  f.useAppearance.getState().setPopoverMotion(false)
+  assert.equal(f.useAppearance.getState().popoverMotion, false)
+  const appearanceSrc = read('src/features/settings/tabs/AppearanceTab.tsx')
+  assert.match(appearanceSrc, /popoverMotion/)
+  assert.match(appearanceSrc, /popoverMotionWarn/)
   assert.match(read('src/i18n/zh-CN/settings.ts'), /popoverMotion:/)
+  assert.match(read('src/i18n/zh-CN/settings.ts'), /popoverMotionWarn:/)
   assert.match(read('src/i18n/en/settings.ts'), /popoverMotion:/)
+  assert.match(read('src/i18n/en/settings.ts'), /popoverMotionWarn:/)
 })
 
 test('设置布局验收页覆盖全部 12 个分栏所需的虚构查询，且拒绝真实写入', () => {

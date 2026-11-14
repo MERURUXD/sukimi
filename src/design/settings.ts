@@ -62,8 +62,8 @@ export const useAppearance = create<AppearanceState>()(
       mangaDetailMotion: true,
       // 旧偏好里没有这个字段，合并默认值后开启
       readerMotion: true,
-      // 旧偏好里没有这个字段，合并默认值后开启
-      popoverMotion: true,
+      // 旧偏好里没有这个字段，合并默认值后等于关闭
+      popoverMotion: false,
       // 旧偏好里没有这个字段，合并默认值后等于关闭
       autoHideNav: false,
       // 旧偏好里没有这个字段，合并默认值后等于关闭
