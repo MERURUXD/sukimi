@@ -45,6 +45,8 @@ export interface AnchorConfig {
   placement: PlacementMode
   /** True when the trigger has no resting glass surface (inflates droplet & fades bare glass). */
   bareSource?: boolean
+  /** Whether bareSource inflates anchorRect by BARE_ANCHOR_INFLATE_X/Y (defaults to true). */
+  inflateBareAnchor?: boolean
   /** True when anchored to a morphable control; false uses the 200ms point-menu close fallback. */
   hasControlSource?: boolean
   /**

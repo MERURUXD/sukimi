@@ -29,8 +29,10 @@ import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/
 import {
   interpolateCssGlassSurfaceToOverlay,
   interpolateVeilOptics,
+  parseCssBoxShadow,
   parseCssFilterOptics,
   parseCssGlassSurface,
+  parseCssRgba,
   type ExtractedCssGlassSurface,
   type MorphBackdropVeilOptics,
 } from '@/components/glass/morph/refractOptics'
@@ -180,6 +182,12 @@ interface ElementTintVars {
   isDense: boolean
 }
 
+interface TriggerSurfaceCss {
+  background: string
+  border: string
+  boxShadow: string
+}
+
 interface MeasuredMorphAnchors {
   triggerEl: HTMLElement | null
   anchorRect: Rect
@@ -188,6 +196,8 @@ interface MeasuredMorphAnchors {
   restingRadius: number
   hasControlSource: boolean
   bareSource: boolean
+  inflateBareAnchor: boolean
+  bareSurfaceCss: TriggerSurfaceCss | null
   overlapsTrigger: boolean
   startSurface: ExtractedCssGlassSurface
   panelSurface: ExtractedCssGlassSurface
@@ -275,8 +285,26 @@ function resolveElementTheme(el: HTMLElement | null): 'light' | 'dark' {
   return 'dark'
 }
 
+function readVisibleTriggerSurface(el: HTMLElement): TriggerSurfaceCss | null {
+  const cs = getComputedStyle(el)
+  const bgAlpha = parseCssRgba(cs.backgroundColor)[3]
+  const borderWidth = parseFloat(cs.borderTopWidth) || 0
+  const borderAlpha = borderWidth > 0.05 ? parseCssRgba(cs.borderTopColor)[3] : 0
+  const shadowLayers = parseCssBoxShadow(cs.boxShadow)
+  const hasShadow = shadowLayers.some((l) => l.rgba[3] > 0.005)
+  if (bgAlpha <= 0.005 && borderAlpha <= 0.005 && !hasShadow) {
+    return null
+  }
+  return {
+    background: bgAlpha > 0.005 ? cs.backgroundColor : 'transparent',
+    border: borderAlpha > 0.005 ? `${borderWidth}px ${cs.borderTopStyle} ${cs.borderTopColor}` : 'none',
+    boxShadow: hasShadow ? cs.boxShadow : 'none',
+  }
+}
+
 function findTriggerElement(
   rootEl: HTMLElement,
+  morphSurfaceEl: HTMLElement | null,
   morphBackdropEl: HTMLElement | null,
   morphGlassEl: HTMLElement | null,
   glyphHostEl: HTMLElement | null,
@@ -285,6 +313,7 @@ function findTriggerElement(
 ): HTMLElement | null {
   for (const child of rootEl.children) {
     if (
+      child === morphSurfaceEl ||
       child === morphBackdropEl ||
       child === morphGlassEl ||
       child === glyphHostEl ||
@@ -398,6 +427,7 @@ function MorphPanel({
   const morphFilterId = `morphRefract${useId().replace(/[:«»]/g, '')}`
   const [morphBezel, setMorphBezel] = useState(() => (tuning.bezel > 0 ? tuning.bezel : 20))
 
+  const morphSurfaceRef = useRef<HTMLDivElement>(null)
   const morphBackdropRef = useRef<HTMLDivElement>(null)
   const morphRefractHandleRef = useRef<MorphRefractFilterHandle>(null)
   const morphGlassRef = useRef<HTMLDivElement>(null)
@@ -574,6 +604,7 @@ function MorphPanel({
 
     const triggerEl = findTriggerElement(
       rootEl,
+      morphSurfaceRef.current,
       morphBackdropRef.current,
       morphGlassRef.current,
       glyphHostRef.current,
@@ -589,6 +620,8 @@ function MorphPanel({
     }
     let hasControlSource = false
     let bareSource = true
+    let inflateBareAnchor = true
+    let bareSurfaceCss: TriggerSurfaceCss | null = null
     let overlapsTrigger = false
 
     if (triggerEl) {
@@ -603,6 +636,10 @@ function MorphPanel({
         const isGlassTrigger =
           triggerEl.classList.contains('glass') && !triggerEl.hasAttribute('data-flat')
         bareSource = !isGlassTrigger
+        bareSurfaceCss = bareSource ? readVisibleTriggerSurface(triggerEl) : null
+        // Never inflate padded buttons (e.g. .plain Dropdown, .gicon, InfoPop) beyond their resting DOM box.
+        inflateBareAnchor =
+          bareSource && bareSurfaceCss === null && Math.min(tBox.width, tBox.height) < 24
         overlapsTrigger =
           restingCardRect.x < anchorRect.x + anchorRect.width &&
           restingCardRect.x + restingCardRect.width > anchorRect.x &&
@@ -670,6 +707,8 @@ function MorphPanel({
       restingRadius,
       hasControlSource,
       bareSource,
+      inflateBareAnchor,
+      bareSurfaceCss,
       overlapsTrigger,
       startSurface,
       panelSurface,
@@ -683,6 +722,7 @@ function MorphPanel({
 
   const applyFrameToDom = (mState: MotionFrameState) => {
     const panelEl = panelRef.current
+    const morphSurfaceEl = morphSurfaceRef.current
     const morphBackdropEl = morphBackdropRef.current
     const morphGlassEl = morphGlassRef.current
     const glyphHostEl = glyphHostRef.current
@@ -717,6 +757,9 @@ function MorphPanel({
         restoreHiddenTrigger()
       }
       clearClonedGlyph()
+      if (morphSurfaceEl) {
+        morphSurfaceEl.style.visibility = 'hidden'
+      }
       if (morphBackdropEl) {
         morphBackdropEl.style.visibility = 'hidden'
       }
@@ -743,6 +786,9 @@ function MorphPanel({
       lastGeometryRef.current = null
       restoreTriggerVisuals()
       clearClonedGlyph()
+      if (morphSurfaceEl) {
+        morphSurfaceEl.style.visibility = 'hidden'
+      }
       if (morphBackdropEl) {
         morphBackdropEl.style.visibility = 'hidden'
       }
@@ -767,6 +813,7 @@ function MorphPanel({
         restoreHiddenTrigger()
       }
       clearClonedGlyph()
+      if (morphSurfaceEl) morphSurfaceEl.style.visibility = 'hidden'
       if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
       if (morphGlassEl) morphGlassEl.style.visibility = 'hidden'
       if (overlayCanvasEl) {
@@ -783,6 +830,7 @@ function MorphPanel({
       anchorRect: anchors.anchorRect,
       placement: curAlign === 'right' ? 'overAnchorEnd' : 'overAnchorStart',
       bareSource: anchors.bareSource,
+      inflateBareAnchor: anchors.inflateBareAnchor,
       hasControlSource: anchors.hasControlSource,
       externalTrigger: useExternalTrigger,
       viewportSize: { width: window.innerWidth, height: window.innerHeight },
@@ -855,6 +903,32 @@ function MorphPanel({
     panelEl.style.clipPath = `inset(${clipY.toFixed(2)}px ${clipX.toFixed(2)}px round ${clipR.toFixed(2)}px)`
 
     // 2. Update sibling Morph Glass Backdrop inside constant transitionBounds (0 layer resizes)
+    const bareSurfaceAlpha =
+      anchors.hasControlSource &&
+      anchors.bareSource &&
+      anchors.bareSurfaceCss &&
+      !useExternalTrigger
+        ? clamp01(1 - mState.bareGlassOpacity)
+        : 0
+    if (morphSurfaceEl) {
+      if (bareSurfaceAlpha > 0.005 && anchors.bareSurfaceCss) {
+        const d = geometry.droplet
+        const dw = Math.max(0, d.size.width)
+        const dh = Math.max(0, d.size.height)
+        morphSurfaceEl.style.visibility = 'visible'
+        morphSurfaceEl.style.width = `${dw.toFixed(2)}px`
+        morphSurfaceEl.style.height = `${dh.toFixed(2)}px`
+        morphSurfaceEl.style.transform = `translate3d(${(d.center.x - dw * 0.5).toFixed(2)}px, ${(d.center.y - dh * 0.5).toFixed(2)}px, 0)`
+        morphSurfaceEl.style.borderRadius = `${Math.max(0, d.radius).toFixed(2)}px`
+        morphSurfaceEl.style.background = anchors.bareSurfaceCss.background
+        morphSurfaceEl.style.border = anchors.bareSurfaceCss.border
+        morphSurfaceEl.style.boxShadow = anchors.bareSurfaceCss.boxShadow
+        morphSurfaceEl.style.opacity = `${bareSurfaceAlpha}`
+      } else {
+        morphSurfaceEl.style.visibility = 'hidden'
+      }
+    }
+
     const bounds = anchors.transitionBounds
     const glassAlpha = anchors.hasControlSource
       ? anchors.bareSource
@@ -1156,6 +1230,12 @@ function MorphPanel({
 
   return (
     <>
+      <div
+        ref={morphSurfaceRef}
+        aria-hidden="true"
+        style={{ visibility: 'hidden' }}
+        className="pointer-events-none absolute top-0 left-0 z-50 box-border"
+      />
       <div
         ref={morphBackdropRef}
         aria-hidden="true"

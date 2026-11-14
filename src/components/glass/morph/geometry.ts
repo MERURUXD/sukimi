@@ -106,7 +106,7 @@ function beyondRound(size: Size): { w: number; h: number } {
 
 function getEffectiveAnchorRect(anchor: AnchorConfig): Rect {
   const r = anchor.anchorRect
-  if (!anchor.bareSource) {
+  if (!anchor.bareSource || anchor.inflateBareAnchor === false) {
     return r
   }
   const ix = PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_X

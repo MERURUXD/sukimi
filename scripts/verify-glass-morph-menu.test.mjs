@@ -349,11 +349,15 @@ test('Geometry: open/close goo trajectory, beyondRound elongation, merge thresho
   approx(gOpen.contentTransform.translateX, 0, 1e-4)
   approx(gOpen.contentTransform.translateY, 0, 1e-4)
 
-  // bareSource inflates effective anchor by +24w, +12h
+  // bareSource inflates effective anchor by +24w, +12h unless inflateBareAnchor is false
   const bareAnchor = { ...anchor, bareSource: true }
   const gBareStart = computeMorphGeometry(mStart, bareAnchor, menu)
   approx(gBareStart.droplet.size.width, 96 + 24, 1e-4, 'bareSource droplet width inflated')
   approx(gBareStart.droplet.size.height, 40 + 12, 1e-4, 'bareSource droplet height inflated')
+  const uninflatedBareAnchor = { ...bareAnchor, inflateBareAnchor: false }
+  const gUninflatedBareStart = computeMorphGeometry(mStart, uninflatedBareAnchor, menu)
+  approx(gUninflatedBareStart.droplet.size.width, 96, 1e-4, 'bareSource with inflateBareAnchor:false preserves width')
+  approx(gUninflatedBareStart.droplet.size.height, 40, 1e-4, 'bareSource with inflateBareAnchor:false preserves height')
 
   // Close at 176ms: droplet overshoots past anchorCenter away from card
   const m176 = evaluateMotionFrame('closing', C.CLOSE_DROPLET_OVERSHOOT_PEAK_SEC / C.CLOSE_DURATION_SEC)
@@ -873,12 +877,17 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
   assert.ok(popoverSrc.includes('refractHandle.updateFrame'), 'Popover must drive MorphRefractFilter per frame')
   assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToOverlay'), 'Popover must derive overlay styles from live computed CSS')
   const glyphHostIdx = popoverSrc.indexOf('ref={glyphHostRef}')
+  const morphSurfaceIdx = popoverSrc.indexOf('ref={morphSurfaceRef}')
   const morphBackdropIdx = popoverSrc.indexOf('ref={morphBackdropRef}')
   const morphGlassIdx = popoverSrc.indexOf('ref={morphGlassRef}')
   const motionGlassIdx = popoverSrc.indexOf('<MotionGlass')
   assert.ok(
-    morphBackdropIdx > 0 && morphBackdropIdx < morphGlassIdx && morphGlassIdx < glyphHostIdx && glyphHostIdx < motionGlassIdx,
-    'Popover must paint glyphHostRef above morphBackdropRef/morphGlassRef (matching resting button surface with zero jump) and below MotionGlass menu content',
+    morphSurfaceIdx > 0 && morphSurfaceIdx < morphBackdropIdx && morphBackdropIdx < morphGlassIdx && morphGlassIdx < glyphHostIdx && glyphHostIdx < motionGlassIdx,
+    'Popover must layer morphSurfaceRef -> morphBackdropRef -> morphGlassRef -> glyphHostRef -> MotionGlass for padded bare trigger handoff',
+  )
+  assert.ok(
+    popoverSrc.includes('inflateBareAnchor') && popoverSrc.includes('bareSurfaceCss'),
+    'Popover must wire inflateBareAnchor and bareSurfaceCss so visible padded buttons do not inflate on close/open',
   )
   assert.ok(
     !popoverSrc.includes("clone.style.visibility = 'visible'") && popoverSrc.includes("clone.style.visibility = 'inherit'"),
