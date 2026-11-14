@@ -8,9 +8,6 @@ let vite
 let contracts
 let motionMod
 let geometryMod
-let shadersMod
-let backdropMod
-let rendererMod
 let morphContracts
 let morphMotionMod
 let morphGeometryMod
@@ -25,15 +22,12 @@ test.before(async () => {
     appType: 'custom',
     logLevel: 'error',
   })
-  contracts = await vite.ssrLoadModule('/src/features/dev/glassMorphMenu/contracts.ts')
-  motionMod = await vite.ssrLoadModule('/src/features/dev/glassMorphMenu/motion.ts')
-  geometryMod = await vite.ssrLoadModule('/src/features/dev/glassMorphMenu/geometry.ts')
-  shadersMod = await vite.ssrLoadModule('/src/features/dev/glassMorphMenu/shaders.ts')
-  backdropMod = await vite.ssrLoadModule('/src/features/dev/glassMorphMenu/backdropScene.ts')
-  rendererMod = await vite.ssrLoadModule('/src/features/dev/glassMorphMenu/renderer.ts')
   morphContracts = await vite.ssrLoadModule('/src/components/glass/morph/contracts.ts')
   morphMotionMod = await vite.ssrLoadModule('/src/components/glass/morph/motion.ts')
   morphGeometryMod = await vite.ssrLoadModule('/src/components/glass/morph/geometry.ts')
+  contracts = morphContracts
+  motionMod = morphMotionMod
+  geometryMod = morphGeometryMod
   morphContourMod = await vite.ssrLoadModule('/src/components/glass/morph/contour.ts')
   morphOverlayMod = await vite.ssrLoadModule('/src/components/glass/morph/overlayRenderer.ts')
   morphRefractMod = await vite.ssrLoadModule('/src/components/glass/morph/refractOptics.ts')
@@ -377,180 +371,6 @@ test('Geometry: open/close goo trajectory, beyondRound elongation, merge thresho
   const m460 = evaluateMotionFrame('closing', 0.46 / C.CLOSE_DURATION_SEC)
   const g460 = computeMorphGeometry(m460, anchor, menu)
   assert.equal(g460.blendK, 0)
-})
-
-test('Glass Rendering: shaders, backdrop presets, renderer fallback, and clean-room MPL-2.0 boundaries', () => {
-  assert.ok(shadersMod.FULLSCREEN_VERTEX_SHADER.startsWith('#version 300 es'))
-  assert.ok(shadersMod.SEPARABLE_BLUR_FRAGMENT_SHADER.startsWith('#version 300 es'))
-  assert.ok(shadersMod.LIQUID_GLASS_FRAGMENT_SHADER.startsWith('#version 300 es'))
-
-  const frag = shadersMod.LIQUID_GLASS_FRAGMENT_SHADER
-  assert.ok(frag.includes('sdRoundedBoxRefined'), 'includes superellipse rim refinement')
-  assert.ok(frag.includes('outsideMask * shadowFalloff'), 'shadow strictly masked outside glass SDF')
-  assert.ok(frag.includes('2.3999632'), 'uses 16-tap golden angle Vogel disc residual blur')
-  assert.ok(frag.includes('computeBehindLuma'), 'includes 5-point behind-luma contrast thickening')
-  assert.ok(frag.includes('uDebugMode'), 'supports SDF & normal debug visualization modes')
-  assert.ok(
-    frag.includes('if (uBlendK <= 0.001)') &&
-      frag.includes('if (a.dist <= b.dist)') &&
-      !frag.includes('? a : b'),
-    'evaluateGlassSdf must use if/else (not struct ternary ?:) for hard union fallback when uBlendK <= 0.001',
-  )
-  assert.equal(
-    frag.includes('(1.0 + uContrast)'),
-    false,
-    'backdrop color optics must not crush bg contrast via (1.0 + uContrast)',
-  )
-  assert.equal(
-    frag.includes('bg = clamp(bg, 0.0, 1.0)'),
-    false,
-    'backdrop color optics must keep HDR brightness headroom unclamped before glass composite',
-  )
-  assert.ok(
-    frag.includes('float clashScale = abs(uContrast) > 1e-4 ? abs(uContrast) : 0.45;'),
-    'adaptive behind-luma clash scale must match abs(uContrast)',
-  )
-  assert.ok(
-    frag.includes('float safePow(float x, float y)') &&
-      (frag.match(/(?<![A-Za-z0-9_])pow\(/g)?.length ?? 0) === 1,
-    'GLSL fragment shader must route every pow(...) through safePow to avoid pow(0.0, y) -> NaN on D3D11/ANGLE',
-  )
-  assert.ok(
-    frag.includes('inset < 5.0'),
-    'menu rim highlight block must guard inset < 5.0',
-  )
-
-  const rendererSrc = readFileSync(
-    new URL('../src/features/dev/glassMorphMenu/renderer.ts', import.meta.url),
-    'utf8',
-  )
-  const uploadPos = rendererSrc.indexOf('function uploadSceneToGpu')
-  const texSharpBindPos = rendererSrc.indexOf('gl.bindTexture(gl.TEXTURE_2D, texSharp)', uploadPos)
-  const activeTex0Pos = rendererSrc.lastIndexOf('gl.activeTexture(gl.TEXTURE0)', texSharpBindPos)
-  assert.ok(
-    uploadPos !== -1 && activeTex0Pos > uploadPos && activeTex0Pos < texSharpBindPos,
-    'uploadSceneToGpu must activate gl.TEXTURE0 before binding texSharp',
-  )
-
-  // Backdrop presets & no destination-out canvas hole regression
-  assert.deepEqual(
-    backdropMod.BACKDROP_PRESETS.map((p) => p.id),
-    ['manga-shelf', 'editorial-contrast', 'vivid-mesh'],
-  )
-  const backdropSrc = readFileSync(
-    new URL('../src/features/dev/glassMorphMenu/backdropScene.ts', import.meta.url),
-    'utf8',
-  )
-  assert.equal(backdropSrc.includes('destination-out'), false, 'backdropScene must not punch transparent holes')
-
-  const menuSrc = readFileSync(
-    new URL('../src/features/dev/glassMorphMenu/LiquidGlassMorphMenu.tsx', import.meta.url),
-    'utf8',
-  )
-  assert.ok(
-    menuSrc.includes("const holdActive = !animBg && (mState.phase === 'opening' || mState.phase === 'closing')"),
-    'holdActive must be disabled when Drift (animBg) is enabled so backdrop keeps updating during morphs',
-  )
-
-  // Clean-room MPL-2.0 header check across all PoC files
-  for (const file of [
-    'contracts.ts',
-    'motion.ts',
-    'geometry.ts',
-    'shaders.ts',
-    'renderer.ts',
-    'backdropScene.ts',
-    'LiquidGlassMorphMenu.tsx',
-  ]) {
-    const src = readFileSync(new URL(`../src/features/dev/glassMorphMenu/${file}`, import.meta.url), 'utf8')
-    assert.ok(src.includes('SPDX-License-Identifier: MPL-2.0'), `${file} must declare MPL-2.0`)
-    assert.equal(src.includes('GPL-3.0'), false, `${file} must not carry GPL-3.0 header`)
-  }
-
-  // Graceful fallback when WebGL2 is unavailable
-  const renderer = rendererMod.createLiquidGlassRenderer()
-  const mockCanvas = {
-    width: 100,
-    height: 100,
-    addEventListener() {},
-    removeEventListener() {},
-    getContext: () => null,
-  }
-  const caps = renderer.mount(mockCanvas)
-  assert.equal(caps.webgl2, false)
-  assert.ok(caps.fallbackNotice && caps.fallbackNotice.length > 0)
-  renderer.dispose()
-})
-
-test('Integration & Routing: /dev/liquid-glass-menu gated to dev/preview with lazy fallbacks & isDevLab', async () => {
-  const routerSrc = readFileSync(new URL('../src/app/router.tsx', import.meta.url), 'utf8')
-  const devBlockStart = routerSrc.indexOf("import.meta.env.DEV || __APP_CHANNEL__ === 'preview'")
-  const devBlockEnd = routerSrc.indexOf(': [])', devBlockStart)
-  const routePos = routerSrc.indexOf("'/dev/liquid-glass-menu'")
-  assert.ok(devBlockStart !== -1 && routePos > devBlockStart && routePos < devBlockEnd, '/dev/liquid-glass-menu must live inside dev/preview conditional block')
-
-  const hadWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
-  const hadDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
-  const hadLocation = Object.getOwnPropertyDescriptor(globalThis, 'location')
-  const hadMatchMedia = Object.getOwnPropertyDescriptor(globalThis, 'matchMedia')
-  const memory = () => {
-    const map = new Map()
-    return {
-      getItem: (k) => map.get(k) ?? null,
-      setItem: (k, v) => map.set(k, String(v)),
-      removeItem: (k) => map.delete(k),
-      clear: () => map.clear(),
-    }
-  }
-  const fakeLocation = { pathname: '/dev/liquid-glass-menu', search: '', hash: '', href: 'http://localhost/dev/liquid-glass-menu', origin: 'http://localhost' }
-  const fakeDocument = {
-    documentElement: { dataset: {}, style: {}, classList: { add() {}, remove() {}, contains: () => false } },
-    defaultView: null,
-    body: { style: {}, appendChild() {}, removeChild() {} },
-    visibilityState: 'visible',
-    addEventListener() {},
-    removeEventListener() {},
-    getElementById: () => null,
-    querySelector: () => null,
-    querySelectorAll: () => [],
-  }
-  const fakeWindow = {
-    location: fakeLocation,
-    document: fakeDocument,
-    history: { pushState() {}, replaceState() {}, state: { idx: 0 }, length: 1, scrollRestoration: 'auto', go() {}, back() {}, forward() {} },
-    localStorage: memory(),
-    sessionStorage: memory(),
-    matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
-    addEventListener() {},
-    removeEventListener() {},
-    navigator: { userAgent: 'node-test', language: 'en-US' },
-  }
-  fakeDocument.defaultView = fakeWindow
-  Object.defineProperty(globalThis, 'window', { value: fakeWindow, configurable: true, writable: true })
-  Object.defineProperty(globalThis, 'document', { value: fakeDocument, configurable: true, writable: true })
-  Object.defineProperty(globalThis, 'location', { value: fakeLocation, configurable: true, writable: true })
-  Object.defineProperty(globalThis, 'matchMedia', { value: fakeWindow.matchMedia, configurable: true, writable: true })
-
-  try {
-    const demoMod = await vite.ssrLoadModule('/src/lib/demo.ts')
-    assert.equal(demoMod.isDevLab, true, 'isDevLab must be true for /dev/liquid-glass-menu')
-
-    const mod = await vite.ssrLoadModule('/src/app/router.tsx')
-    const route = mod.appRoutes.find((r) => r.path === '/dev/liquid-glass-menu')
-    assert.ok(route, '/dev/liquid-glass-menu must be registered in dev appRoutes')
-    assert.ok(route.lazy, 'route must be lazy-loaded via page(...)')
-    assert.ok(route.hydrateFallbackElement, 'route must provide hydrateFallbackElement')
-    assert.ok(route.errorElement, 'route must provide errorElement')
-  } finally {
-    if (hadWindow) Object.defineProperty(globalThis, 'window', hadWindow)
-    else delete globalThis.window
-    if (hadDocument) Object.defineProperty(globalThis, 'document', hadDocument)
-    else delete globalThis.document
-    if (hadLocation) Object.defineProperty(globalThis, 'location', hadLocation)
-    else delete globalThis.location
-    if (hadMatchMedia) Object.defineProperty(globalThis, 'matchMedia', hadMatchMedia)
-    else delete globalThis.matchMedia
-  }
 })
 
 test('Shared Morph Contour (contour.ts): union bounds, merged rounded-rect, smin single bridge, and dual pinch-off loops', () => {

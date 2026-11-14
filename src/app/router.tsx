@@ -67,8 +67,6 @@ export const appRoutes = [
         { path: '/dev/downloads', ...page(() => import('@/features/dev/DownloadsLab'), 'DownloadsLab') },
         { path: '/dev/tracking', ...page(() => import('@/features/dev/TrackingLab'), 'TrackingLab') },
         { path: '/dev/reader-gestures', ...page(() => import('@/features/dev/ReaderGesturesLab'), 'ReaderGesturesLab') },
-        { path: '/dev/liquid-glass-menu', ...page(() => import('@/features/dev/GlassMorphMenuLab'), 'GlassMorphMenuLab') },
-        { path: '/dev/refract-probe', ...page(() => import('@/features/dev/RefractProbe'), 'RefractProbe') },
         { path: '/dev/devtools', ...page(() => import('@/features/dev/DevToolsLab'), 'DevToolsLab') },
       ]
     : []),

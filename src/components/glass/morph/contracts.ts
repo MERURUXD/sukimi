@@ -1,7 +1,7 @@
 /**
- * Clean-room unified interface contracts for the Liquid Glass Morphing Menu PoC.
- * Single source of truth shared across `motion.ts`, `geometry.ts`, `renderer.ts`,
- * and the `/dev/glass-morph-menu` lab orchestrator.
+ * Clean-room unified interface contracts for the Liquid Glass Morphing Menu.
+ * Single source of truth shared across `motion.ts`, `geometry.ts`,
+ * `overlayRenderer.ts`, `refractFilter.tsx`, and `Popover.tsx`.
  *
  * SPDX-License-Identifier: MPL-2.0
  */
