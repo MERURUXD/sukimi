@@ -302,6 +302,44 @@
     box-shadow: inset 0 0 6px -2px var(--g-veil-rim), var(--g-veil-outer-shadow);
   }
 
+  /* PrismUI 液态预设：中性灰基底 (#353538) + 柔和亮度映射 + 上下方向性边缘高光 */
+  html:root[data-glass-preset='prism'],
+  html:root[data-glass-preset='prism'] [data-theme='light'] {
+    --g-neutral: #f9f9fa;
+    --g-veil-plate: brightness(1.02) contrast(0.96);
+    --g-veil-float: brightness(1.06) contrast(0.96);
+    --g-veil-line: rgba(0, 0, 0, 0.08);
+    --g-veil-inner-line: rgba(255, 255, 255, 0.72);
+    --g-veil-outline: rgba(0, 0, 0, 0.06);
+    --g-veil-rim: rgb(255 255 255 / 0.85);
+    --g-veil-shadow: rgba(0, 0, 0, 0.12);
+  }
+  html:root[data-glass-preset='prism'][data-theme='dark'],
+  html:root[data-glass-preset='prism'] [data-theme='dark'] {
+    --g-neutral: #353538;
+    --g-veil-plate: brightness(1.04) contrast(0.95);
+    --g-veil-float: brightness(1.1) contrast(0.94);
+    --g-tint-scale: 1.55;
+    --g-veil-line: rgba(255, 255, 255, 0.15);
+    --g-veil-inner-line: rgba(255, 255, 255, 0.32);
+    --g-veil-outline: rgba(0, 0, 0, 0.34);
+    --g-veil-rim: rgb(255 255 255 / 0.56);
+    --g-veil-shadow: rgba(0, 0, 0, 0.24);
+  }
+  html:root[data-glass-preset='prism'] .glass[data-refract] {
+    box-shadow:
+      inset 0 1px 1.5px rgb(255 255 255 / 0.28),
+      inset 0 -0.75px 1.2px rgb(255 255 255 / 0.14),
+      var(--g-veil-outer-shadow);
+  }
+  html:root[data-glass-preset='prism'] .glass.dense[data-refract],
+  html:root[data-glass-preset='prism'] .glass.glass-legible[data-refract] {
+    box-shadow:
+      inset 0 1.5px 3px -0.5px rgb(255 255 255 / 0.34),
+      inset 0 -1px 2px -0.5px rgb(255 255 255 / 0.16),
+      var(--g-veil-outer-shadow);
+  }
+
   /*
    * 直接放在纯色页面上的控件（flat）：背后只有页面底色，玻璃采不到东西。
    * 把玻璃色直接叠在页面底色上画成不透明表面，不要玻璃的亮边和内发光，只留投影，省掉模糊的合成开销
@@ -320,6 +358,16 @@
     backdrop-filter: none;
     border-color: var(--line);
     box-shadow: var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.18));
+  }
+
+  /* Morph 过渡期暂时由兄弟轮廓层承接玻璃外观，不覆盖 React 写入的内联 backdropFilter（url(#lens)） */
+  .glass[data-morphing='true'] {
+    transition: none !important;
+    background: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
   }
 
   /* 设置正文里的静态控件（输入框、分段、按钮）：普通表面，不挂模糊和折射，保留圆角与轻描边 */

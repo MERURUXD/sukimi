@@ -259,7 +259,7 @@ export function ExtensionsPage() {
             fitViewport
             className="flex w-[380px] max-w-[calc(100vw-32px)] flex-col gap-5 px-4 py-5"
             trigger={
-              <Glass flat as="button" type="button" className={cn('gbtn rounded-full', langPop && 'bg-g-hi')} aria-expanded={langPop} onClick={() => setLangPop((v) => !v)}>
+              <Glass as="button" type="button" className={cn('gbtn rounded-full', langPop && 'bg-g-hi')} aria-expanded={langPop} onClick={() => setLangPop((v) => !v)}>
                 <Globe className="size-[18px]" strokeWidth={1.8} />
                 {langs.length === 0 ? t('browse.ext.allLangs') : langs.length === 1 ? langLabel(langs[0]) : t('browse.ext.langCount', { count: langs.length })}
               </Glass>

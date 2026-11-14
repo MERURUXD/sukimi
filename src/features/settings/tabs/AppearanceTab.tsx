@@ -2,7 +2,7 @@ import { CloudFog, Droplet, RotateCcw, Square } from 'lucide-react'
 import { supportsRefract } from '@/components/glass/refract'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
-import { useGlassTuning } from '@/design/glassTuning'
+import { useGlassTuning, type GlassPreset } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Dropdown, Row, Section, Switch } from '../parts'
@@ -11,11 +11,13 @@ import { readLocalePref, setLocalePref, t, type LocalePref } from '@/i18n'
 
 export function AppearanceTab() {
   const {
-    theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMotionBg, homeIntro,
-    setTheme, setGlass, setGlassAdaptiveTint, setMangaDetailMotion, setReaderMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
+    theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMotionBg, homeIntro,
+    setTheme, setGlass, setGlassAdaptiveTint, setMangaDetailMotion, setReaderMotion, setPopoverMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const glassTheme = useGlassTuning((s) => s.theme)
+  const glassPreset = useGlassTuning((s) => s.preset)
+  const setGlassPreset = useGlassTuning((s) => s.setPreset)
   const canRefract = supportsRefract()
 
   return (
@@ -65,6 +67,21 @@ export function AppearanceTab() {
           />
         </Row>
         <Row
+          label={t('settings.appearance.glassPreset')}
+          hint={t('settings.appearance.glassPresetHint')}
+        >
+          <Seg<GlassPreset>
+            glass={false}
+            label={t('settings.appearance.glassPreset')}
+            items={[
+              { value: 'clear', label: t('settings.appearance.glassPresetClear') },
+              { value: 'prism', label: t('settings.appearance.glassPresetPrism') },
+            ]}
+            value={glassPreset}
+            onChange={setGlassPreset}
+          />
+        </Row>
+        <Row
           label={t('settings.appearance.glassAdaptiveTint')}
           hint={t('settings.appearance.glassAdaptiveTintHint')}
           help={t('settings.appearance.glassAdaptiveTintHelp')}
@@ -94,6 +111,13 @@ export function AppearanceTab() {
           help={t('settings.appearance.readerMotionHelp')}
         >
           <Switch on={readerMotion} onChange={setReaderMotion} label={t('settings.appearance.readerMotion')} />
+        </Row>
+        <Row
+          label={t('settings.appearance.popoverMotion')}
+          hint={t('settings.appearance.popoverMotionHint')}
+          help={t('settings.appearance.popoverMotionHelp')}
+        >
+          <Switch on={popoverMotion} onChange={setPopoverMotion} label={t('settings.appearance.popoverMotion')} />
         </Row>
         <Row
           label={t('settings.appearance.motionBg')}
