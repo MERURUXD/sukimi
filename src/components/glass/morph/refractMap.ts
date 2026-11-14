@@ -15,6 +15,7 @@ const PNG_SIGNATURE = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
 const PNG_IEND = new Uint8Array([0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130])
 const MAX_DEFLATE_BLOCK = 65535
 const DEFAULT_MAP_SCALE = 0.5
+const DEFAULT_FALLOFF = 2.6
 const SQRT1_2 = Math.SQRT1_2
 
 type Uint8ArrayWithToBase64 = Uint8Array & { toBase64?: () => string }
@@ -26,6 +27,7 @@ export interface MorphRefractMapParams {
   blendK: number
   isMerged: boolean
   bezel: number
+  falloff?: number
   mapScale?: number
 }
 
@@ -231,6 +233,43 @@ function quant4(v: number): number {
   return Math.round(v * 4)
 }
 
+function quant100(v: number): number {
+  return Math.round(v * 100)
+}
+
+function cornerBend(
+  x: number,
+  y: number,
+  radius: number,
+  bezel: number,
+  falloff: number,
+): [number, number] {
+  let lo = 0
+  let hi = Math.min(x, y, bezel)
+  for (let i = 0; i < 10; i++) {
+    const distance = (lo + hi) * 0.5
+    const u = 1 - distance / bezel
+    const centerCoord = bezel - (bezel - radius) * u * u
+    const dx = centerCoord - x
+    const dy = centerCoord - y
+    const cx = dx > 0 ? dx : 0
+    const cy = dy > 0 ? dy : 0
+    if (Math.hypot(cx, cy) <= centerCoord - distance) {
+      lo = distance
+    } else {
+      hi = distance
+    }
+  }
+  const u = 1 - lo / bezel
+  const centerCoord = bezel - (bezel - radius) * u * u
+  const nx = centerCoord - x > 0 ? centerCoord - x : 0
+  const ny = centerCoord - y > 0 ? centerCoord - y : 0
+  const normal = Math.hypot(nx, ny)
+  const weight = Math.pow(Math.max(0, 1 - lo / bezel), falloff)
+  if (normal <= 1e-6) return x < y ? [weight, 0] : [0, weight]
+  return [(nx / normal) * weight, (ny / normal) * weight]
+}
+
 function buildQuantizedKey(
   cssW: number,
   cssH: number,
@@ -242,11 +281,12 @@ function buildQuantizedKey(
   blendK: number,
   isMerged: boolean,
   bezel: number,
+  falloff: number,
 ): string {
   const base =
     `${cssW}:${cssH}:${pngW}:${pngH}:${quant4(bounds.x)}:${quant4(bounds.y)}:` +
     `${quant4(platter.center.x)}:${quant4(platter.center.y)}:${quant4(platter.size.width)}:${quant4(platter.size.height)}:${quant4(platter.radius)}:` +
-    `${quant4(bezel)}`
+    `${quant4(bezel)}:${quant100(falloff)}`
   if (isMerged || !droplet || droplet.size.width <= 0.01 || droplet.size.height <= 0.01) {
     return `${base}:M`
   }
@@ -266,29 +306,35 @@ function rasterizeSingleRectScanlines(
   stepY: number,
   platter: GlassShapeState,
   safeBezel: number,
+  safeFalloff: number,
 ): void {
   const cx = platter.center.x
   const cy = platter.center.y
   const halfW = Math.max(0.001, platter.size.width * 0.5)
   const halfH = Math.max(0.001, platter.size.height * 0.5)
+  const effBezel = Math.max(1e-3, Math.min(safeBezel, halfW, halfH))
   const rad = Math.max(0, Math.min(platter.radius, halfW, halfH))
   const innerW = halfW - rad
   const innerH = halfH - rad
-  const invBezel = 1 / safeBezel
-  const interiorGate = -Math.max(safeBezel, 1.25)
+  const invBezel = 1 / effBezel
+  const interiorGate = -Math.max(effBezel, 0.5)
+  const bendCorners = rad > 0 && rad < effBezel
 
   let offset = 0
   for (let py = 0; py < pngH; py++) {
     scanlines[offset++] = 0 // PNG filter type 0 (None)
     const dy = originY + py * stepY - cy
+    const absDy = dy < 0 ? -dy : dy
     const sy = dy >= 0 ? 1 : -1
-    const qy = (dy < 0 ? -dy : dy) - innerH
+    const qy = absDy - innerH
     const qyPos = qy > 0
+    const edgeY = halfH - absDy
 
     for (let px = 0; px < pngW; px++) {
       const dx = originX + px * stepX - cx
+      const absDx = dx < 0 ? -dx : dx
       const sx = dx >= 0 ? 1 : -1
-      const qx = (dx < 0 ? -dx : dx) - innerW
+      const qx = absDx - innerW
 
       let sd: number
       let gx: number
@@ -315,7 +361,7 @@ function rasterizeSingleRectScanlines(
         gy = sy
       }
 
-      if (sd >= 0.25) {
+      if (sd >= 0.5) {
         scanlines[offset++] = 128
         scanlines[offset++] = 128
         scanlines[offset++] = 128
@@ -327,17 +373,28 @@ function rasterizeSingleRectScanlines(
         scanlines[offset++] = 255
       } else {
         const distIn = sd < 0 ? -sd : 0
-        const alpha = sd <= -1.25 ? 255 : Math.round(((0.25 - sd) / 1.5) * 255)
-        if (distIn >= safeBezel) {
+        const alpha = sd <= -0.5 ? 255 : Math.round((0.5 - sd) * 255)
+        const edgeX = halfW - absDx
+        if (bendCorners && edgeX < effBezel && edgeY < effBezel) {
+          const [ox, oy] = cornerBend(
+            edgeX > 0 ? edgeX : 0,
+            edgeY > 0 ? edgeY : 0,
+            rad,
+            effBezel,
+            safeFalloff,
+          )
+          scanlines[offset++] = Math.round(128 - sx * ox * 127)
+          scanlines[offset++] = Math.round(128 - sy * oy * 127)
+          scanlines[offset++] = 128
+          scanlines[offset++] = alpha
+        } else if (distIn >= effBezel) {
           scanlines[offset++] = 128
           scanlines[offset++] = 128
           scanlines[offset++] = 128
           scanlines[offset++] = alpha
         } else {
-          const rise = 1 - distIn * invBezel
-          const under = 1 - rise * rise
-          const mag = 0.49 * (1 - (under > 0 ? Math.sqrt(under) : 0))
-          const amp = mag * 127.5
+          const m = Math.pow(Math.max(0, 1 - distIn * invBezel), safeFalloff)
+          const amp = m * 127
           scanlines[offset++] = Math.round(128 - gx * amp)
           scanlines[offset++] = Math.round(128 - gy * amp)
           scanlines[offset++] = 128
@@ -360,11 +417,13 @@ function rasterizeDualShapeScanlines(
   droplet: GlassShapeState,
   blendK: number,
   safeBezel: number,
+  safeFalloff: number,
 ): void {
   const pCx = platter.center.x
   const pCy = platter.center.y
   const pHalfW = Math.max(0.001, platter.size.width * 0.5)
   const pHalfH = Math.max(0.001, platter.size.height * 0.5)
+  const effBezel = Math.max(1e-3, Math.min(safeBezel, pHalfW, pHalfH))
   const pRad = Math.max(0, Math.min(platter.radius, pHalfW, pHalfH))
   const pInnerW = pHalfW - pRad
   const pInnerH = pHalfH - pRad
@@ -379,8 +438,8 @@ function rasterizeDualShapeScanlines(
 
   const smoothUnion = blendK > 0.001
   const inv2K = smoothUnion ? 0.5 / blendK : 0
-  const invBezel = 1 / safeBezel
-  const interiorGate = -Math.max(safeBezel, 1.25)
+  const invBezel = 1 / effBezel
+  const interiorGate = -Math.max(effBezel, 0.5)
 
   let offset = 0
   for (let py = 0; py < pngH; py++) {
@@ -472,7 +531,7 @@ function rasterizeDualShapeScanlines(
         gy = gBy
       }
 
-      if (sd >= 0.25) {
+      if (sd >= 0.5) {
         scanlines[offset++] = 128
         scanlines[offset++] = 128
         scanlines[offset++] = 128
@@ -484,8 +543,8 @@ function rasterizeDualShapeScanlines(
         scanlines[offset++] = 255
       } else {
         const distIn = sd < 0 ? -sd : 0
-        const alpha = sd <= -1.25 ? 255 : Math.round(((0.25 - sd) / 1.5) * 255)
-        if (distIn >= safeBezel) {
+        const alpha = sd <= -0.5 ? 255 : Math.round((0.5 - sd) * 255)
+        if (distIn >= effBezel) {
           scanlines[offset++] = 128
           scanlines[offset++] = 128
           scanlines[offset++] = 128
@@ -499,10 +558,8 @@ function rasterizeDualShapeScanlines(
             nx = gx * invG
             ny = gy * invG
           }
-          const rise = 1 - distIn * invBezel
-          const under = 1 - rise * rise
-          const mag = 0.49 * (1 - (under > 0 ? Math.sqrt(under) : 0))
-          const amp = mag * 127.5
+          const m = Math.pow(Math.max(0, 1 - distIn * invBezel), safeFalloff)
+          const amp = m * 127
           scanlines[offset++] = Math.round(128 + nx * amp)
           scanlines[offset++] = Math.round(128 + ny * amp)
           scanlines[offset++] = 128
@@ -522,6 +579,10 @@ export function createMorphRefractMapBuilder(): MorphRefractMapBuilder {
   return {
     build(params: MorphRefractMapParams): MorphRefractMapResult {
       const safeBezel = Math.max(1, params.bezel)
+      const safeFalloff =
+        params.falloff !== undefined && Number.isFinite(params.falloff) && params.falloff >= 0
+          ? params.falloff
+          : DEFAULT_FALLOFF
       const mapScale = params.mapScale && params.mapScale > 0 ? params.mapScale : DEFAULT_MAP_SCALE
       const cssW = Math.max(1, Math.round(params.bounds.width))
       const cssH = Math.max(1, Math.round(params.bounds.height))
@@ -539,6 +600,7 @@ export function createMorphRefractMapBuilder(): MorphRefractMapBuilder {
         params.blendK,
         params.isMerged,
         safeBezel,
+        safeFalloff,
       )
 
       if (key === prevKey && prevDataUrl) {
@@ -574,6 +636,7 @@ export function createMorphRefractMapBuilder(): MorphRefractMapBuilder {
           stepY,
           params.platter,
           safeBezel,
+          safeFalloff,
         )
       } else {
         rasterizeDualShapeScanlines(
@@ -588,6 +651,7 @@ export function createMorphRefractMapBuilder(): MorphRefractMapBuilder {
           params.droplet!,
           params.blendK,
           safeBezel,
+          safeFalloff,
         )
       }
 

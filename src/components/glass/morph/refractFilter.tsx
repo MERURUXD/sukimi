@@ -36,7 +36,8 @@ export function MorphRefractFilter({
   bezel,
   strength,
   dispersion,
-  scaleMultiplier = 1.1,
+  falloff = 2.6,
+  scaleMultiplier = 1,
   mapScale = 0.5,
   ref,
 }: {
@@ -44,6 +45,7 @@ export function MorphRefractFilter({
   bezel: number
   strength: number
   dispersion: number
+  falloff?: number
   scaleMultiplier?: number
   mapScale?: number
   ref?: Ref<MorphRefractFilterHandle>
@@ -54,6 +56,7 @@ export function MorphRefractFilter({
 
   const mapBuilderRef = useRef<MorphRefractMapBuilder | null>(null)
   const safeBezel = Math.max(1, bezel)
+  const safeFalloff = Number.isFinite(falloff) && falloff >= 0 ? falloff : 2.6
 
   const lastFrameRef = useRef({
     width: -1,
@@ -62,7 +65,7 @@ export function MorphRefractFilter({
     matrix: '',
   })
 
-  const targetScale = Math.max(0, Math.round(2 * safeBezel * strength * scaleMultiplier))
+  const targetScale = Math.max(0, 2 * safeBezel * strength * scaleMultiplier)
 
   useImperativeHandle(
     ref,
@@ -80,6 +83,7 @@ export function MorphRefractFilter({
             blendK: frame.blendK,
             isMerged: frame.isMerged,
             bezel: safeBezel,
+            falloff: safeFalloff,
             mapScale,
           })
           if (mapResult.width !== prev.width || mapResult.height !== prev.height) {
@@ -111,7 +115,7 @@ export function MorphRefractFilter({
         }
       },
     }),
-    [safeBezel, mapScale],
+    [safeBezel, safeFalloff, mapScale],
   )
 
   return (

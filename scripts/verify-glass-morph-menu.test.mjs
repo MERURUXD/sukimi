@@ -1173,11 +1173,9 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   assert.ok(Math.abs(leftEdge.r - 128) > Math.abs(leftMid.r - 128), 'displacement must decay toward interior across bezel')
   assert.deepEqual(centerPx, { r: 128, g: 128, b: 128, a: 255 }, 'deep interior must be neutral (128,128,128,255)')
 
-  // Inward-shifted AA alpha: sd >= 0.25 -> A=0; sd in (-1.25, 0.25) -> 0 < A < 255; sd <= -1.25 -> A=255
+  // Symmetric edge AA alpha: sd >= 0.5 -> A=0; sd in (-0.5, 0.5) -> midpoint ~128 at sd=0; sd <= -0.5 -> A=255
   const outsidePx = sampleCss(77, 200) // sd = +3 -> outside
-  assert.deepEqual(outsidePx, { r: 128, g: 128, b: 128, a: 0 }, 'outside sd >= 0.25 must be transparent neutral')
-  // At wx=79, step=2 gives pixel center 79 -> sd = +1; test wx=80 at sd=0 -> px=39 -> wx=79 or px=40 -> wx=81 (sd=-1):
-  // Let's sample a mapScale=1 strip around the top edge to check exact sub-pixel sd = 0 vs sd = -1.25!
+  assert.deepEqual(outsidePx, { r: 128, g: 128, b: 128, a: 0 }, 'outside sd >= 0.5 must be transparent neutral')
   const aaRes = builder.build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
@@ -1185,16 +1183,72 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
     blendK: 0,
     isMerged: true,
     bezel: 8,
+    falloff: 2.6,
     mapScale: 1,
   })
   const aaPng = decodeStoredRgbaPng(aaRes.dataUrl)
-  // Top edge at y = 16. Pixel py=15 -> wy=15.5 (sd=+0.5 >= 0.25 -> a=0); py=16 -> wy=16.5 (sd=-0.5 -> partial AA); py=17 -> wy=17.5 (sd=-1.5 <= -1.25 -> a=255)
+  // Top edge at y = 16. Pixel py=15 -> wy=15.5 (sd=+0.5 >= 0.5 -> a=0); py=16 -> wy=16.5 (sd=-0.5 <= -0.5 -> a=255)
   assert.equal(aaPng.pixelAt(32, 15).a, 0, 'sd=+0.5 must be alpha 0')
-  const edgeAa = aaPng.pixelAt(32, 16).a
-  assert.ok(edgeAa > 0 && edgeAa < 255, `sd=-0.5 must lie on AA ramp, got alpha ${edgeAa}`)
-  assert.equal(aaPng.pixelAt(32, 17).a, 255, 'sd=-1.5 <= -1.25 must be opaque 255')
+  assert.equal(aaPng.pixelAt(32, 16).a, 255, 'sd=-0.5 <= -0.5 must be opaque 255 so full rim refracts')
+
+  // Half-pixel shifted edge (top at y=16.5) hits sd=0 exact midpoint alpha=128
+  const midAaRes = builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32, y: 32.5 }, size: { width: 32, height: 32 }, radius: 6 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 8,
+    falloff: 2.6,
+    mapScale: 1,
+  })
+  const midAaPng = decodeStoredRgbaPng(midAaRes.dataUrl)
+  assert.equal(midAaPng.pixelAt(32, 16).a, 128, 'sd=0 must lie at symmetric AA midpoint alpha 128')
+
+  // falloff curve + cache invalidation + small-shape effBezel clamp
+  const steepFalloffRes = builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 8,
+    falloff: 5.0,
+    mapScale: 1,
+  })
+  assert.equal(steepFalloffRes.changed, true, 'changing falloff must invalidate cached PNG')
+  const steepPng = decodeStoredRgbaPng(steepFalloffRes.dataUrl)
+  // At distIn=2.5 (py=18, wy=18.5): steeper falloff (5.0) decays displacement faster than falloff 2.6
+  assert.ok(
+    steepPng.pixelAt(32, 18).g < aaPng.pixelAt(32, 18).g,
+    'higher falloff must decay interior bezel displacement faster',
+  )
+
+  // Small shape (< bezel) clamps effBezel to min(halfW, halfH) cleanly
+  const tinyRes = builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32, y: 32 }, size: { width: 16, height: 16 }, radius: 4 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 20,
+    falloff: 2.6,
+    mapScale: 1,
+  })
+  const tinyPng = decodeStoredRgbaPng(tinyRes.dataUrl)
+  assert.deepEqual(tinyPng.pixelAt(31, 31), { r: 128, g: 128, b: 128, a: 255 }, 'clamped small shape center stays neutral')
 
   // 2. Cache reuse: identical or <0.1px jittered geometry hits cache (changed: false)
+  builder.build({
+    bounds: { x: 0, y: 0, width: 64, height: 64 },
+    platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
+    droplet: null,
+    blendK: 0,
+    isMerged: true,
+    bezel: 8,
+    falloff: 2.6,
+    mapScale: 1,
+  })
   const hit1 = builder.build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32.04, y: 32.02 }, size: { width: 32, height: 32 }, radius: 6 },
@@ -1202,6 +1256,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
     blendK: 0,
     isMerged: true,
     bezel: 8,
+    falloff: 2.6,
     mapScale: 1,
   })
   assert.equal(hit1.changed, false, 'sub-quarter-pixel quantized geometry must reuse cached PNG')

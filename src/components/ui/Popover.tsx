@@ -1203,6 +1203,7 @@ function MorphPanel({
           id={morphFilterId}
           bezel={morphBezel}
           strength={tuning.strength}
+          falloff={tuning.falloff}
           dispersion={tuning.dispersion}
         />
       )}
