@@ -116,6 +116,7 @@ export function AppearanceTab() {
           label={t('settings.appearance.popoverMotion')}
           hint={t('settings.appearance.popoverMotionHint')}
           help={t('settings.appearance.popoverMotionHelp')}
+          warn={t('settings.appearance.popoverMotionWarn')}
         >
           <Switch on={popoverMotion} onChange={setPopoverMotion} label={t('settings.appearance.popoverMotion')} />
         </Row>
