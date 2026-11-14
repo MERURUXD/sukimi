@@ -230,6 +230,18 @@ test('外观设置：glassAdaptiveTint 默认为 false，并能持久化与安�
   assert.equal(f.useAppearance.getState().glassAdaptiveTint, false)
 })
 
+test('外观设置：popoverMotion 默认为 true，可关闭与重新开启并接入 AppearanceTab 与 Popover', () => {
+  const f = pageThemeFixture()
+  assert.equal(f.useAppearance.getState().popoverMotion, true)
+  f.useAppearance.getState().setPopoverMotion(false)
+  assert.equal(f.useAppearance.getState().popoverMotion, false)
+  f.useAppearance.getState().setPopoverMotion(true)
+  assert.equal(f.useAppearance.getState().popoverMotion, true)
+  assert.match(read('src/features/settings/tabs/AppearanceTab.tsx'), /popoverMotion/)
+  assert.match(read('src/i18n/zh-CN/settings.ts'), /popoverMotion:/)
+  assert.match(read('src/i18n/en/settings.ts'), /popoverMotion:/)
+})
+
 test('设置布局验收页覆盖全部 12 个分栏所需的虚构查询，且拒绝真实写入', () => {
   const lab = read('src/features/dev/SettingsLayoutLab.tsx')
   for (const op of [
@@ -250,4 +262,50 @@ test('设置布局验收页覆盖全部 12 个分栏所需的虚构查询，且�
     assert.ok(lab.includes(`case '${op}':`), `SettingsLayoutLab 处理虚构查询 ${op}`)
   }
   assert.match(lab, /default:\s*observer\.error\(new Error\(/)
+})
+
+test('玻璃预设：支持在「通透」与「PrismUI」间切换，各自记忆深浅参数并独立重置', () => {
+  const { store, defaults, data, module } = glassFixture('dark')
+  const state = () => store.getState()
+  assert.equal(state().preset, 'clear')
+  state().set({ blur: 7 })
+  state().setPreset('prism')
+  assert.equal(state().preset, 'prism')
+  assert.equal(state().bezel, module.PRISM_GLASS_DEFAULTS.bezel)
+  assert.equal(state().blur, 3)
+  assert.equal(state().denseBlur, 12)
+  assert.equal(state().tint, 40)
+  assert.equal(state().dispersion, 0)
+
+  state().setTheme('light')
+  assert.equal(state().tint, 55)
+  assert.equal(state().saturate, 2.0)
+  state().set({ denseBlur: 18 })
+
+  state().setPreset('clear')
+  assert.equal(state().preset, 'clear')
+  assert.equal(state().blur, 3)
+  state().setTheme('dark')
+  assert.equal(state().blur, 7)
+
+  state().setPreset('prism')
+  state().setTheme('light')
+  assert.equal(state().denseBlur, 18)
+  state().reset()
+  assert.equal(state().denseBlur, 12)
+  assert.equal(state().tint, 55)
+
+  const persisted = JSON.parse(data.get('suwayomi-web.glass.demo'))
+  const reloaded = glassFixture('dark', persisted).store
+  assert.equal(reloaded.getState().preset, 'prism')
+  assert.equal(reloaded.getState().blur, 3)
+  reloaded.getState().setPreset('clear')
+  assert.equal(reloaded.getState().blur, 7)
+  assert.equal(reloaded.getState().strength, defaults.strength)
+
+  const appearance = read('src/features/settings/tabs/AppearanceTab.tsx')
+  assert.match(appearance, /glassPresetClear/)
+  assert.match(appearance, /glassPresetPrism/)
+  assert.match(read('src/i18n/zh-CN/settings.ts'), /glassPresetPrism:\s*'PrismUI'/)
+  assert.match(read('src/i18n/en/settings.ts'), /glassPresetPrism:\s*'PrismUI'/)
 })

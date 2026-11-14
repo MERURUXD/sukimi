@@ -17,6 +17,8 @@ interface AppearanceState {
   mangaDetailMotion: boolean
   /** 进出阅读器时从入口展开 / 缩回 */
   readerMotion: boolean
+  /** 弹出菜单与筛选面板从触发按钮液态形变展开 */
+  popoverMotion: boolean
   autoHideNav: boolean
   /** 顶栏背后叠一条越往上越模糊的渐进模糊带 */
   navBlur: boolean
@@ -35,6 +37,7 @@ interface AppearanceState {
   setGlassAdaptiveTint: (on: boolean) => void
   setMangaDetailMotion: (on: boolean) => void
   setReaderMotion: (on: boolean) => void
+  setPopoverMotion: (on: boolean) => void
   setAutoHideNav: (on: boolean) => void
   setNavBlur: (on: boolean) => void
   setHomeMobileLayout: (layout: HomeLayout) => void
@@ -59,6 +62,8 @@ export const useAppearance = create<AppearanceState>()(
       mangaDetailMotion: true,
       // 旧偏好里没有这个字段，合并默认值后开启
       readerMotion: true,
+      // 旧偏好里没有这个字段，合并默认值后开启
+      popoverMotion: true,
       // 旧偏好里没有这个字段，合并默认值后等于关闭
       autoHideNav: false,
       // 旧偏好里没有这个字段，合并默认值后等于关闭
@@ -77,6 +82,7 @@ export const useAppearance = create<AppearanceState>()(
       setGlassAdaptiveTint: (glassAdaptiveTint) => set({ glassAdaptiveTint }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
       setReaderMotion: (readerMotion) => set({ readerMotion }),
+      setPopoverMotion: (popoverMotion) => set({ popoverMotion }),
       setAutoHideNav: (autoHideNav) => set({ autoHideNav }),
       setNavBlur: (navBlur) => set({ navBlur }),
       setHomeMobileLayout: (homeMobileLayout) => set({ homeMobileLayout }),
@@ -90,9 +96,9 @@ export const useAppearance = create<AppearanceState>()(
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
+      partialize: ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
         homeSections, homeSectionOrder, homeGallery }) =>
-        ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
+        ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
           homeSections, homeSectionOrder, homeGallery }),
       merge: (saved, current) => ({
         ...current,
