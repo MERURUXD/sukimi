@@ -14,7 +14,6 @@ export interface CalendarInput<M> {
   fetchedAt: number
   /** 章节号；来源没给时是 -1 */
   chapterNumber?: number
-  /** 章节标题，一般是「第 N 话」 */
   name?: string
   manga: M & { status: string; updateStrategy?: string }
 }
@@ -34,7 +33,6 @@ export interface CalendarDay<M> {
   entries: DayEntry<M>[]
 }
 
-/** 每部漫画一份推算 */
 export function seriesOf<M>(chapters: readonly CalendarInput<M>[], now: number): Series<M>[] {
   const groups = new Map<number, CalendarInput<M>[]>()
   for (const c of chapters) {

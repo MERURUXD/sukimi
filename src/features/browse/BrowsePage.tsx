@@ -42,7 +42,6 @@ function useCachedManga(m: Pick<SourceManga, 'id' | 'inLibrary'> & { categories?
   }
 }
 
-/** 封面触屏长按、鼠标右键打开「稍后再看 / 特别关心」菜单；单来源网格和全局搜索结果共用 */
 function MangaMenu({ m, align = 'left', children }: {
   m: Pick<SourceManga, 'id' | 'title' | 'inLibrary'>
   align?: 'left' | 'right'
@@ -67,7 +66,6 @@ function MangaMenu({ m, align = 'left', children }: {
   )
 }
 
-/** 浏览结果的封面网格 */
 function MangaTile({ m, source, rise }: { m: SourceManga; source: Pick<Source, 'id' | 'displayName'>; rise?: CSSProperties }) {
   const prefetch = usePrefetchManga(m.id)
   const { inLibrary, categories } = useCachedManga(m)
@@ -104,7 +102,6 @@ export function BrowsePage() {
   const { data, error, refetch } = useQuery(Sources)
   const nsfwSources = useNsfwStore((s) => s.marks.sources)
   const sources = useMemo(
-    // 普通源在前，标为 NSFW 的源排在后面，本地源放最后
     () => sortSources(data?.sources.nodes ?? [], nsfwSources),
     [data, nsfwSources],
   )
@@ -137,7 +134,6 @@ export function BrowsePage() {
   const groups = useMemo(() => groupSources(sources, nsfwSources), [sources, nsfwSources])
   const searchSources = useMemo(() => onlineSources(sources), [sources])
   const globalSources = useMemo(() => globalSearchSources(searchSources, sourceId), [searchSources, sourceId])
-  // 有可更新的扩展时在入口上显示数量
   const updates = useQuery(ExtensionUpdateCount, { fetchPolicy: 'cache-and-network' }).data?.extensions.totalCount ?? 0
 
   return (
@@ -145,7 +141,6 @@ export function BrowsePage() {
       <PageHeader
         title={t('browse.title')}
         actions={
-          // 发现页的主要入口，比历史页的搜索框宽一些
           <form onSubmit={submit} className="min-w-0 flex-[0_1_560px] max-sm:basis-full">
             <Glass flat as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
               <Search className="size-[18px] flex-none" strokeWidth={1.8} />
@@ -222,8 +217,6 @@ export function BrowsePage() {
     </div>
   )
 }
-
-/* ───────── 单个源的浏览 ───────── */
 
 /**
  * 已加载的结果按来源、方式、关键词和筛选条件留在内存里（本次会话内）。
@@ -384,7 +377,6 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
     }
   }, [client, source.id, mode, q, filters, page, hasNext, items])
 
-  // 首屏 + 滚到底自动加载
   const sentinel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = sentinel.current
@@ -418,7 +410,6 @@ function SourceResults({ source, mode, q, filters }: { source: Source; mode: Mod
   )
 }
 
-/* ───────── 全局搜索：所有源并行（最多同时 3 个） ───────── */
 /** 搜过的关键词结果留在内存里，从详情页返回时不用重新搜 */
 const searched = new Map<string, SearchResults>()
 // 来源浏览与搜索结果带着按用户的 inLibrary，也受权限（成人来源）影响，换身份时清空
@@ -496,7 +487,6 @@ function GlobalSearch({ q, sources, onOpen }: { q: string; sources: Source[]; on
               </div>
               <div className="grid min-h-[60px] grid-cols-4 gap-2.5">
                 {r?.items.slice(0, 4).map((m, i) => (
-                  // 一行四个，右半边的菜单向左展开，不超出屏幕
                   <GlobalSearchThumb key={m.id} m={m} source={s} align={i < 2 ? 'left' : 'right'} />
                 ))}
               </div>

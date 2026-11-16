@@ -7,10 +7,8 @@ import { spring, still } from '@/design/motion'
 import { t } from '@/i18n'
 
 /**
- * 详情页封面的放大查看：点封面打开，点任意处、按 Esc 或关闭按钮收起。
- * 焦点、Tab 循环和背后页面的 inert 交给共用对话框；打开时落在「关闭」上。
- * 图片已在详情页载入过，直接复用浏览器缓存；按真实宽高比铺满可用区域，宽高比读到之前先按 2:3 占位。
- * 遮罩和玻璃按钮的透明度各自动画，外层不做透明度，玻璃才能采样到背后的页面。
+ * 焦点、Tab 循环和背景 inert 交给共用对话框。
+ * 图片复用详情页缓存；宽高比读到前按 2:3 占位。透明度动画放在玻璃自身，外层不能做透明度。
  */
 export function CoverZoom({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
   const reduced = useReducedMotion()

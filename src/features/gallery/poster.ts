@@ -21,7 +21,6 @@ export interface PosterCover {
 
 export interface LibraryPoster {
   kind: 'library'
-  /** 封面墙，一行一组 */
   rows: PosterCover[][]
   read: number
   works: number
@@ -141,7 +140,6 @@ export function workProgress(total: number | null | undefined, unread: number) {
   return { read: Math.max(0, total - unread), total }
 }
 
-/** 单部海报左上角那一行：按进度说 */
 export function workHeading(read: number | null, total: number | null) {
   if (read != null && total && read >= total) return t('gallery.poster.workFinished')
   if (read) return t('gallery.poster.workReading')

@@ -254,7 +254,6 @@ export function SettingsLayoutLab() {
               <button type="button" className="fopt" onClick={() => setReader(true)}>检查阅读设置</button>
             </div>
           </header>
-          {/* 宽度、标题和两栏尺寸跟正式设置页（SettingsShell）一致 */}
           <div className="wrap pb-24">
             <PageHeader title="设置" className="pb-3" />
             <p className="mt-0 mb-6 max-w-[62ch] text-sm text-muted">布局验收：全部 12 个分栏均使用虚构数据在本地渲染；不保存任何服务端设置，也不连接真实后端。</p>

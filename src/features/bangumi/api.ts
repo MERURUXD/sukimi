@@ -1,10 +1,6 @@
 /*
- * 查询 Bangumi 站内评分：直接请求公开接口 api.bgm.tv（允许跨域、无需登录），不经过 Suwayomi 服务端，
- * 也不用追踪账号，只读不写。演示和 /dev/* 验收页换成本地虚构数据，不发外部请求、只存内存。
- *
- * 本地记两样东西（每个浏览器一份，与账号无关）：
- * - 条目缓存：条目号 → 评分数据，一天内直接用
- * - 匹配结果：漫画 id → 条目号，未绑定追踪时按标题猜的结果或手动选的条目
+ * 只读公开接口 api.bgm.tv（跨域、无需登录），不经过 Suwayomi 或追踪账号；演示和 /dev/* 只用本地虚构数据。
+ * 本地按浏览器缓存条目（一天）和标题匹配结果，与账号无关。
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import { isDemo, isDevLab } from '@/lib/demo'
@@ -137,10 +133,7 @@ export function useBgmSubject(id: number) {
   return { ...subjectView(id), refresh: () => loadSubject(id, true) }
 }
 
-/**
- * 未绑定时按标题猜条目：先看记下的匹配，没有就搜一次标题。
- * 自动猜到的也记下来，避免每次打开都搜；没猜到的一天后再试
- */
+/** 未绑定时先看记下的匹配，没有就搜一次标题；没猜到的一天后重试。 */
 export function useBgmGuess(mangaId: number, title: string) {
   useVersion()
   const match = saved.matches[mangaId]
@@ -176,7 +169,7 @@ function guess(mangaId: number, title: string) {
   })
 }
 
-/** 手动选定条目或否定（id 0）当前猜测 */
+/** id 0 表示否定当前猜测。 */
 export function setBgmMatch(mangaId: number, id: number) {
   saved.matches[mangaId] = { id, sure: true, at: Date.now() }
   emit(true)

@@ -22,16 +22,12 @@ export interface HeroStats {
   shown?: number
 }
 
-/** 首屏封面墙区域的类名：首页和画布过渡的第一帧共用，两边排版才完全一致。占满一屏：下面的全部作品默认收起 */
+/** 首页和画布过渡第一帧共用；占满一屏，全部作品默认收起。 */
 export const HERO_BOX = 'relative flex h-svh min-h-[560px] flex-col pt-[var(--nav-h)] md:min-h-[680px]'
 
 /**
- * 首屏的文字和两扇「门」，直接放在封面墙上，不再套玻璃面板：
- * 左边是标题和「进入画布」，右边是大号的已读话数，点它进阅读档案（数字会飞过去变成档案页的主角）。
- * 手机上是左下角的一段文字，两扇门并排在最下面。
- *
- * 画布的进入过渡会在原位置摆出同一份（decorative），再让它淡出、上移。透明度和位移由外层的
- * CSS 变量 --fade、--lift 给出，只读在每个元素自身上（和画布上其他界面的写法一致）。
+ * 首屏文字与入口。画布过渡会在原位复制一份 decorative，再通过 --fade / --lift 淡出上移；
+ * 这两个变量必须由各元素自身读取，不能放到带玻璃的祖先上。
  */
 export function HeroCopy({
   stats,
@@ -53,13 +49,10 @@ export function HeroCopy({
   late?: boolean
   /** 标题和首页橱窗里的是同一句，由换页动画位移过去（见 index.css 的 gallery-title），所以不再自己淡入 */
   morph?: boolean
-  /** 点「浏览全部」切到全部作品那一页 */
   onBrowse?: () => void
-  /** 返回来路（从书库来的，墙上那块封面飞回书库的原位；从首页来的回首页） */
+  /** 来路决定返回动画：书库来路飞回原封面，首页来路收进首页取景窗。 */
   onBack?: () => void
-  /** 返回键的无障碍名称，按来路写「返回首页」或「返回书库」 */
   backLabel?: string
-  /** 打开分享海报 */
   onShare?: () => void
 }) {
   const chapterText = stats.chapters == null ? '—' : count(stats.chapters)
@@ -85,14 +78,13 @@ export function HeroCopy({
       <ArrowDown className={cn('size-4', onBrowse && !decorative && 'gallery-nudge')} strokeWidth={2} />
     </a>
   )
-  // 返回：放在最上面那行小字前面，不抢两扇门的风头
   const back = (
     <button type="button" tabIndex={tab} onClick={onBack} aria-label={backLabel} className="-ml-1 flex items-center gap-0.5 rounded-full py-1 pr-2 pl-0.5 font-medium text-muted hover:text-text">
       <ChevronLeft className="size-4" strokeWidth={2} />
       {t('gallery.back')}
     </button>
   )
-  // 分享：跟在最上面那行小字后面。画布过渡摆出的那一份也要有，两边排版才一致；墙上一部都没有（全是 NSFW）时不能分享
+  // 画布过渡的副本也要有；没有可露面作品时不能分享。
   const share = (stats.shown ?? stats.works) > 0 && (onShare || decorative) && (
     <button type="button" tabIndex={tab} onClick={onShare} className="flex items-center gap-1 rounded-full px-2 py-1 font-medium text-muted hover:text-text">
       <Share className="size-[15px]" strokeWidth={2} />
@@ -114,7 +106,6 @@ export function HeroCopy({
   )
   if (mobile) {
     return (
-      // 底部留出标签栏的高度：首屏占满一屏，标签栏浮在上面
       <div data-hero-ui className="wrap mt-auto flex flex-col gap-3 pb-[calc(var(--tabbar-h)+14px)]" aria-hidden={decorative || undefined} inert={decorative || undefined}>
         <div data-hero-fade data-gallery-copy="meta" className={cn('flex items-center gap-3 text-xs', fx)}>
           {back}
@@ -172,10 +163,7 @@ export function HeroCopy({
   )
 }
 
-/**
- * 阅读档案的入口：大号的已读话数。悬停时背后画出一圈时钟刻度，预告点进去是什么样子；
- * 点下去，这个数字飞成档案页的大数字（换页动画，见 readMorph）。
- */
+/** 点击后数字由换页动画飞到档案页（见 readMorph）。 */
 function ReadDoor({ read, mobile, decorative, className, style }: { read: number | null; mobile: boolean; decorative?: boolean; className?: string; style?: CSSProperties }) {
   const value = read == null ? '—' : count(read)
   return (
@@ -211,7 +199,6 @@ function ReadDoor({ read, mobile, decorative, className, style }: { read: number
   )
 }
 
-/** 悬停时在数字背后画出的一圈时钟刻度（阅读档案的阅读时钟） */
 function ClockHint() {
   return (
     <svg
@@ -235,7 +222,6 @@ export interface HeroLayout {
   height: number
 }
 
-/** 首屏的暗角：中间透出墙，四周和上下压到底色；文字压在下方，下半部分压得更深。桌面和手机各一种 */
 export const HERO_VIGNETTE = {
   desktop:
     'radial-gradient(ellipse 62% 50% at 50% 40%, color-mix(in srgb, var(--bg) 12%, transparent) 0%, color-mix(in srgb, var(--bg) 55%, transparent) 62%, color-mix(in srgb, var(--bg) 92%, transparent) 100%), linear-gradient(180deg, color-mix(in srgb, var(--bg) 55%, transparent) 0%, transparent 20%, transparent 42%, color-mix(in srgb, var(--bg) 78%, transparent) 72%, var(--bg) 100%)',

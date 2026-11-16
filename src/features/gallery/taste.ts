@@ -48,7 +48,6 @@ const EN_NAME = new Map<string, string>(GENRE_TABLE.map(([name, en]): [string, s
 /** 题材的显示名：英文界面把归一过的中文名换成英文，来源自带的写法原样显示 */
 export const genreLabel = (name: string) => (locale === 'en' ? (EN_NAME.get(name) ?? name) : name)
 
-/** 一部作品的题材：归一、去掉无意义的标签、去重 */
 export function genresOf(raw: readonly string[] | null | undefined) {
   const out: string[] = []
   for (const g of raw ?? []) {
@@ -66,7 +65,6 @@ export const canonicalTag = (raw: string) => {
   return ALIAS[t.toLowerCase()] ?? t
 }
 
-/** 一部作品的作者：几个人写在一起时拆开，去重 */
 export const authorsOf = (raw: string | null | undefined) => [
   ...new Set(
     (raw ?? '')

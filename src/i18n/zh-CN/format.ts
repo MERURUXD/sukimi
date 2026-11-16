@@ -1,4 +1,3 @@
-/** 时间、日期和章节名这类格式化函数用的文案 */
 export default {
   justNow: '刚刚',
   minutesAgo: '{{count}} 分钟前',

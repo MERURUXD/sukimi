@@ -29,7 +29,6 @@ interface Common<V> {
   aria?: string
 }
 
-/** 读一个服务端设置并提供保存；保存状态给 Row 显示 */
 function useSetting<V>(k: string, confirmChange?: Confirmer<V>) {
   const { data } = useServerSettings()
   const save = useSaveSettings()
@@ -89,10 +88,7 @@ export function SChoice<V extends string | number>({
   )
 }
 
-/**
- * 文本 / 数字：本地编辑，失焦或回车时保存。
- * parse 把输入转成要保存的值，返回 undefined 表示输入无效（恢复原值）。
- */
+/** parse 返回 undefined 表示输入无效，恢复原值。 */
 function Editable<V>({
   k,
   label,
@@ -184,7 +180,7 @@ export function SNumber({
   )
 }
 
-/** ISO 8601 时长，界面上按分钟 / 小时 / 天编辑 */
+/** 服务端使用 ISO 8601 时长，界面按 unit 换算。 */
 export function SDuration({ unit, ...props }: Common<string> & { unit: 'min' | 'h' | 'd' }) {
   const per = unit === 'min' ? 1 : unit === 'h' ? 60 : 1440
   return (
@@ -202,10 +198,7 @@ export function SDuration({ unit, ...props }: Common<string> & { unit: 'min' | '
   )
 }
 
-/**
- * 密码、API Key：不读取现值，只能填新值。留空表示不修改。
- * 填写后点「保存」才发出，不会因为失焦误保存。
- */
+/** 密码、API Key 不读取现值；留空不修改，只有点击保存才提交，失焦不保存。 */
 export function SSecret({
   k,
   label,
@@ -264,7 +257,6 @@ export function SSecret({
   )
 }
 
-/** 一组字段在设置还没加载出来时的占位 */
 export function useSettingsLoaded(): Settings | undefined {
   return useServerSettings().data?.settings
 }

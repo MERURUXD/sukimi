@@ -1,4 +1,3 @@
-/** 追踪（Bangumi、AniList 等网站的阅读进度同步） */
 export default {
   title: '追踪',
   boundAria: '追踪（已绑定 {{n}} 个）',

@@ -25,7 +25,6 @@ export const wallState: {
   sampled: number[] | null
 } = { cx: NaN, cy: NaN, grid: null, order: null, landing: null, sampled: null }
 
-/** 还没有位置（或换了格子尺寸）时让第 0 列第 0 行的格子正好在中心 */
 export function ensureWall(w: number, h: number, grid: Grid) {
   if (wallState.grid === grid && !Number.isNaN(wallState.cx)) return
   const c = centerOn(0, 0, w, h, grid)
@@ -42,7 +41,6 @@ export function wallItem(c: number, r: number, n: number) {
   return o && o.length === n && p >= 0 ? o[p] : p
 }
 
-/** 第 i 部在墙上的位置（cellIndex 的值），找最近放着它的格子用 */
 export function wallPosOf(i: number, n: number) {
   const o = wallState.order
   return o && o.length === n ? o.indexOf(i) : i
@@ -96,7 +94,6 @@ export function cellsInWindow(w: number, h: number, grid: Grid, k = WINDOW_K, ma
     .filter(({ sx, sy }) => Math.abs(sx) < w / 2 + margin && Math.abs(sy) < h / 2 + margin)
 }
 
-/** 框里看得见的格子，离中心近的在前（给 windowOrder 挑格子用） */
 export const windowCells = (w: number, h: number, grid: Grid, k = WINDOW_K) =>
   cellsInWindow(w, h, grid, k)
     .sort((p, q) => p.sx ** 2 + p.sy ** 2 - (q.sx ** 2 + q.sy ** 2))

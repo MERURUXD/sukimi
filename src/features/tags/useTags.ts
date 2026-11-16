@@ -47,7 +47,6 @@ export function useTagLookup() {
   return useMemo(() => (settled ? (id: number, m: { genre?: readonly string[] | null }) => filterTags(m.genre, edits.get(id)) : null), [settled, edits])
 }
 
-/** 一部漫画的编辑 */
 export function useMangaTags(mangaId: number) {
   const tags = useTags()
   return { edit: tags.edits.get(mangaId) ?? NO_EDIT, all: tags.edits, ready: tags.ready, error: tags.error, refetch: tags.refetch }
@@ -86,12 +85,10 @@ export function useTagActions() {
     })
   }, [client])
 
-  /** 改一部漫画的标签 */
   const save = useCallback(
     (mangaId: number, change: (edit: TagEdit) => TagEdit) => write((edits) => new Map([[mangaId, serializeTags(change(edits.get(mangaId) ?? NO_EDIT))]])),
     [write],
   )
-  /** 对所有漫画套用同一个改动（设置里改名、删除标签） */
   const saveAll = useCallback((change: (edit: TagEdit) => TagEdit) => write((edits) => changedTags(edits, change)), [write])
   return { save, saveAll }
 }

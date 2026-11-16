@@ -7,12 +7,7 @@ import { t } from '@/i18n'
 /** 手机上子页的大标题就是分栏名；同名的小节标题只留给读屏，免得同一个词上下各出现一次 */
 export const SettingsPageTitle = createContext<string | undefined>(undefined)
 
-/**
- * 分栏里的一组设置：标题 + 一句短说明，组与组之间只靠留白分开。
- * help：存储位置、共用范围这类不影响操作的细节放进标题旁的小窗，默认只露一句说明。
- * fold：不常改的高级项默认收起，点「展开」才渲染内容；说明留在外面，一眼知道里面是什么。
- * wide：双栏预览等需要占满内容区时打开；常规设置列限制阅读宽度，避免桌面端短标签与右侧控件相距过远。
- */
+/** fold 默认收起；wide 取消常规阅读宽度限制。 */
 export function Section({
   title,
   desc,
@@ -79,15 +74,11 @@ export function Row({
 }: {
   label: ReactNode
   hint?: ReactNode
-  /** 点图标弹出小窗的详细说明（首次/再次播放机制、兼容细节等），支持点击、键盘与触屏 */
   help?: ReactNode
-  /** 关键限制、性能影响或操作风险；标题旁显示红色警示图标，点开看原因 */
   warn?: ReactNode
-  /** 改了需要重启服务端 */
   restart?: boolean
   status?: SaveStatus
   children?: ReactNode
-  /** 控件放到标签下面（长输入框） */
   stack?: boolean
 }) {
   const labelText = typeof label === 'string' ? label : t('settings.parts.thisItem')
@@ -114,7 +105,6 @@ export function Row({
   )
 }
 
-/** 标题旁的图标，点开是浮在旁边的小窗：不占行内空间，右侧控件不会被挤动 */
 function InfoPop({ icon: Icon, danger, label, children }: { icon: LucideIcon; danger?: boolean; label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const id = useId()
@@ -210,7 +200,6 @@ export function Switch({ on, onChange, label, disabled }: { on: boolean; onChang
   )
 }
 
-/** 输入框（普通表面）；suffix 放单位 */
 export function TextInput({
   className,
   suffix,
@@ -227,10 +216,6 @@ export function TextInput({
   )
 }
 
-/**
- * 设置行右侧的下拉菜单：平时只显示当前值，点开是锚在按钮旁的玻璃菜单。
- * 上下方向键在选项间移动，Esc 关闭后焦点回到按钮。
- */
 export function Dropdown<T extends string | number>({
   value,
   options,
@@ -253,7 +238,6 @@ export function Dropdown<T extends string | number>({
   const menu = useRef<HTMLDivElement>(null)
   const current = options.find((o) => o.value === value)
   const close = useCallback(() => setOpen(false), [])
-  // 打开时把焦点放到当前选中项上，键盘用户直接从这里开始挑
   useEffect(() => {
     if (!open) return
     const items = menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not(:disabled)')
@@ -339,7 +323,7 @@ export function Dropdown<T extends string | number>({
   )
 }
 
-/** 选项多时用的原生下拉框；弹层、对话框里会被裁切的地方继续用它，设置行用 Dropdown */
+/** 弹层或对话框内会被裁切时使用原生下拉框。 */
 export function Select<T extends string | number>({
   value,
   options,

@@ -4,7 +4,6 @@ import { GLASS_PARAMS, presetDefaults, useGlassTuning } from '@/design/glassTuni
 import { cn } from '@/lib/cn'
 import { t as tl } from '@/i18n'
 
-/** 液态玻璃参数滑块；与当前预设默认值不同的项会标出默认值 */
 export function GlassSliders({ className }: { className?: string }) {
   const t = useGlassTuning()
   const defaults = presetDefaults(t.preset, t.theme)

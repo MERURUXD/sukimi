@@ -1,4 +1,3 @@
-/** 同一天里同一部漫画的多话，合并成一组；单话的组只有一行 */
 export type UpdateGroup<T> = { key: string; mangaId: number; rows: T[] }
 
 /**

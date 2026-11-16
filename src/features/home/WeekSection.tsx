@@ -36,9 +36,7 @@ type Manga = { id: number; title: string; thumbnailUrl?: string | null; source?:
 interface Entry {
   manga: Manga
   sub: string
-  /** 同一天更新了几话；多于一话时角标显示 */
   badge?: string
-  /** 读到的进度（%），只有最近阅读有 */
   pct?: number
   /** 当天这部里还有几话没读；只有两条更新的行有，读完为 0 */
   unread?: number
@@ -49,9 +47,7 @@ interface Lane {
   name: string
   total: string
   days: Entry[][]
-  /** 每天的新章节话数（最近阅读为 0） */
   chapters: number[]
-  /** 这一周出现过几部 */
   mangas: number
 }
 
@@ -142,8 +138,6 @@ export function WeekSection({ updates, partial, reads, error, onRetry }: {
   )
 }
 
-/* ───────── 宽屏：7 列格子 + 同源展开 ───────── */
-
 const GRID = 'grid grid-cols-[112px_repeat(7,minmax(0,1fr))] gap-x-1.5'
 /** 叠放最多露出几张 */
 const STACK = 3
@@ -211,7 +205,6 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
     }
   }, [restoring])
 
-  // Esc 收起，焦点回到那一格
   useEffect(() => {
     if (!shown) return
     const onKey = (e: KeyboardEvent) => {
@@ -244,7 +237,6 @@ function WeekGrid({ days, lanes }: { days: { name: string; date: string }[]; lan
                 <span className="text-xs text-muted">{lane.total}</span>
               </div>
               {lane.days.map((entries, i) => (
-                // 今天的底色只衬在有内容的格子上：刚过零点还没有记录时整列留空
                 <div key={i} className={cn('min-h-[140px] rounded-[14px]', i === 0 && entries.length > 0 && 'bg-hover/60')}>
                   {entries.length > 0 && (
                     <Stack id={cellId(lane.id, i)} entries={entries} open={i === day} instant={restoring} label={t('home.week.stackLabel', { day: days[i].name, lane: lane.name, n: entries.length })}
@@ -332,7 +324,6 @@ const headerFade = {
   exit: { opacity: 0, transition: fade.fast },
 }
 
-/** ref 由 AnimatePresence 的 popLayout 传入，用来在收起时量出位置、改成绝对定位 */
 function Tray({ ref, lane, day, dayName, instant }: { ref?: Ref<HTMLDivElement>; lane: Lane; day: number; dayName: string; instant: boolean }) {
   const id = cellId(lane.id, day)
   const entries = lane.days[day]
@@ -421,7 +412,6 @@ const TRAY_MORE = 48
 
 const TRAY_GRID = 'relative grid grid-cols-[repeat(auto-fill,minmax(116px,1fr))] gap-x-3.5 gap-y-5'
 
-/** 托盘里「未读 / 已读」的小标题，和标题行一样晚一点淡入、收起时先淡出 */
 function TrayHeading({ className, children }: { className?: string; children: ReactNode }) {
   return <motion.div className={cn('relative mb-3 text-[13px] font-bold text-muted', className)} {...headerFade}>{children}</motion.div>
 }
@@ -468,8 +458,6 @@ function ReadVeil() {
 function Badge({ children }: { children: ReactNode }) {
   return <span className="absolute top-[7px] left-[7px] z-[2] rounded-full bg-text px-2 py-0.5 text-[11px] font-extrabold text-bg num">{children}</span>
 }
-
-/* ───────── 窄屏：按日期切换 ───────── */
 
 function WeekTabs({ days, lanes }: { days: { name: string; date: string }[]; lanes: Lane[] }) {
   const [sel, setSel] = useState(0)

@@ -97,7 +97,6 @@ function useAutoApply() {
   }, [key])
 }
 
-/** 前端有新版本时的常驻提示，停在同一页时用；阅读页不挂，读完回到其他页面时再出现 */
 export function UpdatePrompt() {
   useUpdateWatch()
   useAutoApply()

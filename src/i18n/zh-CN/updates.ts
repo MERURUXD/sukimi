@@ -1,4 +1,3 @@
-/** 更新页：最近更新列表、更新日历，以及更新节奏推算的文案 */
 export default {
   title: '更新',
   view: { label: '视图', recent: '最近', calendar: '日历' },

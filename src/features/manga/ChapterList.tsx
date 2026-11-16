@@ -43,8 +43,7 @@ export interface QueueItem {
   state: 'QUEUED' | 'DOWNLOADING' | 'FINISHED' | 'ERROR'
 }
 
-/** 章节相关的变更操作，列表行菜单和批量栏共用 */
-/** onMarkedRead：标为已读后调用，用来把进度推到追踪网站 */
+/** onMarkedRead 在标为已读后调用，用于同步追踪进度。 */
 export function useChapterActions(all: readonly Chapter[], onDownloadQueued: () => void, onDownloadsDeleted: () => void, onMarkedRead?: (still: () => void) => void) {
   const [update] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
@@ -132,7 +131,6 @@ export function ChapterList({
 }: {
   mangaId: number
   chapters: readonly Chapter[]
-  /** 预计下次更新；有的话在最新一话上面多一格预计的下一话 */
   prediction?: NextPrediction | null
   queue: ReadonlyMap<number, QueueItem>
   actions: Actions
@@ -167,7 +165,6 @@ export function ChapterList({
   }, [selecting, exitSelect, sel])
 
   const onRowToggle = useCallback((id: number, index: number, e: MouseEvent) => sel.toggle(id, index, e.shiftKey), [sel])
-  // 触屏长按：进入多选并选中这一话
   const onLongPress = useCallback(
     (id: number, index: number) => {
       setSelecting(true)
@@ -176,7 +173,6 @@ export function ChapterList({
     [sel],
   )
 
-  // 虚拟列表：宽屏每个虚拟行放两话，按「左右、左右」的阅读顺序排，行高取两者较高的
   const cols = useWideScreen() ? 2 : 1
   const box = useRef<HTMLDivElement>(null)
   const [top, setTop] = useState(0)
@@ -324,7 +320,7 @@ export function ChapterList({
   )
 }
 
-/** 预计的下一话：和章节行同样的排版，半透明、不能点；话数按现有最大话数加一，凑不出整数时只写「下一话」 */
+/** 话数按现有最大话数加一，凑不出整数时只写「下一话」。 */
 function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; chapters: readonly Chapter[]; fill: boolean; introDelay?: number }) {
   const next = nextChapterNumber(chapters)
   const name = next === null ? t('manga.next.nextChapter') : t('format.chapterNo', { n: next })
@@ -352,9 +348,6 @@ function PredictedRow({ p, chapters, fill, introDelay }: { p: NextPrediction; ch
   )
 }
 
-/* ───────── 单行 ─────────
-   无分隔线、无勾选圆圈：最左一格未读时是小圆点，选中时换成对勾，并给整行浅底色。
-   章节名里通常已含「第 N 话」，不再单独显示章节号。内容靠左收紧，名称与日期不隔着大片空白 */
 const ChapterRow = memo(function ChapterRow({
   c,
   index,
@@ -371,7 +364,6 @@ const ChapterRow = memo(function ChapterRow({
   c: Chapter
   index: number
   mangaId: number
-  /** 宽屏两列时名称列占满剩余宽度，日期与按钮靠右 */
   fill: boolean
   selecting: boolean
   selected: boolean
@@ -545,7 +537,6 @@ function ProgressRing({ value, error }: { value: number; error: boolean }) {
   )
 }
 
-// 两列的章节行各约 600px，正好放下名称、日期与按钮；再窄就回到单列
 const WIDE = '(min-width: 1280px)'
 function useWideScreen() {
   return useSyncExternalStore(

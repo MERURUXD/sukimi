@@ -50,9 +50,7 @@ export const snapshotUsable = (snap: { v: number; userId: number } | undefined, 
 const EARLY_PATHS = new Set(['/', '/library', '/updates'])
 
 /**
- * 重开页面时是否不等登录验证、先显示上次的内容。
- * 只给本机记得上次是谁登录的情况（验证在后台进行，失败照常跳登录页），
- * 并且要等快照读完，否则先渲染的空页面不会再换成快照
+ * 只在本机记得上次登录用户时提前显示；必须等快照读完，验证失败仍跳登录页。
  */
 export function showBeforeVerified(status: string, userId: number | undefined, snapshotsLoaded: boolean, pathname: string) {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname

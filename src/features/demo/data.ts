@@ -20,7 +20,7 @@ function cover(title: string, i: number) {
   </svg>`)
 }
 
-/** 六页短故事供正式阅读器演示翻页、缩放和纵向阅读；大书库的章节页数更多，画面按六页循环，页码照实际页数。wide 是跨页横幅，用来看拆页。 */
+/** 六页短故事供阅读器演示；大书库按六页循环但页码照实际页数，wide 用于拆页。 */
 function storyPage(title: string, index: number, total = 6, wide = false) {
   if (wide) {
     return svgUrl(`<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
@@ -133,7 +133,6 @@ function seeded(seed: number) {
 /** 一天里各小时的阅读权重：午休和晚上读得多，凌晨少 */
 const HOUR_WEIGHTS = [3, 2, 1, 1, 0, 0, 0, 1, 2, 2, 2, 3, 5, 4, 2, 2, 2, 3, 4, 5, 7, 9, 9, 6]
 
-/** 大书库最多生成的作品数 */
 export const MAX_SCALE = 10_000
 
 /**

@@ -17,7 +17,6 @@ export interface Screen {
 
 const screenKey = (s: Screen) => s.pages.join('-') + (s.half === undefined ? '' : `h${s.half}`)
 
-/** 缩放复位、双击放大、弹回的过渡时长 */
 const SLIDE_MS = 200
 /** 减速曲线：起步快、末尾缓，松手时接着手指的速度滑完 */
 const EASE = 'cubic-bezier(0.33, 1, 0.68, 1)'
@@ -27,14 +26,8 @@ const DOUBLE_MS = 250
 const WHEEL_SETTLE_MS = 200
 
 /**
- * 单页 / 双页。
- * 点击：左 30% / 中 40% / 右 30%。两侧按阅读方向翻页，中间切换工具栏。
- *       鼠标和触屏任何位置都能双击，单击稍等确认不是双击后才生效。
- *       双击在点到的位置放大 / 复位。
- * 滚轮：向下 = 下一页，向上 = 上一页；页面比屏幕高时先滚到底 / 顶再翻。
- * 手势：横向拖动时整条「上一页 | 当前页 | 下一页」跟着手指走，松手按距离和速度决定翻页或弹回；
- *       翻页时接着手指的速度滑到位，相邻页就地变成当前页（同一个元素，不重建），中间没有空白和跳动；
- *       双指或 Ctrl+滚轮以手指 / 指针为中心缩放，放大后拖动平移（有边界），拖到边缘再轻扫可翻页。
+ * 轨道保留相邻屏，翻页后同一元素换到中间，避免空白或重建。
+ * 单击需等待双击判定；双指或 Ctrl+滚轮围绕指针缩放，一次滚动手势只翻一页。
  */
 export function PagedView({
   pages,
@@ -69,7 +62,6 @@ export function PagedView({
   onAspect: () => void
 }) {
   const root = useRef<HTMLDivElement>(null)
-  // 当前页所在的滚动容器和内容（缩放、平移、长页面滚动都作用在它们上）
   const scroller = useRef<HTMLDivElement>(null)
   const content = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState<Zoom>(NO_ZOOM)
@@ -259,7 +251,6 @@ export function PagedView({
     const x = e.clientX / window.innerWidth
     const y = e.clientY / window.innerHeight
     const pos = zones === 'tb' ? y : x
-    // 中间（放大时是任意位置）切换工具栏，两侧按阅读方向翻页
     const center = zones === 'off' || zoomed || (pos >= 0.3 && pos <= 0.7)
     const action = center ? onCenter : zones === 'tb' ? () => onStep(pos < 0.3 ? -1 : 1) : pos < 0.3 ? onLeft : onRight
 

@@ -77,15 +77,15 @@ export function AwayPrompt() {
   const setCategory = useLibraryView((s) => s.setCategory)
   const navigate = useNavigate()
 
-  // 打开网页时读一次上次离开的时间；刚打开时内存里没有旧书库，有缓存也是这次取到的
+  // 首次打开时内存里没有旧书库，用缓存即可
   useEffect(() => {
     if (userId !== undefined) check(false)
   }, [userId])
 
-  // 标记到了才比较，比较一次就清掉；离开太短不查书库。NSFW 作品不计入
   useEffect(() => {
     const map = favorites.map
     if (!away || !map) return
+    // 标记只消费一次；离开太短或没有特别关心时不查书库，NSFW 作品不计入。
     useAway.setState({ away: null })
     if (Date.now() / 1000 - away.since < AWAY_MIN_SEC || map.size === 0) return
     const still = captureUser()
@@ -104,7 +104,6 @@ export function AwayPrompt() {
     return () => clearTimeout(t)
   }, [shown])
 
-  // 首页模块开着就去首页那一栏，关着就去书库的「特别关心」标签
   const go = () => {
     setShown(null)
     if (!homeOn) {

@@ -50,7 +50,7 @@ useAuth.subscribe((s, prev) => {
 
 type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 
-/** 写入成功后直接改该账号缓存里的列表；缓存里还没有列表时不管，等查询去取 */
+/** 缓存里还没有列表时不动，等查询去取。 */
 function patch(cache: ApolloCache, userId: number, fn: (nodes: readonly Node[]) => Node[]) {
   cache.updateQuery({ query: NsfwMetas, variables: { prefix: nsfwPrefix(userId) } }, (d) => d && { metas: { ...d.metas, nodes: fn(d.metas.nodes) } })
 }
@@ -116,7 +116,7 @@ export function useNsfwBlur(m: NsfwSubject): '' | undefined {
 export function useNsfwActions() {
   const client = useApolloClient()
 
-  /** 写入一组键（值为 null 的删掉），成功后同步改缓存和本机标记 */
+  /** 值为 null 的键会删除；成功后同步缓存和本机标记。 */
   const write = useCallback(async (entries: readonly [string, '1' | '0' | null][]) => {
     if (!entries.length) return
     const still = captureUser()
@@ -151,7 +151,7 @@ export function useNsfwActions() {
     set({ marks: parseNsfw(userId, apply(prev)) })
   }, [client])
 
-  /** 把这些漫画设为（或取消）NSFW；和分类、来源判定一致的不留手动键 */
+  /** 和分类、来源判定一致的不留手动键。 */
   const setManga = useCallback(async (mangas: readonly NsfwSubject[], want: boolean) => {
     const userId = currentUserId()
     const { marks } = useNsfwStore.getState()

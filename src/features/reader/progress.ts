@@ -3,7 +3,6 @@
  * 只做判断，写入和计时在 progressSync.ts 的 useProgressSync。
  */
 
-/** 一次要写入的进度 */
 export type Progress = { page: number; read: boolean }
 
 type ChapterState = { lastPageRead: number; isRead: boolean }

@@ -124,7 +124,7 @@ export function HomeTab() {
   )
 }
 
-/** 一个首页模块：序号、名称与一句说明，右侧拖动柄和开关。只有拖动柄能拖，手机上划动列表不会误触 */
+/** 只有拖动柄能拖，避免手机上划动列表时误触。 */
 function SectionRow({
   id,
   index,
@@ -162,7 +162,6 @@ function SectionRow({
         onDrop()
       }}
       whileDrag={{ scale: 1.015 }}
-      // 拖动时盖住下面的行，才需要实色底
       className={cn('relative -mx-2 flex min-h-14 items-center gap-3 rounded-2xl px-2 py-1.5', dragging && 'z-10 bg-bg shadow-[0_16px_40px_rgba(0,0,0,.25)]')}
     >
       <span aria-hidden className="num w-4 flex-none text-center text-[13px] text-faint">

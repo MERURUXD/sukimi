@@ -25,19 +25,14 @@ let devFreeze: number | null = null
 if (import.meta.env.DEV) (window as unknown as { __heroWall?: object }).__heroWall = { freeze: (k: number | null) => (devFreeze = k) }
 
 /**
- * 画廊首页的倾斜封面墙。和画布进入过渡的第一帧完全一样：同一张交错网格、同样的排列（按收藏先后取模）、
- * 同样的缩放和倾角，整面墙缓慢向左流动。点「进入画布」后画布接着这面墙继续画，背景不会跳。
- *
- * 从书库点「画廊」进来时（entry）：墙先是平的，书库里看得见的那些封面摆在书库的原位、原大小，
- * 再一边飞向墙上各自的格子一边整面倾斜成墙；其余格子在途中淡入。和画布的进入过渡是同一个思路：一直是同一批元素在动。
- *
- * 墙按整个视口的大小画、中心对准首屏中心（画布第一帧也是这样对准的），超出首屏的部分被首屏裁掉。
- * 每帧只改格子的 transform，换成另一部时才换图；离开视野、标签页切到后台或减少动态效果时不流动。
+ * 画廊首页的倾斜封面墙，必须与画布进入过渡的第一帧一致。
+ * 墙按整视口绘制、中心对准首屏中心，超出部分由首屏裁掉；这些参数必须与画布第一帧一致。
+ * 从书库进入时复用书库封面飞上墙；每帧只改 transform，离屏、后台或减少动态效果时停止流动。
  */
 export function HeroWall({ items, mobile, entry, className }: { items: readonly LibraryManga[]; mobile: boolean; entry?: ReadonlyMap<number, CoverRect> | null; className?: string }) {
   const grid = mobile ? MOBILE_GRID : DESKTOP_GRID
   const reduced = useReducedMotionPref()
-  // 宽度跟随首屏（滚动条出现、消失都会变），高度取视口：和画布第一帧的画面同样大小
+  // 宽度跟随首屏，滚动条出现或消失时会变；高度取视口，才能和画布第一帧一致。
   const [size, setSize] = useState(() => ({ w: document.documentElement.clientWidth, h: window.innerHeight }))
   const root = useRef<HTMLDivElement>(null)
   const plane = useRef<HTMLDivElement>(null)
@@ -151,7 +146,6 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
     let paintedOrder = wallState.order
     /** k：进场时 0 = 书库、1 = 墙；出场时 0 = 墙、1 = 书库 */
     const paint = (k = 1, fly: Fly | null = null, out = false) => {
-      // 墙的程度：1 是倾斜的墙，0 是平铺在书库原位
       const e = fly ? (out ? 1 - k : k) : 1
       const ox = wallState.cx + w / 2 + HOME_WALL.slide
       const oy = wallState.cy + h / 2

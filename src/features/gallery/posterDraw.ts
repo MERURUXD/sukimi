@@ -75,7 +75,6 @@ async function loadCovers(urls: readonly string[]): Promise<Images> {
   return new Map(uniq.map((u, i) => [u, got[i]]))
 }
 
-/** 封面：按 object-fit: cover 裁进圆角框；没有图时画深灰占位，写上书名 */
 function cover(ctx: Ctx, imgs: Images, c: PosterCover, x: number, y: number, w: number, h: number, r: number) {
   const img = c.url ? imgs.get(c.url) : null
   ctx.save()
@@ -99,7 +98,6 @@ function cover(ctx: Ctx, imgs: Images, c: PosterCover, x: number, y: number, w: 
   ctx.restore()
 }
 
-/** 左下角（或居中）的应用标志：圆角方块里的兔耳书签，和应用图标一致 */
 function brand(ctx: Ctx, x: number, y: number, center = false) {
   setFont(ctx, 700, 28)
   const total = 52 + 16 + ctx.measureText('Sukimi').width
@@ -188,15 +186,13 @@ function glow(ctx: Ctx, cx: number, cy: number, rx: number, ry: number, color: s
   ctx.restore()
 }
 
-/* ───── 书库 ───── */
-
 const WALL = { tile: 168, gap: 20, tilt: -12, top: 900 }
 
 function drawLibrary(ctx: Ctx, m: LibraryPoster, imgs: Images) {
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, POSTER_W, POSTER_H)
 
-  // 封面墙：整面墙绕上半部分的中心转一个角度；没有透视，上下两行压暗一点拉开层次
+  // 没有透视，上下两行压暗一点拉开层次。
   const th = (WALL.tile * 3) / 2
   const rowH = th + WALL.gap
   const height = m.rows.length * rowH - WALL.gap
@@ -228,7 +224,6 @@ function drawLibrary(ctx: Ctx, m: LibraryPoster, imgs: Images) {
   text(ctx, tl('gallery.slogan1'), L, 746, INK)
   text(ctx, tl('gallery.slogan2'), L, 862, INK)
 
-  // 左边：已读话数
   setFont(ctx, 500, 24, CJK)
   text(ctx, tl('gallery.poster.libRead'), L, 980, ink(0.68))
   setFont(ctx, 700, 148, SANS, -4.4)
@@ -238,7 +233,7 @@ function drawLibrary(ctx: Ctx, m: LibraryPoster, imgs: Images) {
   setFont(ctx, 500, 40, CJK)
   text(ctx, tl('gallery.unit.chapter', { count: m.read }), L + rw + 14, 1126, INK)
 
-  // 右边：数字一列右对齐，单位一列左对齐（画布没有等宽数字，靠对齐方式排整齐）
+  // 画布没有等宽数字，数字右对齐、单位左对齐来排整齐。
   setFont(ctx, 500, 24, CJK)
   const rows: [number, string][] = [
     [m.works, tl('gallery.unit.title', { count: m.works })],
@@ -258,8 +253,6 @@ function drawLibrary(ctx: Ctx, m: LibraryPoster, imgs: Images) {
   setFont(ctx, 400, 18, CJK)
   text(ctx, tl('gallery.poster.pageNote'), R, 1246, ink(0.5), 'right')
 }
-
-/* ───── 阅读档案 ───── */
 
 /** 表盘按档案页 StatsDial 的比例放大：刻度内径 112 → 140 */
 const K = 1.25
@@ -340,7 +333,7 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     text(ctx, tl('gallery.stats.longestRun', { count: run.len, n: run.len }), p.x, Math.min(p.y, 784), '#ffffff', 'center', 'middle')
   }
 
-  // 24 小时刻度：读得最多的那格点亮
+  // 读得最多的那格点亮。
   const max = Math.max(1, ...s.hours)
   s.hours.forEach((n, h) => {
     const hot = h === s.peak
@@ -352,7 +345,6 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     spoke(ctx, cx, cy, h * 15, 112 * K, (6 + (n / max) * 44) * K, 10, hot ? '#ffffff' : n ? white(0.26) : white(0.1))
     ctx.restore()
   })
-  // 生成海报的时刻
   const p = polar(cx, cy, (d.getHours() + d.getMinutes() / 60) * 15, 167 * K)
   ctx.save()
   ctx.shadowColor = '#ffffff'
@@ -368,7 +360,7 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     text(ctx, String(h), q.x, q.y, ink(0.45), 'center', 'middle')
   }
 
-  // 中间的大数字不能压到内圈的刻度（内径 140）：六位数时缩小
+  // 大数字不能压到内圈刻度，六位数时缩小。
   let big = 84
   setFont(ctx, 700, big, SANS, -2.5)
   while (big > 48 && ctx.measureText(count(s.read)).width > 250) setFont(ctx, 700, (big -= 4), SANS, -big * 0.03)
@@ -380,7 +372,6 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     text(ctx, tl('gallery.stats.peakAt', { h: s.peak }), cx, 530, ink(0.5), 'center')
   }
 
-  // 四项数字，和档案页两侧的一样
   const { progress, rhythm } = kpiData(s, m.works, run)
   const colW = (R - L - 3 * 32) / 4
   ;[...progress, ...rhythm].forEach((k, i) => {
@@ -390,7 +381,7 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     const vw = ctx.measureText(k.text).width
     setFont(ctx, 500, 22, CJK)
     text(ctx, k.unit, x + vw + 4, 854, ink(0.7))
-    // 书库很大时说明会比一列宽，缩小字号放下
+    // 书库很大时说明会比一列宽，缩小字号放下。
     let size = 17
     setFont(ctx, 500, size, CJK)
     while (size > 12 && ctx.measureText(k.caption).width > colW) setFont(ctx, 500, --size, CJK)
@@ -398,7 +389,6 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
     strip(ctx, k.bars, x, 935, colW, 26)
   })
 
-  // 读得最多的三部
   const colT = (R - L - 2 * 28) / 3
   m.top.forEach((t, i) => {
     const x = L + i * (colT + 28)
@@ -432,8 +422,6 @@ function drawStats(ctx: Ctx, m: StatsPoster, imgs: Images, colors: readonly Rgb[
   text(ctx, tl('gallery.poster.footNote'), R, 1266, ink(0.5), 'right')
 }
 
-/* ───── 单部 ───── */
-
 function drawWork(ctx: Ctx, m: WorkPoster, imgs: Images, colors: readonly Rgb[]) {
   ctx.fillStyle = BG
   ctx.fillRect(0, 0, POSTER_W, POSTER_H)
@@ -462,7 +450,7 @@ function drawWork(ctx: Ctx, m: WorkPoster, imgs: Images, colors: readonly Rgb[])
   ctx.restore()
   cover(ctx, imgs, m.cover, x, 170, cw, ch, 18)
 
-  // 书名：一行放不下时最多两行，还放不下就缩小字号
+  // 最多两行，还放不下就缩小字号。
   const measure = (q: string) => ctx.measureText(q).width
   const fit = (px: number) => {
     setFont(ctx, 900, px, CJK, -px * 0.01)
@@ -482,7 +470,6 @@ function drawWork(ctx: Ctx, m: WorkPoster, imgs: Images, colors: readonly Rgb[])
     text(ctx, fitLines(m.author, 860, 1, measure)[0], POSTER_W / 2, top + (lines.length - 1) * size * 1.2 + 52, ink(0.72), 'center')
   }
 
-  // 进度：已读 / 共几话，下面一条细进度条
   const y = 1150
   const L = 180
   const R = POSTER_W - 180
@@ -521,8 +508,6 @@ function drawWork(ctx: Ctx, m: WorkPoster, imgs: Images, colors: readonly Rgb[])
 
   brand(ctx, POSTER_W / 2, POSTER_H - 72 - 52, true)
 }
-
-/* ───── 出图 ───── */
 
 function coversOf(m: PosterModel): PosterCover[] {
   if (m.kind === 'library') return m.rows.flat()

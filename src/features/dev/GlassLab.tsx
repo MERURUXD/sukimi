@@ -20,7 +20,6 @@ export function GlassLab() {
   const [bg, setBg] = useState<Bg>('page')
   const client = useApolloClient()
 
-  // 背景素材：书库里再漫画的封面，以及第一部的第一话
   const lib = useQuery(LibraryMangas)
   const safe = useMemo(() => (lib.data?.mangas.nodes ?? []).filter((m) => m.source?.displayName.includes('再漫画')), [lib.data])
   const firstId = safe[0]?.id
@@ -71,7 +70,6 @@ export function GlassLab() {
         )}
       </div>
 
-      {/* 玻璃样本 */}
       <div className="pointer-events-none fixed top-[calc(var(--nav-h)+16px)] bottom-4 left-0 z-20 flex w-[calc(100%-300px)] flex-col items-center justify-center gap-6 px-4">
         <div className="pointer-events-auto flex items-center gap-2.5">
           {[Heart, Download, RefreshCw, Settings2].map((Icon, i) => (
@@ -112,7 +110,6 @@ export function GlassLab() {
         </Glass>
       </div>
 
-      {/* 控制面板（实底，避免和样本混淆） */}
       <aside className="fixed top-[calc(var(--nav-h)+16px)] right-3 bottom-3 z-30 flex w-[280px] flex-col gap-3.5 overflow-y-auto rounded-[22px] border border-line bg-surface p-4 shadow-[0_20px_60px_rgba(0,0,0,.4)]">
         <h2 className="m-0 text-lg font-bold">液态玻璃调参</h2>
         <div className="flex flex-col gap-2">

@@ -26,18 +26,13 @@ const HEADING: Record<PosterKind, string> = { library: tl('gallery.poster.headin
 const toCover = (m: LibraryManga): PosterCover => ({ url: m.thumbnailUrl ?? null, title: m.title })
 
 /**
- * 分享海报：在本机画出 1080 × 1350 的 PNG，支持系统分享时可以直接分享，否则保存图片。
- * 桌面是居中的对话框，手机是底部弹出的面板。固定深色，和画廊各页一致。
- *
- * NSFW 作品一律不上海报：按作品本身的标记判断，不看「隐藏」开关，也不受 Shift + H 临时显示影响——图片会离开应用。
- * 只汇总数字（部数、话数、页数）仍按完整书库算，和画廊首页、阅读档案一致。
- *
- * 渲染到 body 下：档案页在自己的根节点上监听滚轮和拖动翻屏，面板里的操作不能传过去。
+ * 在本机画出 1080 × 1350 的 PNG。NSFW 作品一律不上海报，按作品标记判断，不受临时显示影响；
+ * 汇总数字仍按完整书库算。渲染到 body 下，避免档案页的滚轮和拖动翻屏监听截走面板操作。
  */
 export function PosterShare({ open, initial, work, reading, onClose }: {
   open: boolean
   initial: PosterKind
-  /** 放映里当前那一部；打开时由放映固定下来，放映继续切换也不影响 */
+  /** 打开时由放映固定下来，后续切换不影响海报。 */
   work?: LibraryManga | null
   reading?: PosterReading
   onClose: () => void
@@ -246,7 +241,6 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
   if (mobile) {
     return (
       <BottomSheet id="poster-share" label={heading} closeLabel={tl('gallery.poster.closeLabel')} onClose={onClose}>
-        {/* 底部面板最高 520px：预览缩小一点，保存后的提示顶替说明那一行，按钮不用滚动就能看到 */}
         <div className="flex flex-col items-center gap-3 px-2 pt-2 pb-3">
           <div className="w-[min(216px,54vw)]">{preview}</div>
           {picker}

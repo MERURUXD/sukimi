@@ -11,12 +11,11 @@ import { t } from '@/i18n'
 
 type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 
-/** 写入成功后直接改该账号缓存里的列表；缓存里还没有列表时不管，等查询去取 */
+/** 缓存里还没有列表时不动，等查询去取。 */
 function patch(cache: ApolloCache, userId: number, fn: (nodes: readonly Node[]) => Node[]) {
   cache.updateQuery({ query: LaterMetas, variables: { prefix: laterPrefix(userId) } }, (d) => d && { metas: { ...d.metas, nodes: fn(d.metas.nodes) } })
 }
 
-/** 写入前取当前账号；未登录时不写 */
 function currentUserId() {
   const id = useAuth.getState().user?.id
   if (id === undefined) throw new Error(t('misc.later.notLoggedIn'))
@@ -123,7 +122,6 @@ export function useLaterList({ skip = false } = {}) {
   }
 }
 
-/** 切换「稍后再看」并提示结果；图标按钮和手机「更多」菜单里的条目共用 */
 export function useLaterToggle(mangaId: number) {
   const { map } = useLater()
   const { add, remove } = useLaterActions()

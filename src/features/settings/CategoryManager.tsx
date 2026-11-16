@@ -72,7 +72,7 @@ const MoveCategory = graphql(`
   }
 `)
 
-/** 分类管理：新建、改名、排序、是否参与「检查更新」、删除（漫画会回到默认分类） */
+/** 删除分类后，其中的漫画回到默认分类。 */
 export function CategoryManager() {
   const { data } = useQuery(CategoriesFull)
   const refetch = { refetchQueries: [CategoriesFull, Categories, 'LibraryMangas'] }

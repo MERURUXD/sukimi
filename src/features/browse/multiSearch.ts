@@ -9,19 +9,17 @@ export function fetchSourceMangas(client: Pick<ApolloClient, 'mutate'>, variable
   return client.mutate({ mutation: FetchSourceMangaDocument, variables, fetchPolicy: 'no-cache' })
 }
 
-/** 当前正在浏览的源由源列表自己请求，全局搜索不再打同一页。 */
+/** 当前源由源列表请求，避免全局搜索重复请求。 */
 export function globalSearchSources<T extends { id: string }>(sources: readonly T[], currentId: string | undefined) {
   return currentId ? sources.filter((source) => source.id !== currentId) : [...sources]
 }
 
 export type SearchResults = Record<string, { status: 'loading' | 'done' | 'error'; items: SourceManga[] }>
 
-/** 全局搜索只搜在线漫画源（排除 id 为 '0' 的本地源） */
 export function onlineSources<T extends { id: string }>(sources: readonly T[]): T[] {
   return sources.filter((s) => s.id !== '0')
 }
 
-/** 发现页漫画源排序：普通在线源在前，标为 NSFW 的源排在后面，本地源（id='0'）放最后；同类内按名称排 */
 export function sortSources<T extends { id: string; displayName: string }>(sources: readonly T[], nsfwSources: readonly string[] = []): T[] {
   const nsfw = new Set(nsfwSources)
   return [...sources].sort(
@@ -52,7 +50,6 @@ export function groupSources<T extends { id: string; lang: string }>(
   return [...m.values()]
 }
 
-/** 统计多源搜索进度：区分已完成（成功或失败）、成功与失败数量 */
 export function summarizeMultiSearch(sources: readonly { id: string }[], results: SearchResults) {
   let done = 0
   let succeeded = 0

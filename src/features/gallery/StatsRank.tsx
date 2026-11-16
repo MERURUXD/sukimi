@@ -25,29 +25,24 @@ export interface Ranked {
 /** 排行里给 NSFW 作品用的替身：数字照常，能认出是哪部的字段都去掉 */
 export const maskRanked = (m: LibraryManga): LibraryManga => ({ ...m, title: tl('gallery.stats.nsfwWork'), thumbnailUrl: null, author: null, artist: null, genre: [] })
 
-/** 排行一组几部：前三名放大摆成领奖台，后五部排成一行 */
 export const GROUP = 8
 
-/** 前三名封面的倾角：只有第一名明显歪一点，真实封面杂，都歪着会乱 */
+/** 只有第一名明显歪一点；真实封面杂，都歪着会乱。 */
 const TILT = [-4, 1.5, -1]
 
 export interface RankLayout {
   phone: boolean
-  /** 舞台左边和宽度（排版坐标） */
   left: number
   width: number
   top: number
   bottom: number
-  /** 大标题字号 */
   headFs: number
-  /** 第一名、二三名、后五部的封面宽 */
   cw1: number
   cw2: number
   shelfW: number
   u: number
 }
 
-/** 两屏共用的大标题：上面一行小字，下面一句双色大字 */
 export function BigHead({ eyebrow, fs, phone, children, ref }: { eyebrow: string; fs: number; phone: boolean; children: ReactNode; ref?: (el: HTMLDivElement | null) => void }) {
   return (
     <div ref={ref} className="min-w-0">
@@ -79,16 +74,14 @@ const label = (it: Ranked) => tl('gallery.stats.rankLabel', { rank: it.rank, tit
 const no = (n: number) => String(n).padStart(2, '0')
 
 /**
- * 第二屏：已读排行。一组八部，前三名像领奖台一样放大，大名次垫在封面旁边，后五部排成一行。
- * 切屏的进出场每帧直接写样式（不经过 React）：进来时标题先到，前三名从低处错落升起、转到各自的角度，
- * 书架随后；去第三屏时整组往上飘走。换组时新的一组依次浮上来
+ * 切屏进出场每帧直接写样式，不经过 React；换组时新的一组依次浮上来。
  */
 export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[]; group: number; pager: Pager; L: RankLayout; moved: () => boolean }) {
   const head = useRef<HTMLDivElement | null>(null)
   const pods = useRef<(HTMLElement | null)[]>([])
   const shelf = useRef<(HTMLElement | null)[]>([])
   const foot = useRef<(HTMLElement | null)[]>([])
-  // 第一次显示的那组不播换组动画（进场由切屏负责）；换过一次以后每组都播
+  // 第一次显示的那组不播换组动画；换过一次以后每组都播。
   const [prev, setPrev] = useState(group)
   const [swapped, setSwapped] = useState(false)
   if (group !== prev) {
@@ -129,9 +122,9 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
         const o = ease(seg(b, j * 0.025, 0.38 + j * 0.025))
         style(el, t * (1 - o), `translateY(${((1 - t) * 50 - o * 60).toFixed(1)}px)`)
       })
-      // 玻璃按钮的透明度写在它自己身上，不放祖先，免得背景采样跟着变
+      // 玻璃按钮的透明度写在自身，避免祖先透明度影响背景采样。
       const f = seg(a, 0.8, 1) * (1 - seg(b, 0, 0.25))
-      // 翻到头的箭头变暗也乘在这里：每帧写的透明度会盖过 disabled 的样式
+      // 每帧写的透明度会盖过 disabled 样式，箭头变暗也乘在这里。
       foot.current.forEach((el) => el && (el.style.opacity = (f * ((el as HTMLButtonElement).disabled ? 0.35 : 1)).toFixed(3)))
     }
     paint()
@@ -139,7 +132,6 @@ export function RankScreen({ ranked, group, pager, L, moved }: { ranked: Ranked[
   }, [pager, group, ranked])
 
   const guard = (e: MouseEvent) => {
-    // 刚拖动过不算点击
     if (moved()) e.preventDefault()
   }
   const lift = (i: number): CSSProperties | undefined => (swapped ? ({ '--d': `${i * 60}ms` } as CSSProperties) : undefined)

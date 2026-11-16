@@ -10,7 +10,6 @@ const STAR = {
   lg: { slot: 'size-11', icon: 'size-[30px]', gap: 'gap-3', num: 'text-[22px]' },
 } as const
 
-/** 星级评分：十分制每颗星两分、可点半颗；悬停预览，定分时点亮的星从左到右轻弹 */
 export function Stars({ max, value, word, onChange, size }: { max: 5 | 10; value: number; word: (v: number) => string; onChange: (v: number) => void; size: StarSize }) {
   const [hover, setHover] = useState<number | null>(null)
   // 每次定分换一次 key，点亮的星星重新挂载、从左到右轻弹一下

@@ -26,7 +26,6 @@ export function moveGroup(queue: readonly QueueItem[], ids: readonly number[], w
   return ids.map((chapterId, i) => ({ chapterId, to: where === 'top' ? i : last }))
 }
 
-/** 拖动结束后，被拖的那一项在新顺序里的位置；没变就返回 null */
 export function dropTarget(before: readonly number[], after: readonly number[], moved: number) {
   const from = before.indexOf(moved)
   const to = after.indexOf(moved)

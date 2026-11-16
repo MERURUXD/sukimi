@@ -1,4 +1,3 @@
-/** 首页：继续阅读、这一周、各个书架 */
 export default {
   section: {
     week: '这一周',

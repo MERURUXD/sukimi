@@ -23,7 +23,6 @@ export function mangaPrediction(manga: Pick<Manga, 'status' | 'updateStrategy'>,
   return p.kind === 'next' && !isStalled(p) ? p : null
 }
 
-/** 元信息那一行末尾的「预计周三 10/21 更新」，点开看最近几话的更新节奏 */
 export function NextUpdate({ p, className, style }: { p: NextPrediction; className?: string; style?: CSSProperties }) {
   const [open, setOpen] = useState(false)
   const [mobile, setMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)

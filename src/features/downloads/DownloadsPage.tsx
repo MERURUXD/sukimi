@@ -26,7 +26,6 @@ const stateText = (d: DownloadItem) => {
   return t('downloads.stateQueued')
 }
 
-/** 下载队列：实时状态来自全局订阅（api/live.ts），这里只负责展示和操作 */
 export function DownloadsPage() {
   const queue = useLive((s) => s.queue)
   const running = useLive((s) => s.downloader) === 'STARTED'
@@ -202,8 +201,6 @@ export function DownloadsPage() {
   )
 }
 
-/* ───────── 按顺序：拖动排序 ───────── */
-
 function OrderList({ queue, onReorder, onRemove }: { queue: DownloadItem[]; onReorder: (id: number, to: number) => Promise<void>; onRemove: (id: number) => void }) {
   const ids = useMemo(() => queue.map((d) => d.chapter.id), [queue])
   // 拖动中的本地顺序，记下开始拖时的队列顺序；服务端顺序变了（排序结果回来了）就作废。
@@ -258,7 +255,6 @@ function OrderRow({ d, onDrop, onNudge, onRemove }: { d: DownloadItem; onDrop: (
         onDrop()
       }}
       whileDrag={{ scale: 1.015 }}
-      // 拖动时盖住下面的行，才需要实色底
       className={cn('relative -mx-2 flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-hover', dragging && 'z-10 bg-bg shadow-[0_16px_40px_rgba(0,0,0,.35)]')}
     >
       <button
@@ -278,7 +274,6 @@ function OrderRow({ d, onDrop, onNudge, onRemove }: { d: DownloadItem; onDrop: (
   )
 }
 
-/** 封面、标题、话数、状态与进度 */
 function Item({ d, compact }: { d: DownloadItem; compact?: boolean }) {
   return (
     <Link to={`/manga/${d.manga.id}`} className="flex min-w-0 flex-1 items-center gap-3 text-text no-underline">
@@ -302,8 +297,6 @@ function Item({ d, compact }: { d: DownloadItem; compact?: boolean }) {
     </Link>
   )
 }
-
-/* ───────── 按漫画：整组移动 / 移出 ───────── */
 
 function MangaGroup({ items, isFirst, isLast, onMove, onRemove }: {
   items: DownloadItem[]

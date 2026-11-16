@@ -28,10 +28,7 @@ function menuItems(panel: HTMLElement) {
   return [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]')]
 }
 
-/**
- * 出现在点击位置的玻璃菜单，贴近边缘时往里收。点外部、按 Esc、滚动或改窗口大小时关闭。
- * 挂到 body 上，避开网格格子的裁切和层叠。
- */
+/** 挂到 body 上，避开网格格子的裁切和层叠；贴近边缘时向内收。 */
 export function ContextMenu({ at, onClose, label, children, className }: {
   at: { x: number; y: number } | null
   onClose: () => void

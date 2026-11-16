@@ -7,10 +7,7 @@ import { cleanTag, removeTag, renameTag, tagUsage, type TagEdit } from './tags'
 import { useTagActions, useTags } from './useTags'
 import { t } from '@/i18n'
 
-/**
- * 设置里的标签管理：列出自己加过的标签和各用在几部上，可以统一改名（改成已有的就合并）或从所有作品删除。
- * 来源标签按作品隐藏，不在这里管；新加标签在详情页
- */
+/** 来源标签按作品隐藏，不在这里管；新加标签在详情页。 */
 export function TagManager() {
   const { edits, ready, error } = useTags()
   const { saveAll } = useTagActions()

@@ -21,7 +21,6 @@ const GLASSES: { value: GlassMode; label: string }[] = [
   { value: 'solid', label: t('common.glass.solid') },
 ]
 
-/** 外观快捷设置；完整设置在 /settings。面板从设置按钮长出来（Popover） */
 export function AppearanceMenu() {
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])

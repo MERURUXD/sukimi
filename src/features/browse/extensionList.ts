@@ -49,14 +49,12 @@ export function defaultLangs(list: readonly Extension[], languages: readonly str
   return [...wanted].filter((l) => present.has(l))
 }
 
-/** 「未安装」里各语言的扩展数量，多的在前 */
 export function langCounts(list: readonly Extension[]): [string, number][] {
   const m = new Map<string, number>()
   for (const e of list) if (!e.isInstalled) m.set(key(e.lang), (m.get(key(e.lang)) ?? 0) + 1)
   return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
 }
 
-/** 按当前分栏、语言、关键词筛出扩展，再按语言分组；组内按名称排序 */
 export function visibleExtensions(list: readonly Extension[], view: ExtensionView): { lang: string; items: Extension[] }[] {
   const q = view.query.trim().toLowerCase()
   const langs = new Set(view.langs.map(key))
@@ -72,7 +70,6 @@ export function visibleExtensions(list: readonly Extension[], view: ExtensionVie
     if (g) g.push(e)
     else groups.set(key(e.lang), [e])
   }
-  // 选中的语言按选择顺序排在前面，其余按数量
   const order = [...langs]
   return [...groups.entries()]
     .map(([lang, items]) => ({ lang, items: items.sort((a, b) => a.name.localeCompare(b.name)) }))

@@ -6,7 +6,6 @@ import { t } from '../../i18n/core.ts'
  */
 const EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'image/svg+xml': 'svg' }
 
-/** 文件名里去掉系统不允许的字符 */
 const safe = (name: string) => name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim()
 
 export async function savePages(items: { url: string; name: string }[]) {

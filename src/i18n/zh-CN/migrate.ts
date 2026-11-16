@@ -1,4 +1,3 @@
-/** 换源迁移：迁移弹窗与迁移页 */
 export default {
   step: {
     migrate: '迁移',

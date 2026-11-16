@@ -6,7 +6,7 @@ export function updatesTabLabel(downloading: number) {
   return downloading > 0 ? t('app.nav.updatesWithQueue', { count: downloading }) : undefined
 }
 
-/** 手机底部标签栏和平板左侧导航栏共用的主导航项；设置不在其中，入口是右上角的「全部设置」 */
+/** 设置不在主导航，入口是右上角的「全部设置」。 */
 export const TABS = [
   { to: '/', label: t('app.nav.home'), icon: House, end: true },
   { to: '/library', label: t('app.nav.library'), icon: LibraryBig },
@@ -33,7 +33,6 @@ export function markNavDirection(from: string, to: string) {
   clearTimer = setTimeout(() => delete document.documentElement.dataset.navDir, 1500)
 }
 
-/** 取走并清除方向；没有则返回 null */
 export function takeNavDirection() {
   const dir = document.documentElement.dataset.navDir
   if (!dir) return null

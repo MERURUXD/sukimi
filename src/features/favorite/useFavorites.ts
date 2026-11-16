@@ -11,7 +11,7 @@ type Node = { __typename?: 'GlobalMetaType'; key: string; value: string }
 
 const EMPTY = new Map<number, number>()
 
-/** 写入成功后直接改该账号缓存里的列表；缓存里还没有列表时不管，等查询去取 */
+/** 缓存里还没有列表时不动，等查询去取。 */
 function patch(cache: ApolloCache, userId: number, fn: (nodes: readonly Node[]) => Node[]) {
   cache.updateQuery({ query: FavoriteMetas, variables: { prefix: favoritePrefix(userId) } }, (d) => d && { metas: { ...d.metas, nodes: fn(d.metas.nodes) } })
 }
@@ -34,7 +34,6 @@ export function useFavorites({ skip = false } = {}) {
 
 export function useFavoriteActions() {
   const client = useApolloClient()
-  /** 一次标记或取消多部；批量操作和单部开关共用 */
   const setFavorite = useCallback(async (mangaIds: readonly number[], on: boolean) => {
     if (!mangaIds.length) return
     const still = captureUser()

@@ -66,7 +66,7 @@ const QUALITY = [
 
 type Conv = Settings['downloadConversions'][number]
 
-/** 「源格式 → 目标格式（质量）」的列表；每次改动整体保存 */
+/** 转换列表每次改动整体保存。 */
 function Conversions({ k, label, hint }: { k: 'downloadConversions' | 'serveConversions'; label: string; hint?: string }) {
   const list = useServerSettings().data?.settings[k]
   const save = useSaveSettings()

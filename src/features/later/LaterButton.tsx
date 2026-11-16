@@ -7,7 +7,7 @@ import { caughtUp } from './later'
 import { useLaterActions, useLaterToggle } from './useLater'
 import { t } from '@/i18n'
 
-/** 详情页的「稍后再看」开关；在这里读完已有章节回到详情页时也顺手移出 */
+/** 在这里读完已有章节回到详情页时自动移出。 */
 export function LaterButton({ manga, hasChapters, style, className }: {
   manga: { id: number; unreadCount: number; lastReadChapter?: { lastReadAt: string } | null }
   /** 章节还没取到时为 undefined，先不判断是否读完 */

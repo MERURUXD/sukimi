@@ -9,7 +9,7 @@ import { shelfIds, withoutShelf } from '@/features/shelf/shelf'
 import { useNsfwActions, useNsfwStore } from './useNsfw'
 import { t } from '@/i18n'
 
-/** 设置 → 外观里的「隐私」：开关只存在这台设备，单部、分类和来源的标记存在服务端 */
+/** 开关只存在这台设备，单部、分类和来源的标记存在服务端。 */
 export function NsfwSettings() {
   const { hide, blur, revealed, set } = useNsfwStore()
   return (

@@ -83,7 +83,6 @@ export function applyView(
     shelf: ReadonlySet<number>
     /** 给了就把这些排到最前（「特别关心置顶」） */
     pinned?: ReadonlyMap<number, number>
-    /** 自建标签：漫画 id → 编辑 */
     tags?: ReadonlyMap<number, TagEdit>
     /** 按标签筛选；空表不限 */
     tagPicks?: TagPicks
@@ -109,7 +108,6 @@ export function applyView(
   return opts.pinned ? favoritesFirst(sorted, opts.pinned) : sorted
 }
 
-/** 书库里出现过的来源，按漫画数从多到少 */
 export function librarySources(list: readonly LibraryManga[]) {
   const map = new Map<string, { id: string; name: string; count: number }>()
   for (const m of list) {

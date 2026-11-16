@@ -68,5 +68,4 @@ export function vfit(text: string, height: number, { max = 120, min = 40, maxCol
   return { columns: [chars.join('')], size: min, cut: false }
 }
 
-/** 横排书名（以西文为主时）：最多 maxLines 行，返回字号 */
 export const hfit = (text: string, width: number, { max = 120, min = 36, maxLines = 3 } = {}) => fit(text, width, max, min, maxLines)

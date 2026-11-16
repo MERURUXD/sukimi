@@ -25,7 +25,6 @@ function valueOf(p: Preference): Value | null | undefined {
   }
 }
 
-/** 一次修改对应服务端的哪个字段 */
 function changeOf(p: Preference, position: number, v: Value): SourcePreferenceChangeInput {
   switch (p.__typename) {
     case 'CheckBoxPreference': return { position, checkBoxState: v as boolean }
@@ -36,7 +35,6 @@ function changeOf(p: Preference, position: number, v: Value): SourcePreferenceCh
   }
 }
 
-/** 扩展设置：按来源显示扩展自己提供的偏好（站点域名、图片质量、登录信息等） */
 export function SourcePreferencesDialog({ title, sources, onClose }: { title: string; sources: PreferenceSource[]; onClose: () => void }) {
   const [sourceId, setSourceId] = useState(sources[0].id)
   // 来源偏好存在服务端、按来源保存，所有账号共用一份

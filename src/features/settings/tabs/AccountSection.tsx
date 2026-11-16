@@ -79,7 +79,6 @@ function ChangePassword() {
   )
 }
 
-/** 「关于」里的账户区：当前用户、改密码、退出 */
 export function AccountSection({ hideSignOut }: { hideSignOut?: boolean }) {
   const user = useAuth((s) => s.user)
   // 旧服务端没有用户账号，只有退出登录

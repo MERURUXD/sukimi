@@ -28,7 +28,6 @@ resetOnUserContext(() => {
   useAsk.setState({ ask: null })
 })
 
-/** 弹出确认框，用户确认返回 true。危险操作用 danger 把确认按钮标红 */
 export function confirm(opts: Omit<Ask, 'resolve' | 'id'>) {
   return new Promise<boolean>((resolve) => {
     useAsk.getState().ask?.resolve(false)

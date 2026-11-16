@@ -47,13 +47,11 @@ import { homeBlockState } from './queryState'
 import { useWeekUpdates } from './useWeekUpdates'
 import { t } from '@/i18n'
 
-/** 按漫画去重：每部漫画只保留最近读的那一话 */
 function byManga(chapters: readonly ReadChapter[]) {
   const seen = new Set<number>()
   return chapters.filter((c) => !seen.has(c.manga.id) && seen.add(c.manga.id))
 }
 
-/** 继续阅读的目标：没读完就是这一话，读完了就是第一话未读 */
 function resume(c: ReadChapter) {
   const target = readingTarget(c)
   return target ? { ...target, id: target.chapter.id, label: chapterLabel(target.chapter) } : null
@@ -68,7 +66,6 @@ type LibManga = LibraryMangasQuery['mangas']['nodes'][number]
 const HERO_POOL = 20
 const HERO_COUNT = 4
 const STAGE_COUNT = 5
-/** RecentReads 一次取的话数（见 queries.ts） */
 const READS_LIMIT = 150
 const SHELF_COUNT = 12
 
@@ -150,7 +147,6 @@ export function HomePage() {
   const shelves = useMemo(() => {
     if (!library) return null
     const now = Date.now() / 1000
-    // 大图区正在展示的不再重复出现
     const shown = new Set(hero.items.map((c) => c.manga.id))
     return {
       stale: library.filter((m) => isStale(m, now, userId) && !shown.has(m.id)),
@@ -233,7 +229,6 @@ function Slot({ id, children }: { id: HomeSection; children: ReactNode }) {
   return <motion.div layout={layout} layoutDependency={rev} transition={spring.fast}>{children}</motion.div>
 }
 
-/* ───────── 继续阅读大图区 ───────── */
 /** 大图区当前漫画；放在模块里跨页面保留，整页刷新后自然回到第一部 */
 let lastHeroManga: number | null = null
 resetOnUserContext(() => {
@@ -354,7 +349,6 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
   )
   const meta = [m.author, m.genre.slice(0, 2).join(' · '), m.source?.displayName].filter(Boolean).join(' · ')
 
-  // 桌面默认布局：扇形封面组（「舞台」），取代原来的封面与文字并排 + 四张切换卡
   if (stage) {
     return (
       <Stage
@@ -510,7 +504,6 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                       <Download className="size-5" strokeWidth={1.8} />
                     </Glass>
                   </Can>
-                  {/* 手机的换一批在切换圆点旁边 */}
                   {onShuffle && (
                     <Glass suspendRefract={lensOff} as="button" type="button" className="gicon rounded-full max-md:hidden" onClick={shuffle} aria-label={t('home.shuffleContinue')} title={t('home.shuffle')}>
                       <Shuffle className="size-5" strokeWidth={1.8} />
@@ -590,7 +583,6 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
   )
 }
 
-/* ───────── 横向书架 ───────── */
 function Shelf({ id, title, note, actions, children }: { id: string; title: string; note: string; actions?: ReactNode; children: ReactNode }) {
   const shelf = useRef<HTMLDivElement>(null)
   const scroll = (d: number) => shelf.current?.scrollBy({ left: d * shelf.current.clientWidth * 0.8, behavior: 'smooth' })
@@ -638,7 +630,6 @@ function Shelf({ id, title, note, actions, children }: { id: string; title: stri
 
 type ShelfManga = { id: number; title: string; thumbnailUrl?: string | null; source?: { displayName: string } | null }
 
-/** 书架上的一部漫画：封面、标题和一行说明，badge 显示在封面右上角 */
 function ShelfItem({ manga, sub, badge }: { manga: ShelfManga; sub: string; badge?: string }) {
   const prefetch = usePrefetchManga(manga.id)
   return (
@@ -666,7 +657,6 @@ function ShelfItem({ manga, sub, badge }: { manga: ShelfManga; sub: string; badg
   )
 }
 
-/* ───────── 好久没看 / 还没开始读 ───────── */
 function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: string; note: (n: number) => string; mangas: LibManga[] | undefined; sub: (m: LibManga) => string }) {
   const [seed, batch, next] = useBatch(id)
   const shown = useMemo(() => (mangas ? pickBatch(mangas, SHELF_COUNT, seed, batch, (m) => m.id) : []), [mangas, seed, batch])
@@ -692,8 +682,6 @@ function MangaShelf({ id, title, note, mangas, sub }: { id: string; title: strin
   )
 }
 
-/* ───────── 特别关心书架 ───────── */
-/** 只放有新章节没读的，最近抓到新章节的在前；都读完了整个模块不显示。「全部」去书库的「特别关心」标签 */
 function FavoriteShelf({ library }: { library: LibManga[] | undefined }) {
   const favorites = useFavorites()
   const items = useMemo(() => (library && favorites.map ? favoritesWithNew(library, favorites.map) : undefined), [library, favorites.map])
@@ -720,8 +708,6 @@ function FavoriteShelf({ library }: { library: LibManga[] | undefined }) {
   )
 }
 
-/* ───────── 稍后再看书架 ───────── */
-/** 最近加入的在前；「全部」去书库的「稍后再看」标签 */
 function LaterShelf() {
   const { hidden } = useNsfw()
   const all = useLaterList().items
@@ -748,7 +734,6 @@ function LaterShelf() {
   )
 }
 
-/* ───────── 最近更新书架 ───────── */
 function UpdatesShelf({ chapters }: { chapters: UpdateChapter[] | undefined }) {
   // 按漫画聚合：新章节数 = 这批里未读的话数
   const groups = useMemo(() => {
@@ -782,7 +767,6 @@ function UpdatesShelf({ chapters }: { chapters: UpdateChapter[] | undefined }) {
   )
 }
 
-/* ───────── 最近阅读 ───────── */
 function RecentList({ items }: { items: ReadChapter[] }) {
   if (!items.length) return null
   return (

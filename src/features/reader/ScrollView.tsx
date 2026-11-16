@@ -74,7 +74,6 @@ export function ScrollView({
   const startSlot = Math.max(0, entries.findIndex((e) => e.i === startPage))
   const [range, setRange] = useState(() => aroundSlot(startSlot, entries.length, settings.preload + 1))
 
-  // 打开时跳到续读的页
   useLayoutEffect(() => {
     jumpTarget.current = startPage
     scrollerRef.current?.querySelector(`[data-i="${startPage}"]`)?.scrollIntoView({ block: 'start' })

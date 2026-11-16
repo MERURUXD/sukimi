@@ -86,7 +86,6 @@ export function contentBox(px: ArrayLike<number>, w: number, h: number): Box | n
 /** 拆分宽页时的一半；0 = 先读的那半（从右往左读时是右半） */
 export type Half = 0 | 1
 
-/** 在已裁好的范围里取左半或右半 */
 export function halfBox(box: Box, half: Half, rtl: boolean): Box {
   const mid = (box.left + box.right) / 2
   const leftSide = rtl ? half === 1 : half === 0
@@ -135,7 +134,6 @@ export function parsePageBookmarks(meta: readonly { key: string; value: string }
 
 export const formatPageBookmarks = (pages: readonly number[]) => [...new Set(pages)].sort((a, b) => a - b).join(',')
 
-/** 加上或去掉一页书签 */
 export function togglePageBookmark(pages: readonly number[], page: number) {
   return pages.includes(page) ? pages.filter((p) => p !== page) : [...pages, page].sort((a, b) => a - b)
 }

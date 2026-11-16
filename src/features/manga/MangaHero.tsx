@@ -53,12 +53,10 @@ export function MangaHero({
   placeholder = false,
   intro = false,
 }: {
-  /** 骨架只显示封面，文字等完整信息就绪后再进场。 */
   placeholder?: boolean
   intro?: boolean
   manga: Manga
   chapters: readonly Chapter[] | undefined
-  /** 预计下次更新；推算不出时为 null */
   prediction?: NextPrediction | null
   fetching: boolean
   onRefresh: () => void
@@ -129,7 +127,6 @@ export function MangaHero({
 
   return (
     <section className="manga-hero relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]">
-      {/* 背景由 MangaBackdrop 画在整个详情页底层，才能延伸到章节区再淡出 */}
       <div className="manga-hero-layout wrap pt-6 pb-9 sm:pt-8 sm:pb-11">
         <div
           className="manga-hero-cover cv rounded-[14px] shadow-[0_40px_80px_rgba(0,0,0,.45),0_0_0_1px_rgba(255,255,255,.08)]"
@@ -163,13 +160,11 @@ export function MangaHero({
               </span>
             )}
             {/* 进场动画放在各段文字上，不放在这一行：弹层在动画元素里面会挡不住后面的简介，玻璃也采样不到背景 */}
-            {/* 用 flex 居中对齐：按钮里有图标，按基线排会比前面的文字高一截 */}
             <div className="manga-hero-meta flex flex-wrap items-center gap-x-1 text-muted">
               <span style={delay(mangaIntro.meta)} className={cn(animate && 'rise')}>
                 {[STATUS[manga.status], manga.source?.displayName].filter(Boolean).join(' · ')}
                 {prediction && ' ·'}
               </span>
-              {/* 写进这一行，不另占位置：桌面中栏已经排满 */}
               {prediction && <NextUpdate p={prediction} style={delay(mangaIntro.meta)} className={cn(animate && 'rise')} />}
             </div>
           </div>
@@ -220,7 +215,6 @@ export function MangaHero({
             <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 30)} className={cn('gicon rounded-full', manga.inLibrary && 'bg-g-hi', animate && 'rise')} onClick={toggleLibrary} disabled={favBusy || checking} aria-pressed={manga.inLibrary} aria-label={manga.inLibrary ? t('library.bulk.removeLibrary') : t('manga.hero.addToLibrary')} title={manga.inLibrary ? t('home.inLibrary') : t('manga.hero.addToLibrary')}>
               <Heart className={cn('size-5', manga.inLibrary && 'fill-current')} strokeWidth={1.8} />
             </Glass>
-            {/* 手机上稍后再看和下载收进「更多」，图标太多会把主按钮挤成省略号 */}
             <LaterButton manga={manga} hasChapters={chapters && chapters.length > 0} style={delay(mangaIntro.actions + 45)} className={cn('manga-hero-wide-only', animate && 'rise')} />
             {manga.inLibrary && <FavoriteButton mangaId={manga.id} style={delay(mangaIntro.actions + 52)} className={cn(animate && 'rise')} />}
             <Can permission="DOWNLOAD_CHAPTERS">
@@ -245,8 +239,7 @@ export function MangaHero({
           <p style={delay(mangaIntro.recent)} className={cn('manga-hero-recent text-muted', placeholder || !chapters ? 'invisible' : animate && 'rise')} aria-label={t('manga.hero.record')}>{recent}</p>
           {!placeholder && <TagTarget value={tagTarget}><TrackSummary placement="inline" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} style={delay(mangaIntro.track)} className={cn('manga-hero-track', animate && 'rise')} /></TagTarget>}
         </div>
-        {/* 宽屏放到右侧空白处直接展开，不把头部撑高；不在书库时只有 Bangumi 站内评分 */}
-        {/* 右栏不整块进场，里面逐行接在作者行之后，和左栏同一节奏 */}
+        {/* 右栏逐行接在作者行之后，与左栏同一节奏。 */}
         {!placeholder && <TagTarget value={tagTarget}><TrackSummary placement="side" mangaId={manga.id} title={manga.title} inLibrary={manga.inLibrary} delay={animate ? mangaIntro.side : undefined} className="manga-hero-side" /></TagTarget>}
       </div>
     </section>
@@ -363,7 +356,6 @@ function MangaMore({ manga, fetching, onRefresh, onDownloadUnread, intro }: { ma
   </>
 }
 
-/** 手机「更多」里的稍后再看；与顶部图标按钮共用同一个开关 */
 function LaterItem({ mangaId }: { mangaId: number }) {
   const { on, ready, busy, toggle } = useLaterToggle(mangaId)
   return (

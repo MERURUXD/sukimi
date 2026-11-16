@@ -5,7 +5,6 @@ console.log('='.repeat(60))
 console.log(' Sukimi Adaptive Glass Tint - Performance Benchmark')
 console.log('='.repeat(60))
 
-// 1. Benchmark: sampleFromSwatches
 const dummySwatches = [
   { rgb: [0.15, 0.2, 0.35], weight: 0.4 },
   { rgb: [0.85, 0.75, 0.6], weight: 0.3 },
@@ -14,7 +13,6 @@ const dummySwatches = [
 ]
 
 const SAMPLE_ITERATIONS = 200_000
-// Warmup
 for (let i = 0; i < 10_000; i++) {
   sampleFromSwatches(dummySwatches)
 }
@@ -34,11 +32,9 @@ console.log(`    Total time:       ${sampleTotalMs.toFixed(2)} ms`)
 console.log(`    Avg per call:     ${samplePerCallUs.toFixed(3)} μs (${(samplePerCallUs / 1000).toFixed(6)} ms)`)
 console.log(`    Throughput:       ${sampleOpsPerSec.toLocaleString()} ops/sec`)
 
-// 2. Benchmark: computeAdaptiveTint (Dark & Light themes, with and without previous state)
 const sampleDark = sampleFromSwatches(dummySwatches)
 const TINT_ITERATIONS = 500_000
 
-// Warmup
 for (let i = 0; i < 20_000; i++) {
   computeAdaptiveTint(sampleDark, 'dark', 20)
   computeAdaptiveTint(sampleDark, 'light', 50, 45)
@@ -67,8 +63,6 @@ console.log(`    Total time:       ${tintTotalMs.toFixed(2)} ms`)
 console.log(`    Avg per call:     ${tintPerCallUs.toFixed(3)} μs (${(tintPerCallUs / 1000).toFixed(6)} ms)`)
 console.log(`    Throughput:       ${tintOpsPerSec.toLocaleString()} ops/sec`)
 
-// 3. Simulation of continuous Cover Switching (100,000 cover transitions)
-// Generate varying covers across color & brightness spectrum
 const covers = Array.from({ length: 50 }, (_, i) => {
   const phase = (i / 50) * Math.PI * 2
   return [
@@ -105,7 +99,6 @@ console.log(`    Per-transition overhead: ${(simTotalMs / SWITCH_COUNT * 1000).t
 console.log(`    Stable states retained:  ${skippedByThreshold.toLocaleString()} (${((skippedByThreshold / SWITCH_COUNT) * 100).toFixed(1)}%)`)
 console.log(`    Active updates triggered:${changedCount.toLocaleString()} (${((changedCount / SWITCH_COUNT) * 100).toFixed(1)}%)`)
 
-// 4. Memory / Heap footprint check
 if (global.gc) {
   global.gc()
 }

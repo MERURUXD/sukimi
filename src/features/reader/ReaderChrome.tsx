@@ -39,10 +39,7 @@ const enter = {
   bottom: { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 16 } },
 }
 
-/**
- * 书签按钮。单页直接切换当前页；双页时展开菜单，选左页还是右页。
- * 菜单的展开状态放在这里：工具栏收起、翻到单页时组件卸载，状态随之清掉。
- */
+/** 菜单状态放在这里：工具栏收起或翻到单页时组件卸载，状态随之清掉。 */
 function BookmarkControl({
   pages,
   bookmarks,
@@ -288,7 +285,6 @@ export function ReaderChrome({
                       title={marked ? t('reader.chrome.pageMarkedTitle', { n: i + 1 }) : t('reader.chrome.page', { n: i + 1 })}
                       className={cn(
                         'relative h-1.5 min-w-0 flex-1 rounded-[3px] transition-[height] hover:h-3',
-                        // 有书签的页上方一个小点
                         marked && "after:absolute after:-top-2 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-accent after:content-['']",
                         cur
                           ? 'h-3.5 bg-accent'
@@ -302,7 +298,6 @@ export function ReaderChrome({
                   )
                 })}
               </div>
-              {/* 手机或页数很多时用滑块代替分段 */}
               <input
                 type="range"
                 min={1}

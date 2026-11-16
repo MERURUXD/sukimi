@@ -10,7 +10,7 @@ export interface SegItem<T> {
   count?: number
 }
 
-/** 分段控件，选中块在选项间滑动；glass=false 时用普通表面（静态页面里的设置项），flat / suspendRefract 透传给玻璃（纯色页面上的工具栏 / 只衬氛围光时）*/
+/** glass=false 时用普通表面；flat / suspendRefract 透传给玻璃。 */
 export function Seg<T extends string | number>({
   items,
   value,

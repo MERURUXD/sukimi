@@ -8,7 +8,6 @@ export const WEEK_DAYS = 7
 const DAY_MS = 86400000
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
-/** 本地日历日的零点 */
 const midnight = (ms: number) => {
   const d = new Date(ms)
   d.setHours(0, 0, 0, 0)
@@ -29,7 +28,6 @@ export function weekStartSec(nowMs: number) {
   return Math.floor(d.getTime() / 1000)
 }
 
-/** 这一周每一天的名字和日期，今天在前 */
 export function weekDays(nowMs: number) {
   const today = midnight(nowMs)
   return Array.from({ length: WEEK_DAYS }, (_, i) => {
@@ -72,7 +70,6 @@ export function updatesPartial(fetchedAtMs: readonly number[], hasNextPage: bool
   return dayIndex(Math.min(...fetchedAtMs), nowMs) >= 0
 }
 
-/** 窄屏「这一周」日期标签的副标题：区分更新部数与阅读部数，不混加为同一个数字 */
 export function weekTabSub(updates: number, reads: number) {
   if (updates > 0 && reads > 0) return t('home.week.tabUpdatesAndReads', { updates, reads })
   if (updates > 0) return t('home.week.tabUpdates', { updates })

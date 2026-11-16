@@ -29,16 +29,12 @@ export { isCompleted }
 export const NSFW_ALL_HIDDEN = t('gallery.nsfwAllHidden')
 
 /**
- * 已读话数：总话数减未读，不用把读过的章节全取下来；和阅读档案的「已读」口径相同（isRead 的章节数）。
- * 画廊首页、首页橱窗的数字点进去会飞成档案页的大数字，各处必须一致，落地时才不跳
+ * 已读话数 = 总话数 − 未读，和阅读档案的 isRead 口径一致；各处必须一致，数字飞进档案页时才不跳。
  */
 export const readChapters = (all: readonly LibraryManga[], totals: ReadonlyMap<number, number> | null) =>
   totals ? all.reduce((n, m) => n + Math.max(0, (totals.get(m.id) ?? 0) - m.unreadCount), 0) : null
 
-/**
- * 画廊用的书库数据：和书库页、首页共用 LibraryMangas 的缓存与快照，所以能秒开；
- * 总话数单独取，到达前为 null（界面显示「—」）。
- */
+/** 与书库页、首页共用缓存和快照；总话数单独取，到达前为 null。 */
 export function useGalleryLibrary() {
   const lib = useQuery(LibraryMangas)
   const cats = useQuery(Categories)

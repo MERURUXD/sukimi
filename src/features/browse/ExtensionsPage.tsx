@@ -27,7 +27,6 @@ import { SourcePreferencesDialog, type PreferenceSource } from './SourcePreferen
 import { SourceIcon } from './SourceIcon'
 import { t } from '@/i18n'
 
-/** 「未安装」的语言选择和成人扩展开关，记在本机 */
 interface ExtensionView {
   /** null = 还没选过，用默认语言 */
   langs: string[] | null
@@ -58,7 +57,7 @@ resetOnUserContext(() => {
   fetchedAt = 0
 })
 
-/** 装卸扩展会改变来源列表和「可更新」数量，让它们下次显示时重新查询 */
+/** 扩展装卸会改变来源与可更新数量，两份查询缓存都要失效。 */
 function forgetSources(cache: ApolloCache) {
   cache.evict({ id: 'ROOT_QUERY', fieldName: 'sources' })
   cache.evict({ id: 'ROOT_QUERY', fieldName: 'extensions', args: { condition: { hasUpdate: true } } })

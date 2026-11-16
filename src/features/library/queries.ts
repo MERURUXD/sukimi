@@ -147,7 +147,6 @@ export const SetMangasCategories = graphql(`
   }
 `)
 
-/** 选中漫画里符合条件的章节 id（批量已读 / 下载用） */
 export const ChapterIds = graphql(`
   query ChapterIds($filter: ChapterFilterInput!) {
     chapters(filter: $filter) {

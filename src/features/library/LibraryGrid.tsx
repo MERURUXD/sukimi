@@ -25,7 +25,6 @@ interface Props {
   selecting: boolean
   selected: ReadonlySet<number>
   onToggle: (id: number, index: number, e: MouseEvent) => void
-  /** 触屏长按某一部：进入多选 */
   onLongPress: (id: number, index: number) => void
   /** 封面最小宽度，缺省按密度取；画廊手机版用更小的值排成三列 */
   minTile?: number
@@ -96,7 +95,6 @@ function useBox() {
     setWidth(el.getBoundingClientRect().width)
     return () => ro.disconnect()
   }, [])
-  // 上方工具栏、批量栏出现时位置会变，每次渲染后校正
   useLayoutEffect(measureTop)
   return [ref, width, top] as const
 }
@@ -114,7 +112,6 @@ export function LibraryGrid(props: Props) {
   )
 }
 
-/** 第一次加载、还没有数据时的占位格子 */
 export function LibrarySkeleton({ density }: { density: Density }) {
   if (density === 'list') {
     return (
@@ -145,7 +142,6 @@ export function LibrarySkeleton({ density }: { density: Density }) {
   )
 }
 
-/* ───────── 封面网格（按行虚拟化）───────── */
 function GridView({ items, intro, density, selecting, selected, onToggle, onLongPress, minTile, scoreOf, display = DEFAULT_DISPLAY, favorites, onMenu, width, top }: Props & { width: number; top: number }) {
   const initialOffset = useRestoredOffset()
   const minW = minTile ?? (density === 'compact' ? 120 : 160)
@@ -164,7 +160,6 @@ function GridView({ items, intro, density, selecting, selected, onToggle, onLong
     // 默认会取创建时的 window.scrollY，切页时那是上一页的位置；改用 ScrollManager 记下的位置
     initialOffset,
   })
-  // 列数或尺寸变化时重新估算
   useLayoutEffect(() => v.measure(), [v, rowH, cols])
 
   return (
@@ -248,7 +243,6 @@ const Tile = memo(function Tile({
   const bookmarks = badges.bookmarks && m.bookmarkCount > 0
   const completed = badges.completed && isCompleted(m)
   const marks = bookmarks || completed
-  // 紧凑网格只留标题
   const sub = compact ? '' : [subline.author && m.author, subline.source && m.source?.displayName, subline.time && timeAgo(lastUpdated(m))].filter(Boolean).join(' · ')
   const genres = !compact && subline.genre ? m.genre.slice(0, 4) : []
   const body = (
@@ -267,7 +261,6 @@ const Tile = memo(function Tile({
         )}
         {!selecting && (favorite || dl || lang) && (
           <span className="absolute top-2 right-2 z-[2] flex flex-col items-end gap-1">
-            {/* 实心星：和评分角标的空心星区分开 */}
             {favorite && (
               <span className={PILL} aria-label={t('library.cover.favorite')} title={t('library.cover.favorite')}>
                 <Star className="size-3 fill-current" strokeWidth={2.4} />
@@ -335,7 +328,6 @@ const Tile = memo(function Tile({
   )
 })
 
-/* ───────── 列表视图 ───────── */
 const LIST_ROW = 68
 
 function ListView({ items, intro, selecting, selected, onToggle, scoreOf, display = DEFAULT_DISPLAY, favorites, onMenu, top }: Props & { top: number }) {

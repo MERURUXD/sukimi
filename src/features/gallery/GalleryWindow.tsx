@@ -20,14 +20,8 @@ import { t } from '@/i18n'
 const WALL_VARS = { '--wall-rest': wallTransform(WINDOW_K), '--wall-on': wallTransform(WINDOW_K_ON) } as CSSProperties
 
 /**
- * 首页最底下的「画廊橱窗」：画廊那面倾斜封面墙的一扇取景窗，点「进入画廊」去画廊。
- * 窗始终是深色（画廊各页固定深色，从窗里进去主题不会突然翻转）；平时墙是黑白半透明的底纹，
- * 指上去 / 手指按住 / 键盘聚焦时显出颜色、倾角往画廊里的姿态靠，并随指针左右微微转一点。
- *
- * library：书库全部作品；exclude：首页别处已经出现的作品（大图区、最近阅读），窗里尽量不重复它们。
- *
- * 点「进入画廊」：窗口揭开成整屏、墙落成画廊里的姿态；从画廊返回时画廊收进窗口里（见 readMorph 的
- * enterGalleryFromHome / windowScene）。
+ * 首页画廊橱窗。固定深色，封面墙与画廊共用；exclude 是首页别处已出现的作品。
+ * 进出由 readMorph 的 enterGalleryFromHome 与 windowScene 保留同一面墙。
  */
 export function GalleryWindow({ library, exclude }: { library: readonly LibraryManga[] | undefined; exclude: ReadonlySet<number> | undefined }) {
   const mobile = useMobile()
@@ -36,8 +30,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
   const userId = useAuth((s) => s.user?.id)
   // 排列和画廊首页的墙一样（按收藏先后、去掉 NSFW），封面才一一对应
   const items = useMemo(() => galleryOrder((library ?? []).filter((m) => !hidden(m))), [library, hidden])
-  // 窗里优先放最近读过的：按阅读时间倒序，跳过首页已有的、没有封面的和阅读历史里隐藏了的
-  // exclude 还没有（最近阅读没加载出来）时不换格，等它到了再换
+  // exclude 还没到（最近阅读未加载）时不换格，等它到了再换。
   const picks = useMemo(() => {
     if (!exclude) return undefined
     const at = (m: LibraryManga) => Number(m.lastReadChapter?.lastReadAt ?? 0)
@@ -72,7 +65,7 @@ export function GalleryWindow({ library, exclude }: { library: readonly LibraryM
     else setTimeout(load, 200)
   }
 
-  /* 指针：鼠标悬停、手指按住都显色，横向位置带一点倾斜；竖着滑是翻页（touch-action: pan-y），浏览器接管时 pointercancel 复位 */
+  /* 鼠标悬停、触屏按住显色并倾斜；竖滑交给浏览器翻页，pointercancel 复位。 */
   const on = (v: boolean) => {
     const el = box.current
     if (!el || windowWallBusy()) return

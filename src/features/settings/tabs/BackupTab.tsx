@@ -212,7 +212,6 @@ function ManualBackup() {
     }
   }
 
-  // 轮询恢复进度
   const id = restore?.id
   const finished = restore?.state === 'SUCCESS' || restore?.state === 'FAILURE'
   useEffect(() => {

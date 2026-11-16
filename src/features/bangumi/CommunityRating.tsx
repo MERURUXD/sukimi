@@ -16,8 +16,6 @@ import { t } from '@/i18n'
 const word = (s: BgmSubject) => scoreWord('bangumi', Math.round(s.score))
 const facts = (s: BgmSubject) => [word(s), s.rank ? `#${s.rank}` : t('bangumi.unranked'), t('bangumi.people', { n: shortCount(s.total) })].filter(Boolean).join(' · ')
 
-/* ───────── 柱状图：1–10 分各有多少人，自己打的那一分标亮并在下方写「你」 ───────── */
-
 /** 数据没到时的占位高度：摆成大致的山形，来数据后原地长到真实高度 */
 const WAIT = [8, 8, 10, 14, 22, 34, 46, 52, 40, 24]
 
@@ -96,8 +94,6 @@ function Status({ state, id, onRetry, className }: { state: BgmState; id?: numbe
   )
 }
 
-/* ───────── 宽屏：追踪面板里星星下方那一段 ───────── */
-
 /**
  * 已绑定 Bangumi 追踪时，用绑定的条目号查；mine 是自己的评分（0 为未评）。
  * delay 是详情页进场时这一行的延迟：柱子和分数接在它之后
@@ -144,8 +140,6 @@ export function BgmBlock({ id, mine, delay = 0 }: { id: number; mine: number; de
   )
 }
 
-/* ───────── 窄屏：追踪信息条下方的一行，点开看完整面板 ───────── */
-
 export function BgmLine({ id, mine }: { id: number; mine: number }) {
   const { subject, state, at, refresh } = useBgmSubject(id)
   const [open, setOpen] = useState(false)
@@ -174,8 +168,6 @@ function LineButton({ subject, state, guess, onOpen, onRetry }: { subject: BgmSu
     </button>
   )
 }
-
-/* ───────── 未绑定 Bangumi 追踪：按标题猜条目，可换、可否定、可直接绑定 ───────── */
 
 /**
  * placement 与追踪一致：side 是宽屏右栏，inline 是窄屏正文里的一行。
@@ -248,7 +240,6 @@ export function BgmGuess({ mangaId, title, placement, onBind, delay }: { mangaId
             <>
               <span {...row(3)} className={cn('text-xs text-muted num', row(3).className)}>{collections(shown).map(([k, n]) => `${shortCount(n)} ${k}`).join(' · ')}</span>
               <div {...row(4)} className={cn('flex flex-wrap gap-2', row(4).className)}>
-                {/* 手动选定（sure）后仍可直接绑定 */}
                 {bind && (
                   <button type="button" className="fopt cta" disabled={binding} onClick={() => void bind()}>{binding ? t('bangumi.binding') : g.match?.sure ? t('bangumi.bind') : t('bangumi.confirmBind')}</button>
                 )}
@@ -275,13 +266,10 @@ const collections = (s: BgmSubject): [string, number][] => [
   [t('bangumi.col.dropped'), s.collection.dropped],
 ]
 
-/* ───────── 完整面板：弹窗，内容过长时在面板内滚动 ───────── */
-
 interface GuessProps {
   mangaId: number
   title: string
   match: BgmMatch | null
-  /** 显示手动搜索 */
   search: boolean
   onSearch: () => void
   onPicked: () => void
@@ -365,11 +353,9 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
   )
 }
 
-/** 手动搜索：默认填漫画标题，挑一部就记为确认过的匹配 */
 function Picker({ guess }: { guess: GuessProps }) {
   const [input, setInput] = useState(guess.title)
   const [results, setResults] = useState<BgmSubject[] | null>(null)
-  // 打开时就用标题搜，所以一开始是 loading
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('loading')
   const search = (q: string) =>
     searchSubjects(q).then(

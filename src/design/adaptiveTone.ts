@@ -27,9 +27,7 @@ export interface BackgroundToneSample {
   texture: number
   /** 平均背景色 (0–1 RGB) */
   color: Rgb
-  /** 面积最大的主导色 */
   dominantColor?: Rgb
-  /** 采样用的调色板色样 */
   swatches?: Swatch[]
 }
 
@@ -57,9 +55,6 @@ const MIN_TINT = 10
 const MAX_TINT = 85
 const DEFAULT_THRESHOLD = 1.5
 
-/**
- * 辅助函数：根据封面/背景的 Swatch 调色板生成 BackgroundToneSample 样本
- */
 export function sampleFromSwatches(swatches?: Swatch[] | null): BackgroundToneSample {
   if (!swatches || !Array.isArray(swatches) || swatches.length === 0) {
     return {
@@ -153,12 +148,7 @@ export interface AdaptiveToneConfig {
   options?: AdaptiveToneOptions
 }
 
-/**
- * 纯函数计算自适应玻璃底色浓度与对比度保护。
- * 支持两种调用形态：
- * 1. 位置参数：computeAdaptiveTint(sample, theme, baseTint, previousTint, options)
- * 2. 对象参数：computeAdaptiveTint({ sample, theme, baseTint, previousTint, options })
- */
+/** 支持位置参数和对象参数两种调用形态。 */
 export function computeAdaptiveTint(
   sampleOrConfig?: BackgroundToneSample | AdaptiveToneConfig | null,
   themeArg: GlassTheme = 'dark',

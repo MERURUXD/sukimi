@@ -12,7 +12,7 @@ import { Row, Section, Switch } from './parts'
 import { ThumbPicker, FitThumb, ModeThumb, TapThumb } from './thumbs'
 import { t } from '@/i18n'
 
-/** 阅读器的全局默认值，分成三组；「按漫画记住」开着时，单部漫画里改过的模式 / 方向 / 缩放会覆盖这里 */
+/** 「按漫画记住」开启时，单部漫画的模式 / 方向 / 缩放覆盖全局默认值。 */
 export function ReaderDefaults() {
   const stored = useReaderStore((s) => s.defaults)
   const d = { ...DEFAULTS, ...stored }

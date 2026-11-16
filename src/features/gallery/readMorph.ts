@@ -3,9 +3,8 @@ import { afterWindowWall, closeWindowWall, openWindowWall, windowWallBusy } from
 export { withoutHiddenCovers } from './coverLayout'
 
 /*
- * 「已读话数」在画廊首页和阅读档案之间飞来飞去。两页各有一个带 data-gallery-read 的数字，
- * 只在这一次换页期间给 html 挂上 data-gallery-morph，CSS 才给它们挂过渡名（见 gallery.css）：
- * 常驻的话，从档案页点进作品详情时这个数字也会单独飞一下。
+ * 只在本次换页期间挂 data-gallery-morph，给两页的 data-gallery-read 数字挂过渡名；
+ * 常驻会让数字在进入作品详情时也单独飞一下。
  */
 let timer = 0
 
@@ -97,13 +96,11 @@ export function exitGalleryToLibrary(e: { button: number; ctrlKey: boolean; meta
 /** 指到入口上先把画廊页的代码载进来：第一次点开时过场不用边飞边等下载和解析 */
 export const prefetchGallery = () => void import('./GalleryPage')
 
-/** 点击时按住修饰键（新标签页打开）不算换页 */
 export const plainClick = (e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }) =>
   e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey
 
 export const activeViewTransition = () => (document as Document & { activeViewTransition?: ViewTransition | null }).activeViewTransition ?? null
 
-/** 正在进行的换页动画结束后（没有就立刻） */
 export const afterViewTransition = () => (activeViewTransition()?.finished ?? Promise.resolve()).catch(() => {})
 
 let canvasBackAt = -Infinity

@@ -84,8 +84,7 @@ export function LibraryPage() {
   // 追踪网站的评分档位，用来把不同分制折算到一起；和书库同一份数据，快照里也有
   const trackers = data?.trackers.nodes
   const scales = useMemo(() => new Map(trackers?.map((t) => [t.id, t.scores] as const)), [trackers])
-  // 按评分排序或打开了评分角标时，封面上标出分数
-  // 列表模式下没有封面标记开关，只在按评分排序时显示评分列
+  // 列表模式没有封面角标，只在按评分排序时显示评分列。
   const showScore = view.sort === 'score' || (view.badges.score && view.density !== 'list')
   const scoreOf = useMemo(
     () => (showScore ? (m: LibraryManga) => libraryScore(m.trackRecords.nodes, scales) : undefined),
@@ -106,7 +105,6 @@ export function LibraryPage() {
   const sources = useMemo(() => librarySources(base), [base])
   const tagList = useMemo(() => tagsUnavailable ? [] : libraryTags(base, tags), [base, tags, tagsUnavailable])
 
-  /* 分类：默认分类没有漫画时隐藏；可选标签排在最后 */
   const laterCount = later.items?.length
   const favoriteCount = favorites.map && data ? favoriteList.length : undefined
   const categories = useMemo<SegItem<LibraryTab>[]>(() => {
@@ -122,12 +120,10 @@ export function LibraryPage() {
     return tabs
   }, [userCategories, all, defaultCategoryId, shelf, favoriteCount, laterCount, view.showFavoriteTab, view.showLaterTab, isFavorite, isLater])
 
-  // 记住的分类已被删除时回到「全部」
   useEffect(() => {
     if (catData && typeof view.category === 'number' && !categories.some((c) => c.value === view.category)) view.setCategory('all')
   }, [catData, categories, view])
 
-  /* 多选 */
   const [selecting, setSelecting] = useState(false)
   const sel = useSelection(order)
   const exitSelect = useCallback(() => {
@@ -157,7 +153,7 @@ export function LibraryPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [selecting, exitSelect, sel])
 
-  /* 检查书库更新：进度来自全局订阅，结束后订阅那边会刷新书库 */
+  /* 进度来自全局订阅，结束后订阅那边会刷新书库 */
   const updater = useLive((s) => s.updater)
   const updating = updater.isRunning ? { finished: updater.finished, total: updater.total } : null
   const client = useApolloClient()
@@ -177,7 +173,6 @@ export function LibraryPage() {
     }
   }
 
-  /* 批量操作 */
   const [updateChapters] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
   const [setInLibrary] = useMutation(SetInLibrary)
@@ -286,7 +281,6 @@ export function LibraryPage() {
       return (allShelved ? t('library.bulk.unshelved', { count: favoritable.length, n: favoritable.length }) : t('library.bulk.shelved', { count: favoritable.length, n: favoritable.length })) + note
     })
 
-  /* 鼠标右键菜单；触屏长按仍是多选 */
   const ctx = useContextMenu<LibraryManga>()
   const openCtx = ctx.open
   const onMenu = useCallback((m: LibraryManga, x: number, y: number) => openCtx(x, y, m), [openCtx])
@@ -297,7 +291,6 @@ export function LibraryPage() {
       await setCats({ variables: { ids, add: add ? [catId] : [], remove: add ? [] : [catId] } })
     })
 
-  /* 顶部摘要 */
   const unreadTotal = useMemo(() => all.reduce((n, m) => n + m.unreadCount, 0), [all])
   const dlTotal = useMemo(() => all.reduce((n, m) => n + m.downloadCount, 0), [all])
   const hasFilter = Object.values(view.filters).some((v) => v !== 0) || view.sources.length > 0 || Object.keys(view.tags).length > 0 || deferredQuery.length > 0
@@ -309,7 +302,6 @@ export function LibraryPage() {
   return (
     <>
       <div className="wrap">
-        {/* 画廊入口是「去另一个页面」，放在标题这一行的右侧（44px 高，和 h1 的一行对齐），不混进下面对列表做操作的工具栏 */}
         <PageHeader
           title={t('library.title')}
           sub={data && <>

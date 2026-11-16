@@ -23,10 +23,7 @@ type FilterValue = 'all' | 'done' | number
 
 const parseFilter = (v: string | null): FilterValue => (v === 'done' ? 'done' : v && /^\d+$/.test(v) ? Number(v) : 'all')
 
-/**
- * 书库画廊首页：倾斜封面墙上的标题与两扇门（画布、阅读档案）。固定深色。
- * 首屏的墙和下面的全部作品像幻灯片的两页：在墙上往下滚整页切到全部作品，在全部作品最上面往上滚切回墙。
- */
+/** 固定深色；首屏与全部作品按整页切换。 */
 export function GalleryPage() {
   useForceDark()
   const location = useLocation()
@@ -40,7 +37,6 @@ export function GalleryPage() {
   // 既没有内存缓存也没有快照、要等网络时，网格到了播一次进场动画
   const [intro] = useState(() => !hasSnapshot('library') && all.length === 0)
 
-  /* 全部作品的筛选：全部 / 各分类 / 已完结，放在网址里，返回时还在 */
   const [params, setParams] = useSearchParams()
 
   // 从书库点「画廊」进来：书库里的封面从原位飞上墙，标题和暗角等封面上墙了再淡入
@@ -55,7 +51,6 @@ export function GalleryPage() {
     if (canvasBack !== null) void afterViewTransition().then(() => finishCanvasBack(canvasBack))
   }, [canvasBack])
 
-  /* 像幻灯片一样分两页：首屏的墙、全部作品（见 usePaging） */
   const reduced = useReducedMotionPref()
   const grid = useRef<HTMLElement>(null)
   const page = usePaging(grid, reduced)
@@ -100,11 +95,9 @@ export function GalleryPage() {
     if (done) out.push({ value: 'done', label: tl('gallery.completed'), count: done })
     return out
   }, [all, categories, defaultId, shelf])
-  // 网址里的分类已不存在时按「全部」显示
   const active = tabs.some((t) => t.value === filter) ? filter : 'all'
   const items = useMemo(() => {
     const list = active === 'all' ? all : active === 'done' ? all.filter(isCompleted) : all.filter((m) => inCategory(m, active, defaultId, shelf))
-    // 按收藏时间，新收藏的在前
     return [...list].sort((a, b) => Number(b.inLibraryAt) - Number(a.inLibraryAt))
   }, [all, active, defaultId, shelf])
   const pick = (v: FilterValue) =>
@@ -141,7 +134,7 @@ export function GalleryPage() {
       if (leaving.current) return
       leaving.current = true
       unlockScroll.current = lockGalleryReturnScroll()
-      // 上一条历史记录就是来路页时才能 navigate(-1)（刷新、新标签页打开的没有）
+      // 只有确实有上一条历史记录时才后退；刷新或新标签页打开时走显式回退。
       const canBack = (window.history.state?.idx ?? 0) > 0
       const fromLibrary = origin === 'library' && canBack
       const backHome = to === 'back' && origin === 'home'
@@ -150,7 +143,6 @@ export function GalleryPage() {
         if (fromLibrary || (backHome && canBack)) navigate(-1)
         else navigate(backHome ? '/' : '/library', { viewTransition: true })
       }
-      // 书库来路保留原来的文字淡出与封面飞回。
       const fadeUi = (duration = 380, only = '[data-hero-ui]') =>
         hero.current?.querySelectorAll<HTMLElement>(only).forEach((el) =>
           el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration, easing: 'ease-out', fill: 'forwards' }),
@@ -192,14 +184,13 @@ export function GalleryPage() {
         {!empty && (sharedWall
           ? <WindowWall kind="gallery" items={ordered} mobile={mobile} shade={HERO_VIGNETTE[mobile ? 'mobile' : 'desktop']} className="-z-20" />
           : <HeroWall items={ordered} mobile={mobile} entry={entry} className="-z-20" />)}
-        {/* 中间透出墙、四周和上下压暗到底色，文字始终看得清 */}
         {!sharedWall && <div aria-hidden data-hero-ui data-hero-fade className={cn('absolute inset-0 -z-10', entry && 'gallery-late')} style={{ background: HERO_VIGNETTE[mobile ? 'mobile' : 'desktop'] }} />}
 
         <HeroCopy stats={stats} mobile={mobile} intro={intro} late={!!entry} morph={!!reveal} onBrowse={toGrid} onBack={toBack} backLabel={origin === 'home' ? tl('gallery.backHome') : tl('gallery.backLibrary')} onShare={() => setSharing(true)} />
       </section>
       <PosterShare open={sharing} initial="library" onClose={() => setSharing(false)} />
 
-      {/* 第二页至少占满一屏：切过来时停在它的顶部，内容少也不会切不到位；顶栏的高度留在它自己的上边距里，墙不会从顶栏下面露出来 */}
+      {/* 第二页至少占满一屏，顶栏高度留在自身边距里。 */}
       {gridReady && (
         <section ref={grid} id="all" aria-labelledby="gallery-all" className="wrap min-h-svh pt-[calc(var(--nav-h)+24px)] pb-28 md:pt-[calc(var(--nav-h)+64px)]">
           <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-4 md:mb-10">
@@ -250,7 +241,6 @@ function usePaging(grid: React.RefObject<HTMLElement | null>, reduced: boolean) 
   const busyUntil = useRef(0)
   const lastGridWheel = useRef(0)
 
-  // 全部作品顶部（扣掉顶栏）对应的滚动位置
   const gridY = useCallback(() => {
     const el = grid.current
     if (!el) return Infinity

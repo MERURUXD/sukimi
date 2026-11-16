@@ -10,7 +10,7 @@ export interface AuthUser {
   legacy?: boolean
 }
 
-/** 当前用户是否拥有权限；管理员直接放行（旧服务端的单用户也是管理员） */
+/** 管理员直接放行；旧服务端的单用户也是管理员。 */
 export function can(user: Pick<AuthUser, 'roles' | 'permissions'> | null, permission: UserPermission) {
   if (!user) return false
   return user.roles.includes('ADMIN') || user.permissions.includes(permission)

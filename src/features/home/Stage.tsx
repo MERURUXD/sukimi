@@ -219,16 +219,11 @@ function useFanEntrance(deck: RefObject<HTMLDivElement | null>, pos: MotionValue
 
 interface Target { id: number; label: string; page: string; pct: number | null; isNext: boolean }
 
-/**
- * 桌面首页「舞台」：在读的几部排成扇形，当前这部在中间，左右切换；背景沿用流动模糊封面。
- * 冷启动时封面从中间展开、文字依次出现（开屏动画，可在外观设置关闭）。
- * 鼠标悬停两侧封面时，背景先换成那部的颜色。
- */
+/** 桌面「舞台」；开屏动画可在外观设置关闭，悬停两侧封面会预览对应背景色。 */
 export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownload, background, target, meta, entrance, tint, denseTint }: {
   items: ReadChapter[]
   active: number
   onSelect: (i: number) => void
-  /** 鼠标悬停两侧封面时预览它的背景颜色；null 是移开 */
   onPreview: (i: number | null) => void
   onShuffle?: () => void
   onDownload: () => void
@@ -298,7 +293,6 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
     }
     return start
   }, { axis: 'x', filterTaps: true, enabled: n > 1 })
-  // 触控板横向轻扫同样跟手，停下后落到最近的一部
   const wheelTimer = useRef(0)
   const onWheel = (e: WheelEvent<HTMLDivElement>) => {
     if (n < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
@@ -321,7 +315,6 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   }
   useEffect(() => () => clearTimeout(hoverTimer.current), [])
 
-  // 进场时各元素依次上浮（.rise / .rise-light，见 index.css）；d 是开屏的延迟秒数，l 是轻进场的
   const delay = (d: number, l: number) => (entering ? { '--d': `${entering === 'intro' ? d : l}s` } as CSSProperties : undefined)
   const rise = entering === 'intro' ? 'rise' : entering && 'rise-light'
   const riseEach = rise && `${rise}-each`
@@ -349,12 +342,10 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
           {background}
         </motion.div>
       </div>
-      {/* 文字居中在封面下方，压暗中下部保证对比，底部融入底色 */}
       <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_45%_at_50%_80%,var(--scrim-b),transparent_75%),linear-gradient(var(--scrim-a),var(--scrim-a))]" />
       <div aria-hidden className="fade-to-bg absolute inset-0 -z-10 [--from:45%]" />
 
       <div className="wrap flex flex-col items-center gap-[30px] pt-14 pb-12">
-        {/* 封面区可以左右拖动或横向轻扫切换，也可以直接点两侧的封面 */}
         <div
           ref={deck}
           {...bind()}
@@ -521,7 +512,6 @@ function FanCard({ c, j, n, center, pos, fan, spread, entrance, onSelect, onHove
   )
 }
 
-/** 指示条的一格：跟着 pos 连续变化，拖动途中就能看出正在往哪一部去 */
 function Dot({ j, n, pos }: { j: number; n: number; pos: MotionValue<number> }) {
   const near = useTransform(pos, (p) => Math.max(0, 1 - Math.abs(wrap(j - p, n))))
   const width = useTransform(near, (v) => 6 + 16 * v)

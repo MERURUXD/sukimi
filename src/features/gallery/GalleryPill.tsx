@@ -3,10 +3,7 @@ import { enterGalleryFromLibrary, plainClick, prefetchGallery } from './readMorp
 import './pill.css'
 import { t } from '@/i18n'
 
-/**
- * 书库页头右侧的「画廊」入口。玻璃和链接是同一个元素；
- * 点击沿用书库封面飞上画廊那面墙的动画（见 readMorph 的 enterGalleryFromLibrary）。
- */
+/** 点击沿用书库封面飞上画廊那面墙的动画（见 readMorph 的 enterGalleryFromLibrary）。 */
 export function GalleryPill() {
   return (
     <GlassLink
