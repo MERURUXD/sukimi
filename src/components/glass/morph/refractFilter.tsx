@@ -9,10 +9,13 @@
  * SPDX-License-Identifier: MPL-2.0
  */
 
-import { Fragment, useImperativeHandle, useRef, type Ref } from 'react'
+import { Fragment, useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react'
+import { autoBezel } from '../refract'
 import type { GlassShapeState, Rect } from './contracts'
 import { createMorphRefractMapBuilder, type MorphRefractMapBuilder } from './refractMap'
 import { buildColorOpticsMatrix } from './refractOptics'
+
+const FULL_RES_MAP_THRESHOLD_PX = 128
 
 export interface MorphRefractFrame {
   bounds: Rect
@@ -25,10 +28,28 @@ export interface MorphRefractFrame {
   brightness: number
   contrast: number
   contrastFirst?: boolean
+  bezel?: number
 }
 
 export interface MorphRefractFilterHandle {
   updateFrame: (frame: MorphRefractFrame) => void
+}
+
+function resolveFrameBezel(requestedBezel: number, frame: MorphRefractFrame): number {
+  const hasDroplet =
+    !frame.isMerged &&
+    frame.droplet !== null &&
+    frame.droplet.size.width > 0.01 &&
+    frame.droplet.size.height > 0.01
+  const refW = hasDroplet
+    ? Math.max(frame.platter.size.width, frame.droplet!.size.width)
+    : frame.platter.size.width
+  const refH = hasDroplet
+    ? Math.max(frame.platter.size.height, frame.droplet!.size.height)
+    : frame.platter.size.height
+  return requestedBezel > 0
+    ? Math.max(1, Math.min(requestedBezel, refW * 0.5, refH * 0.5))
+    : autoBezel(refW, refH)
 }
 
 export function MorphRefractFilter({
@@ -50,12 +71,13 @@ export function MorphRefractFilter({
   mapScale?: number
   ref?: Ref<MorphRefractFilterHandle>
 }) {
+  const filterRef = useRef<SVGFilterElement>(null)
   const feImageRef = useRef<SVGFEImageElement>(null)
   const bgBlurRef = useRef<SVGFEGaussianBlurElement>(null)
   const colorMatrixRef = useRef<SVGFEColorMatrixElement>(null)
 
   const mapBuilderRef = useRef<MorphRefractMapBuilder | null>(null)
-  const safeBezel = Math.max(1, bezel)
+  const safeBezel = bezel > 0 ? Math.max(1, bezel) : 22
   const safeFalloff = Number.isFinite(falloff) && falloff >= 0 ? falloff : 2.6
 
   const lastFrameRef = useRef({
@@ -63,9 +85,15 @@ export function MorphRefractFilter({
     height: -1,
     sigma: '',
     matrix: '',
+    scaleKey: '',
   })
 
   const targetScale = Math.max(0, 2 * safeBezel * strength * scaleMultiplier)
+
+  useLayoutEffect(() => {
+    // Dispersion switches DOM <feDisplacementMap> nodes; force next updateFrame to re-sync scale attributes.
+    lastFrameRef.current.scaleKey = ''
+  }, [dispersion, strength, scaleMultiplier, bezel])
 
   useImperativeHandle(
     ref,
@@ -73,6 +101,11 @@ export function MorphRefractFilter({
       updateFrame(frame) {
         const prev = lastFrameRef.current
         const fe = feImageRef.current
+        const frameBezel = resolveFrameBezel(frame.bezel ?? bezel, frame)
+        const frameMapScale =
+          mapScale === 0.5 && Math.max(frame.bounds.width, frame.bounds.height) <= FULL_RES_MAP_THRESHOLD_PX
+            ? 1
+            : mapScale
 
         if (fe) {
           const builder = (mapBuilderRef.current ??= createMorphRefractMapBuilder())
@@ -82,9 +115,9 @@ export function MorphRefractFilter({
             droplet: frame.droplet,
             blendK: frame.blendK,
             isMerged: frame.isMerged,
-            bezel: safeBezel,
+            bezel: frameBezel,
             falloff: safeFalloff,
-            mapScale,
+            mapScale: frameMapScale,
           })
           if (mapResult.width !== prev.width || mapResult.height !== prev.height) {
             fe.setAttribute('width', String(mapResult.width))
@@ -95,6 +128,16 @@ export function MorphRefractFilter({
           if (mapResult.changed) {
             fe.setAttribute('href', mapResult.dataUrl)
           }
+        }
+
+        const baseScale = Math.max(0, 2 * frameBezel * strength * scaleMultiplier)
+        const scaleKey = `${baseScale.toFixed(2)}:${dispersion}`
+        if (scaleKey !== prev.scaleKey) {
+          filterRef.current?.querySelectorAll('feDisplacementMap').forEach((node) => {
+            const extra = Number((node as SVGElement).dataset.extra ?? 0)
+            node.setAttribute('scale', String(Math.max(0, baseScale + extra)))
+          })
+          prev.scaleKey = scaleKey
         }
 
         const sigma = frame.blurSigma > 0.05 ? frame.blurSigma.toFixed(2) : '0'
@@ -115,13 +158,13 @@ export function MorphRefractFilter({
         }
       },
     }),
-    [safeBezel, safeFalloff, mapScale],
+    [bezel, strength, dispersion, scaleMultiplier, safeFalloff, mapScale],
   )
 
   return (
     <svg aria-hidden className="pointer-events-none fixed top-0 left-0 size-0 overflow-hidden opacity-0">
       <defs>
-        <filter id={id} colorInterpolationFilters="sRGB" x="0%" y="0%" width="100%" height="100%">
+        <filter ref={filterRef} id={id} colorInterpolationFilters="sRGB" x="0%" y="0%" width="100%" height="100%">
           <feImage
             ref={feImageRef}
             x="0"
@@ -155,6 +198,7 @@ export function MorphRefractFilter({
                     in2="map"
                     xChannelSelector="R"
                     yChannelSelector="G"
+                    data-extra={(index - 1) * dispersion}
                     scale={Math.max(0, targetScale + (index - 1) * dispersion)}
                     result={`lens-${channel}`}
                   />
@@ -169,12 +213,14 @@ export function MorphRefractFilter({
               in2="map"
               xChannelSelector="R"
               yChannelSelector="G"
+              data-extra={0}
               scale={targetScale}
               result="refractRaw"
             />
           )}
 
-          <feComposite in="refractRaw" in2="map" operator="in" result="glassOnly" />
+          <feGaussianBlur in="refractRaw" stdDeviation="0.5" edgeMode="duplicate" result="refractSmooth" />
+          <feComposite in="refractSmooth" in2="map" operator="in" result="glassOnly" />
           <feMerge>
             <feMergeNode in="SourceGraphic" />
             <feMergeNode in="glassOnly" />

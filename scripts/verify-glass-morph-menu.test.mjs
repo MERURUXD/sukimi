@@ -903,6 +903,15 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     popoverSrc.includes('useAppearance((s) => s.popoverMotion)') && /reduced\s*=\s*systemReduced\s*\|\|\s*!popoverMotion/.test(popoverSrc),
     'Popover must disable morph transition when popoverMotion setting is turned off',
   )
+  const refractFilterSrc = readFileSync(new URL('../src/components/glass/morph/refractFilter.tsx', import.meta.url), 'utf8')
+  assert.ok(
+    refractFilterSrc.includes('resolveFrameBezel') && refractFilterSrc.includes("node.setAttribute('scale'"),
+    'MorphRefractFilter must resolve per-frame bezel and update feDisplacementMap scale to match resting Glass',
+  )
+  assert.ok(
+    refractFilterSrc.includes('stdDeviation="0.5"'),
+    'MorphRefractFilter must include 0.5px post-refraction smoothing matching resting Glass',
+  )
 })
 
 function decodeStoredRgbaPng(dataUrl) {
@@ -1128,6 +1137,24 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   })
   const unblendedPng = decodeStoredRgbaPng(unblendedRes.dataUrl)
   assert.equal(unblendedPng.pixelAt(100, 95).a, 0, 'blendK=0 hard union must leave 10px gap transparent')
+
+  // 4. Shrunken platter (18x18) inside 44x44 droplet must preserve the droplet's 22px bezel for seamless landing
+  const landingRes = builder.build({
+    bounds: { x: 0, y: 0, width: 56, height: 56 },
+    platter: { center: { x: 28, y: 28 }, size: { width: 18, height: 18 }, radius: 9 },
+    droplet: { center: { x: 28, y: 28 }, size: { width: 44, height: 44 }, radius: 22 },
+    blendK: 0,
+    isMerged: false,
+    bezel: 22,
+    falloff: 2.6,
+    mapScale: 1,
+  })
+  const landingPng = decodeStoredRgbaPng(landingRes.dataUrl)
+  // Right interior at px=35 (wx=35.5 -> distIn = 50 - 35.5 = 14.5px > platter half-width 9px, < droplet bezel 22px)
+  assert.ok(
+    landingPng.pixelAt(35, 28).r < 126,
+    `dual-shape bezel must follow 44x44 droplet (22px) rather than shrunken 18x18 platter (got R=${landingPng.pixelAt(35, 28).r})`,
+  )
 })
 
 test('motion.ts P2 #5: open() interrupting closing preserves optical channels without snapping (normal & reducedMotion)', () => {

@@ -36,7 +36,7 @@ import {
   type ExtractedCssGlassSurface,
   type MorphBackdropVeilOptics,
 } from '@/components/glass/morph/refractOptics'
-import { autoBezel, supportsRefract } from '@/components/glass/refract'
+import { supportsRefract } from '@/components/glass/refract'
 import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
@@ -422,7 +422,6 @@ function MorphPanel({
   const adaptive = useAdaptiveGlass()
   const refractSupported = supportsRefract()
   const morphFilterId = `morphRefract${useId().replace(/[:«»]/g, '')}`
-  const [morphBezel, setMorphBezel] = useState(() => (tuning.bezel > 0 ? tuning.bezel : 20))
 
   const morphSurfaceRef = useRef<HTMLDivElement>(null)
   const morphBackdropRef = useRef<HTMLDivElement>(null)
@@ -594,10 +593,6 @@ function MorphPanel({
     if (panelEl.dataset.lensRadius !== String(radiusRef.current)) {
       panelEl.dataset.lensRadius = String(radiusRef.current)
     }
-
-    const baseBezel = latestVisualRef.current.tuning.bezel
-    const nextBezel = baseBezel > 0 ? Math.min(baseBezel, pw * 0.5, ph * 0.5) : autoBezel(pw, ph)
-    setMorphBezel((prev) => (Math.abs(prev - nextBezel) < 0.01 ? prev : nextBezel))
 
     const triggerEl = findTriggerElement(
       rootEl,
@@ -974,7 +969,7 @@ function MorphPanel({
           }
         } else {
           // 'refract' mode (refractSupported === true): match resting Glass.tsx blur, saturate, veil, adaptive tint, and --g-tint-scale
-          const startBlur = gTuning.blur
+          const startBlur = !anchors.bareSource && anchors.startTintVars.isDense ? gTuning.denseBlur : gTuning.blur
           const targetBlur = isDense ? gTuning.denseBlur : gTuning.blur
           const baseBlur = startBlur + (targetBlur - startBlur) * geometry.styleMix
           const activeBlur = baseBlur + (gTuning.preset === 'prism' ? mState.blurBumpPx : 0)
@@ -1277,7 +1272,7 @@ function MorphPanel({
         <MorphRefractFilter
           ref={morphRefractHandleRef}
           id={morphFilterId}
-          bezel={morphBezel}
+          bezel={tuning.bezel}
           strength={tuning.strength}
           falloff={tuning.falloff}
           dispersion={tuning.dispersion}

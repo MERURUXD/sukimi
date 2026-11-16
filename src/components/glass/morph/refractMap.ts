@@ -423,7 +423,6 @@ function rasterizeDualShapeScanlines(
   const pCy = platter.center.y
   const pHalfW = Math.max(0.001, platter.size.width * 0.5)
   const pHalfH = Math.max(0.001, platter.size.height * 0.5)
-  const effBezel = Math.max(1e-3, Math.min(safeBezel, pHalfW, pHalfH))
   const pRad = Math.max(0, Math.min(platter.radius, pHalfW, pHalfH))
   const pInnerW = pHalfW - pRad
   const pInnerH = pHalfH - pRad
@@ -435,6 +434,7 @@ function rasterizeDualShapeScanlines(
   const dRad = Math.max(0, Math.min(droplet.radius, dHalfW, dHalfH))
   const dInnerW = dHalfW - dRad
   const dInnerH = dHalfH - dRad
+  const effBezel = Math.max(1e-3, Math.min(safeBezel, Math.max(pHalfW, dHalfW), Math.max(pHalfH, dHalfH)))
 
   const smoothUnion = blendK > 0.001
   const inv2K = smoothUnion ? 0.5 / blendK : 0
