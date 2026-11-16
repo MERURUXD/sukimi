@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { confirm } from '@/components/ui/Confirm'
 import { toastError } from '@/components/ui/toast'
+import { isImeComposing } from '@/lib/keyboard'
 import { Dropdown, Row, Switch, TextInput, type SaveStatus } from './parts'
 import {
   durationToMinutes,
@@ -144,7 +145,8 @@ function Editable<V>({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (isImeComposing(e.nativeEvent)) return
+          if (e.key === 'Enter') e.currentTarget.blur()
           if (e.key === 'Escape') setDraft(null)
         }}
       />

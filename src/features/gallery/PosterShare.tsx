@@ -1,11 +1,12 @@
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 import { Download, Loader2, Share, X } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '@/api/auth'
 import { MotionGlass } from '@/components/glass/Glass'
 import { BottomSheet } from '@/components/ui/BottomSheet'
 import { Seg } from '@/components/ui/Seg'
+import { trapDialogTab } from '@/components/ui/dialogFocus'
 import { toast } from '@/components/ui/toast'
 import { spring } from '@/design/motion'
 import type { LibraryManga } from '@/features/library/queries'
@@ -29,17 +30,18 @@ const toCover = (m: LibraryManga): PosterCover => ({ url: m.thumbnailUrl ?? null
  * 在本机画出 1080 × 1350 的 PNG。NSFW 作品一律不上海报，按作品标记判断，不受临时显示影响；
  * 汇总数字仍按完整书库算。渲染到 body 下，避免档案页的滚轮和拖动翻屏监听截走面板操作。
  */
-export function PosterShare({ open, initial, work, reading, onClose }: {
+export function PosterShare({ open, initial, work, reading, onClose, onExitComplete }: {
   open: boolean
   initial: PosterKind
   /** 打开时由放映固定下来，后续切换不影响海报。 */
   work?: LibraryManga | null
   reading?: PosterReading
   onClose: () => void
+  onExitComplete?: () => void
 }) {
   return createPortal(
     <div data-theme="dark" className="text-text">
-      <AnimatePresence>{open && <PosterSheet initial={initial} work={work ?? null} reading={reading} onClose={onClose} />}</AnimatePresence>
+      <AnimatePresence onExitComplete={onExitComplete}>{open && <PosterSheet initial={initial} work={work ?? null} reading={reading} onClose={onClose} />}</AnimatePresence>
     </div>,
     document.body,
   )
@@ -56,6 +58,7 @@ export interface PosterReading {
 
 function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind; work: LibraryManga | null; reading?: PosterReading; onClose: () => void }) {
   const mobile = useMobile()
+  const present = useIsPresent()
   const { full, totals, stats: lib, countsError, refetchCounts } = useGalleryLibrary()
   const { test } = useNsfw()
   const shown = useMemo(() => galleryOrder(full.filter((m) => !test(m))), [full, test])
@@ -175,6 +178,11 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
   }, [onClose])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (!present) {
+        if (e.key === 'Tab' || e.key === 'Escape') e.preventDefault()
+        e.stopPropagation()
+        return
+      }
       if (e.key === 'Tab') return
       e.stopPropagation()
       if (e.key === 'Escape') {
@@ -192,7 +200,7 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
       window.removeEventListener('wheel', swallow, true)
       window.removeEventListener('touchmove', swallow, true)
     }
-  }, [])
+  }, [present])
 
   const heading = HEADING[kind]
   const preview = (
@@ -238,19 +246,16 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
     </p>
   )
 
-  if (mobile) {
-    return (
-      <BottomSheet id="poster-share" label={heading} closeLabel={tl('gallery.poster.closeLabel')} onClose={onClose}>
-        <div className="flex flex-col items-center gap-3 px-2 pt-2 pb-3">
-          <div className="w-[min(216px,54vw)]">{preview}</div>
-          {picker}
-          {status || <p className="m-0 text-center text-[13px] leading-relaxed text-muted">{tl('gallery.poster.noteShort')}</p>}
-          <div className="w-full">{actions}</div>
-        </div>
-      </BottomSheet>
-    )
-  }
-  return (
+  const sheet = mobile ? (
+    <BottomSheet id="poster-share" label={heading} closeLabel={tl('gallery.poster.closeLabel')} onClose={onClose}>
+      <div className="flex flex-col items-center gap-3 px-2 pt-2 pb-3">
+        <div className="w-[min(216px,54vw)]">{preview}</div>
+        {picker}
+        {status || <p className="m-0 text-center text-[13px] leading-relaxed text-muted">{tl('gallery.poster.noteShort')}</p>}
+        <div className="w-full">{actions}</div>
+      </div>
+    </BottomSheet>
+  ) : (
     <div className="fixed inset-0 z-[70] grid place-items-center p-6" role="presentation">
       <motion.div className="absolute inset-0 bg-black/45" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
       <Dialog heading={heading}>
@@ -276,21 +281,18 @@ function PosterSheet({ initial, work, reading, onClose }: { initial: PosterKind;
       </Dialog>
     </div>
   )
+  return (
+    <>
+      {/* inert 会让点击穿过去；淡出期间仍要挡住海报背后的画廊。 */}
+      {!present && <div aria-hidden className="fixed inset-0 z-[70]" />}
+      <div inert={!present} className="contents">{sheet}</div>
+    </>
+  )
 }
 
 /** 桌面对话框：打开时把焦点放进来，关闭后还给原来的按钮 */
 function Dialog({ heading, children }: { heading: string; children: React.ReactNode }) {
   const panel = useRef<HTMLElement>(null)
-  const trap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab' || !panel.current) return
-    const items = [...panel.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]')]
-    const first = items[0]
-    const last = items.at(-1)
-    if (e.shiftKey ? document.activeElement === first || document.activeElement === panel.current : document.activeElement === last) {
-      e.preventDefault()
-      ;(e.shiftKey ? last : first)?.focus()
-    }
-  }, [])
   useEffect(() => {
     const before = document.activeElement instanceof HTMLElement ? document.activeElement : null
     panel.current?.focus({ preventScroll: true })
@@ -304,7 +306,7 @@ function Dialog({ heading, children }: { heading: string; children: React.ReactN
       aria-modal="true"
       aria-label={heading}
       tabIndex={-1}
-      onKeyDown={trap}
+      onKeyDown={(e: React.KeyboardEvent<HTMLElement>) => trapDialogTab(e.currentTarget, e)}
       onClick={(e: React.MouseEvent) => e.stopPropagation()}
       initial={{ opacity: 0, scale: 0.94, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}

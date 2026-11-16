@@ -4,6 +4,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
+import { isImeComposing } from '@/lib/keyboard'
 import './BottomSheet.css'
 import { t } from '@/i18n'
 
@@ -29,6 +30,7 @@ export function BottomSheet({ id, label, closeLabel = t('common.closeMoreActions
       .filter((el) => el.getClientRects().length > 0)
     panel.current?.focus({ preventScroll: true })
     const onKey = (e: KeyboardEvent) => {
+      if (isImeComposing(e)) return
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close.current() }
       if (e.key !== 'Tab') return
       const items = controls()

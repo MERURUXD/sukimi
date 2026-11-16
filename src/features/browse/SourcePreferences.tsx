@@ -6,6 +6,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { toastError } from '@/components/ui/toast'
 import { Row, Select, Switch, TextInput } from '@/features/settings/parts'
 import { cn } from '@/lib/cn'
+import { isImeComposing } from '@/lib/keyboard'
 import { langLabel, SourcePreferences, UpdateSourcePreference } from './queries'
 import { t } from '@/i18n'
 
@@ -161,7 +162,7 @@ function TextPreference({ p, label, value, disabled, onCommit }: {
         aria-label={label}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !isImeComposing(e.nativeEvent)) e.currentTarget.blur() }}
       />
     </Row>
   )

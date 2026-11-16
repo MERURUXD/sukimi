@@ -6,6 +6,7 @@ import { Glass } from '@/components/glass/Glass'
 import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 import { useSoftCover } from './softCover'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { trapDialogTab } from '@/components/ui/dialogFocus'
 import { useAppearance } from '@/design/settings'
 import { inCategory } from '@/features/library/category'
 import type { LibraryManga } from '@/features/library/queries'
@@ -13,6 +14,7 @@ import { STATUS } from '@/features/manga/status'
 import { useNsfw } from '@/features/nsfw/useNsfw'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { isImeComposing } from '@/lib/keyboard'
 import { GlassLink } from '@/components/glass/GlassLink'
 import { poseTransform, tileTransform, type Pose, type TilePose } from './coverPose'
 import type { useGalleryLibrary } from './hooks'
@@ -94,6 +96,8 @@ export function PlayView({
   const [playing, setPlaying] = useState(true)
   const [open, setOpen] = useState(true)
   const root = useRef<HTMLDivElement>(null)
+  const exitButton = useRef<HTMLButtonElement>(null)
+  const shareButton = useRef<HTMLButtonElement>(null)
   const card = useRef<HTMLAnchorElement | null>(null)
   const cur = n ? items[idx % n] : undefined
   const next = n ? items[(idx + 1) % n] : undefined
@@ -106,6 +110,26 @@ export function PlayView({
   const [shareWork, setShareWork] = useState<LibraryManga | null>(null)
   const [sharing, setSharing] = useState(false)
   const resume = useRef(false)
+  const restoreShareFocus = useRef(false)
+  const hasShareLayer = shareWork !== null
+
+  useLayoutEffect(() => {
+    const panel = root.current
+    if (!panel || hasShareLayer) return
+    if (closing) {
+      panel.focus({ preventScroll: true })
+      return
+    }
+    if (restoreShareFocus.current) {
+      restoreShareFocus.current = false
+      ;(shareButton.current ?? exitButton.current)?.focus({ preventScroll: true })
+    }
+    // 换片时封面链接会重建。它若正有焦点，把焦点留在放映层。
+    if (!panel.contains(document.activeElement)) {
+      const target = flying ? panel : exitButton.current ?? panel
+      target.focus({ preventScroll: true })
+    }
+  })
 
   useEffect(() => {
     // 圆形揭幕后画布才被完整盖住；关闭前先恢复，反向收回时仍能看见原来的画布。
@@ -226,13 +250,15 @@ export function PlayView({
   }, [])
 
   useEffect(() => {
-    if (closing) return
+    if (closing || hasShareLayer) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || e.target instanceof HTMLInputElement) return
+      if (e.defaultPrevented || isImeComposing(e) || e.ctrlKey || e.metaKey || e.altKey || e.target instanceof HTMLInputElement) return
+      if (mobile && e.key !== 'Escape') return
       if (e.key === 'ArrowLeft') go(idx - 1)
       else if (e.key === 'ArrowRight') go(idx + 1)
       else if (e.key === ' ') {
-        // 焦点在按钮上时空格本来会点按钮，这里统一当作暂停 / 继续
+        // 按钮有焦点时保留空格激活按钮的原生行为。
+        if (e.target instanceof Element && e.target.closest('button, a[href]')) return
         setPlaying((p) => !p)
       } else if (e.key === 'f' || e.key === 'F') toggleFullscreen()
       else if (e.key === 'Escape' && !document.fullscreenElement) onExit()
@@ -241,7 +267,7 @@ export function PlayView({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [go, idx, toggleFullscreen, closing, onExit])
+  }, [go, idx, toggleFullscreen, closing, onExit, hasShareLayer, mobile])
 
   const peek = useQuery(GalleryPeek, { variables: { id: cur?.id ?? 0 }, skip: !cur })
   const description = peek.data?.manga.id === cur?.id ? peek.data?.manga.description : undefined
@@ -255,19 +281,6 @@ export function PlayView({
   const pad = (i: number) => String(i + 1).padStart(2, '0')
   const dur = { '--dur': `${interval}s` } as CSSProperties
 
-  if (mobile) {
-    return (
-      <div role="dialog" aria-modal aria-label={tl('gallery.play.mode')} className="absolute inset-0 z-30 grid place-items-center bg-bg p-6 text-center">
-        <div className="flex flex-col items-center gap-4">
-          <p className="m-0 text-muted">{tl('gallery.play.desktopOnly')}</p>
-          <button type="button" className="solid" onClick={onExit}>
-            {tl('gallery.backToCanvas')}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   /* 打开分享时固定当前作品并暂停；关闭后恢复打开前的播放状态。NSFW 作品不给分享入口。 */
   const openShare = () => {
     if (!cur) return
@@ -276,8 +289,9 @@ export function PlayView({
     setSharing(true)
     setPlaying(false)
   }
-  const closeShare = () => {
-    setSharing(false)
+  const finishShare = () => {
+    restoreShareFocus.current = true
+    setShareWork(null)
     setPlaying(resume.current)
   }
 
@@ -286,17 +300,33 @@ export function PlayView({
 
   return (
     <MovingGlassBackdrop value="suspend">
+    <PosterShare open={sharing} initial="work" work={shareWork} onClose={() => setSharing(false)} onExitComplete={finishShare} />
+    {mobile ? (
+      <div ref={root} inert={hasShareLayer} role="dialog" aria-modal aria-label={tl('gallery.play.mode')} tabIndex={-1}
+        onKeyDown={(e) => trapDialogTab(e.currentTarget, e)}
+        className="absolute inset-0 z-30 grid place-items-center bg-bg p-6 text-center">
+        <div inert={closing} className="flex flex-col items-center gap-4">
+          <p className="m-0 text-muted">{tl('gallery.play.desktopOnly')}</p>
+          <button ref={exitButton} type="button" className="solid" onClick={onExit}>
+            {tl('gallery.backToCanvas')}
+          </button>
+        </div>
+      </div>
+    ) : (
     <div
       ref={root}
+      inert={hasShareLayer}
       role="dialog"
       aria-modal
       aria-label={tl('gallery.play.mode')}
+      tabIndex={-1}
       data-paused={playing ? undefined : ''}
-      className={cn('gallery-play absolute inset-0 z-30 overflow-hidden', closing && 'pointer-events-none')}
+      className={cn('gallery-play absolute inset-0 z-30 overflow-hidden outline-none', closing && 'pointer-events-none')}
       style={dur}
+      onKeyDown={(e) => trapDialogTab(e.currentTarget, e)}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <PosterShare open={sharing} initial="work" work={shareWork} onClose={closeShare} />
+      <div inert={closing} className="contents">
       {/* 背景不含玻璃，整层裁切不会影响玻璃采样。 */}
       <div
         aria-hidden
@@ -358,7 +388,7 @@ export function PlayView({
             {tl('gallery.play.seconds', { s: interval })}
           </button>
           {cur && !test(cur) && (
-            <button type="button" onClick={openShare} aria-label={tl('gallery.play.shareAria')} title={tl('gallery.play.shareTitle')} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
+            <button ref={shareButton} type="button" onClick={openShare} aria-label={tl('gallery.play.shareAria')} title={tl('gallery.play.shareTitle')} className="grid size-[46px] place-items-center rounded-full hover:bg-hover">
               <Share className="size-[18px]" strokeWidth={1.8} />
             </button>
           )}
@@ -366,7 +396,7 @@ export function PlayView({
             {fullscreen ? <Minimize className="size-[18px]" strokeWidth={1.8} /> : <Maximize className="size-[18px]" strokeWidth={1.8} />}
           </button>
           {/* 工具条本身是玻璃，里面的按钮不再套一层 */}
-          <button type="button" onClick={onExit} aria-label={tl('gallery.play.exitAria')} title={tl('gallery.play.exitTitle')} className="grid size-[46px] place-items-center rounded-full bg-white/10 text-text hover:bg-hover">
+          <button ref={exitButton} type="button" onClick={onExit} aria-label={tl('gallery.play.exitAria')} title={tl('gallery.play.exitTitle')} className="grid size-[46px] place-items-center rounded-full bg-white/10 text-text hover:bg-hover">
             <X className="size-[18px]" strokeWidth={2} />
           </button>
         </Glass>
@@ -410,7 +440,9 @@ export function PlayView({
           </span>
         </Glass>
       )}
+      </div>
     </div>
+    )}
     </MovingGlassBackdrop>
   )
 }

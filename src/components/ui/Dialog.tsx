@@ -3,7 +3,9 @@ import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { spring, still } from '@/design/motion'
 import { cn } from '@/lib/cn'
+import { isImeComposing } from '@/lib/keyboard'
 import { t } from '@/i18n'
+import { focusableIn, trapDialogTab } from './dialogFocus'
 
 /** 从先打开到后打开。只有最上面一层接收键盘，下面的层和页面都 inert */
 const layers: HTMLElement[] = []
@@ -25,14 +27,6 @@ const DISMISS_NAMES = new Set([t('common.cancel'), t('common.close')])
 function isDismiss(el: HTMLElement) {
   const name = labelOf(el)
   return DISMISS_NAMES.has(name)
-}
-
-function focusableIn(panel: HTMLElement) {
-  return [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')].filter((el) => {
-    if (el.getAttribute('aria-hidden') === 'true') return false
-    const style = getComputedStyle(el)
-    return style.display !== 'none' && style.visibility !== 'hidden'
-  })
 }
 
 /** 显式指定的元素优先，否则「取消 / 关闭」，再否则第一个按钮 */
@@ -107,32 +101,14 @@ export function Dialog({
     pickFocus(panel, explicitRef.current?.current ?? null)?.focus({ preventScroll: true })
 
     const onKey = (e: KeyboardEvent) => {
-      if (layers.at(-1) !== layer) return
+      if (layers.at(-1) !== layer || isImeComposing(e)) return
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopPropagation()
         closeRef.current()
         return
       }
-      if (e.key !== 'Tab') return
-      const items = focusableIn(panel)
-      if (!items.length) {
-        e.preventDefault()
-        panel.focus({ preventScroll: true })
-        return
-      }
-      const first = items[0]
-      const last = items[items.length - 1]
-      const active = document.activeElement
-      if (e.shiftKey) {
-        if (active === first || !panel.contains(active)) {
-          e.preventDefault()
-          last.focus({ preventScroll: true })
-        }
-      } else if (active === last || !panel.contains(active)) {
-        e.preventDefault()
-        first.focus({ preventScroll: true })
-      }
+      trapDialogTab(panel, e)
     }
     const onFocus = (e: FocusEvent) => {
       if (layers.at(-1) !== layer) return

@@ -11,6 +11,7 @@ import { StaleSessionError } from '@/api/userContext'
 import { SourceIcon } from '@/features/browse/SourceIcon'
 import { Select, Switch } from '@/features/settings/parts'
 import { chapterNo } from '@/lib/format'
+import { isImeComposing } from '@/lib/keyboard'
 import { cn } from '@/lib/cn'
 import { httpUrl } from '@/lib/url'
 import { BindTrack, FetchTrack, MangaTracks, SearchTracker, Trackers, UnbindTrack, type Tracker, type TrackRecord } from './queries'
@@ -192,7 +193,7 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
               value={chapters}
               onChange={(e) => setChapters(e.target.value)}
               onBlur={() => saveChapters(Number(chapters) || 0)}
-              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !isImeComposing(e.nativeEvent)) e.currentTarget.blur() }}
               className="w-full min-w-0 border-0 bg-transparent text-center text-text outline-none num"
             />
           </label>

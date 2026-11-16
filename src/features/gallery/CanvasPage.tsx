@@ -6,12 +6,14 @@ import { Link, useLocation, useNavigate, useNavigationType } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
 import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 import { CoverImg } from '@/components/manga/CoverImg'
+import { trapDialogTab } from '@/components/ui/dialogFocus'
 import { MangaChapters, MangaDetail } from '@/features/manga/queries'
 import { STATUS } from '@/features/manga/status'
 import type { LibraryManga } from '@/features/library/queries'
 import { NEUTRAL, coverColor, rgbCss } from '@/lib/coverColor'
 import { count } from '@/lib/format'
 import { cn } from '@/lib/cn'
+import { isImeComposing } from '@/lib/keyboard'
 import { PAGE_PATH_ATTR } from '@/lib/coverTransition'
 import { MobileTabBar } from '@/app/MobileTabBar'
 import { SideNav } from '@/app/SideNav'
@@ -94,6 +96,8 @@ export function CanvasPage() {
   const atPlay = location.pathname === `${GALLERY}/play`
 
   const root = useRef<HTMLDivElement>(null)
+  const focusBackTo = useRef<HTMLElement | null>(null)
+  const playTrigger = useRef<HTMLButtonElement>(null)
   const field = useRef<HTMLDivElement>(null)
   const stage = useRef<HTMLDivElement>(null)
   const hud = useRef<HTMLDivElement>(null)
@@ -528,12 +532,13 @@ export function CanvasPage() {
     kick()
   }
 
-  const openSlot = (i: number) => {
+  const openSlot = (i: number, trigger: HTMLElement | null) => {
     const v = view.current
     if (v.moved || v.t < 1 || selRef.current) return
     const el = slots.current[i]
     const meta = slotMeta.current[i]
     if (!el || !meta) return
+    focusBackTo.current = trigger
     setClosing(false)
     setSel({ index: meta.idx, origin: meta.idx, key: meta.key, tile: { x: meta.x, y: meta.y, z: meta.z, rx: meta.rx, ry: meta.ry } })
   }
@@ -563,8 +568,9 @@ export function CanvasPage() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey || playRef.current) return
+      if (e.defaultPrevented || isImeComposing(e) || e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey || playRef.current) return
       if (selRef.current) {
+        if (closingRef.current) return
         if (e.key === 'Escape') close()
         else if (e.key === 'ArrowLeft') step(-1)
         else if (e.key === 'ArrowRight') step(1)
@@ -580,9 +586,9 @@ export function CanvasPage() {
       if (mv) {
         e.preventDefault()
         panToCell(c.c + mv[0], c.r + mv[1])
-      } else if (e.key === 'Enter' && document.activeElement === document.body) {
+      } else if (e.key === 'Enter' && (document.activeElement === document.body || document.activeElement === root.current)) {
         const slot = assigned.current.get(c.key)
-        if (slot !== undefined) openSlot(slot)
+        if (slot !== undefined) openSlot(slot, root.current)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -614,6 +620,7 @@ export function CanvasPage() {
     const slot = c ? assigned.current.get(c.key) : undefined
     const meta = slot === undefined ? undefined : slotMeta.current[slot]
     if (!c || !meta || !n || playRef.current) return
+    focusBackTo.current = playTrigger.current
     const id = items[meta.idx].id
     playKey.current = c.key
     // 等网址变了再挂上放映（见下面的网址同步）：换页和这里的状态更新不一定在同一次渲染里生效
@@ -680,6 +687,18 @@ export function CanvasPage() {
   const status = (m: LibraryManga) => STATUS[m.status] ?? ''
   const titleSize = focused ? (mobile ? fit(focused.title, size.w - 40, 64, 28, 3) : fit(focused.title, size.w - 104, 184, 56, 3)) : 0
   const selected = sel ? items[sel.index] : undefined
+  const modalOpen = !!((play && n > 0) || selected)
+  const hadModal = useRef(modalOpen)
+  useLayoutEffect(() => {
+    const wasOpen = hadModal.current
+    hadModal.current = modalOpen
+    if (!wasOpen || modalOpen) return
+    // 等退场结束、背景解除 inert 后才归还焦点。直接打开网址时没有触发按钮。
+    const target = focusBackTo.current
+    focusBackTo.current = null
+    if (target?.isConnected) target.focus({ preventScroll: true })
+    if (!target || document.activeElement !== target) root.current?.focus({ preventScroll: true })
+  }, [modalOpen])
 
   // 打开详情时预取详情页数据，点「作品详情」进去时已经在缓存里
   useEffect(() => {
@@ -694,11 +713,13 @@ export function CanvasPage() {
       ref={root}
       data-theme="dark"
       {...{ [PAGE_PATH_ATTR]: location.pathname }}
+      tabIndex={modalOpen ? undefined : -1}
       className="fixed inset-0 touch-none overflow-hidden bg-bg text-text select-none"
     >
       {/* 拖动手势只绑在封面层上：按钮和详情层若在手势区域里，按下时被拦住冒泡，
           手势库只收到松开，会把这次点击当成拖动结束吞掉（「点标志回不去」就是这样） */}
       <div
+        inert={modalOpen}
         className={cn('absolute inset-0', ready && !sel && 'cursor-grab active:cursor-grabbing')}
         {...bind()}
         // 拖动手势过了阈值才开始，单击时不会进手势处理；每次按下先清掉上次拖动的标记
@@ -722,7 +743,7 @@ export function CanvasPage() {
               tabIndex={-1}
               className="gallery-tile cv absolute top-0 left-0 rounded-[14px] p-0"
               style={{ width: grid.cw, visibility: 'hidden', backfaceVisibility: 'hidden' }}
-              onClick={() => openSlot(i)}
+              onClick={(e) => openSlot(i, e.currentTarget)}
             >
               <img alt="" draggable={false} decoding="async" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
             </button>
@@ -774,7 +795,7 @@ export function CanvasPage() {
       )}
 
       {/* --hud 由每个元素各自读成透明度，容器本身不带透明度；之后由 paint 逐帧改，React 不再覆盖 */}
-      <div ref={hud} className="pointer-events-none absolute inset-0" style={{ '--hud': hudStart } as CSSProperties}>
+      <div ref={hud} inert={modalOpen} className="pointer-events-none absolute inset-0" style={{ '--hud': hudStart } as CSSProperties}>
         <div
           ref={reticle}
           aria-hidden
@@ -813,7 +834,7 @@ export function CanvasPage() {
             <span className="max-md:hidden">{tl('gallery.canvas.shuffle')}</span>
           </button>
           <CanvasSearch open={searching} onOpen={setSearching} items={items} onPick={jumpTo} />
-          <Glass as="button" type="button" onClick={startPlay} className="gbtn h-[50px] rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--hud)] max-md:hidden">
+          <Glass as="button" ref={playTrigger} type="button" onClick={startPlay} className="gbtn h-[50px] rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--hud)] max-md:hidden">
             <Play className="size-[15px] fill-current" strokeWidth={1.8} />
             {tl('gallery.canvas.slideshow')}
           </Glass>
@@ -862,7 +883,7 @@ export function CanvasPage() {
         />
       )}
 
-      {sel && selected && (
+      {!play && sel && selected && (
         <CanvasDetail
           key={sel.origin + ':' + (sel.key ?? '')}
           sel={sel}
@@ -914,6 +935,7 @@ function CanvasSearch({ open, onOpen, items, onPick }: { open: boolean; onOpen: 
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
+                if (isImeComposing(e.nativeEvent)) return
                 if (e.key === 'Escape') onOpen(false)
                 if (e.key === 'Enter' && hits[0]) onPick(hits[0].i)
               }}
@@ -963,6 +985,8 @@ function CanvasDetail({
   onClose: () => void
   onClosed: () => void
 }) {
+  const panel = useRef<HTMLDivElement>(null)
+  const closeButton = useRef<HTMLButtonElement>(null)
   const cover = useRef<HTMLAnchorElement>(null)
   const [color, setColor] = useState<Rgb>(NEUTRAL)
   const [shown, setShown] = useState(!sel.tile || reduced)
@@ -1045,12 +1069,20 @@ function CanvasDetail({
   const titleSize = mobile ? fit(manga.title, width - 40, 48, 26, 3) : fit(manga.title, Math.max(320, width * 0.48), 132, 44, 3)
   const up = (i: number) => ({ '--d': `${0.22 + i * 0.06}s` }) as CSSProperties
   const info = shown && !closing
+  useLayoutEffect(() => {
+    if (!panel.current) return
+    const active = document.activeElement
+    if (panel.current.contains(active) && !closing && (info || active !== closeButton.current)) return
+    // 退场或进场时关闭按钮可能不可见，先把焦点放在弹层上。
+    const target = info ? closeButton.current ?? panel.current : panel.current
+    target.focus({ preventScroll: true })
+  })
 
   return (
-    <div role="dialog" aria-modal aria-label={manga.title} className="absolute inset-0 z-20" onPointerDown={(e) => e.stopPropagation()}>
+    <div ref={panel} role="dialog" aria-modal aria-label={manga.title} tabIndex={-1} className="absolute inset-0 z-20 outline-none" onKeyDown={(e) => trapDialogTab(e.currentTarget, e)} onPointerDown={(e) => e.stopPropagation()}>
       <div
         aria-hidden
-        onClick={onClose}
+        onClick={closing ? undefined : onClose}
         className="absolute inset-0 transition-opacity duration-500"
         style={{
           opacity: closing ? 0 : 1,
@@ -1058,6 +1090,7 @@ function CanvasDetail({
         }}
       />
       <section
+        inert={closing}
         className={cn(
           'pointer-events-none absolute inset-0 flex cursor-default',
           mobile ? 'flex-col items-center gap-6 overflow-y-auto px-5 pt-[calc(max(14px,env(safe-area-inset-top))+72px)] pb-10' : 'items-center gap-[clamp(40px,6vw,90px)] pr-24 pl-[max(56px,9vw)]',
@@ -1114,8 +1147,8 @@ function CanvasDetail({
         </div>
       </section>
 
-      <div className="absolute top-[max(14px,env(safe-area-inset-top))] right-4 flex gap-2.5 md:top-5 md:right-7 [&>*]:transition-opacity [&>*]:duration-300" style={{ '--info': info ? 1 : 0, pointerEvents: info ? undefined : 'none' } as CSSProperties}>
-        <Glass as="button" type="button" onClick={onClose} className="gbtn h-11 rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--info)] md:h-[50px]" autoFocus>
+      <div inert={!info} className="absolute top-[max(14px,env(safe-area-inset-top))] right-4 flex gap-2.5 md:top-5 md:right-7 [&>*]:transition-opacity [&>*]:duration-300" style={{ '--info': info ? 1 : 0, pointerEvents: info ? undefined : 'none' } as CSSProperties}>
+        <Glass as="button" ref={closeButton} type="button" onClick={onClose} className="gbtn h-11 rounded-full pr-5 pl-4 text-[15px] font-semibold [opacity:var(--info)] md:h-[50px]">
           <X className="size-[18px]" strokeWidth={2} />
           <span className="max-md:sr">{tl('gallery.backToCanvas')}</span>
         </Glass>

@@ -10,7 +10,6 @@ import { JSDOM } from 'jsdom'
 import { ApolloClient, ApolloLink, InMemoryCache, Observable } from '@apollo/client'
 import { ApolloProvider } from '@apollo/client/react'
 import { act, createElement, Fragment, StrictMode, useState } from 'react'
-import { createRoot } from 'react-dom/client'
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 
 const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', {
@@ -85,6 +84,7 @@ try {
 } catch { /* jsdom 已可写 */ }
 g.IS_REACT_ACT_ENVIRONMENT = true
 
+const { createRoot } = await import('react-dom/client')
 const { createServer } = await import('vite')
 const vite = await createServer({
   resolve: { preserveSymlinks: true },
@@ -233,6 +233,56 @@ test('标签搜索：来源原名、归一名都能命中，隐藏的标签两�
   assert.equal(matchesSearch(m, '恋爱', hidden), false)
   const opts = { category: 'all', filters: { unread: 0, downloaded: 0, started: 0, bookmarked: 0, completed: 0, nsfw: 0, shelved: 0 }, sources: [], sort: 'title', desc: false, query: '恋爱', nsfw: () => false, shelf: new Set(), tagPicks: { 恋爱: 1 } }
   assert.deepEqual(applyView([m], opts).map((x) => x.id), [1])
+})
+
+test('服务端设置文本框保留输入法草稿，普通回车才保存', async () => {
+  const { SText } = await mod('/src/features/settings/fields.tsx')
+  const { useAuth } = await mod('/src/api/auth.ts')
+  const previous = useAuth.getState()
+  const writes = []
+  let path = '原路径'
+  const client = new ApolloClient({
+    cache: new InMemoryCache(),
+    link: new ApolloLink((op) => new Observable((observer) => {
+      const fragment = op.query.definitions.find((d) => d.kind === 'FragmentDefinition' && d.name.value === 'ServerSettings')
+      const settings = () => ({
+        ...Object.fromEntries(fragment.selectionSet.selections.map((field) => [field.name.value, null])),
+        __typename: 'SettingsType',
+        localSourcePath: path,
+      })
+      if (op.operationName === 'ServerSettings') observer.next({ data: { settings: settings() } })
+      else if (op.operationName === 'SetServerSettings') {
+        path = op.variables.settings.localSourcePath
+        writes.push(path)
+        observer.next({ data: { setSettings: { __typename: 'SetSettingsPayload', settings: settings() } } })
+      }
+      observer.complete()
+    })),
+  })
+  useAuth.setState({ status: 'signedIn', user: { id: 0, username: '虚构用户', legacy: true, roles: ['ADMIN'], permissions: ['MANAGE_SETTINGS'] } })
+  try {
+    await render(createElement(ApolloProvider, { client }, createElement(SText, { k: 'localSourcePath', label: '本地来源路径' })))
+    const input = host().querySelector('input')
+    await until(() => !input.disabled && input.value === path)
+    input.focus()
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '虚构路径')
+      input.dispatchEvent(new window.Event('input', { bubbles: true }))
+    })
+    for (const [key, init] of [['Enter', { isComposing: true }], ['Enter', { keyCode: 229 }], ['Escape', { isComposing: true }]]) {
+      await act(async () => press(key, input, init))
+      focused(input)
+      assert.equal(input.value, '虚构路径')
+      assert.deepEqual(writes, [])
+    }
+    await act(async () => press('Enter', input))
+    await until(() => writes.length > 0)
+    assert.deepEqual(writes, ['虚构路径'])
+  } finally {
+    await cleanup()
+    client.stop()
+    useAuth.setState(previous)
+  }
 })
 
 test('书库：持久化自建标签筛选等待元数据，失败可重试，不先显示空结果', async () => {
