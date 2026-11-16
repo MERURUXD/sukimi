@@ -43,7 +43,6 @@ export function ReaderPage() {
   const [reloading, setReloading] = useState(false)
   const request = useRef({ active: false })
   const reloadLock = useRef(false)
-  // 加载失败后点「重试」递增，重新拉取本话页面
   const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
@@ -332,7 +331,6 @@ function ReaderSession({
     }
   }, [])
 
-  /* 双页拼版（宽图独占一屏，随图片加载更新） */
   // 竖屏窄屏（手机）上双页太小，自动按单页显示
   const narrow = useNarrow()
   const double = settings.mode === 'double' && !narrow
@@ -417,7 +415,6 @@ function ReaderSession({
   /* 进度回写（规则见 progress.ts） */
   const { synced, leave } = useProgressSync(mangaId, chapter, page, atChapterEnd(shown, last, splits(last), half), last)
 
-  /* 翻页与换话 */
   const goChapter = useCallback(
     (c: Chapter | undefined) => {
       if (!c) return
@@ -428,7 +425,6 @@ function ReaderSession({
     [leave, navigate, mangaId, location.state],
   )
 
-  // 相邻屏每次渲染都重新算，这里不缓存函数
   const step = (d: 1 | -1) => {
     if (atEnd) {
       if (d < 0) setAtEnd(false)
@@ -526,7 +522,6 @@ function ReaderSession({
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
-  // 切模式时保持当前页
   const prevMode = useRef(settings.mode)
   useEffect(() => {
     if (prevMode.current === settings.mode) return

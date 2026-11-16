@@ -15,7 +15,7 @@ export interface TasteLayout {
   top: number
   bottom: number
   headFs: number
-  /** 题材名的字号、题材行间距；作者小封面宽、作者间距（手机矮屏上按高度压缩） */
+  /** 题材字号、行距和作者封面尺寸；手机矮屏上按高度压缩。 */
   genreFs: number
   rowGap: number
   authorCw: number
@@ -23,10 +23,7 @@ export interface TasteLayout {
   u: number
 }
 
-/**
- * 第三屏：口味。大标题直接说结论（最常读的两个题材），下面是题材占比和最常读的作者。
- * 进场每帧直接写样式：标题先出，题材一行行升起、细条跟着长满，作者从右侧滑进来
- */
+/** 进场每帧直接写样式：标题先出，题材逐行升起，作者从右侧滑入。 */
 export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverOf: (id: number) => string | null; pager: Pager; L: TasteLayout }) {
   const head = useRef<HTMLDivElement | null>(null)
   const rows = useRef<(HTMLElement | null)[]>([])
@@ -128,7 +125,6 @@ export function TasteScreen({ taste, coverOf, pager, L }: { taste: Taste; coverO
           className="grid items-center"
           style={{ gridTemplateColumns: `${Math.round(cw * 1.4)}px minmax(0, 1fr)`, columnGap: phone ? 14 : 20 }}
         >
-          {/* 这位作者读得最多的两部，叠着放 */}
           <span aria-hidden className="relative isolate block" style={{ height: cw * 1.6 }}>
             {a.ids.slice(0, 2).map((id, i) => (
               <span

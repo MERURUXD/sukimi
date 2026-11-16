@@ -11,14 +11,10 @@ import { MigrateDialog, type MigrateTarget } from './MigrateDialog'
 import { MangaChapters, MangaDetail } from './queries'
 import { t } from '@/i18n'
 
-/**
- * 把一部漫画加入书库时，书库里已有同名的（换了来源）：问是迁移过来、还是照常加入。
- * 选「迁移」后接着用换源迁移的对话框，已读、书签、分类的搬法与换源迁移页完全一致。
- */
+/** 同名漫画先询问迁移或照常加入；迁移复用换源流程。 */
 export function SameTitleDialog({ target, matches, onAdd, onClose, onMigrated }: {
   target: MigrateTarget
   matches: readonly LibraryManga[]
-  /** 不迁移，只加入书库 */
   onAdd: () => void
   onClose: () => void
   onMigrated: () => void
@@ -68,7 +64,6 @@ export function SameTitleDialog({ target, matches, onAdd, onClose, onMigrated }:
   )
 }
 
-/** 取旧漫画的详情和章节，备齐了接上迁移对话框；取消回到上一步的选择 */
 function MigrateFrom({ fromId, target, onBack, onDone }: { fromId: number; target: MigrateTarget; onBack: () => void; onDone: () => void }) {
   const manga = useQuery(MangaDetail, { variables: { id: fromId } }).data?.manga
   const chapters = useQuery(MangaChapters, { variables: { mangaId: fromId } }).data?.chapters.nodes

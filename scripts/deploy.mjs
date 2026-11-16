@@ -80,7 +80,6 @@ if (existsSync(join(serve, MARK))) {
   console.log(`· 没找到本前端的托管副本（${serve}），需要重启服务端才生效`)
 }
 
-// 核验服务端现在返回的页面
 const url = env.SUWAYOMI_URL || 'http://localhost:4567'
 try {
   const html = await (await fetch(new URL('/', url), { cache: 'no-store' })).text()

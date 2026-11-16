@@ -59,12 +59,10 @@ export function pickMatch(results: readonly BgmSubject[]): BgmSubject | null {
 export const CACHE_MS = 24 * 60 * 60 * 1000
 export const isFresh = (at: number, now: number) => at > 0 && now - at >= 0 && now - at < CACHE_MS
 
-/** 人数缩写：一万以上写成「1.2万」，以下照原样加千分位 */
+/** 一万以上用「万」，英文一千以上用「k」。 */
 export const shortCount = (n: number) => {
-  // 中文按「万」，英文按「k」
   if (locale === 'en') return n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n)
   return n >= 10000 ? `${(n / 10000).toFixed(1).replace(/\.0$/, '')}万` : n.toLocaleString('en-US')
 }
 
-/** 条目网页地址 */
 export const subjectUrl = (id: number) => `https://bgm.tv/subject/${id}`

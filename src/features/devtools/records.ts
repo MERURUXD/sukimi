@@ -46,7 +46,7 @@ export function clearRecords() {
   if (k) localStorage.removeItem(k)
 }
 
-/** 让浏览器下载一份 JSON；内容是用户自己的书名，只存到用户选择的位置 */
+/** 导出文件只写到用户选择的位置，不经过服务端。 */
 export function downloadJson(name: string, data: unknown) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }))
   const a = document.createElement('a')

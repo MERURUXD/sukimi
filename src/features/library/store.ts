@@ -8,9 +8,7 @@ export type FilterKey = 'unread' | 'downloaded' | 'started' | 'bookmarked' | 'co
 export type TriState = 0 | 1 | 2
 export type SortKey = 'updated' | 'read' | 'added' | 'title' | 'unread' | 'downloaded' | 'score'
 export type Density = 'comfy' | 'compact' | 'list'
-/** 封面角标 */
 export type BadgeKey = 'unread' | 'downloaded' | 'score' | 'bookmarks' | 'completed' | 'lang' | 'favorite'
-/** 封面下标题之后的附加信息 */
 export type SublineKey = 'source' | 'time' | 'author' | 'genre'
 /** 标题显示的行数，0 = 不显示 */
 export type TitleLines = 0 | 1 | 2

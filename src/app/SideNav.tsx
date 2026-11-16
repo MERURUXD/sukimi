@@ -9,10 +9,7 @@ import { BrandMark } from './BrandMark'
 import { markNavDirection, TABS, updatesTabLabel } from './navTabs'
 import { t } from '@/i18n'
 
-/**
- * 触控移动设备在 768–1279px 使用左侧玻璃导航栏。宽度和内容让位由 index.css 的 --side-w 统一给出，
- * 顶栏只保留返回键和右侧按钮，标志移到这里，和顶栏的按钮排在同一行高度。
- */
+/** 触控移动设备在 768–1279px 使用左侧导航栏；宽度和内容让位由 index.css 的 --side-w 统一给出。 */
 export function SideNav() {
   const downloading = useLive((s) => s.queue.length)
   const { pathname } = useLocation()

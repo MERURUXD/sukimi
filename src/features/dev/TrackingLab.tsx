@@ -120,7 +120,6 @@ export function TrackingLab() {
         </div>
         <div className="mb-8 flex flex-col gap-3">
           <span className="font-semibold">详情页正文：</span>
-          {/* 两处按宽度只显示其一：宽屏为展开面板，较窄时为三栏信息条 */}
           <TrackSummary placement="inline" mangaId={MANGA} title="测试漫画" />
           <TrackSummary placement="side" mangaId={MANGA} title="测试漫画" className="max-w-[300px]" />
         </div>

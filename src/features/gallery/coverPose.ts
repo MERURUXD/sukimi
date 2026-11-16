@@ -14,7 +14,6 @@ export interface TilePose {
   ry: number
 }
 
-/** 画布的透视距离 */
 export const PERSPECTIVE = 1100
 
 export interface Pose {
@@ -35,7 +34,6 @@ export function layoutCenter(el: HTMLElement) {
   return { x: b.left + el.offsetLeft - box.scrollLeft + el.offsetWidth / 2, y: b.top + el.offsetTop - box.scrollTop + el.offsetHeight / 2 }
 }
 
-/** 画布的透视原点：画布铺满视口，原点在视口中心 */
 export const screenCenter = () => ({ x: document.documentElement.clientWidth / 2, y: document.documentElement.clientHeight / 2 })
 
 /** 完整变换；about 是透视原点（屏幕坐标），省略时以元素自己的中心为原点 */

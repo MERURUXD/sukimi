@@ -1,4 +1,3 @@
-/* 画布：中心换了一部时，底部大标题重新进场 */
 @keyframes gallery-title-in {
   from {
     opacity: 0;
@@ -14,7 +13,6 @@
 .gallery-title-in {
   animation: gallery-title-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-/* 详情层文字依次上浮；--d 是延迟 */
 @keyframes gallery-up {
   from {
     opacity: 0;
@@ -43,14 +41,12 @@
 .gallery-swap {
   animation: gallery-swap 1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-/* 画布的格子：只在指针设备上给悬停反馈 */
 @media (hover: hover) {
   .gallery-tile:hover {
     filter: brightness(1.12);
   }
 }
 
-/* ───────── 阅读档案 ───────── */
 @property --stats-p {
   syntax: '<number>';
   inherits: false;
@@ -68,7 +64,6 @@
   background-image: url('../../assets/gallery-grain.png');
   opacity: .035;
 }
-/* 时钟上「现在」的位置一圈圈扩散 */
 @keyframes gallery-ping {
   from {
     transform: scale(1);
@@ -82,7 +77,6 @@
 .gallery-ping {
   animation: gallery-ping 2s ease-out infinite;
 }
-/* 阅读档案第二屏：翻到另一部时，正中作品的信息淡入上移 */
 @keyframes gallery-info-in {
   from {
     opacity: 0;
@@ -101,7 +95,6 @@
   }
 }
 
-/* ───────── 放映 ───────── */
 /* 背景镜头缓慢推近；暂停时停住 */
 @keyframes gallery-kb {
   from {
@@ -130,7 +123,6 @@
 .gallery-play[data-paused] .gallery-progress {
   animation-play-state: paused;
 }
-/* 竖排书名一个字一个字落下 */
 @keyframes gallery-char {
   from {
     opacity: 0;
@@ -146,7 +138,6 @@
   animation: gallery-char 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   animation-delay: var(--d, 0s);
 }
-/* 镂空大编号从左侧滑入 */
 @keyframes gallery-num {
   from {
     opacity: 0;
@@ -160,7 +151,6 @@
 .gallery-num {
   animation: gallery-num 1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-/* 左侧封面卡片从后方转进来 */
 @keyframes gallery-card {
   from {
     opacity: 0;
@@ -200,7 +190,6 @@ html[data-gallery-morph] .gallery-blob-a,
 html[data-gallery-morph] .gallery-blob-b {
   animation-play-state: paused;
 }
-/* 首页「浏览全部」的箭头：全部作品还收着时轻轻往下点，提示可以往下滚 */
 @keyframes gallery-nudge {
   0%,
   60%,
@@ -253,7 +242,6 @@ html[data-gallery-morph] .gallery-blob-b {
   animation: gallery-clock-in 0.6s ease-out;
 }
 
-/* 阅读档案排行：前三名封面各有倾角，悬停时摆正、抬起来 */
 .stats-pod-cover {
   transform: rotate(var(--tilt, 0deg));
   transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -267,7 +255,6 @@ html[data-gallery-morph] .gallery-blob-b {
     color: rgba(255, 255, 255, 0.26) !important;
   }
 }
-/* 换组：新的一组依次浮上来；--d 是延迟 */
 @keyframes stats-group-in {
   from {
     opacity: 0;

@@ -1,4 +1,3 @@
-/** 漫画详情页：头部、章节列表、更新节奏、同名提示 */
 export default {
   loading: '正在加载…',
   loadingChapters: '正在加载章节…',

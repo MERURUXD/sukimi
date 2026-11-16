@@ -1,4 +1,3 @@
-/** 跨页面共用的按钮、状态和主题名 */
 export default {
   cancel: '取消',
   close: '关闭',

@@ -37,13 +37,7 @@ export function getCachedCoverPalette(url: string | null | undefined): Swatch[] 
   return paletteStore.get(url)
 }
 
-/**
- * 英雄区（首页大图 / 舞台 / 详情页 Hero）自适应玻璃底色计算 Hook：
- * 1. 优先复用 CoverFlow 的 onPaletteChange 回调或已提取的色板
- * 2. 在动态背景关闭或提取中时通过 coverPalette(url) 兜底
- * 3. 当开启 glassAdaptiveTint 时，根据背景明暗与纹理动态计算 --refract-tint
- * 4. 当关闭 glassAdaptiveTint 时，保持 enabled: false，100% 保持原有表现
- */
+/** 优先复用已提取色板，缺失时兜底取色；关闭自适应时完全不改现有表现。 */
 export function useAdaptiveHeroTint(coverUrl?: string | null) {
   const glassAdaptiveTint = useAppearance((s) => s.glassAdaptiveTint)
   const checking = useAuthChecking()

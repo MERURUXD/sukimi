@@ -12,7 +12,7 @@ import { UsersTab } from '@/features/settings/tabs/UsersTab'
 import { TagManager } from '@/features/tags/TagManager'
 import { t } from '@/i18n'
 
-/** 演示里切换虚构身份，看管理员与普通用户各自能看到什么；只改内存，刷新后回到管理员 */
+/** 只改内存，刷新后回到管理员。 */
 function DemoIdentity() {
   const id = useAuth((s) => s.user?.id)
   return <Section title={t('misc.demo.identityTitle')} desc={t('misc.demo.identityDesc')}>
@@ -37,7 +37,7 @@ function AccountTab() {
   return <><DemoIdentity /><AccountSection hideSignOut /></>
 }
 
-/** 与正式设置共用外壳（左侧分栏、手机列表），分栏只留演示数据能跑的几项 */
+/** 只保留能用虚构数据运行的设置分栏。 */
 const TABS: SettingsTab[] = [
   { id: 'appearance', label: t('settings.tabs.appearance.label'), icon: Palette, desc: t('settings.tabs.appearance.desc'), Component: AppearanceTab, group: 'personal' },
   { id: 'home', label: t('settings.tabs.home.label'), icon: House, desc: t('settings.tabs.home.desc'), Component: HomeTab, group: 'personal' },

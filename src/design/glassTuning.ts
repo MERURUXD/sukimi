@@ -62,7 +62,7 @@ export function glassDefaults(theme: GlassTheme): GlassTuning {
   return theme === 'light' ? { ...GLASS_DEFAULTS, blur: 3, denseBlur: 3, tint: 50, denseTint: 50 } : { ...GLASS_DEFAULTS }
 }
 
-/** PrismUI 预设：对应实验页深/浅光学参数（20px 倒角透镜、柔和模糊与较高饱和透亮底色）。 */
+/** PrismUI 预设：20px 倒角透镜、柔和模糊与较高饱和透亮底色。 */
 export function prismGlassDefaults(theme: GlassTheme): GlassTuning {
   return theme === 'light'
     ? { ...PRISM_GLASS_DEFAULTS, tint: 55, denseTint: 55, saturate: 2.0 }
@@ -73,7 +73,6 @@ export function presetDefaults(preset: GlassPreset, theme: GlassTheme): GlassTun
   return preset === 'prism' ? prismGlassDefaults(theme) : glassDefaults(theme)
 }
 
-/** 设置页与调参页共用的滑块定义 */
 export const GLASS_PARAMS: { key: keyof GlassTuning; label: string; min: number; max: number; step: number; hint?: string }[] = [
   { key: 'bezel', label: t('misc.glass.bezel'), min: 0, max: 40, step: 1, hint: t('misc.glass.bezelHint') },
   { key: 'strength', label: t('misc.glass.strength'), min: 0, max: 2, step: 0.01 },

@@ -19,7 +19,6 @@ import { CoverSkeleton } from './CoverSkeleton'
  */
 export function CoverImg({ src, ...rest }: { src: string | null | undefined } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
   const [failed, setFailed] = useState<string | null>(null)
-  // 令牌续期后重试的地址
   const [deferred, setDeferred] = useState<string | null>(null)
   const checking = useAuthChecking()
   const [renewing, setRenewing] = useState(false)

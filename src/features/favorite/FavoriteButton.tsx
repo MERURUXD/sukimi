@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn'
 import { useFavoriteActions, useFavorites } from './useFavorites'
 import { t } from '@/i18n'
 
-/** 详情页的「特别关心」开关；只有书库里的漫画才会检查更新，不在书库时不显示 */
+/** 只有书库里的漫画会检查更新，不在书库时不显示。 */
 export function FavoriteButton({ mangaId, style, className }: { mangaId: number; style?: CSSProperties; className?: string }) {
   const { map } = useFavorites()
   const { setFavorite } = useFavoriteActions()

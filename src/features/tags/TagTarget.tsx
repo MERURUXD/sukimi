@@ -9,7 +9,6 @@ import { TagTarget } from './target'
 import { useTagActions } from './useTags'
 import { t } from '@/i18n'
 
-/** 外站（Bangumi）的一个标签：点一下加入或移出我的标签；已是来源标签或无意义的词只显示 */
 export function ExternalTag({ name, children }: { name: string; children: ReactNode }) {
   const target = useContext(TagTarget)
   const plain = <span className="plain rounded-full px-3 py-1 text-xs">{children}</span>

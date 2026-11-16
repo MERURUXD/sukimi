@@ -11,7 +11,6 @@ export interface Zoom {
 
 export const NO_ZOOM: Zoom = { s: 1, x: 0, y: 0 }
 export const MAX_ZOOM = 4
-/** 双击放大到的倍数 */
 export const TAP_ZOOM = 2.5
 
 /** 放大后最多能平移多远：内容放大后超出视口部分的一半（没超出就不能移） */
@@ -43,7 +42,6 @@ export const blocksWheelTurn = (scale: number) => settle({ s: scale, x: 0, y: 0 
 /** 轻扫翻页的序号加一。键盘、点击、滚轮或新的一次拖动都要加，旧定时器到点就对不上 */
 export const invalidateFlip = (generation: number) => generation + 1
 
-/** 定时器记下的序号还是不是当前这一次 */
 export const flipStillCurrent = (generation: number, scheduled: number) => generation === scheduled
 
 /**

@@ -5,7 +5,6 @@ import { errorText } from '@/lib/errorText'
 import { AuthInput, AuthLayout } from './AuthLayout'
 import { t } from '@/i18n'
 
-/** 注册与找回共用：输入码（可由 ?code= 预填）、用户名（仅注册）和密码，兑换成功后直接登录 */
 function RedeemForm({ mode }: { mode: 'register' | 'recover' }) {
   const register = mode === 'register'
   const status = useAuth((s) => s.status)

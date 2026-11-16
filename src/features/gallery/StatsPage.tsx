@@ -30,7 +30,6 @@ import './gallery.css'
 import { t as tl } from '@/i18n'
 import { monthName } from './dates'
 
-/** 排行最多显示这么多部 */
 const TOP = 40
 
 /**
@@ -132,12 +131,7 @@ const dateLabel = (t: number) => {
   return tl('gallery.dateFull', { year: d.getFullYear(), month: monthName(d.getMonth()), day: d.getDate() })
 }
 
-/**
- * 阅读档案，分三屏：第一屏「读了多少、什么时候读」——24 小时时钟外套近半年年轮，正中是已读话数，两侧四项数字；
- * 第二屏「读得最多的」——已读排行，一组八部，前三名放大；第三屏「口味」——常读的题材和作者。
- * 往下滚（手机上滑）一次翻一屏：镜头先穿过表盘，排行的封面从低处升起；再往下排行往上飘走，口味一行行长出来。
- * 固定深色。从画廊首页点「已读话数」进来时，那个数字由换页动画飞成这里的大数字；返回时再飞回去（见 readMorph）。
- */
+/** 阅读档案三屏：概览、排行、口味；固定深色，已读数字与画廊首页做换页 morph。 */
 export function StatsPage() {
   useForceDark()
   // 档案按完整书库汇总：NSFW 作品照常计数，只在排行里换成占位（见 maskRanked）
@@ -175,7 +169,6 @@ export function StatsPage() {
   )
   // 口味按全部读过的作品算，不只排行里的前几十部；自建标签和来源标签一起排
   const taste = useMemo<Taste | null>(() => (stats && tagLookup ? readTaste(read, byId, hidden, tagLookup) : null), [stats, read, byId, hidden, tagLookup])
-  // 口味屏里作者那两张小封面
   const coverOf = useMemo(() => {
     const m = new Map(all.map((x) => [x.id, x.thumbnailUrl ?? null]))
     return (id: number) => m.get(id) ?? null
@@ -201,7 +194,6 @@ export function StatsPage() {
     [pager],
   )
 
-  // 背景光晕取读得最多的两部的封面主色
   const [glow, setGlow] = useState<[Rgb, Rgb]>([NEUTRAL, NEUTRAL])
   const firstCover = ranked[0]?.manga.thumbnailUrl
   const secondCover = ranked[1]?.manga.thumbnailUrl
@@ -313,7 +305,6 @@ interface BodyProps {
   onShare: () => void
 }
 
-/* ───────── 背景与噪点 ───────── */
 const Backdrop = memo(function Backdrop({ glow, className, fade }: { glow: [Rgb, Rgb]; className?: string; fade?: string }) {
   return (
     <div aria-hidden data-stats-progress="p" className={cn('pointer-events-none overflow-hidden', className)} style={{ opacity: fade }}>
@@ -334,7 +325,6 @@ const Backdrop = memo(function Backdrop({ glow, className, fade }: { glow: [Rgb,
 const MemoRankScreen = memo(RankScreen)
 const MemoTasteScreen = memo(TasteScreen)
 
-/** 进场时一段段淡入上移；出场倒放时按同样的顺序收起 */
 const upStyle = (t: number, at: number): CSSProperties => {
   const e = easeOut((t - at) / 0.45)
   return { opacity: e, translate: `0 ${((1 - e) * 18).toFixed(1)}px` }
@@ -484,7 +474,6 @@ const KpiBlock = memo(function KpiBlock({ k, intro, at, right, size, strip }: { 
   )
 })
 
-/** 第一屏底部：往下看的提示；还在汇总时换成进度文字，失败时是重试 */
 function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; mobile: boolean }) {
   if (!p.stats)
     return (
@@ -522,7 +511,6 @@ function Hint({ p, t, pager, mobile }: { p: BodyProps; t: number; pager: Pager; 
 
 const SCREENS = [tl('gallery.stats.screens.overview'), tl('gallery.stats.screens.rank'), tl('gallery.stats.screens.taste')]
 
-/** 右侧三个小点：当前这屏拉长，点哪个切到哪屏 */
 function ScreenDots({ screen, pager, mobile, style }: { screen: number; pager: Pager; mobile: boolean; style: CSSProperties }) {
   return (
     <nav data-intro-rise="0.7" aria-label={tl('gallery.stats.switchAria')} className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
@@ -553,18 +541,15 @@ function Stats(p: BodyProps) {
   const [tip, setTip] = useState<Tip>(null)
   const [screen, setScreen] = useState(() => Math.round(pager.p))
   const [at, setGroup] = useState(pager.cur)
-  // 排行变短时（比如刚汇总完）不越界
   const groups = Math.ceil(ranked.length / GROUP)
   const rankGroup = Math.min(at, Math.max(0, groups - 1))
 
-  /* ── 尺寸 ── */
   const side = mobile ? 24 : Math.round(Math.max(32, Math.min(64, w * 0.044)))
   const top = mobile ? 64 : 88
   // 大屏放大倍数：按 1440×860 排版，更高更宽的窗口里数字、表盘和封面一起放大，不让内容缩在中间、四周空一大片
   const u = mobile ? 1 : Math.max(1, Math.min(h / 860, w / 1440, 1.3))
   const kpiW = Math.round((w >= 1200 ? 196 : 168) * u)
   const kpiGap = Math.round(80 * u)
-  // 表盘（连年轮和外面的字）的边长；时钟本身按 360 / DIAL_UNITS 缩
   const dial = mobile ? Math.round(Math.max(260, Math.min(w - 16, h * 0.47))) : Math.round(Math.max(300, Math.min(h - top - 92, w - side * 2 - kpiW * 2 - kpiGap * 2, 960)))
   const clock = Math.round((dial * 360) / DIAL_UNITS)
   const text = useMemo(() => read == null ? '—' : count(read), [read])
@@ -574,26 +559,21 @@ function Stats(p: BodyProps) {
   const k2 = mobile ? 1 : Math.min(1, h / STAGE_MIN_H)
   const sw = w / k2
   const sh = h / k2
-  // 后两屏的舞台：超宽屏上也收在中间；右边留出切屏小点的位置（手机上靠左，只让出右边一小条）
   const stage = mobile ? sw - side * 2 - 10 : Math.min(sw - side * 2 - 48, Math.round(1500 * u))
   const stageL = mobile ? side : (sw - stage) / 2
   const headFs = Math.round(mobile ? Math.max(30, Math.min(44, sw * 0.09)) : Math.max(40, Math.min(82 * u, sw * 0.052)))
-  // 标题占的高度：小字一行加大字（手机两行）
   const headH = mobile ? 30 + headFs * 1.12 * 2 : 34 + headFs * 1.12
   const pageBottom = mobile ? 20 : 36
   const pageTop = top + 8
   const rankL = useMemo<RankLayout>(() => {
     if (mobile) {
-      // 第一名封面在左、信息在右，二三名并排，再下面五张小封面：按剩下的高度定封面大小
       const shelfW = Math.min(46, Math.floor((stage - 40) / 5))
       const avail = sh - pageTop - pageBottom - headH - 16 * 3 - 76 - (shelfW * 1.5 + 22) - 50
       const cw1 = Math.round(Math.max(80, Math.min(sw * 0.36, avail / 2.43)))
       return { phone: true, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.62), shelfW, u }
     }
     const shelfW = Math.round(54 * u)
-    // 领奖台第一列占 1.45 份；封面旁边还要放下大名次
     const col1 = ((stage * 0.92) * 1.45) / 3.45
-    // 前三名下面的书名、话数、进度条约 125 高；书架、翻组按钮各一行
     const avail = sh - pageTop - pageBottom - headH - 26 * u * 3 - 125 * u - shelfW * 1.5 - 50
     const cw1 = Math.round(Math.max(110, Math.min(avail / 1.5, 260 * u, col1 / 1.95)))
     return { phone: false, left: stageL, width: stage, top: pageTop, bottom: pageBottom, headFs, cw1, cw2: Math.round(cw1 * 0.74), shelfW, u }
@@ -628,7 +608,7 @@ function Stats(p: BodyProps) {
   useDialTilt(tilt, reduced || mobile, pager)
   const moved = usePagerInput(root, pager)
 
-  /* ── 每帧只改实际运动的节点；切屏完成后才更新 React 与无障碍状态 ── */
+  /* 每帧只改实际运动的节点；切屏完成后才更新 React 与无障碍状态。 */
   useLayoutEffect(() => {
     // 进度只传给使用它的区域，避免每帧让表盘的整棵 SVG 子树重算继承样式。
     const progress = root.current?.querySelectorAll<HTMLElement>('[data-stats-progress="p"]')
@@ -686,7 +666,6 @@ function Stats(p: BodyProps) {
     })
   })
 
-  // 这一组第一名的封面主色：排行背后的光跟着换
   const [tone, setTone] = useState<Rgb>(NEUTRAL)
   const current = ranked[rankGroup * GROUP]
   const toneSrc = current?.manga.thumbnailUrl
@@ -736,13 +715,11 @@ function Stats(p: BodyProps) {
     </div>
   )
 
-  // 后两屏背后的两团光：排行跟着这一组第一名的封面颜色，口味用背景的第二种颜色，切屏时交替淡入淡出
   // 在矩形边缘前淡到透明，避免默认 farthest-corner 的椭圆被容器截出硬边。
   const glows = (cx: number, cy: number, color: Rgb, fade: string) => (
     <div data-stats-glow data-stats-progress="p" aria-hidden className="pointer-events-none absolute" style={{ left: cx - 600, top: cy - 500, width: 1200, height: 1000, background: `radial-gradient(ellipse closest-side, ${rgbCss(color, .65)} 0%, ${rgbCss(color, .32)} 40%, ${rgbCss(color, .08)} 65%, transparent 100%)`, opacity: `calc(${fade})` }} />
   )
   const midY = pageTop + (sh - pageTop - pageBottom) / 2
-  // 后两屏的排版坐标系：矮窗口里整体缩小（见 k2）
   const stageBox = (children: ReactNode) => (
     <div className="absolute top-0 left-0 origin-top-left" style={{ width: sw, height: sh, transform: k2 < 1 ? `scale(${k2})` : undefined }}>
       {children}
@@ -756,7 +733,6 @@ function Stats(p: BodyProps) {
       <div className="absolute top-0 left-0 origin-top-left" style={{ width: w, height: h, transform: k < 1 ? `scale(${k})` : undefined }}>
         <Backdrop glow={p.glow} className="absolute inset-0" fade={`calc(1 - ${seg01('0.3', '0.8')} * .6)`} />
 
-        {/* ───── 第一屏 ───── */}
         <div data-stats-screen="0" className="absolute inset-0" inert={screen !== 0}>
           {mobile ? (
             <div className="absolute inset-x-0 flex flex-col items-center" style={{ top: top + 8 }}>
@@ -770,7 +746,6 @@ function Stats(p: BodyProps) {
               )}
             </div>
           ) : (
-            // 两侧数字贴着表盘，整组居中；不铺满整个窗口，宽屏上中间才不会空出一大片
             <div className="absolute grid items-center justify-center" style={{ left: side, right: side, top, bottom: 92, gridTemplateColumns: `${kpiW}px ${dial}px ${kpiW}px`, columnGap: kpiGap }}>
               <div>{kpis && group(tl('gallery.stats.progress'), kpis.progress, false, 0.38)}</div>
               {dialEl}
@@ -782,7 +757,6 @@ function Stats(p: BodyProps) {
           </div>
         </div>
 
-        {/* ───── 第二屏：已读排行 · 第三屏：口味 ───── */}
         {current && taste && (
           <>
             <div data-stats-screen="1" className="absolute inset-0" inert={screen !== 1} aria-hidden={screen !== 1}>
@@ -805,7 +779,6 @@ function Stats(p: BodyProps) {
           </>
         )}
 
-        {/* ───── 顶栏：三屏共用，不跟着穿过表盘 ───── */}
         {mobile ? (
           <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-5 pt-[max(12px,env(safe-area-inset-top))]">
             <Glass as="button" type="button" onClick={p.onExit} aria-label={tl('gallery.backAria')} className="gicon size-11 rounded-full text-text">
@@ -829,7 +802,6 @@ function Stats(p: BodyProps) {
           </header>
         )}
         {!mobile && (
-          // 右上角和左边的返回键对称
           <Glass
             as="button"
             type="button"

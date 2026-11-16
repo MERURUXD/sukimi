@@ -28,7 +28,6 @@ const CARD_REST = 'perspective(1400px) rotateY(16deg) rotateZ(-3deg)'
 const CARD_POSE: Pose = { dx: 0, dy: 0, z: 0, ry: 16, rx: 0, rz: -3, s: 1 }
 const CARD_PERSPECTIVE = 1400
 
-/** 可选的切换间隔（秒） */
 const INTERVALS = [5, 7, 10, 15]
 /** 底部刻度最多显示这么多根，书多时只显示当前前后的一段 */
 const MAX_TICKS = 48
@@ -36,9 +35,7 @@ const MAX_TICKS = 48
 /** 退出时淡出的界面元素。标在各个元素自身：玻璃的祖先不能带透明度 */
 const UI = { 'data-play-ui': '' }
 
-/** 怎么进的放映 */
 export interface PlayEntry {
-  /** 从第几部开始（作品 id） */
   id: number
   /** 从画布哪一格飞进来；直接打开网址时没有 */
   tile: TilePose | null
@@ -49,9 +46,8 @@ export interface PlayEntry {
 type Category = ReturnType<typeof useGalleryLibrary>['categories'][number]
 
 /**
- * 放映：自动轮播整个书库，给电视和大屏用。叠在画布上面，不另开页面：
- * 进出放映时封面在同一个页面里直接从画布那一格飞出、飞回，不靠换页动画（格子在 3D 透视里，换页动画接不住）。
- * 编号和顺序与画布一致。手机上只显示说明。
+ * 放映叠在画布上，封面直接飞出、飞回：格子在 3D 透视里，换页动画接不住。
+ * 编号和顺序与画布一致；手机上只显示说明。
  */
 export function PlayView({
   items,
@@ -77,7 +73,6 @@ export function PlayView({
   /** 正在退出：界面淡出，封面飞回 landing 那一格 */
   closing: boolean
   landing: TilePose | null
-  /** 画布格子的宽度 */
   tileW: number
   mobile: boolean
   reduced: boolean
@@ -107,7 +102,6 @@ export function PlayView({
   // 背景：从画布飞进来时从封面卡片的位置圆形展开，退出时收回屏幕中心那一格
   const [revealed, setRevealed] = useState(!flying)
   const hasItem = !!cur
-  // 分享这一部（见 openShare）
   const { test } = useNsfw()
   const [shareWork, setShareWork] = useState<LibraryManga | null>(null)
   const [sharing, setSharing] = useState(false)
@@ -148,7 +142,7 @@ export function PlayView({
     }
   }, [open])
 
-  /* 飞进来：卡片先叠在画布那一格上，再飞到左侧；背景随后展开 */
+  /* 卡片先叠在画布那一格上，再飞到左侧；背景随后展开。 */
   useLayoutEffect(() => {
     const el = card.current
     if (!flying || !el || !entry.tile) return
@@ -163,10 +157,9 @@ export function PlayView({
       cancelAnimationFrame(r1)
       cancelAnimationFrame(r2)
     }
-    // 只在挂上时飞一次
   }, [])
 
-  /* 退出：界面淡出，背景收起，卡片飞回画布中心那一格，落地后收起放映 */
+  /* 界面淡出，背景收起，卡片飞回画布中心那一格。 */
   useEffect(() => {
     if (!closing) return
     const fade = { duration: reduced ? 0 : 260, easing: 'ease-out', fill: 'forwards' } as const
@@ -221,7 +214,6 @@ export function PlayView({
     if (next.thumbnailUrl) new Image().src = next.thumbnailUrl
   }, [client, next])
 
-  /* 全屏：照阅读器的写法，用整个页面进入全屏 */
   const [fullscreen, setFullscreen] = useState(!!document.fullscreenElement)
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) void document.exitFullscreen()
@@ -233,7 +225,6 @@ export function PlayView({
     return () => document.removeEventListener('fullscreenchange', on)
   }, [])
 
-  /* 键盘：← → 切换，空格暂停 / 继续，F 全屏，Esc 退出 */
   useEffect(() => {
     if (closing) return
     const onKey = (e: KeyboardEvent) => {
@@ -277,10 +268,7 @@ export function PlayView({
     )
   }
 
-  /*
-   * 分享这一部：打开时记下当前那一部并暂停放映，面板里的海报不会被自动切换换掉；关上后恢复原来的播放状态。
-   * NSFW 作品（临时显示时也会出现在放映里）不给分享入口
-   */
+  /* 打开分享时固定当前作品并暂停；关闭后恢复打开前的播放状态。NSFW 作品不给分享入口。 */
   const openShare = () => {
     if (!cur) return
     resume.current = playing
@@ -309,7 +297,7 @@ export function PlayView({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <PosterShare open={sharing} initial="work" work={shareWork} onClose={closeShare} />
-      {/* 背景（不含玻璃，整层裁切没问题）：上一部垫底，新的一部从封面卡片的位置圆形展开 */}
+      {/* 背景不含玻璃，整层裁切不会影响玻璃采样。 */}
       <div
         aria-hidden
         className="absolute inset-0 overflow-hidden bg-bg"
@@ -338,7 +326,6 @@ export function PlayView({
         />
       )}
 
-      {/* 进度条 */}
       {/* 减少动态效果时全局动画被压成一瞬间，进度条会一开始就满格，不显示 */}
       {cur && !reduced && (
         <div aria-hidden {...UI} className="absolute inset-x-0 top-0 h-[3px] bg-white/14">
@@ -385,7 +372,6 @@ export function PlayView({
         </Glass>
       </header>
 
-      {/* 底部刻度：点选跳到那一部；书多时只显示当前前后一段 */}
       {n > 1 && (
         <nav {...UI} aria-label={tl('gallery.allWorks')} className={cn('absolute bottom-[26px] left-1/2 flex -translate-x-1/2 items-end gap-0.5', flying && 'gallery-up')} style={{ '--d': '.6s' } as CSSProperties}>
           {tickWindow(idx, n).map((i) => {
@@ -406,7 +392,6 @@ export function PlayView({
         </nav>
       )}
 
-      {/* 下一部预告 */}
       {next && n > 1 && (
         <Glass
           as="button"
@@ -430,14 +415,12 @@ export function PlayView({
   )
 }
 
-/** 当前前后各一半的刻度序号（循环） */
 function tickWindow(idx: number, n: number) {
   if (n <= MAX_TICKS) return Array.from({ length: n }, (_, i) => i)
   const half = Math.floor(MAX_TICKS / 2)
   return Array.from({ length: MAX_TICKS }, (_, k) => (((idx - half + k) % n) + n) % n)
 }
 
-/** 一部作品的背景。每换一部重新挂载：上一部垫底，新的一部从封面卡片的位置圆形展开 */
 function PlayBackdrop({ cur, before, open, reduced }: { cur: LibraryManga; before: LibraryManga | undefined; open: boolean; reduced: boolean }) {
   const [covered, setCovered] = useState(false)
   const [imageReady, setImageReady] = useState(!cur.thumbnailUrl)
@@ -468,7 +451,6 @@ function PlayBackdrop({ cur, before, open, reduced }: { cur: LibraryManga; befor
   )
 }
 
-/** 一部作品的画面。每换一部重新挂载，各段进场动画从头播放。 */
 function PlayStage({
   cardRef,
   cur,
@@ -501,12 +483,10 @@ function PlayStage({
   const status = STATUS[cur.status] ?? ''
   return (
     <>
-      {/* 镂空大编号 */}
       <div aria-hidden {...UI} className="gallery-num absolute top-10 left-[52px] text-[min(420px,46vh)] leading-[.8] font-bold tracking-[-0.05em] text-transparent num [-webkit-text-stroke:2px_rgba(244,241,230,.45)]">
         {no}
       </div>
 
-      {/* 左侧封面卡片：链到详情页，能接上封面过渡 */}
       <section aria-live="polite" aria-label={cur.title} className="absolute top-1/2 left-[clamp(48px,8vw,120px)] flex -translate-y-[42%] items-center gap-[clamp(32px,4vw,56px)]">
         <Link
           ref={cardRef}
@@ -557,7 +537,6 @@ function PlayStage({
         </div>
       </section>
 
-      {/* 右侧书名：中日文竖排逐字落下；以西文为主的改横排 */}
       {latin ? (
         <h1
           {...UI}

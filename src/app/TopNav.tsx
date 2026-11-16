@@ -65,8 +65,7 @@ export function TopNav() {
             <ChevronLeft className={cn('size-6', leadIn)} strokeWidth={1.8} />
           </Glass>
         ) : (
-          // 顶栏本身透明，标志也放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏。
-          // 右侧留白放在文字上：文字隐藏的宽度下胶囊回到正圆，图标不偏左
+          // 顶栏本身透明，标志放进玻璃胶囊里，滚到内容上方时才看得清；平板的标志在左侧导航栏。
           <NavLink to="/" aria-label={t('app.nav.brandHome')} className="topnav-brand rounded-full text-text no-underline justify-self-start">
             <Glass as="span" data-vt-glass="topnav-brand" className="flex items-center gap-1.5 rounded-full p-[5px] text-[17px] font-bold">
               <BrandMark className={leadIn} />
@@ -91,7 +90,6 @@ export function TopNav() {
               className={({ isActive }) =>
                 cn(
                   'relative inline-flex min-h-10 items-center rounded-full px-4 font-semibold whitespace-nowrap no-underline transition-colors',
-                  // 未选中项悬停时先垫一层淡玻璃底，选中块滑过来之前就有反馈；选中项有自己的选中块，不叠
                   isActive ? 'text-text' : 'text-muted hover:bg-g-hi/50 hover:text-text',
                 )
               }
@@ -101,7 +99,6 @@ export function TopNav() {
           ))}
         </Glass>
 
-        {/* 侧栏和顶栏的显隐、右侧按钮的对齐共用同一组导航规则 */}
         <div className="topnav-actions flex items-center gap-2">
           {isDemo && <DemoNotice />}
           <DownloadIndicator />
@@ -158,7 +155,6 @@ function NavBlur({ hidden }: { hidden: boolean }) {
   )
 }
 
-/** 有章节在排队时出现：进度环显示当前这话，角标是剩余数量；点开是下载队列 */
 function DownloadIndicator() {
   const queue = useLive((s) => s.queue)
   const running = useLive((s) => s.downloader) === 'STARTED'

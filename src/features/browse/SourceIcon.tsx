@@ -1,6 +1,5 @@
 import { useState } from 'react'
 
-/** 来源 / 扩展图标；加载失败时用名称首字代替 */
 export function SourceIcon({ s, size = 32 }: { s: { iconUrl: string; displayName: string }; size?: number }) {
   const [failed, setFailed] = useState(false)
   return failed || !s.iconUrl ? (

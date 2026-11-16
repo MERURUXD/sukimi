@@ -1,4 +1,3 @@
-/** 设置页：外观、语言、隐私（NSFW） */
 export default {
   language: {
     label: '语言',

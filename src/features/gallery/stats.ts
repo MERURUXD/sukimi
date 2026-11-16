@@ -94,7 +94,6 @@ export function mondayOf(t: number) {
   return addDays(d.getTime(), -((d.getDay() + 6) % 7))
 }
 
-/** 一组本地零点里最长的连续天数 */
 export function longestStreak(days: Iterable<number>) {
   const sorted = [...new Set(days)].sort((a, b) => a - b)
   let best = 0
@@ -216,7 +215,6 @@ export function bestRun(days: readonly HeatDay[]) {
   return best as { from: number; to: number; len: number } | null
 }
 
-/** 每周有阅读的天数（0～7），一周一项 */
 export const weekActive = (days: readonly HeatDay[]) =>
   Array.from({ length: Math.floor(days.length / 7) }, (_, w) => days.slice(w * 7, w * 7 + 7).filter((d) => d.count > 0).length)
 

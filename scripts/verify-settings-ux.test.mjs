@@ -211,12 +211,10 @@ test('玻璃参数：分主题存储保留当前通透自定义值，缺少主�
 
 test('共用设置组件：帮助可访问、支持 Escape 关闭，保存失败常驻反馈', () => {
   const parts = read('src/features/settings/parts.tsx')
-  // 按需帮助按钮具备无障碍属性与 Escape 关闭
   assert.match(parts, /aria-expanded=\{open\}/)
   assert.match(parts, /aria-controls=\{id\}/)
   // Escape 由 Popover 统一处理
   assert.match(read('src/components/ui/Popover.tsx'), /e\.key === 'Escape'/)
-  // 保存失败常驻显示 alert，不仅靠短暂图标
   assert.match(parts, /status === 'error'/)
   assert.match(parts, /role="alert"/)
 })

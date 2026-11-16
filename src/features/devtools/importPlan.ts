@@ -11,11 +11,8 @@ export interface Candidate {
 }
 
 export interface ImportSettings {
-  /** 最多翻几页来源列表 */
   pages: number
-  /** 最多加入几部 */
   limit: number
-  /** 每次入库请求带几部 */
   batch: number
   /** 两次请求之间至少隔多久（毫秒），减轻来源和服务端压力 */
   delay: number
@@ -38,17 +35,14 @@ export function clampSettings(s: Partial<ImportSettings>): ImportSettings {
 export interface ImportPlan {
   /** 来源返回的条目总数（含跨页重复） */
   fetched: number
-  /** 同一部在多页里重复出现的次数 */
   repeated: number
   inLibrary: Candidate[]
   /** 书库里已有同名作品（多半是别的来源的同一部），默认不加 */
   sameTitle: { candidate: Candidate; matches: { id: number; title: string }[] }[]
-  /** 超出条数上限，这次不加 */
   overLimit: Candidate[]
   toAdd: Candidate[]
 }
 
-/** 预演：只算会发生什么，不发请求 */
 export function planImport(fetched: readonly Candidate[], library: readonly { id: number; title: string }[], limit: number): ImportPlan {
   const seen = new Set<number>()
   const libIds = new Set(library.map((m) => m.id))

@@ -86,13 +86,11 @@ export function LibraryToolbar({
   const updateLabel = updateScope ? t('library.checkUpdatesIn', { name: updateScope }) : t('library.checkUpdates')
   const [panel, setPanel] = useState(false)
   const [tab, setTab] = useState<PanelTab>('filter')
-  // 手机上用底部面板，桌面用锚定在按钮旁的弹出层
   const mobile = useMobile()
   const activeFilters = FILTERS.filter((f) => view.filters[f.key] !== 0)
   const activeSources = view.sources.map((id) => ({ id, name: sources.find((x) => x.id === id)?.name ?? id }))
   const activeTags = Object.entries(view.tags)
   const filtering = activeFilters.length > 0 || activeSources.length > 0 || activeTags.length > 0
-  // 每行数目按当前屏幕宽窄分开记
   const device = mobile ? 'mobile' : 'desktop'
   const cols = view.cols[device]
   const range = COLS[device]
@@ -102,7 +100,6 @@ export function LibraryToolbar({
   const closePanel = () => setPanel(false)
   const sortLabel = SORTS.find((s) => s.key === view.sort)?.label ?? ''
   const SortDir = view.desc ? ArrowDown : ArrowUp
-  // 当前排序显示在按钮上（原来写在页头副标题里，手机上会把箭头挤到第二行）
   const button = (
     <Glass as="button"
         type="button"
@@ -217,7 +214,6 @@ export function LibraryToolbar({
             <h3 className="pop-h">{t('library.toolbar.layout')}</h3>
             <Seg label={t('library.toolbar.layout')} glass={false} items={DENSITIES} value={view.density} onChange={view.setDensity} className="grid w-full grid-cols-3 [&>button]:justify-center" />
           </div>
-          {/* 列表没有封面网格，下面几项只对两种网格生效 */}
           {view.density !== 'list' && (
             <>
               <div>
@@ -411,7 +407,7 @@ function useScrollFade(dep: number) {
   return [ref, fade] as const
 }
 
-/** 筛选面板里的标签组：和上面的筛选一样点一下包含、再点排除；选中的排在最前，搜索时也不藏起来 */
+/** 已选标签始终保留，搜索只过滤未选项。 */
 function TagFilter({ tags }: { tags: { name: string; count: number }[] }) {
   const picks = useLibraryView((s) => s.tags)
   const cycleTag = useLibraryView((s) => s.cycleTag)

@@ -21,12 +21,10 @@ const NO_HOURS: number[] = Array(24).fill(0)
  */
 export const DIAL_UNITS = 580
 
-/** 鼠标带动表盘最多倾斜多少度 */
 const CLOCK_TILT = 24
 
 /**
- * 表盘朝着鼠标在窗口里的位置倾斜（大数字不倾斜，错开一点有层次）；只在鼠标下生效，减少动态效果时不动。
- * 直接写 transform，不进 React 状态。往第二屏去的前 15% 先把倾斜收平，之后表盘只放大淡出，不再带着角度
+ * 表盘朝鼠标位置倾斜，直接写 transform，不进 React 状态；前 15% 先收平，之后只放大淡出。
  */
 export function useDialTilt(ref: RefObject<HTMLDivElement | null>, reduced: boolean, pager: Pager) {
   useEffect(() => {
@@ -45,7 +43,7 @@ export function useDialTilt(ref: RefObject<HTMLDivElement | null>, reduced: bool
       cur.y += (to.y - cur.y) * k
       const f = 1 - seg(pager.p, 0, 0.15)
       flat = f
-      // 法线朝向鼠标：鼠标在右，右边缘退后；鼠标在下，下边缘退后
+      // 鼠标在右时右边缘退后，鼠标在下时下边缘退后。
       el.style.transform = `rotateX(${(-cur.y * f).toFixed(2)}deg) rotateY(${(cur.x * f).toFixed(2)}deg)`
       raf = Math.abs(to.x - cur.x) > 0.02 || Math.abs(to.y - cur.y) > 0.02 ? requestAnimationFrame(frame) : 0
       if (ping) ping.style.animationPlayState = raf || pager.p !== 0 || pager.animating ? 'paused' : ''
@@ -82,8 +80,7 @@ export function useDialTilt(ref: RefObject<HTMLDivElement | null>, reduced: bool
 }
 
 /**
- * 加载时的外圈进度，盖在虚线外圈上。每帧直接改 SVG 属性，不进 React 状态：
- * 大书库要取好一阵，每帧重绘整页太浪费。算法见 loadRing.ts；汇总出来后滑满并淡出。
+ * 加载外圈进度。每帧直接改 SVG 属性，避免大书库加载时整页重绘；算法见 loadRing.ts。
  */
 function LoadRing({ size, fetched, expected, active, done, reduced, transform }: { size: number; fetched: number; expected: number | null; active: boolean; done: boolean; reduced: boolean; transform: string }) {
   const ref = useRef<SVGCircleElement>(null)
@@ -167,7 +164,6 @@ export interface YearRing {
 
 const monthOf = (t: number) => monthName(new Date(t).getMonth())
 
-/** 时钟外面的一圈：近半年每天（手机每周）一根刻度，从正下方开始顺时针走到现在；最长连续的那一段点亮 */
 const YearRingSvg = memo(function YearRingSvg({ ring, intro }: { ring: YearRing; intro: Intro }) {
   const ref = useRef<SVGSVGElement>(null)
   const t = intro.t
@@ -246,8 +242,7 @@ const YearRingSvg = memo(function YearRingSvg({ ring, intro }: { ring: YearRing;
 })
 
 /**
- * 24 小时时钟，外面可以再套一圈近半年年轮。几层叠在不同深度的平面上：底光、外圈与辐条在最后，刻度居中，
- * 越高的刻度越往前浮，「现在」和读得最多的那格最前；鼠标带动整体倾斜时各层错开，才有立体感。
+ * 24 小时时钟，可外套近半年年轮。各层用不同 translateZ 叠出立体感，鼠标倾斜时错开。
  */
 export const Clock = memo(function Clock({
   stats,
@@ -323,7 +318,6 @@ export const Clock = memo(function Clock({
       <div data-clock-ring aria-hidden className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,.07),transparent_66%)]" style={{ transform: z(-90), opacity: ringIn }} />
       <div data-clock-ring aria-hidden className="absolute rounded-full border border-white/9" style={{ inset: -8 * k, transform: z(-64), opacity: ringIn }} />
       <div data-clock-ring aria-hidden className="absolute rounded-full border border-white/7" style={{ inset: 64 * k, transform: z(-36), opacity: ringIn }} />
-      {/* 每三小时一根辐条，夹在两根刻度之间，从内圈向外淡出 */}
       {Array.from({ length: 8 }, (_, i) => (
         <div data-clock-ring key={i} aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${i * 45 + 7.5}deg) ${z(-48)}`, opacity: ringIn }}>
           <span className="absolute w-px bg-[linear-gradient(to_top,transparent,rgba(255,255,255,.16))]" style={{ left: -0.5, bottom: 78 * k, height: 90 * k }} />
@@ -365,7 +359,6 @@ export const Clock = memo(function Clock({
           </div>
         )
       })}
-      {/* 现在几点 */}
       <div data-clock-ring aria-hidden className="absolute size-0" style={{ left: c, top: c, transform: `rotate(${nowDeg}deg) ${z(54)}`, opacity: ringIn }}>
         <span className="gallery-ping absolute size-3 rounded-full border-[1.5px] border-white" style={{ left: -6, bottom: radius + 54 * k }} />
         <span className="absolute size-2.5 rounded-full bg-white shadow-[0_0_14px_#fff]" style={{ left: -5, bottom: radius + 55 * k }} />
@@ -397,10 +390,7 @@ export const Clock = memo(function Clock({
   )
 })
 
-/**
- * 四项数字下面的小条图，和表盘一样用圆头竖条：比例类按比例点亮，时间类按高低画；
- * 进场时从左往右长出来。右对齐的一组整体靠右，最后一根贴齐页边距
- */
+/** 四项数字下的小条图；右对齐时整体靠右，最后一根贴齐页边距。 */
 export const Strip = memo(function Strip({ bars, width, height, right, intro, at, label }: { bars: { v: number; on?: boolean; lit?: boolean }[]; width: number; height: number; right?: boolean; intro: Intro; at: number; label: string }) {
   const ref = useRef<SVGSVGElement>(null)
   const t = intro.t

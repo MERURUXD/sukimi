@@ -1,5 +1,5 @@
 /**
- * Clean-room Goo Geometry & Placement solver for the Liquid Glass Morphing Menu PoC.
+ * Clean-room Goo Geometry & Placement solver for the Liquid Glass Morphing Menu.
  * Implements anchor placement, open/close platter & droplet morph trajectories,
  * rounded-box SDF evaluation, polynomial smooth-min (smin) union, merge detection,
  * and synced content/glyph transforms from the clean-room specification.

@@ -48,7 +48,6 @@ export function dayLabel(at: number, now = new Date()) {
   return formatDate(at)
 }
 
-/** 时:分 */
 export function clock(at: number) {
   const d = new Date(at)
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`

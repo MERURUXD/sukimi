@@ -3,10 +3,8 @@ import { extractPalette, type Rgb, type Swatch } from './palette'
 
 export type { Rgb, Swatch }
 
-/** 取不到颜色时的中性灰 */
 export const NEUTRAL: Rgb = [0.2, 0.2, 0.22]
 
-/** 取不到颜色时的中性灰色板 */
 export const NEUTRAL_SWATCHES: Swatch[] = Array.from({ length: 4 }, () => ({
   rgb: NEUTRAL,
   weight: 0.25,

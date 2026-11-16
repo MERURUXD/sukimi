@@ -1,4 +1,3 @@
-/** 下载队列页、下载悬浮条，以及阅读历史页 */
 export default {
   pages: '{{done}} / {{total}} 页',
   stateError: '出错',

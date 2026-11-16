@@ -34,7 +34,6 @@
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
-/* 编辑入口和标签同一排、同样大小，颜色弱一档，不和标签抢眼 */
 .manga-hero-tag-edit {
   display: inline-flex;
   align-items: center;
@@ -66,12 +65,10 @@
   .manga-hero-cover { width: 240px; }
   .manga-hero-title { font-size: 40px; }
 }
-/* 宽屏有追踪时多一栏，面板顶端与书名对齐，占右侧空白而不是往下撑 */
 @media (min-width: 1280px) {
   .manga-hero-layout:has(> .manga-hero-side) { grid-template-columns: 240px minmax(0, 1fr) 320px; column-gap: 48px; }
   .manga-hero-side { align-self: start; }
 }
-/* 手机以封面和书名并排，正文与操作共享一条内容轴。 */
 @media (max-width: 767px) {
   .manga-hero-layout {
     grid-template-columns: 112px minmax(0, 1fr);
@@ -86,7 +83,6 @@
   .manga-hero-description { grid-column: 1 / -1; order: 1; min-width: 0; overflow-wrap: anywhere; }
   .manga-hero-expand { min-height: 44px; margin-top: 0; }
   .manga-hero-tags { grid-column: 1 / -1; order: 2; min-width: 0; margin-top: -8px; }
-  /* 图标按钮数随权限变化（没有下载权限时少一个），按列自动排 */
   .manga-hero-actions { grid-column: 1 / -1; order: 3; display: grid; grid-template-columns: minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: 44px; gap: 8px; }
   .manga-hero-actions .solid { min-height: 44px; padding: 0 12px; gap: 8px; font-size: 14px; box-shadow: none; }
   .manga-hero-recent {
@@ -97,7 +93,6 @@
   }
   .manga-hero-track { grid-column: 1 / -1; order: 5; margin-top: -4px; }
 }
-/* 手机上稍后再看和下载收进「更多」，只剩书库、特别关心、更多三个图标 */
 @media (max-width: 767px) {
   .manga-hero-actions .manga-hero-wide-only { display: none; }
 }

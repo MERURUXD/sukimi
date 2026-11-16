@@ -36,15 +36,9 @@ function useWide() {
 
 /** Bangumi 追踪：按名字认，演示和验收页里叫「Bangumi（演示）」之类 */
 const isBgm = (t: Tracker) => /bangumi/i.test(t.name)
-/** 绑定记录里的条目号；Bangumi 的 remoteId 就是条目号 */
 const subjectId = (r: TrackRecord) => Number(r.remoteId) || 0
 
-/**
- * 详情页里的追踪。宽屏（≥1280）在头部右侧空白处直接展开面板（placement="side"），顶端与书名对齐；
- * 更窄时在正文里显示占满一行的信息条（placement="inline"），点一下直接打开完整的追踪设置。
- * 两处各挂一份，按宽度只显示其一。
- * 另附 Bangumi 站内评分：绑定了 Bangumi 就用绑定的条目，没绑定（含不在书库）按标题猜，查公开接口、与追踪账号无关
- */
+/** 按宽度选择侧栏或信息条；Bangumi 站内评分独立于追踪登录。 */
 /** delay：宽屏右栏随详情页进场时的起始延迟，给了就逐行错开进场（不给则不播） */
 export function TrackSummary({ mangaId, title, inLibrary = true, placement, delay, className, style }: { mangaId: number; title: string; inLibrary?: boolean; placement: 'inline' | 'side'; delay?: number; className?: string; style?: CSSProperties }) {
   const trackers = useQuery(Trackers).data?.trackers.nodes
@@ -116,8 +110,6 @@ export function TrackSummary({ mangaId, title, inLibrary = true, placement, dela
   )
 }
 
-/* ───────── 窄屏：占满一行的信息条，状态 / 进度 / 评分三栏，只靠留白分隔 ───────── */
-
 function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el: HTMLElement) => void }) {
   const status = t.statuses.find((s) => s.value === r.status)
   const rated = isRated(r.displayScore, t.scores)
@@ -157,7 +149,6 @@ function TrackStrip({ t, r, onOpen }: { t: Tracker; r: TrackRecord; onOpen: (el:
   )
 }
 
-/** 信息条里的小星星，只展示不交互 */
 function MiniStars({ value, max }: { value: number; max: number }) {
   const per = max / 5
   return (
@@ -174,8 +165,6 @@ function MiniStars({ value, max }: { value: number; max: number }) {
     </span>
   )
 }
-
-/* ───────── 宽屏：直接展开，内容全部左对齐 ───────── */
 
 function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onDetail: (el: HTMLElement) => void; delay?: number }) {
   const save = useSaveTrack(r)
@@ -223,7 +212,6 @@ function TrackPanel({ t, r, onDetail, delay }: { t: Tracker; r: TrackRecord; onD
       <div {...row(0, 'flex w-full items-center gap-2.5')}>
         <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
         <span className="flex min-w-0 flex-1 flex-col">
-          {/* 状态只展示，改状态在「详细设置」里 */}
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate font-semibold">{t.name}</span>
             {status && <span className="flex-none rounded-full bg-hover px-2 py-px text-[11px] font-semibold text-muted">{statusLabel(status.name)}</span>}

@@ -8,7 +8,6 @@ import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
 import { markNavDirection, TABS, updatesTabLabel } from './navTabs'
 import { t } from '@/i18n'
 
-/** 手机（< 768px）底部标签栏；平板用左侧导航栏，桌面用顶部导航 */
 export function MobileTabBar() {
   const downloading = useLive((s) => s.queue.length)
   const { pathname } = useLocation()

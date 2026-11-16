@@ -128,7 +128,7 @@ async function resyncDownloads(client: ApolloClient) {
   if (data && contextGeneration() === gen) useLive.setState({ queue: sortQueue(data.downloadStatus.queue), downloader: data.downloadStatus.state })
 }
 
-/** 挂在登录后的页面外壳里，负责订阅；断线自动重连（graphql-ws 内置） */
+/** 断线重连由 graphql-ws 负责。 */
 export function LiveStatus() {
   const client = useApolloClient()
 
@@ -195,7 +195,6 @@ export function LiveStatus() {
   return null
 }
 
-/* 下载器开关 */
 export const StartDownloader = graphql(`
   mutation StartDownloader {
     startDownloader(input: {}) {

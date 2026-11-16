@@ -1,4 +1,3 @@
-/** 阅读器：工具栏、设置面板、翻页提示、本话结尾卡片 */
 export default {
   notFound: '找不到这一话，它可能已被服务端移除。',
   backToDetail: '返回详情',

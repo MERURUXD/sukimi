@@ -1,4 +1,4 @@
-/* 首页底部的画廊橱窗（GalleryWindow.tsx）。窗始终是深色，颜色写死，不跟主题走。 */
+/* 窗始终是深色，颜色写死，不跟主题走。 */
 .gwin {
   position: relative;
   isolation: isolate;
@@ -20,7 +20,6 @@
   }
 }
 
-/* 墙：平时黑白半透明的底纹，指上去 / 按住 / 键盘聚焦才显出颜色 */
 .gwin-wall {
   position: absolute;
   inset: 0;
@@ -46,7 +45,6 @@
   transform: var(--wall-on) rotateY(calc(var(--tx) * 4deg));
 }
 
-/* 文字压在左侧（手机压在下半部分），带一层往右（往上）渐隐的深色遮罩 */
 .gwin-shade {
   position: absolute;
   inset: 0;

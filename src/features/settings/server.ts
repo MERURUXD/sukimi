@@ -293,7 +293,6 @@ export function useSaveSettings() {
   )
 }
 
-/* ───────── ISO 8601 时长（PT5M、PT1440H、P1D）───────── */
 const DURATION = /^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/
 
 export function durationToMinutes(iso: string) {

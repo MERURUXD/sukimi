@@ -10,10 +10,7 @@ import { LEGACY_HEIR_ID, legacyMetasDoneKey, planPrefixMove } from './legacyMeta
 
 const PREFIXES = [laterPrefix, nsfwPrefix]
 
-/**
- * 升级到多用户服务端后，第一个账号把旧单用户（id 0）的「稍后再看」和 NSFW 标记搬到自己的键下。
- * 先写新键，成功后才删旧键；中途失败下次启动会接着搬。搬完在本机记一笔，之后不再查询。
- */
+/** 先写新键，成功后才删旧键；中途失败下次启动继续。搬完在本机记一笔。 */
 export function LegacyMetasMigrate() {
   const client = useApolloClient()
   const userId = useAuth((s) => s.user?.id)
@@ -44,7 +41,7 @@ export function LegacyMetasMigrate() {
       try {
         localStorage.setItem(doneKey, '1')
       } catch {
-        /* 下次启动再查一遍 */
+        /* 失败时下次启动再试 */
       }
       // 正在显示的清单和标记还是搬之前的，重新取一次
       if (moved) void client.refetchQueries({ include: [LaterMetas, NsfwMetas] })

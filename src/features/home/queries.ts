@@ -1,7 +1,6 @@
 import { graphql } from '@/api/gql'
 import type { RecentReadsQuery, RecentUpdatesQuery } from '@/api/gql/graphql'
 
-// 最近读过的章节（按阅读时间倒序），页面里按漫画去重得到「继续阅读 / 最近阅读」
 export const RecentReads = graphql(`
   query RecentReads {
     chapters(filter: { lastReadAt: { greaterThan: "0" } }, order: [{ by: LAST_READ_AT, byType: DESC }], first: 150) {

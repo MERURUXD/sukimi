@@ -20,7 +20,6 @@ import { fromDateInput, scoreString, scoreValue, scoreWord, starScale, statusLab
 import { useSaveTrack } from './useSaveTrack'
 import { t as tl } from '@/i18n'
 
-/** 详情页的「追踪」按钮：角标是已绑定的数量 */
 export function TrackButton({ mangaId, title }: { mangaId: number; title: string }) {
   const [open, setOpen] = useState(false)
   const bound = useQuery(MangaTracks, { variables: { id: mangaId } }).data?.manga.trackRecords.nodes.length ?? 0
@@ -117,8 +116,6 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
     </Dialog>
   )
 }
-
-/* ───────── 已绑定：改状态、进度、评分、日期 ───────── */
 
 function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
   const save = useSaveTrack(r)
@@ -217,7 +214,6 @@ function RecordEditor({ t, r }: { t: Tracker; r: TrackRecord }) {
           </span>
         )}
       </div>
-      {/* 能画成星星的评分单独一行，和详情页宽屏面板同一个控件 */}
       {scale && (
         <span className="-ml-1">
           <Stars size="md" max={scale} value={Math.min(scoreValue(r.displayScore), scale)} word={(v) => scoreWord(t.name, v)} onChange={(v) => save({ scoreString: scoreString(t.scores, v) })} />
@@ -256,8 +252,6 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
     </span>
   )
 }
-
-/* ───────── 未绑定：搜索条目并绑定 ───────── */
 
 function Binder({ t, mangaId, title }: { t: Tracker; mangaId: number; title: string }) {
   const client = useApolloClient()

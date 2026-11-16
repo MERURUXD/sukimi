@@ -41,10 +41,7 @@ import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 
-/**
- * 锚定在触发按钮旁的玻璃弹出层。点外部或按 Esc 关闭。
- * 触发按钮和弹出层都放在 children / panel 里，由外层 relative 容器包住。
- */
+/** 触发按钮和面板需放在同一个 relative 容器内。 */
 export function Popover({
   open,
   onClose,
@@ -1116,7 +1113,6 @@ function MorphPanel({
     }
   }, [])
 
-  // Sync reducedMotion changes
   useLayoutEffect(() => {
     motionRef.current?.setReducedMotion(reduced)
   }, [reduced])

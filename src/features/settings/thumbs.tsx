@@ -6,16 +6,10 @@ import { cn } from '@/lib/cn'
 export interface ThumbItem<T> {
   value: T
   label: string
-  /** 示意图；compact 时改用 icon，与文字排成一行 */
   thumb?: ReactNode
   icon?: ReactNode
 }
 
-/**
- * 能画出来的设置（主题、玻璃、布局、阅读方式）用选项块来选：几个选项就把一行等分几份，
- * 不再是一排固定大小的小方块、右边空一大截。选中项描边、文字加粗；未选中的不加边框。
- * compact：方向、背景这类一个图标就说清的，图标和文字放一行，块更矮。
- */
 export function ThumbPicker<T extends string>({
   items,
   value,
@@ -57,7 +51,6 @@ export function ThumbPicker<T extends string>({
   )
 }
 
-/** 64×44 的画布；线条和色块都跟着主题取色，主题这类本身就是颜色的除外 */
 function Canvas({ children }: { children: ReactNode }) {
   return (
     <svg viewBox="0 0 64 44" className="block size-full" aria-hidden>
@@ -170,7 +163,6 @@ export function ModeThumb({ mode }: { mode: ReadMode }) {
   )
 }
 
-/** 虚线是屏幕，色块是漫画页；超出屏幕的部分照画，表示要滚动 */
 export function FitThumb({ fit }: { fit: Fit }) {
   return (
     <Canvas>
@@ -183,7 +175,6 @@ export function FitThumb({ fit }: { fit: Fit }) {
   )
 }
 
-/** 自动：左边是分页时的左右分区，右边是纵向时的上下分区 */
 export function TapThumb({ zones }: { zones: TapZones }) {
   return (
     <Canvas>

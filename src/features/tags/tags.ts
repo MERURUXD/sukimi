@@ -23,10 +23,9 @@ export const NO_EDIT: TagEdit = { add: [], hide: [] }
 /** 标签名过长时截断：来源偶尔把一整句简介塞进标签 */
 export const TAG_MAX = 30
 
-/** 去掉首尾空白、合并中间空白；空串表示无效 */
+/** 空串表示无效。 */
 export const cleanTag = (s: string) => s.trim().replace(/\s+/g, ' ').slice(0, TAG_MAX)
 
-/** 比较用：不分大小写，Romance 与 romance 算同一个 */
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 const has = (list: readonly string[], name: string) => list.some((x) => same(x, name))
@@ -61,19 +60,16 @@ export function parseTags(userId: number, metas: readonly { key: string; value: 
 /** 写入的值；没有任何改动时返回 null，由调用方删掉这个键 */
 export const serializeTags = (edit: TagEdit) => (edit.add.length || edit.hide.length ? JSON.stringify({ add: edit.add, hide: edit.hide }) : null)
 
-/** 来源标签：原样去重，分出显示的和被隐藏的 */
 export function sourceTags(genre: readonly string[] | null | undefined, edit: TagEdit = NO_EDIT) {
   const all = uniq(genre ?? [])
   return { shown: all.filter((g) => !has(edit.hide, g)), hidden: all.filter((g) => has(edit.hide, g)) }
 }
 
-/** 最终的标签：来源标签去掉隐藏的，后面接自己加的；和来源重复的不再列一次 */
 export function tagsOf(genre: readonly string[] | null | undefined, edit: TagEdit = NO_EDIT) {
   const { shown } = sourceTags(genre, edit)
   return [...shown, ...edit.add.filter((a) => !has(shown, a))]
 }
 
-/** 这部漫画上已经有这个标签（来源显示中的或自己加的） */
 export const hasTag = (genre: readonly string[] | null | undefined, edit: TagEdit, name: string) => has(tagsOf(genre, edit), cleanTag(name))
 
 /** 加一个标签。和被隐藏的来源标签同名时直接取消隐藏，不重复存一份 */
@@ -86,7 +82,6 @@ export function addTag(edit: TagEdit, name: string): TagEdit {
 
 export const removeTag = (edit: TagEdit, name: string): TagEdit => ({ ...edit, add: edit.add.filter((x) => !same(x, name)) })
 
-/** 隐藏或恢复一个来源标签 */
 export function hideSource(edit: TagEdit, name: string, hidden: boolean): TagEdit {
   const rest = edit.hide.filter((x) => !same(x, name))
   return { ...edit, hide: hidden ? [...rest, name] : rest }
@@ -106,7 +101,6 @@ export function tagUsage(edits: Iterable<TagEdit>) {
   return [...count.values()].sort((a, b) => b.count - a.count)
 }
 
-/** 输入时补全用 */
 export const knownTags = (edits: Iterable<TagEdit>) => tagUsage(edits).map((x) => x.name)
 
 /**
@@ -137,8 +131,6 @@ export const mergeTags = (from: TagEdit, to: TagEdit = NO_EDIT): TagEdit => ({
   add: uniq([...to.add, ...from.add]),
   hide: uniq([...to.hide, ...from.hide]),
 })
-
-/* ───────── 书库按标签筛选 ───────── */
 
 /** 筛选里选中的标签：名字 → 1 包含 / 2 排除 */
 export type TagPicks = Readonly<Record<string, 1 | 2>>

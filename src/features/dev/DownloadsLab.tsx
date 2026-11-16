@@ -25,8 +25,7 @@ const item = (i: number, m: number, n: number): DownloadItem => ({
 export function DownloadsLab() {
   useApplyAppearance()
   const [log, setLog] = useState<string[]>([])
-  // 切换虚构身份看共用提示：多账号服务端显示，旧版单账号（?legacy）不显示；离开时还原原来的身份。
-  // 换身份会清空实时状态，所以用整页刷新切换，不在页面里直接改
+  // 换身份会清空实时状态，所以整页刷新；离开时还原原来的身份。
   const [shared] = useState(() => !new URLSearchParams(location.search).has('legacy'))
   useEffect(() => {
     const prev = useAuth.getState().user

@@ -13,8 +13,7 @@ import { useFavoriteActions, useFavorites } from './useFavorites'
 import { t } from '@/i18n'
 
 /**
- * 封面右键 / 长按菜单里的选项（发现、书库、更新页共用）；只在菜单打开时挂载，格子不必各自查列表。
- * 特别关心、搁置只对书库里的漫画显示：不在书库的服务端本来就不会检查更新。
+ * 只在菜单打开时挂载，格子不必各自查列表；特别关心、搁置只对书库里的漫画显示。
  */
 export function MangaMenuItems({ mangaId, inLibrary, onDone }: { mangaId: number; inLibrary: boolean; onDone: () => void }) {
   const later = useLater()

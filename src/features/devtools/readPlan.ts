@@ -18,13 +18,11 @@ export interface ReadChapter {
 export type ReadScope = 'all' | number
 
 export interface ReadPlan {
-  /** 范围内的作品数 */
   mangas: number
   /** 范围内、确实有章节要改的作品，按章节数从多到少 */
   touched: { id: number; title: string; chapters: number }[]
   /** 要改的章节 id，按作品分组排好，分批时同一部尽量落在一起 */
   ids: number[]
-  /** 超出上限、这次不改的章节数 */
   overLimit: number
 }
 
@@ -37,7 +35,7 @@ export const READ_LIMIT = 5000
 const inScope = (m: ReadManga, scope: ReadScope, defaultId?: number) =>
   scope === 'all' || m.categoryIds.includes(scope) || (scope === defaultId && m.categoryIds.length === 0)
 
-/** 预演：chapters 是服务端按目标状态筛过的「还需要改」的章节，这里只按范围与上限取舍，不发请求 */
+/** chapters 已由服务端按目标状态筛过，这里只按范围与上限取舍。 */
 export function planRead(
   mangas: readonly ReadManga[],
   chapters: readonly ReadChapter[],

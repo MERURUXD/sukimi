@@ -5,7 +5,6 @@ import { MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { t } from '@/i18n'
 
-/** 吸底的玻璃批量操作栏 */
 export function BatchBar({
   open,
   count,

@@ -5,7 +5,6 @@ import { PreviewBadge } from '@/app/PreviewBadge'
 import { LanguageSeg } from '@/components/ui/LanguageSeg'
 import { useApplyAppearance } from '@/design/settings'
 
-/** 登录、注册、找回共用的输入框（放在玻璃里） */
 export function AuthInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <Glass className="rounded-full">
@@ -17,7 +16,6 @@ export function AuthInput(props: InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
-/** 未登录页面的外壳：氛围光、标志、标题与表单 */
 export function AuthLayout({
   title,
   subtitle,
@@ -32,7 +30,6 @@ export function AuthLayout({
   useApplyAppearance()
   return (
     <div className="relative isolate grid min-h-dvh place-items-center overflow-hidden px-4">
-      {/* 没有封面可用时的中性氛围光 */}
       <div
         aria-hidden
         className="absolute inset-0 -z-10 opacity-70 blur-[90px]"

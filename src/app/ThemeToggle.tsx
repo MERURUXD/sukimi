@@ -64,7 +64,6 @@ let latestToggle = 0
 export function ThemeToggle() {
   const theme = useAppearance((s) => s.theme)
   const setTheme = useAppearance((s) => s.setTheme)
-  // 「跟随系统」时按系统当前的深浅显示图标，系统切换时跟着变
   const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches)
   useEffect(() => {
     const query = window.matchMedia('(prefers-color-scheme: dark)')

@@ -107,7 +107,6 @@ export function UpdatesPage() {
       return next
     })
 
-  // 滚到底自动加载下一页
   const sentinel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = sentinel.current
@@ -132,7 +131,6 @@ export function UpdatesPage() {
     return () => io.disconnect()
   }, [hasMore, loading, fetchMore, loaded, updates.data])
 
-  /* 检查更新 */
   const updater = useLive((s) => s.updater)
   const [start] = useMutation(UpdateLibrary)
   const check = async () => {
@@ -177,10 +175,8 @@ export function UpdatesPage() {
     wasRunning.current = updater.isRunning
   }, [updater.isRunning, refetch, last])
 
-  /* 右键 / 长按某一行：特别关心、稍后再看 */
   const ctx = useContextMenu<UpdateChapter['manga']>()
 
-  /* 章节状态与按天下载 */
   const [update] = useMutation(UpdateChapters)
   const [enqueue] = useMutation(EnqueueDownloads)
   const queue = useLive((s) => s.queue)
@@ -307,7 +303,6 @@ export function UpdatesPage() {
                   </div>
                 )}
               </div>
-              {/* 宽屏分两栏，条目才能放大又不在右边空出一大片；items-start 让展开的组只撑高自己 */}
               <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6">
               {d.groups.map((g, gi) => {
                 const rise = intro ? riseStep(rowIndex(days, di, gi)) : undefined
@@ -344,7 +339,6 @@ export function UpdatesPage() {
         <DownloadPill />
       </div>
       <ContextMenu at={ctx.menu} onClose={ctx.close} label={ctx.menu ? t('updates.menuLabel', { title: ctx.menu.target.title }) : t('updates.menu')}>
-        {/* 更新页只列书库里的漫画 */}
         {ctx.menu && <MangaMenuItems mangaId={ctx.menu.target.id} inLibrary onDone={ctx.close} />}
       </ContextMenu>
     </>
@@ -403,7 +397,6 @@ function useRowMenu(open: (x: number, y: number) => void) {
   }
 }
 
-/** 标题前的实心星：特别关心 */
 const FavoriteMark = () => <Star className="size-3.5 flex-none self-center fill-current lg:size-4" strokeWidth={2.2} aria-label={t('home.section.favorite')} />
 
 function Row({
@@ -452,12 +445,10 @@ function Row({
           <span className={cn('min-w-0 line-clamp-2 break-words sm:block sm:truncate', nested ? 'lg:text-[15px]' : 'lg:text-lg', c.isRead ? 'font-medium text-muted' : nested ? 'font-medium' : 'font-semibold')}>{nested ? chapterLabel(c) : c.manga.title}</span>
         </span>
         {!nested && <span className={cn('truncate text-[13px] text-muted lg:text-[15px]', !c.isRead && 'lg:text-text')}>{chapterLabel(c)}</span>}
-        {/* 手机把时间与下载状态放回文字区，给标题和章节名留出宽度。 */}
         <span className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-muted num sm:hidden">
           <span>{time}</span>
           {queued && <span>{downloadStatus}</span>}
         </span>
-        {/* 宽屏同理：来源和时间收进文字区第三行，不再占两列，两栏时每栏才放得下大封面和大字 */}
         <span className="hidden truncate text-[13px] text-muted num lg:block" title={nested ? undefined : c.manga.source?.displayName}>{nested ? time : [c.manga.source?.displayName, time].filter(Boolean).join(' · ')}</span>
       </Link>
       <span className="line-clamp-2 w-28 flex-none text-[13px] leading-snug text-muted break-words max-sm:hidden lg:hidden" title={c.manga.source?.displayName}>{nested ? null : c.manga.source?.displayName}</span>
@@ -496,7 +487,6 @@ function Row({
   )
 }
 
-/** 同一天同一部漫画的多话折叠行：显示最新一话，点开看全部 */
 function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
   rows: UpdateChapter[]
   rise?: CSSProperties
@@ -518,7 +508,6 @@ function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
       style={rise}
       className={cn('flex items-center gap-2 rounded-2xl py-2.5 pr-2 pl-2.5 transition-colors hover:bg-hover sm:gap-4 lg:gap-[18px] lg:py-3', rise && 'rise')}
     >
-      {/* 封面后面露出两层，像叠在一起的几话；右下角的数字是话数 */}
       <span className="relative mt-2 w-[46px] flex-none lg:w-[72px]">
         <span aria-hidden className="absolute inset-x-2 -top-2.5 h-full rounded-md bg-text/15 lg:inset-x-3 lg:rounded-lg" />
         <span aria-hidden className="absolute inset-x-1 -top-[5px] h-full rounded-md bg-text/30 lg:inset-x-1.5 lg:rounded-lg" />

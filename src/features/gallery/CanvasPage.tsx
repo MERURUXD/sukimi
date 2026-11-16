@@ -50,7 +50,6 @@ import { fit } from './titleFit'
 import './gallery.css'
 import { t as tl } from '@/i18n'
 
-/** 详情层：选中的是第几部，从哪一格飞出来 */
 interface Selection {
   index: number
   /** 打开时的那一部；翻到别的作品后关闭直接淡出，不飞回 */
@@ -60,7 +59,6 @@ interface Selection {
   tile: TilePose | null
 }
 
-/** 放映层：叠在画布上；退出时封面飞回 landing 那一格 */
 interface PlayState extends PlayEntry {
   /** 每次进放映换一个，重新挂载放映层 */
   seq: number
@@ -74,7 +72,7 @@ let memory: { ox: number; oy: number; sel: Selection | null; selId: number | nul
 const pad = (i: number) => String(i + 1).padStart(2, '0')
 
 
-/** 无限画布：整个书库铺成一颗可以拖动的球面。固定深色、全屏，不在 AppShell 里。 */
+/** 固定深色、全屏，不在 AppShell 里。 */
 export function CanvasPage() {
   useForceDark()
   const { all, full, totals, stats, categories, shelf, loading, error, refetch } = useGalleryLibrary()
@@ -125,7 +123,6 @@ export function CanvasPage() {
   playRef.current = play
   /** 放映飞走（或要飞回）的那一格，先藏起来 */
   const playKey = useRef<string | null>(null)
-  /** 放映当前放到的那一部 */
   const playCur = useRef<number | null>(null)
 
   /** 每帧改的状态放在 ref 里，不让 React 每帧重渲染 */
@@ -155,7 +152,6 @@ export function CanvasPage() {
   const itemsRef = useRef(items)
   itemsRef.current = items
 
-  /* 尺寸 */
   useLayoutEffect(() => {
     const el = root.current
     if (!el) return
@@ -170,7 +166,6 @@ export function CanvasPage() {
     return cells.length + 24
   }, [size, grid])
 
-  /** 取景框只改位置和大小，居中的偏移放在 translate 里 */
   const drawReticle = useCallback(() => {
     const el = reticle.current
     const r = view.current.ret
@@ -180,7 +175,6 @@ export function CanvasPage() {
     el.style.transform = `translate3d(${(r.x - bw / 2).toFixed(1)}px, ${(r.y - bh / 2).toFixed(1)}px, 0) scale(${r.k.toFixed(4)})`
   }, [grid])
 
-  /** 把当前状态画到 DOM 上 */
   const paint = useCallback(() => {
     const v = view.current
     const list = itemsRef.current
@@ -289,7 +283,6 @@ export function CanvasPage() {
     }
   }, [size, grid, poolSize, hero, fromGallery, reduced, drawReticle])
 
-  /** 推进一帧：过渡补间、惯性、吸附、平移动画 */
   const tick = useCallback(
     (now: number) => {
       raf.current = 0
@@ -386,7 +379,6 @@ export function CanvasPage() {
     [],
   )
 
-  // 换了手机 / 桌面格距：回到第一格
   const lastGrid = useRef<Grid>(grid)
   useEffect(() => {
     if (lastGrid.current === grid) return
@@ -397,7 +389,6 @@ export function CanvasPage() {
     kick()
   }, [grid, size, kick])
 
-  /* 进入过渡：从画廊首页点进来时，先摆成首页的墙，再散开、转正、鼓成球 */
   useEffect(() => {
     if (ready || !n || leaving.current) return
     view.current.tween = {
@@ -427,7 +418,6 @@ export function CanvasPage() {
     if (!fromGallery || reduced) return back()
     // 倒放靠动画帧推进，标签页切到后台时动画帧会停；到时间没放完也照样回首页
     setTimeout(back, 1700 * view.current.t + 600)
-    // 倒放进入过渡，结束后再回首页（首页的墙正好接上）
     setSel(null)
     setReady(false)
     const v = view.current
@@ -467,7 +457,6 @@ export function CanvasPage() {
     }
   })
 
-  /* 拖动、甩动；点按交给格子自己的 onClick */
   const bind = useDrag(
     ({ first, last, movement: [mx, my], velocity: [vx, vy], direction: [dx, dy], memo }) => {
       const v = view.current
@@ -572,7 +561,6 @@ export function CanvasPage() {
     [n],
   )
 
-  /* 键盘：方向键平移一格，回车打开中心那部；详情里 ← → 翻页，Esc 关闭 */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.ctrlKey || e.metaKey || e.altKey || playRef.current) return
@@ -601,7 +589,6 @@ export function CanvasPage() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // 离开画布时记下位置；从详情页返回时恢复
   useEffect(
     () => () => {
       // 不记格子位置：返回时封面由视图过渡飞回，详情层直接摆在终点，免得两段动画叠在一起
@@ -667,7 +654,6 @@ export function CanvasPage() {
     playCur.current = id
   }, [])
 
-  // 网址进出放映（包括浏览器的前进后退）都在这里挂上、收起放映层
   const pendingPlay = useRef<PlayEntry | null>(null)
   const wasAtPlay = useRef(atPlay)
   useEffect(() => {
@@ -681,7 +667,6 @@ export function CanvasPage() {
     } else if (playRef.current && !playRef.current.closing) leavePlay()
   })
 
-  /* 搜索：跳到最近一格放着这部的位置 */
   const [searching, setSearching] = useState(false)
   const jumpTo = (index: number) => {
     setSearching(false)
@@ -745,7 +730,7 @@ export function CanvasPage() {
         </div>
       </div>
 
-      {/* 首页的暗角，和首页同一位置（画廊固定深色）；首屏以外是首页的底色（手机上墙只占上半屏）。过渡中淡出 */}
+      {/* 首屏以外是首页底色；手机上墙只占上半屏。 */}
       <div ref={introVig} aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
         <div
           className="absolute"
@@ -788,8 +773,6 @@ export function CanvasPage() {
         </div>
       )}
 
-      {/* 界面：中心取景框、底部大标题、顶部按钮 */}
-      {/* --hud 由每个元素各自读成透明度，容器本身不带透明度 */}
       {/* --hud 由每个元素各自读成透明度，容器本身不带透明度；之后由 paint 逐帧改，React 不再覆盖 */}
       <div ref={hud} className="pointer-events-none absolute inset-0" style={{ '--hud': hudStart } as CSSProperties}>
         <div
@@ -901,7 +884,6 @@ export function CanvasPage() {
   )
 }
 
-/** 画布上的搜索：输入标题或作者，选中后平移到最近放着这部的格子 */
 function CanvasSearch({ open, onOpen, items, onPick }: { open: boolean; onOpen: (v: boolean) => void; items: LibraryManga[]; onPick: (index: number) => void }) {
   const [q, setQ] = useState('')
   const input = useRef<HTMLInputElement>(null)
@@ -954,7 +936,6 @@ function CanvasSearch({ open, onOpen, items, onPick }: { open: boolean; onOpen: 
   )
 }
 
-/** 详情层：大封面从被点的格子飞到左侧，背景是封面主色。封面本身是进详情页的链接，能接上封面过渡。 */
 function CanvasDetail({
   sel,
   manga,
@@ -978,7 +959,6 @@ function CanvasDetail({
   reduced: boolean
   mobile: boolean
   width: number
-  /** 画布格子的宽度 */
   tileW: number
   onClose: () => void
   onClosed: () => void

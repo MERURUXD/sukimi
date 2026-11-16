@@ -1,4 +1,3 @@
-/** 发现页：漫画源、全局搜索、来源筛选、扩展管理 */
 export default {
   title: '发现',
   globalSearch: '全局搜索',

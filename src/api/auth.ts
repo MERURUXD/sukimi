@@ -21,7 +21,7 @@ const REFRESH_KEY = 'suwayomi-web.refreshToken'
 /** 只存 id 与用户名，让各本地存储在首屏前就能知道当前是谁；角色与权限每次续期时重新查询 */
 const USER_KEY = 'suwayomi-web.user'
 const COOKIE = 'suwayomi-server-token'
-/** 提前多久续期 */
+/** 提前续期量（毫秒） */
 const LEEWAY = 60_000
 
 export type AuthStatus = 'checking' | 'signedIn' | 'signedOut' | 'unreachable'
@@ -268,7 +268,6 @@ export async function login(username: string, password: string) {
 
 const UNSUPPORTED = t('misc.api.unsupported')
 
-/** 兑换注册码：创建账号并直接登录 */
 export async function redeemRegistrationCode(code: string, username: string, password: string) {
   const mine = startNewSession()
   try {
@@ -279,7 +278,6 @@ export async function redeemRegistrationCode(code: string, username: string, pas
   }
 }
 
-/** 兑换找回码：设置新密码并直接登录 */
 export async function redeemRecoveryCode(code: string, newPassword: string) {
   const mine = startNewSession()
   try {
@@ -348,7 +346,6 @@ export function sessionReady(): Promise<void> | null {
   )
 }
 
-/** 启动时恢复会话 */
 export async function restoreSession() {
   if (!localStorage.getItem(REFRESH_KEY)) {
     useAuth.setState({ status: 'signedOut', user: null })

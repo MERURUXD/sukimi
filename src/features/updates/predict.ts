@@ -147,13 +147,10 @@ export function occurrences(p: Extract<Prediction, { kind: 'next' }>, from: numb
   return out
 }
 
-/* ───────── 文案 ───────── */
-
 const WEEK = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const
 
-/** 周几的短名（「周三」「Wed」） */
 export function weekdayName(i: number) {
   return t(`format.weekday.${WEEK[i]}`)
 }
@@ -189,7 +186,6 @@ export function dayText(p: Extract<Prediction, { kind: 'next' }>, now = Date.now
   return diff === 0 ? t('updates.predict.day.today') : diff === 1 ? t('updates.predict.day.tomorrow') : t('updates.predict.day.dated', { weekday: weekdayName(d.getDay()), md })
 }
 
-/** 详情页元信息里那一小段：「预计周三 10/21 更新」「晚了 3 天」 */
 export function shortText(p: Extract<Prediction, { kind: 'next' }>, now = Date.now()) {
   if (p.late > 0) return t('manga.next.late', { n: p.late })
   const day = dayText(p, now)

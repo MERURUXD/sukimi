@@ -13,7 +13,6 @@ import { t } from '@/i18n'
 /** 补全最多列这么多个，再多就得靠输入筛 */
 const SUGGEST_MAX = 12
 
-/** 详情页的标签编辑：来源标签点一下隐藏 / 恢复，自己的标签可加可删，每次改动立即保存 */
 export function TagEditor({ open, mangaId, genre, onClose }: { open: boolean; mangaId: number; genre: readonly string[]; onClose: () => void }) {
   const pop = usePopMotion()
   return (

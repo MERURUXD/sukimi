@@ -30,11 +30,7 @@ export type AdaptiveGlassContainerProps<T extends ElementType = 'div'> = {
   children?: ReactNode
 } & Omit<ComponentPropsWithoutRef<T>, 'as' | 'children' | 'style' | 'className'>
 
-/**
- * 自适应玻璃容器：
- * 当 enabled（默认 true）且提供了 tint 时，在容器 inline style 上设置
- * CSS 变量 `--refract-tint` 与 `--refract-tint-dense`，使子级 Glass 组件无缝继承。
- */
+/** 把自适应底色写成可继承的 CSS 变量，子级 Glass 直接复用。 */
 export function AdaptiveGlassContainer<T extends ElementType = 'div'>({
   as,
   enabled = true,

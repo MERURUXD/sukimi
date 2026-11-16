@@ -6,10 +6,8 @@ import { bust, releaseShown, retainShown, retryOriginal } from './pageImage'
 import { t } from '@/i18n'
 
 /**
- * 一页图片。加载失败时原位换成提示和「重新加载」按钮，页码、排版占位保持不变；
- * 点了按钮先重新请求原图，成功了才换回图片，失败就留在提示上（不闪一下破图）。
- * 裁边 / 拆页的旧 Blob 不再拿来重试；新的处理结果出来后再换上。
- * url 是原图地址（缓存都按它记），src 是实际显示的地址（可能是裁边 / 拆半后的 Blob）。
+ * 重试先请求原图，成功后才换回图片；旧 Blob 不再用于重试。
+ * url 是缓存键，src 是实际显示的地址。
  */
 export function ReaderImage({
   page,
@@ -23,7 +21,6 @@ export function ReaderImage({
   holdSpace,
   onLoad,
 }: {
-  /** 第几页（从 0 数） */
   page: number
   url: string
   src: string

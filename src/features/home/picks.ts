@@ -39,7 +39,6 @@ export function pickBatch<T>(items: readonly T[], n: number, seed: string, batch
   for (let b = 0; b <= batch; b++) {
     cur = pick(b ? items : first, n, `${seed}#${b}`, id)
     const i = cur.length > 1 && cur[0] === prev ? 1 : 0
-    // 和上一批第一个相同就与第二个对调
     if (i) [cur[0], cur[1]] = [cur[1], cur[0]]
     prev = cur[0]
   }
@@ -66,5 +65,4 @@ export function isStale(m: LibraryManga, nowSec: number, userId: number | undefi
   return !!c && m.unreadCount > 0 && lastRead(m) > 0 && nowSec - lastRead(m) > STALE_SEC && isVisible(c, userId)
 }
 
-/** 最近阅读里「两周内读过」的部分，用来区分继续阅读与好久没看 */
 export const isRecent = (lastReadAt: string, nowSec: number) => nowSec - Number(lastReadAt) <= STALE_SEC

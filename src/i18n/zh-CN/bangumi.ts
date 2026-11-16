@@ -1,4 +1,3 @@
-/** Bangumi 站内评分 */
 export default {
   title: 'Bangumi 站内评分',
   unranked: '暂无排名',

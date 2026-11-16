@@ -242,7 +242,6 @@ export function retryOriginal(url: string, attempt: number) {
   })
 }
 
-/** 开始处理（已在处理或已完成则什么也不做） */
 export function requestPage(url: string, v: Variant) {
   if (!v.crop && v.half === undefined) return
   const key = keyOf(url, v)
@@ -289,7 +288,6 @@ export const splitFailed = (url: string, v: Variant) => v.half !== undefined && 
 /** 首屏要等最终地址确定；处理失败或无需裁边时，原图就是最终结果。 */
 export const pageReady = (url: string, v: Variant) => (!v.crop && v.half === undefined) || done.has(keyOf(url, v))
 
-/** 处理结果变化时重新渲染 */
 export function usePageImages() {
   return useSyncExternalStore(
     (l) => {

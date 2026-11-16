@@ -23,7 +23,6 @@ import { AwayPrompt } from '@/features/favorite/AwayPrompt'
 import { MovingGlassBackdrop } from '@/components/glass/MovingGlassBackdrop'
 import { t } from '@/i18n'
 
-/** 需要登录的页面外壳：未登录跳登录页，连不上服务器给重试 */
 export function AuthGate() {
   useApplyAppearance()
   const status = useAuth((s) => s.status)
@@ -70,7 +69,6 @@ export function AuthGate() {
   )
 }
 
-/** 常规页面布局：手机底部标签栏，平板左侧导航栏，桌面顶部导航 */
 export function AppShell() {
   // 详情页在手机上不显示底部标签栏（返回键在左上角，底部留给批量栏）
   const tabbar = !useMatch('/manga/:id/*')
@@ -104,7 +102,6 @@ export function AppShell() {
       </a>
       <TopNav />
       <SideNav />
-      {/* 导航悬浮在内容之上；详情页的封面背景会延伸到导航下面 */}
       {/* data-page-path：封面飞回动画用来判断「从哪页回到哪页」，见 lib/coverTransition */}
       <main id="main" tabIndex={-1} ref={main} className="pt-[var(--nav-h)] pb-[var(--tabbar-h)] outline-none" data-page-path={pathname}>
         <Outlet />

@@ -43,7 +43,6 @@ test('sampleFromSwatches: 多主色加权平均与主导色提取', () => {
 })
 
 test('sampleFromSwatches: 极大明暗落差激发高纹理指数（texture）', () => {
-  // 黑白对半切，极大对比与离散度
   const checker = sampleFromSwatches([
     { rgb: [0, 0, 0], weight: 0.5 },
     { rgb: [1, 1, 1], weight: 0.5 },
@@ -80,9 +79,7 @@ test('深色模式：浅色/白色极端背景大幅加深底色以保护浅色�
 })
 
 test('深色模式：WCAG AA 对比度底线验算', () => {
-  // 深色模式下，文字为浅白色（L_text ≈ 0.95）。
-  // 对比度公式: (L_text + 0.05) / (L_eff + 0.05) >= 4.5:1
-  // 检验各个中高亮度下，自适应后的有效透过亮度 L_eff 是否满足 WCAG AA
+  // WCAG AA: (L_text + 0.05) / (L_eff + 0.05) >= 4.5
   const textLuma = 0.95
   for (const bgLuma of [0.4, 0.6, 0.8, 0.95]) {
     const out = computeAdaptiveTint({ luminance: bgLuma, texture: 0, color: [bgLuma, bgLuma, bgLuma] }, 'dark', 20)
@@ -120,12 +117,10 @@ test('浅色模式：纯黑极端背景大幅提亮底色以保护深色文字',
 })
 
 test('浅色模式：WCAG AA 对比度底线验算', () => {
-  // 浅色模式下，文字为深黑（L_text ≈ 0.05）。
-  // 对比度公式: (L_eff + 0.05) / (L_text + 0.05) >= 4.5:1
+  // WCAG AA: (L_eff + 0.05) / (L_text + 0.05) >= 4.5
   const textLuma = 0.05
   for (const bgLuma of [0.0, 0.1, 0.2, 0.3]) {
     const out = computeAdaptiveTint({ luminance: bgLuma, texture: 0, color: [bgLuma, bgLuma, bgLuma] }, 'light', 20)
-    // 浅色模式底色为近白色（L ≈ 1.0）
     const effectiveBg = bgLuma * (1 - out.tint / 100) + 1.0 * (out.tint / 100)
     const contrastRatio = (effectiveBg + 0.05) / (textLuma + 0.05)
     assert.ok(contrastRatio >= 4.5, `背景亮度 ${bgLuma} 下对比度 ${contrastRatio.toFixed(2)} 应 >= 4.5`)
@@ -156,68 +151,56 @@ test('滞后量与微小波动阈值过滤（Hysteresis）', () => {
   const initial = computeAdaptiveTint(sample, 'dark', 20)
   const exactTint = initial.tint
 
-  // 1. 微小波动（< 1.5% 默认阈值）：保持 previousTint，delta 为 0
   const jitterSample = { luminance: 0.505, texture: 0, color: [0.505, 0.505, 0.505] }
   const jittered = computeAdaptiveTint(jitterSample, 'dark', 20, exactTint)
   assert.equal(jittered.tint, exactTint, '波动小于 1.5% 时保持原有 tint')
   assert.equal(jittered.delta, 0)
 
-  // 2. 明显跳变（>= 1.5%）：更新并计算实际 delta
   const jumpSample = { luminance: 0.8, texture: 0, color: [0.8, 0.8, 0.8] }
   const jumped = computeAdaptiveTint(jumpSample, 'dark', 20, exactTint)
   assert.notEqual(jumped.tint, exactTint)
   assert.equal(jumped.delta, Math.round((jumped.tint - exactTint) * 10) / 10)
 
-  // 3. 自定义 threshold
   const customThresholdOut = computeAdaptiveTint(jumpSample, 'dark', 20, exactTint, { threshold: 50 })
   assert.equal(customThresholdOut.tint, exactTint, '大阈值下过滤大跳变')
 })
 
 test('边界钳位与基准底线（Bounds Clamping）', () => {
-  // baseTint 必须作为基准底线
   const sample = { luminance: 0.01, texture: 0, color: [0.01, 0.01, 0.01] }
   const outHighBase = computeAdaptiveTint(sample, 'dark', 40)
   assert.equal(outHighBase.tint, 40, '不能低于设置的 baseTint 基准')
 
-  // 超出舒适上限（85%）必须封顶
   const extremeWhite = { luminance: 1.0, texture: 1.0, color: [1, 1, 1] }
   const outExtreme = computeAdaptiveTint(extremeWhite, 'dark', 20, undefined, { dense: true })
   assert.equal(outExtreme.tint, 85, '上限严格封顶在 85%')
 
-  // 极低 baseTint 钳位至舒适下限 10%
   const outLowBase = computeAdaptiveTint(sample, 'dark', 0)
   assert.equal(outLowBase.tint, 10, '下限严格限制在 10%')
 
-  // 极高 baseTint 钳位至上限 85%
   const outOverBase = computeAdaptiveTint(sample, 'dark', 99)
   assert.equal(outOverBase.tint, 85)
 })
 
 test('容错与缺省回退安全', () => {
-  // null / undefined 采样
   const fallbackNull = computeAdaptiveTint(null, 'dark', 25)
   assert.equal(fallbackNull.tint, 25)
   assert.equal(fallbackNull.legibilityLevel, 'normal')
   assert.equal(fallbackNull.delta, 0)
   assert.equal(fallbackNull.saturate, 1.6)
 
-  // 缺少参数时默认值正确（深色 20，浅色 50）
   const fallbackDark = computeAdaptiveTint(null)
   assert.equal(fallbackDark.tint, 20)
 
   const fallbackLight = computeAdaptiveTint(null, 'light')
   assert.equal(fallbackLight.tint, 50)
 
-  // NaN 或非法数值容错
   const nanSample = { luminance: NaN, texture: NaN, color: [NaN, NaN, NaN] }
   const nanOut = computeAdaptiveTint(nanSample, 'dark', 20)
   assert.ok(Number.isFinite(nanOut.tint))
   assert.ok(Number.isFinite(nanOut.delta))
 
-  // 第 4 参数传递 options 对象形式
   const optForm = computeAdaptiveTint(null, 'dark', 20, { dense: true })
   assert.equal(optForm.tint, 20)
 
-  // 别名导出 adaptiveTone
   assert.equal(adaptiveTone, computeAdaptiveTint)
 })

@@ -1,6 +1,6 @@
 /**
  * Clean-room deterministic motion & spring physics controller for the
- * Liquid Glass Morphing Menu PoC.
+ * Liquid Glass Morphing Menu.
  *
  * Implements analytical damped-harmonic-oscillator springs, rise-and-fall
  * impulse envelopes, mid-flight interruption continuity, ElasticPress drag
@@ -537,7 +537,6 @@ export function evaluateMotionFrame(
     }
   }
 
-  // phase === 'closing'
   const duration = getPhaseDurationSec('closing', hasControlSource, reducedMotion)
   const elapsedSec = u * duration
   const startContentOpacity = options.interruptStart?.contentOpacity ?? 1
@@ -751,7 +750,6 @@ export function createMotionController(options?: { reducedMotion?: boolean }): M
   let interruptStart: MotionInterruptStart | undefined
   let disposed = false
 
-  // ElasticPress state
   let pressActive = false
   let pressTargetSize: Size = { width: 44, height: 44 }
   const liftChannel: SpringChannel = { value: 0, velocity: 0, target: 0 }

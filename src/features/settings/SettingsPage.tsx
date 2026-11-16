@@ -50,7 +50,6 @@ export interface SettingsTab {
   icon: LucideIcon
   desc: string
   Component: ComponentType
-  /** 分组只靠留白区分，见 GROUPS */
   group: SettingsGroupId
   /** 只有管理用户的账号才看得到；旧服务端没有用户账号，也不显示 */
   adminOnly?: boolean
@@ -64,7 +63,6 @@ const GROUPS: { id: SettingsGroupId; label: string }[] = [
   { id: 'system', label: t('settings.groups.system') },
 ]
 
-/** 布局验收页按分栏渲染正式组件，所以导出 */
 export const SETTINGS_TABS: SettingsTab[] = [
   { id: 'appearance', label: t('settings.tabs.appearance.label'), icon: Palette, desc: t('settings.tabs.appearance.desc'), Component: AppearanceTab, group: 'personal' },
   { id: 'home', label: t('settings.tabs.home.label'), icon: House, desc: t('settings.tabs.home.desc'), Component: HomeTab, group: 'personal' },
@@ -80,18 +78,13 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: 'about', label: t('settings.tabs.about.label'), icon: Info, desc: t('settings.tabs.about.desc'), Component: AboutTab, group: 'system' },
 ]
 
-/** 按当前用户的权限筛出能看到的分栏 */
 function useVisibleTabs() {
   const user = useAuth((s) => s.user)
   const manageUsers = !!user && !user.legacy && can(user, 'MANAGE_USERS')
   return SETTINGS_TABS.filter((tab) => !tab.adminOnly || manageUsers)
 }
 
-/**
- * 不做整块玻璃底板，文字直接放在背景上，分组只靠留白。
- * 电脑：只有选中项是一颗玻璃胶囊，用容器内坐标滑动，页面滚动和 sticky 不会改变动画起点。
- * 手机：整页分组列表，不加玻璃（列表背后没有可折射的内容）。两套结构用断点切换。
- */
+/** 选中胶囊用容器内坐标，滚动和 sticky 不改变动画起点；玻璃自身动画才能采样背景。 */
 export function SettingsNavigation({ selected, singlePage, basePath = '/settings', tabs: given }: { selected: string; singlePage?: boolean; basePath?: string; tabs?: SettingsTab[] }) {
   const root = useRef<HTMLDivElement>(null)
   const visible = useVisibleTabs()
@@ -158,10 +151,7 @@ export function SettingsNavigation({ selected, singlePage, basePath = '/settings
   )
 }
 
-/**
- * 设置外壳：电脑和平板上左侧分栏；手机上先显示分栏列表，点进去是单独一页（可以返回）。
- * 正式设置和演示设置共用，只是分栏清单不同。地址是 <basePath>/<分栏>，没带分栏时电脑上显示第一栏。
- */
+/** 正式设置和演示设置共用；地址为 <basePath>/<分栏>。 */
 export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: SettingsTab[]; basePath?: string; intro?: ReactNode }) {
   const { tab } = useParams()
   const navigate = useNavigate()
@@ -190,9 +180,7 @@ export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: S
       />
       {intro && <p className={cn('mt-0 mb-6 max-w-[62ch] text-sm text-muted', current && 'max-md:hidden')}>{intro}</p>}
 
-      {/* 和其他页同宽，标题与分栏对齐顶栏图标；右栏限宽，宽屏上设置项不会被拉得太长，右边留白 */}
       <div className="md:grid md:grid-cols-[220px_minmax(0,760px)] md:items-start md:gap-10 lg:grid-cols-[240px_minmax(0,760px)]">
-        {/* 电脑：粘在左侧的玻璃分栏；手机：整页列表 */}
         <SettingsNavigation selected={shown.id} singlePage={!!current} basePath={basePath} tabs={tabs} />
 
         <div className={cn('min-w-0', !current && 'max-md:hidden')}>
@@ -202,7 +190,6 @@ export function SettingsShell({ tabs, basePath = '/settings', intro }: { tabs: S
               {t('settings.shell.pendingRestart', { count: pending })}
             </div>
           )}
-          {/* 换栏时内容轻轻淡入 */}
           <div key={shown.id} className="rise" style={{ animationDuration: '0.35s' }}>
             <SettingsPageTitle.Provider value={current?.label}>
               <shown.Component />

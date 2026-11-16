@@ -1,7 +1,6 @@
 import { cn } from '@/lib/cn'
 import { t } from '@/i18n'
 
-/** 页面加载失败的提示，附「重试」按钮；message 取错误信息的第一行 */
 export function LoadError({
   message,
   onRetry,

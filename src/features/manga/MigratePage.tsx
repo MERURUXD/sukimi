@@ -41,7 +41,6 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
   const [q, setQ] = useState('')
   const [picked, setPicked] = useState<Candidate | null>(null)
 
-  // 标题到了以后用它作为默认关键词
   useEffect(() => {
     if (manga?.title && !q) {
       setInput(manga.title)

@@ -23,14 +23,11 @@ export interface ReaderSettings {
   dir: ReadDir
   fit: Fit
   bg: ReaderBg
-  /** 预加载后面几页 */
   preload: number
   /** 双页时第一页（封面）单独显示 */
   offsetFirst: boolean
-  /** 读完自动进入下一话 */
   autoNext: boolean
   tapZones: TapZones
-  /** 阅读时屏幕常亮 */
   keepAwake: boolean
   /** 自动裁掉页面四周的白边 / 黑边（Webtoon 模式不裁，免得条漫接缝错开） */
   crop: boolean
@@ -106,9 +103,7 @@ interface Store {
   /** 按漫画记住的设置只对这一类设备（手机 / 平板 / 电脑）生效；这个开关本身存在浏览器里，每台设备各自决定 */
   perDevice: boolean
   setPerDevice: (v: boolean) => void
-  /** 设置页：直接改全局默认值 */
   setDefaults: (patch: Partial<ReaderSettings>) => void
-  /** 清掉浏览器里旧的按漫画设置 */
   clearPerManga: () => void
 }
 
@@ -128,7 +123,6 @@ export const useReaderStore = create<Store>()(
 )
 rehydrateOnUserChange(useReaderStore)
 
-/** 把写入的元数据并进缓存里那部漫画的列表，阅读器和设置页立即生效 */
 export function cacheReaderMeta(cache: ApolloCache, metas: readonly { mangaId: number; key: string; value: string }[]) {
   for (const id of new Set(metas.map((m) => m.mangaId))) {
     const incoming = metas.filter((m) => m.mangaId === id).map((m) => ({ __typename: 'MangaMetaType' as const, ...m }))
@@ -144,7 +138,6 @@ export function cacheReaderMeta(cache: ApolloCache, metas: readonly { mangaId: n
   }
 }
 
-/** 缓存里去掉这些漫画的阅读设置元数据 */
 export function uncacheReaderMeta(cache: ApolloCache, ids: readonly number[]) {
   for (const id of ids) {
     cache.modify({

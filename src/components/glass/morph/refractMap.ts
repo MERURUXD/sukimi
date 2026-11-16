@@ -678,7 +678,7 @@ export function createMorphRefractMapBuilder(): MorphRefractMapBuilder {
   }
 }
 
-/** Convenience stateless helper returning a 0.5x stored-PNG RGBA displacement+alpha data URL. */
+/** Stateless one-off build; reuse a builder when the same map is requested repeatedly. */
 export function buildMorphRefractMapDataUrl(params: MorphRefractMapParams): string {
   return createMorphRefractMapBuilder().build(params).dataUrl
 }

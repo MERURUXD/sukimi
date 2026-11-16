@@ -1,15 +1,12 @@
 /*
- * 无限画布的几何计算。纯函数：不碰 DOM，测试直接导入。
- *
- * 画布是一张交错的网格：奇数列下移半格。(ox, oy) 是第 0 列第 0 行格子左上角在屏幕上的位置，
- * 拖动只改这两个数；每帧只算视口附近的格子，按行列取模决定放哪一部，所以能朝任意方向无限拖动。
+ * 无限画布几何：奇数列下移半格，(ox, oy) 是第 0 列第 0 行左上角；每帧只生成视口附近的格子。
  */
 
 export interface Grid {
   /** 封面宽高（2:3） */
   cw: number
   ch: number
-  /** 列距、行距 */
+  /** 列距、行距（像素） */
   px: number
   py: number
 }
@@ -48,7 +45,6 @@ export function columnStep(n: number) {
   return a
 }
 
-/** 第 c 列第 r 行放第几部 */
 export function cellIndex(c: number, r: number, n: number) {
   if (n <= 0) return -1
   const i = (c * columnStep(n) + r) % n
@@ -80,7 +76,6 @@ export function visibleCells(ox: number, oy: number, w: number, h: number, g: Gr
   return out
 }
 
-/** 离屏幕中心最近的格子 */
 export function nearestCell(cells: readonly Cell[]) {
   let best: Cell | undefined
   let d = Infinity
@@ -117,7 +112,6 @@ export function reticleTarget(cell: Cell, g: Grid, w: number, h: number, dome: n
   return { x: w / 2 + (cell.x + g.cw / 2 - w / 2) * k, y: h / 2 + (cell.y + g.ch / 2 - h / 2) * k, k }
 }
 
-/** 停下后吸附到的位置：让最近的一格正好在屏幕中心 */
 export function snapTarget(ox: number, oy: number, w: number, h: number, g: Grid) {
   const cc = Math.round((w / 2 - ox - g.cw / 2) / g.px)
   let best = { x: ox, y: oy, d: Infinity }
@@ -132,14 +126,10 @@ export function snapTarget(ox: number, oy: number, w: number, h: number, g: Grid
   return { x: best.x, y: best.y }
 }
 
-/** 让第 c 列第 r 行的格子正好在屏幕中心的偏移 */
 export function centerOn(c: number, r: number, w: number, h: number, g: Grid) {
   return { x: w / 2 - g.cw / 2 - c * g.px, y: h / 2 - g.ch / 2 - r * g.py - stagger(c, g) }
 }
 
-/**
- * 当前中心附近、放着第 index 部的最近格子。只在附近 radius 圈里找（网格按步长循环，总能找到）。
- */
 export function nearestCellOf(index: number, n: number, center: { c: number; r: number }, radius = 24) {
   let best: { c: number; r: number } | undefined
   let d = Infinity
@@ -165,7 +155,6 @@ export const decay = (v: number, dt: number) => v * 0.94 ** (dt / 16)
 export const MAX_SPEED = 4
 export const clampSpeed = (v: number) => Math.max(-MAX_SPEED, Math.min(MAX_SPEED, v))
 
-/** 过渡曲线 */
 export const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 export const easeInOut = (x: number) => {
   const t = clamp01(x)

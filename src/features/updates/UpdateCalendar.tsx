@@ -36,7 +36,6 @@ function FavoriteMark({ id }: { id: number }) {
   return <Star className="mr-1 inline size-3 -translate-y-px fill-current" strokeWidth={2.2} aria-label={t('home.section.favorite')} />
 }
 
-/** 超出上限的折叠起来，点开后整天展开 */
 function useCapped<T>() {
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set())
   return {
@@ -54,10 +53,7 @@ function MoreButton({ n, onClick, className }: { n: number; onClick: () => void;
   )
 }
 
-/**
- * 更新日历：一周七天，过去按来源发布日期显示实际的更新，今天以后显示按规律推算的预计更新；
- * 晚了的、推算不出的放在下面。桌面七列，手机是按天的日程列表。
- */
+/** 过去显示实际更新，今天以后显示推算；无法推算的另列。 */
 export function UpdateCalendar() {
   // 进页面时定下「现在」，过午夜也不跟着跳；窗口起点按天取整，同一天里重复进入能用缓存
   const [now] = useState(() => Date.now())
@@ -145,7 +141,6 @@ function dayHead(day: number, today: number) {
   return { name: diff === 0 ? t('format.today') : diff === 1 ? t('updates.tomorrow') : diff === -1 ? t('format.yesterday') : weekdayName(d.getDay()), date: `${d.getMonth() + 1}/${d.getDate()}`, isToday: diff === 0 }
 }
 
-/** 桌面：七列并排，不画格子线，靠列间距分开 */
 function WeekColumns({ week, today, now, intro }: { week: CalendarDay<Manga>[]; today: number; now: number; intro: boolean }) {
   const cap = useCapped<DayEntry<Manga>>()
   return (
@@ -203,7 +198,6 @@ function EntryTile({ e, now }: { e: DayEntry<Manga>; now: number }) {
   )
 }
 
-/** 手机：上面一条七天的日期，下面按天列出；点日期跳到那一天 */
 function WeekAgenda({ week, today, now, intro }: { week: CalendarDay<Manga>[]; today: number; now: number; intro: boolean }) {
   const cap = useCapped<DayEntry<Manga>>()
   // 本周先看今天和接下来几天，再往回看已经更新的（和「最近」一样新的在前）
@@ -310,7 +304,6 @@ function SeriesRow({ s, sub }: { s: Series<Manga>; sub: string }) {
 
 const REASONS = ['stalled', 'irregular', 'few', 'ended'] as const
 
-/** 推算不出的：默认收起，只给一行各类的数量 */
 function Unpredicted({ rest }: { rest: ReturnType<typeof leftovers<Manga>> }) {
   const [open, setOpen] = useState(false)
   const groups = REASONS.map((k) => ({ k, items: rest[k] as Series<Manga>[] })).filter((g) => g.items.length)

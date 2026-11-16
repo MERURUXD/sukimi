@@ -394,7 +394,7 @@ export const PRISM_CONSTANTS = {
   } satisfies Record<'light' | 'dark', Record<'regular' | 'menu', GlassOpticalStyle>>,
 } as const
 
-/** Motion controller contract exported by `./motion`. */
+/** Deterministic morph controller; all time values are seconds. */
 export interface IMotionController {
   getState(): MotionFrameState
   getCloseSnapshot(): MorphSnapshot | null
@@ -421,7 +421,6 @@ export interface SminSample {
   blendH: number
 }
 
-/** Function signatures exported by `./geometry`. */
 export type ComputeTargetCardRect = (anchor: AnchorConfig, menu: MenuConfig) => Rect
 
 export type ComputeMorphGeometry = (
@@ -441,6 +440,7 @@ export type ComputeSmin = (
   k: number,
 ) => SminSample
 
+/** Pure SDF and placement functions shared by the morph renderer. */
 export interface IGeometryModule {
   computeTargetCardRect: ComputeTargetCardRect
   computeMorphGeometry: ComputeMorphGeometry
@@ -448,7 +448,7 @@ export interface IGeometryModule {
   computeSmin: ComputeSmin
 }
 
-/** Liquid glass WebGL2 / fallback renderer contract exported by `./renderer`. */
+/** WebGL2 renderer contract with a 2D fallback. */
 export interface ILiquidGlassRenderer {
   readonly capabilities: RendererCapabilities
   mount(canvas: HTMLCanvasElement): RendererCapabilities
@@ -460,7 +460,7 @@ export interface ILiquidGlassRenderer {
   dispose(): void
 }
 
-/** Frame input for the Live-DOM Hybrid overlay renderer (`./overlayRenderer`). */
+/** Per-frame input for the overlay renderer. */
 export interface MorphOverlayFrame {
   viewport: Size
   dpr: number
@@ -471,7 +471,7 @@ export interface MorphOverlayFrame {
   blurBumpPx?: number
 }
 
-/** Live-DOM Hybrid overlay renderer contract exported by `./overlayRenderer`. */
+/** Overlay renderer contract for the optical boundary layer. */
 export interface IMorphOverlayRenderer {
   readonly capabilities: RendererCapabilities
   mount(canvas: HTMLCanvasElement): RendererCapabilities

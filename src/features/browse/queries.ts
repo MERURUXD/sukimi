@@ -136,8 +136,6 @@ export const langLabel = (lang: string) => {
   return special ? t(`browse.lang.${special}`) : (LANG[key] ?? lang.toUpperCase())
 }
 
-/* ───────── 扩展 ───────── */
-
 graphql(`
   fragment ExtensionFields on ExtensionType {
     pkgName
@@ -215,8 +213,6 @@ export const InstallExternalExtension = graphql(`
     }
   }
 `)
-
-/* ───────── 扩展设置（来源偏好） ───────── */
 
 /** 已安装扩展提供的来源里哪些有可调的偏好；用来决定扩展行上要不要显示设置入口 */
 export const ConfigurableSources = graphql(`

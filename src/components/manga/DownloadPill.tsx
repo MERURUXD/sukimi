@@ -10,7 +10,6 @@ import { chapterLabel } from '@/lib/format'
 import { CoverImg } from './CoverImg'
 import { t } from '@/i18n'
 
-/** 吸底的下载状态条：当前下载、进度环、暂停 / 继续；完整队列在 /downloads */
 export function DownloadPill() {
   const queue = useLive((s) => s.queue)
   const running = useLive((s) => s.downloader) === 'STARTED'

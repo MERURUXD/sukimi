@@ -1,4 +1,3 @@
-/** 登录、注册、找回，以及账号权限与角色名 */
 export default {
   login: {
     title: '登录 Sukimi',

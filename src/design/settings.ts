@@ -146,7 +146,6 @@ export function useForceDark() {
   useForceTheme('dark')
 }
 
-/** 把主题与玻璃档位同步到 <html data-theme data-glass> */
 export function useApplyAppearance() {
   useApplyGlassTuning()
   const theme = useAppearance((s) => s.theme)
