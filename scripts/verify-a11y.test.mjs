@@ -989,4 +989,99 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       await cleanup()
     }
   })
+
+  test('ContextMenu：接入 belowPoint 定位翻转、点枢轴及轻量/液态双路径动画', async () => {
+    const { resolvePointCardRect, computePointPivot } = await mod('/src/components/glass/morph/hybridSurface.ts')
+    const { ContextMenu, useContextMenu } = await mod('/src/components/ui/ContextMenu.tsx')
+    const { useAppearance } = await mod('/src/design/settings.ts')
+
+    // 1. 纯几何定位：常规展开、近底翻转、近右收边、带 avoidRect 避让
+    const normal = resolvePointCardRect({ x: 40, y: 100 }, 220, 180)
+    assert.deepEqual(normal, { x: 40, y: 100, width: 220, height: 180 })
+    assert.deepEqual(computePointPivot({ x: 40, y: 100 }, { left: normal.x, top: normal.y, width: 220, height: 180 }), { x: 0, y: 0 })
+
+    const flippedBottom = resolvePointCardRect({ x: 40, y: 760 }, 220, 180)
+    assert.deepEqual(flippedBottom, { x: 40, y: 580, width: 220, height: 180 })
+    assert.deepEqual(computePointPivot({ x: 40, y: 760 }, { left: flippedBottom.x, top: flippedBottom.y, width: 220, height: 180 }), { x: 0, y: 180 })
+
+    const clampedRight = resolvePointCardRect({ x: 350, y: 100 }, 220, 180)
+    assert.deepEqual(clampedRight, { x: 158, y: 100, width: 220, height: 180 })
+    assert.deepEqual(computePointPivot({ x: 350, y: 100 }, { left: clampedRight.x, top: clampedRight.y, width: 220, height: 180 }), { x: 192, y: 0 })
+
+    const avoided = resolvePointCardRect({ x: 100, y: 700, avoidRect: { x: 100, y: 700, width: 120, height: 40 } }, 220, 180)
+    assert.deepEqual(avoided, { x: 100, y: 512, width: 220, height: 180 })
+
+    const origW = Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'offsetWidth')
+    const origH = Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, 'offsetHeight')
+    const prevPopoverMotion = useAppearance.getState().popoverMotion
+    Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() { return this.getAttribute('role') === 'menu' ? 220 : 0 },
+    })
+    Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() { return this.getAttribute('role') === 'menu' ? 180 : 0 },
+    })
+
+    function Harness({ point }) {
+      const menu = useContextMenu()
+      return createElement(Fragment, null,
+        createElement('button', { type: 'button', onClick: () => menu.open(point.x, point.y, 'demo') }, '右键触发'),
+        createElement(ContextMenu, { at: menu.menu, onClose: menu.close, label: '操作菜单' },
+          createElement('button', { type: 'button', role: 'menuitem' }, '查看详情'),
+        ),
+      )
+    }
+
+    reduced = false
+    await act(async () => {
+      medias.forEach((m) => m.dispatchEvent())
+    })
+    try {
+      // 2. 轻量路径（popoverMotion = false）：belowPoint 翻转与枢轴原点
+      await act(async () => { useAppearance.setState({ popoverMotion: false }) })
+      await render(createElement(Harness, { point: { x: 300, y: 760 } }))
+      const trigger = [...document.querySelectorAll('button')].find((b) => named(b) === '右键触发')
+      trigger.focus()
+      await act(async () => { trigger.click() })
+      const liteMenu = document.querySelector('[role="menu"]')
+      assert.ok(liteMenu)
+      assert.equal(liteMenu.style.left, '158px')
+      assert.equal(liteMenu.style.top, '580px')
+      assert.equal(liteMenu.style.transformOrigin, '142.0px 180.0px')
+      press('Escape')
+      await act(async () => {})
+      focused(trigger)
+      await cleanup()
+
+      // 3. 液态形变路径（popoverMotion = true）：PointMorphMenuPanel 接入 belowPoint + 200ms 点菜单闭合
+      await act(async () => { useAppearance.setState({ popoverMotion: true }) })
+      await render(createElement(Harness, { point: { x: 40, y: 120 } }))
+      const triggerMorph = [...document.querySelectorAll('button')].find((b) => named(b) === '右键触发')
+      triggerMorph.focus()
+      await act(async () => { triggerMorph.click() })
+      const morphMenu = document.querySelector('[role="menu"]')
+      assert.ok(morphMenu)
+      assert.equal(morphMenu.style.left, '40px')
+      assert.equal(morphMenu.style.top, '120px')
+      assert.equal(morphMenu.getAttribute('data-morphing'), 'true')
+      assert.ok(document.querySelector('canvas[aria-hidden="true"]'))
+      await until(() => !morphMenu.hasAttribute('data-morphing'), 800)
+      press('Escape')
+      await act(async () => {})
+      focused(triggerMorph)
+      await until(() => !document.querySelector('[role="menu"]'), 500)
+    } finally {
+      if (origW) Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', origW)
+      else delete window.HTMLElement.prototype.offsetWidth
+      if (origH) Object.defineProperty(window.HTMLElement.prototype, 'offsetHeight', origH)
+      else delete window.HTMLElement.prototype.offsetHeight
+      await act(async () => { useAppearance.setState({ popoverMotion: prevPopoverMotion }) })
+      reduced = true
+      await act(async () => {
+        medias.forEach((m) => m.dispatchEvent())
+      })
+      await cleanup()
+    }
+  })
 })

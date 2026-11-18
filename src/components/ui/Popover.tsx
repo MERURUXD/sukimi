@@ -10,7 +10,6 @@ import {
   type RefObject,
 } from 'react'
 import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
-import { computeMorphUnionBounds, extractGooContourPath } from '@/components/glass/morph/contour'
 import {
   PRISM_CONSTANTS,
   type AnchorConfig,
@@ -23,15 +22,23 @@ import {
   type Rect,
 } from '@/components/glass/morph/contracts'
 import { computeMorphGeometry } from '@/components/glass/morph/geometry'
+import {
+  applyMorphBackdropLayers,
+  applyPanelMorphFrame,
+  clamp01,
+  clearPanelMorphStyles,
+  computeTransitionBounds,
+  readElementGlassSurface,
+  resolveElementTheme,
+  updateMorphOverlayCanvas,
+  type ElementTintVars,
+} from '@/components/glass/morph/hybridSurface'
 import { createMotionController, resolveOpticalStyle, type MotionController } from '@/components/glass/morph/motion'
 import { createMorphOverlayRenderer } from '@/components/glass/morph/overlayRenderer'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
 import {
   interpolateCssGlassSurfaceToOverlay,
-  interpolateVeilOptics,
   parseCssBoxShadow,
-  parseCssFilterOptics,
-  parseCssGlassSurface,
   parseCssRgba,
   type ExtractedCssGlassSurface,
   type MorphBackdropVeilOptics,
@@ -172,13 +179,6 @@ export function Popover({
   )
 }
 
-interface ElementTintVars {
-  tint: number | null
-  denseTint: number | null
-  tintScale: number | null
-  isDense: boolean
-}
-
 interface TriggerSurfaceCss {
   background: string
   border: string
@@ -203,84 +203,7 @@ interface MeasuredMorphAnchors {
   panelTintVars: ElementTintVars
 }
 
-function parseCssNumberVar(cs: CSSStyleDeclaration, name: string): number | null {
-  const raw = cs.getPropertyValue(name).trim()
-  if (!raw) return null
-  const parsed = Number.parseFloat(raw)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-function readElementGlassSurface(el: HTMLElement): {
-  surface: ExtractedCssGlassSurface
-  plateVeil: MorphBackdropVeilOptics
-  tintVars: ElementTintVars
-} {
-  const wasMorphing = el.hasAttribute('data-morphing')
-  const prevTransition = el.style.transition
-  const prevOpacity = el.style.opacity
-  if (wasMorphing) {
-    el.style.transition = 'none'
-    el.removeAttribute('data-morphing')
-  }
-  const cs = getComputedStyle(el)
-  const bf = cs.backdropFilter || cs.getPropertyValue('-webkit-backdrop-filter') || ''
-  const surface = parseCssGlassSurface({
-    backdropFilter: bf,
-    veilFallback: cs.getPropertyValue('--g-veil'),
-    borderWidthPx: parseFloat(cs.borderTopWidth) || 0,
-    borderColor: cs.borderTopColor,
-    boxShadow: cs.boxShadow,
-  })
-  const plateVeilStr = cs.getPropertyValue('--g-veil-plate').trim()
-  const plateVeil = plateVeilStr ? parseCssFilterOptics(plateVeilStr) : surface.veil
-  const tintVars: ElementTintVars = {
-    tint: parseCssNumberVar(cs, '--refract-tint'),
-    denseTint: parseCssNumberVar(cs, '--refract-tint-dense'),
-    tintScale: parseCssNumberVar(cs, '--g-tint-scale'),
-    isDense: el.classList.contains('dense') || el.classList.contains('glass-legible'),
-  }
-  if (wasMorphing) {
-    el.setAttribute('data-morphing', 'true')
-    el.style.transition = prevTransition
-    el.style.opacity = prevOpacity
-  }
-  return { surface, plateVeil, tintVars }
-}
-
-const OVERLAY_UNION_PADDING_PX = 48
-const MORPH_BACKDROP_MARGIN_PX = 6
 const LARGE_TRIGGER_AREA_RATIO = 0.45
-
-function computeClampedBackdropBounds(
-  platter: GooFrameGeometry['platter'],
-  droplet: GooFrameGeometry['droplet'],
-  transitionBounds: Rect,
-): Rect {
-  const raw = computeMorphUnionBounds(platter, droplet, MORPH_BACKDROP_MARGIN_PX)
-  const minX = Math.max(transitionBounds.x, Math.floor(raw.x))
-  const minY = Math.max(transitionBounds.y, Math.floor(raw.y))
-  const maxX = Math.min(transitionBounds.x + transitionBounds.width, Math.ceil(raw.x + raw.width))
-  const maxY = Math.min(transitionBounds.y + transitionBounds.height, Math.ceil(raw.y + raw.height))
-  return {
-    x: minX,
-    y: minY,
-    width: Math.max(1, maxX - minX),
-    height: Math.max(1, maxY - minY),
-  }
-}
-
-function clamp01(v: number): number {
-  return Math.min(1, Math.max(0, v))
-}
-
-function resolveElementTheme(el: HTMLElement | null): 'light' | 'dark' {
-  const scoped = el?.closest('[data-theme]')?.getAttribute('data-theme')
-  if (scoped === 'light' || scoped === 'dark') return scoped
-  if (typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light') {
-    return 'light'
-  }
-  return 'dark'
-}
 
 function readVisibleTriggerSurface(el: HTMLElement): TriggerSurfaceCss | null {
   const cs = getComputedStyle(el)
@@ -345,39 +268,6 @@ function stripCloneIdsAndInteractiveAttrs(node: HTMLElement): void {
   node.style.transform = ''
   for (const desc of node.querySelectorAll<HTMLElement>('[id]')) {
     desc.removeAttribute('id')
-  }
-}
-
-function shiftGeometryByOffset(geometry: GooFrameGeometry, ox: number, oy: number): GooFrameGeometry {
-  return {
-    ...geometry,
-    platter: {
-      ...geometry.platter,
-      center: {
-        x: geometry.platter.center.x - ox,
-        y: geometry.platter.center.y - oy,
-      },
-    },
-    droplet: {
-      ...geometry.droplet,
-      center: {
-        x: geometry.droplet.center.x - ox,
-        y: geometry.droplet.center.y - oy,
-      },
-    },
-  }
-}
-
-function clearPanelMorphStyles(panelEl: HTMLElement, clearTransitionImmediate: boolean): void {
-  panelEl.removeAttribute('data-morphing')
-  panelEl.style.transform = ''
-  panelEl.style.transformOrigin = ''
-  panelEl.style.opacity = ''
-  panelEl.style.filter = ''
-  panelEl.style.clipPath = ''
-  panelEl.style.willChange = ''
-  if (clearTransitionImmediate) {
-    panelEl.style.transition = ''
   }
 }
 
@@ -653,24 +543,7 @@ function MorphPanel({
       }
     }
 
-    const dyCenters = Math.abs(
-      restingCardRect.y + ph * 0.5 - (anchorRect.y + anchorRect.height * 0.5),
-    )
-    const pad = OVERLAY_UNION_PADDING_PX + Math.max(64, Math.ceil(dyCenters * 0.25))
-    const minX = Math.floor(Math.min(anchorRect.x, restingCardRect.x) - pad)
-    const minY = Math.floor(Math.min(anchorRect.y, restingCardRect.y) - pad)
-    const maxX = Math.ceil(
-      Math.max(anchorRect.x + anchorRect.width, restingCardRect.x + restingCardRect.width) + pad,
-    )
-    const maxY = Math.ceil(
-      Math.max(anchorRect.y + anchorRect.height, restingCardRect.y + restingCardRect.height) + pad,
-    )
-    const transitionBounds: Rect = {
-      x: minX,
-      y: minY,
-      width: Math.max(1, maxX - minX),
-      height: Math.max(1, maxY - minY),
-    }
+    const transitionBounds = computeTransitionBounds(anchorRect, restingCardRect)
 
     const { surface: panelSurface, plateVeil, tintVars: panelTintVars } = readElementGlassSurface(panelEl)
     let startSurface: ExtractedCssGlassSurface = {
@@ -851,13 +724,6 @@ function MorphPanel({
     lastGeometryRef.current = geometry
 
     const resolvedTheme = resolveElementTheme(panelEl)
-    const ct = geometry.contentTransform
-    const safeScale = Math.max(ct.scale, 1e-3)
-    const cardW = anchors.restingCardRect.width
-    const cardH = anchors.restingCardRect.height
-    const clipX = Math.max(0, (cardW - geometry.platter.size.width / safeScale) * 0.5)
-    const clipY = Math.max(0, (cardH - geometry.platter.size.height / safeScale) * 0.5)
-    const clipR = geometry.platter.radius / safeScale
 
     // Unified overAnchor PrismUI morph hides the underlying trigger and fades/blurs the cloned glyph inside the droplet;
     // separated external triggers keep bare icons elevated or clone `.glass` controls at full opacity.
@@ -896,13 +762,7 @@ function MorphPanel({
     }
 
     // 1. Update live-DOM panel transform, clip, blur, opacity, and temporarily suppress its own rectangular glass via data-morphing
-    panelEl.setAttribute('data-morphing', 'true')
-    panelEl.style.transformOrigin = 'center center'
-    panelEl.style.willChange = 'transform, opacity, clip-path'
-    panelEl.style.transform = `translate3d(${ct.translateX.toFixed(2)}px, ${ct.translateY.toFixed(2)}px, 0) scale(${ct.scale.toFixed(4)})`
-    panelEl.style.opacity = `${mState.contentOpacity}`
-    panelEl.style.filter = mState.contentBlurPx > 0.05 ? `blur(${mState.contentBlurPx.toFixed(2)}px)` : 'none'
-    panelEl.style.clipPath = `inset(${clipY.toFixed(2)}px ${clipX.toFixed(2)}px round ${clipR.toFixed(2)}px)`
+    applyPanelMorphFrame(panelEl, geometry, anchors.restingCardRect, mState)
 
     // 2. Update sibling Morph Glass Backdrop inside constant transitionBounds (0 layer resizes)
     const bareSurfaceAlpha =
@@ -940,156 +800,48 @@ function MorphPanel({
         ? mState.contentOpacity
         : clamp01(mState.settled / 0.2)
 
-    if (morphGlassEl) {
-      if (glassAlpha > 0.005) {
-        const contourPath = extractGooContourPath(
-          geometry.platter,
-          geometry.droplet,
-          geometry.blendK,
-          geometry.isMerged,
-          { x: bounds.x, y: bounds.y },
-        )
-        morphGlassEl.style.visibility = 'visible'
-        morphGlassEl.style.transform = `translate3d(${bounds.x}px, ${bounds.y}px, 0)`
-        morphGlassEl.style.width = `${bounds.width}px`
-        morphGlassEl.style.height = `${bounds.height}px`
-        morphGlassEl.style.clipPath = contourPath ? `path("${contourPath}")` : 'none'
-        morphGlassEl.style.opacity = `${glassAlpha}`
+    const refractHandle = morphRefractHandleRef.current
+    applyMorphBackdropLayers({
+      morphGlassEl,
+      morphBackdropEl,
+      morphFilterId,
+      refractSupported,
+      hasRefractHandle: Boolean(refractHandle),
+      glassMode: gMode,
+      tuning: gTuning,
+      adaptive: gAdaptive,
+      dense: isDense,
+      isLegible,
+      resolvedTheme,
+      glassAlpha,
+      bounds,
+      geometry,
+      mState,
+      bareSource: anchors.bareSource,
+      startTintVars: anchors.startTintVars,
+      panelTintVars: anchors.panelTintVars,
+      startVeil: anchors.startVeil,
+      panelSurface: anchors.panelSurface,
+      onUpdateRefractFrame: (frame) => { if (refractHandle) refractHandle.updateFrame(frame) },
+    })
 
-        const effectiveMode = gMode === 'refract' && !refractSupported ? 'frosted' : gMode
-        if (effectiveMode === 'solid') {
-          if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
-          morphGlassEl.style.removeProperty('--g-tint-scale')
-          morphGlassEl.style.backdropFilter = 'none'
-          morphGlassEl.style.setProperty('-webkit-backdrop-filter', 'none')
-          morphGlassEl.style.background = 'var(--surface)'
-        } else if (effectiveMode === 'frosted') {
-          if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
-          morphGlassEl.style.removeProperty('--g-tint-scale')
-          const blurPx = 22 + mState.blurBumpPx
-          const bf = `blur(${blurPx.toFixed(2)}px) saturate(1.7)`
-          morphGlassEl.style.backdropFilter = bf
-          morphGlassEl.style.setProperty('-webkit-backdrop-filter', bf)
-          if (resolvedTheme === 'dark' && isLegible) {
-            morphGlassEl.style.background = 'color-mix(in srgb, var(--bg) 78%, transparent)'
-          } else if (isDense) {
-            morphGlassEl.style.background = 'color-mix(in srgb, var(--bg) 55%, transparent)'
-          } else {
-            morphGlassEl.style.background = 'var(--g-bg)'
-          }
-        } else {
-          // 'refract' mode (refractSupported === true): match resting Glass.tsx blur, saturate, veil, adaptive tint, and --g-tint-scale
-          const startBlur = !anchors.bareSource && anchors.startTintVars.isDense ? gTuning.denseBlur : gTuning.blur
-          const targetBlur = isDense ? gTuning.denseBlur : gTuning.blur
-          const baseBlur = startBlur + (targetBlur - startBlur) * geometry.styleMix
-          const activeBlur = baseBlur + (gTuning.preset === 'prism' ? mState.blurBumpPx : 0)
-
-          const fallbackStartTint = anchors.startTintVars.isDense ? gTuning.denseTint : gTuning.tint
-          const fallbackTargetTint = isDense || isLegible ? gTuning.denseTint : gTuning.tint
-          const adaptiveStartTint = gAdaptive?.enabled
-            ? (anchors.startTintVars.isDense
-                ? (gAdaptive.denseTint ?? gAdaptive.tint ?? gTuning.denseTint)
-                : (gAdaptive.tint ?? gTuning.tint))
-            : fallbackStartTint
-          const adaptiveTargetTint = gAdaptive?.enabled
-            ? (isDense || isLegible
-                ? (gAdaptive.denseTint ?? gAdaptive.tint ?? gTuning.denseTint)
-                : (gAdaptive.tint ?? gTuning.tint))
-            : fallbackTargetTint
-          const startCssTint = anchors.startTintVars.isDense
-            ? (anchors.startTintVars.denseTint ?? anchors.startTintVars.tint)
-            : anchors.startTintVars.tint
-          const panelCssTint = isDense || isLegible
-            ? (anchors.panelTintVars.denseTint ?? anchors.panelTintVars.tint)
-            : anchors.panelTintVars.tint
-
-          const startTint = !anchors.bareSource
-            ? (startCssTint ?? adaptiveStartTint)
-            : (gAdaptive?.enabled ? (gAdaptive.tint ?? gTuning.tint) : (anchors.panelTintVars.tint ?? gTuning.tint))
-          const targetTint = gAdaptive?.enabled
-            ? adaptiveTargetTint
-            : (panelCssTint ?? adaptiveTargetTint)
-          const activeTint = startTint + (targetTint - startTint) * geometry.styleMix
-
-          const themeDefaultScale = resolvedTheme === 'dark' ? (gTuning.preset === 'prism' ? 1.55 : 1.6) : 1
-          const startScale = anchors.startTintVars.tintScale ?? anchors.panelTintVars.tintScale ?? themeDefaultScale
-          const targetScale = anchors.panelTintVars.tintScale ?? themeDefaultScale
-          const activeTintScale = startScale + (targetScale - startScale) * geometry.styleMix
-
-          morphGlassEl.style.setProperty('--g-tint-scale', `${activeTintScale.toFixed(4)}`)
-          morphGlassEl.style.background = `color-mix(in srgb, var(--g-neutral) min(100%, calc(${activeTint.toFixed(2)}% * var(--g-tint-scale, ${activeTintScale.toFixed(4)}))), transparent)`
-
-          const refractHandle = morphRefractHandleRef.current
-          if (contourPath && morphBackdropEl && refractHandle) {
-            // Route B3: place backdrop-filter: url(#svg) on an unclipped sibling while SVG self-masks to shapeAlpha,
-            // preventing Chromium's clip-path rectangular bounding-box leak.
-            const backdropBounds = computeClampedBackdropBounds(geometry.platter, geometry.droplet, bounds)
-            const veilOptics = interpolateVeilOptics(anchors.startVeil, anchors.panelSurface.veil, geometry.styleMix)
-            refractHandle.updateFrame({
-              bounds: backdropBounds,
-              platter: geometry.platter,
-              droplet: geometry.droplet,
-              blendK: geometry.blendK,
-              isMerged: geometry.isMerged,
-              blurSigma: activeBlur,
-              saturate: gTuning.saturate,
-              brightness: veilOptics.brightness,
-              contrast: veilOptics.contrast,
-              contrastFirst: veilOptics.contrastFirst,
-            })
-            morphBackdropEl.style.visibility = 'visible'
-            morphBackdropEl.style.transform = `translate3d(${backdropBounds.x}px, ${backdropBounds.y}px, 0)`
-            morphBackdropEl.style.width = `${backdropBounds.width}px`
-            morphBackdropEl.style.height = `${backdropBounds.height}px`
-            morphBackdropEl.style.opacity = `${glassAlpha}`
-            const refractBf = `url(#${morphFilterId})`
-            morphBackdropEl.style.backdropFilter = refractBf
-            morphBackdropEl.style.setProperty('-webkit-backdrop-filter', refractBf)
-            morphGlassEl.style.backdropFilter = 'none'
-            morphGlassEl.style.setProperty('-webkit-backdrop-filter', 'none')
-          } else {
-            if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
-            const veilVar = isDense ? '--g-veil-float' : '--g-veil-plate'
-            const bf = `blur(${activeBlur.toFixed(2)}px) saturate(${gTuning.saturate}) var(${veilVar})`
-            morphGlassEl.style.backdropFilter = bf
-            morphGlassEl.style.setProperty('-webkit-backdrop-filter', bf)
-          }
-        }
-      } else {
-        if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
-        morphGlassEl.style.visibility = 'hidden'
-      }
-    }
     // 3. Update sibling Morph Overlay Canvas inside constant transitionBounds (0 canvas reallocations)
-    if (overlayCanvasEl) {
-      if (glassAlpha > 0.005) {
-        overlayCanvasEl.style.visibility = 'visible'
-        overlayCanvasEl.style.transform = `translate3d(${bounds.x}px, ${bounds.y}px, 0)`
-        overlayCanvasEl.style.width = `${bounds.width}px`
-        overlayCanvasEl.style.height = `${bounds.height}px`
-
-        const shiftedGeom = shiftGeometryByOffset(geometry, bounds.x, bounds.y)
-        const baseStyle = resolveOpticalStyle(resolvedTheme, geometry.styleMix)
-        const opticalStyle = interpolateCssGlassSurfaceToOverlay(
-          baseStyle,
-          anchors.startSurface,
-          anchors.panelSurface,
-          geometry.styleMix,
-        )
-        overlayRendererRef.current?.render({
-          viewport: { width: bounds.width, height: bounds.height },
-          dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
-          theme: resolvedTheme,
-          geometry: shiftedGeom,
-          style: opticalStyle,
-          opacity: glassAlpha,
-          blurBumpPx: gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
-        })
-      } else {
-        overlayCanvasEl.style.visibility = 'hidden'
-        overlayRendererRef.current?.clear()
-      }
-    }
+    const opticalStyle = interpolateCssGlassSurfaceToOverlay(
+      resolveOpticalStyle(resolvedTheme, geometry.styleMix),
+      anchors.startSurface,
+      anchors.panelSurface,
+      geometry.styleMix,
+    )
+    updateMorphOverlayCanvas(
+      overlayCanvasEl,
+      overlayRendererRef.current,
+      bounds,
+      resolvedTheme,
+      geometry,
+      opticalStyle,
+      glassAlpha,
+      gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
+    )
   }
 
   // Create and dispose motion controller + overlay renderer before first paint (StrictMode-safe)

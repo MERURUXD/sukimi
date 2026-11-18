@@ -1,20 +1,81 @@
-import { AnimatePresence, useReducedMotion } from 'motion/react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { AnimatePresence, usePresence, useReducedMotion } from 'motion/react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { createPortal } from 'react-dom'
-import { MotionGlass } from '@/components/glass/Glass'
-import { spring, still } from '@/design/motion'
+import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
+import {
+  PRISM_CONSTANTS,
+  type AnchorConfig,
+  type IMorphOverlayRenderer,
+  type MenuConfig,
+  type MorphPhase,
+  type MotionFrameState,
+  type Rect,
+} from '@/components/glass/morph/contracts'
+import { computeMorphGeometry } from '@/components/glass/morph/geometry'
+import {
+  applyMorphBackdropLayers,
+  applyPanelMorphFrame,
+  cancelAnimFrame,
+  clamp01,
+  clearPanelMorphStyles,
+  computePointPivot,
+  computeTransitionBounds,
+  readElementGlassSurface,
+  resolveElementTheme,
+  resolvePointCardRect,
+  scheduleAnimFrame,
+  updateMorphOverlayCanvas,
+  type ContextMenuPoint,
+  type ElementTintVars,
+} from '@/components/glass/morph/hybridSurface'
+import { createMotionController, resolveOpticalStyle, type MotionController } from '@/components/glass/morph/motion'
+import { createMorphOverlayRenderer } from '@/components/glass/morph/overlayRenderer'
+import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
+import {
+  interpolateCssGlassSurfaceToOverlay,
+  type ExtractedCssGlassSurface,
+  type MorphBackdropVeilOptics,
+} from '@/components/glass/morph/refractOptics'
+import { supportsRefract } from '@/components/glass/refract'
+import { useGlassTuning } from '@/design/glassTuning'
+import { still } from '@/design/motion'
+import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 
-const EDGE = 12
+const POINT_OPEN_SPRING = {
+  type: 'spring' as const,
+  mass: PRISM_CONSTANTS.SPRINGS.open.mass,
+  stiffness: PRISM_CONSTANTS.SPRINGS.open.stiffness,
+  damping:
+    2 *
+    PRISM_CONSTANTS.SPRINGS.open.dampingRatio *
+    Math.sqrt(PRISM_CONSTANTS.SPRINGS.open.stiffness * PRISM_CONSTANTS.SPRINGS.open.mass),
+}
+
+const POINT_CLOSE_TRANSITION = {
+  duration: PRISM_CONSTANTS.POINT_CLOSE_DURATION_SEC,
+  ease: [0.22, 1, 0.36, 1] as const,
+}
+
+export type { ContextMenuPoint }
 
 /**
  * 右键 / 长按菜单的状态：一页只放一个菜单，打开时记下点在哪、对哪一项。
  * 长列表里不用给每一格挂弹出层，只有打开的那一个在渲染。
  */
 export function useContextMenu<T>() {
-  const [menu, setMenu] = useState<{ x: number; y: number; target: T } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number; avoidRect?: Rect; target: T } | null>(null)
   const close = useCallback(() => setMenu(null), [])
-  const open = useCallback((x: number, y: number, target: T) => setMenu({ x, y, target }), [])
+  const open = useCallback((x: number, y: number, target: T, avoidRect?: Rect) => setMenu({ x, y, avoidRect, target }), [])
   return { menu, open, close }
 }
 
@@ -28,64 +89,71 @@ function menuItems(panel: HTMLElement) {
   return [...panel.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]')]
 }
 
-/** 挂到 body 上，避开网格格子的裁切和层叠；贴近边缘时向内收。 */
-export function ContextMenu({ at, onClose, label, children, className }: {
-  at: { x: number; y: number } | null
+interface PlacedCard {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+function sameCard(a: PlacedCard | null, b: PlacedCard): boolean {
+  return Boolean(a && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height)
+}
+
+/** 统一维护右键菜单的焦点借还、第一项自动聚焦、键盘游走和外部关闭监听。 */
+function useContextMenuBehavior({
+  panelRef,
+  at,
+  active,
+  ready,
+  onClose,
+}: {
+  panelRef: RefObject<HTMLElement | null>
+  at: ContextMenuPoint
+  active: boolean
+  ready: boolean
   onClose: () => void
-  label: string
-  children: ReactNode
-  className?: string
 }) {
-  const panel = useRef<HTMLElement>(null)
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const closeRef = useRef(onClose)
   const returnTo = useRef<HTMLElement | null>(null)
-  const reduced = useReducedMotion()
-  closeRef.current = onClose
-
   useLayoutEffect(() => {
-    if (!at) return setPos(null)
-    // 用布局尺寸：进场动画从 0.94 倍缩放开始，getBoundingClientRect 量到的偏小
-    const w = panel.current?.offsetWidth ?? 0
-    const h = panel.current?.offsetHeight ?? 0
-    setPos({
-      left: Math.max(EDGE, Math.min(at.x, window.innerWidth - w - EDGE)),
-      // 下面放不下就翻到点击位置上方，再不行贴着窗口底边
-      top: Math.max(EDGE, Math.min(at.y + h + EDGE > window.innerHeight ? at.y - h : at.y, window.innerHeight - h - EDGE)),
-    })
-  }, [at])
+    closeRef.current = onClose
+  }, [onClose])
 
-  // 打开时记住触发元素。菜单先藏着量尺寸，elementFromPoint 还能点到下面的封面。
+  // 打开时记住触发元素。菜单先藏着量尺寸（或叠加层 pointer-events-none），elementFromPoint 还能点到下面的封面。
   // 点到菜单自己（或焦点已经在菜单里）时退回菜单外的焦点，关闭后才不会把焦点还给即将卸掉的菜单项
   useLayoutEffect(() => {
-    if (!at) return
-    const active = document.activeElement
+    if (!active) return
+    const activeEl = document.activeElement
     const hit = document.elementFromPoint(at.x, at.y)
     const nearest = hit instanceof Element ? hit.closest('a, button, [tabindex]') : null
     const outside = (el: Element | null) =>
-      el instanceof HTMLElement && !panel.current?.contains(el) && el !== document.body && el !== document.documentElement ? el : null
-    returnTo.current = outside(nearest) ?? outside(active)
-  }, [at])
+      el instanceof HTMLElement && !panelRef.current?.contains(el) && el !== document.body && el !== document.documentElement
+        ? el
+        : null
+    returnTo.current = outside(nearest) ?? outside(activeEl)
+  }, [active, at.x, at.y, panelRef])
 
-  // 还焦点放在提交之后。关掉时量位置的那次更新会在变更阶段把焦点扳回菜单项，
-  // 若在布局阶段还回去，紧接着就被扳回来，菜单项一卸掉焦点就掉到页面开头
+  // 还焦点放在提交之后。关闭时立刻把焦点还回触发处，避免等退出动画卸掉后丢失焦点。
   useEffect(() => {
-    if (!at) return
+    if (!active) return
     return () => {
       const back = returnTo.current
       if (back?.isConnected) back.focus({ preventScroll: true })
     }
-  }, [at])
+  }, [active, at])
 
   // 量好位置、显示出来之后再把焦点移到第一项（藏着的元素聚焦不了），键盘用户不用再找
   useEffect(() => {
-    if (at && pos) panel.current && menuItems(panel.current)[0]?.focus({ preventScroll: true })
-  }, [at, pos])
+    if (active && ready && panelRef.current) {
+      menuItems(panelRef.current)[0]?.focus({ preventScroll: true })
+    }
+  }, [active, ready, at, panelRef])
 
   useEffect(() => {
-    if (!at) return
+    if (!active) return
     const move = (dir: 1 | -1 | 'start' | 'end') => {
-      const root = panel.current
+      const root = panelRef.current
       if (!root) return
       const list = menuItems(root)
       if (!list.length) return
@@ -96,7 +164,7 @@ export function ContextMenu({ at, onClose, label, children, className }: {
       list[next]?.focus({ preventScroll: true })
     }
     const onDown = (e: PointerEvent) => {
-      if (!panel.current?.contains(e.target as Node)) closeRef.current()
+      if (!panelRef.current?.contains(e.target as Node)) closeRef.current()
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -131,27 +199,542 @@ export function ContextMenu({ at, onClose, label, children, className }: {
       window.removeEventListener('scroll', dismiss, true)
       window.removeEventListener('resize', dismiss)
     }
-  }, [at])
+  }, [active, panelRef])
+}
+
+/** 轻量路径与减少动态路径：复用 `belowPoint` 定位与以点击点为原点的弹出/点退动画，零逐帧折射开销。 */
+function LiteContextMenuPanel({
+  at,
+  onClose,
+  label,
+  className,
+  reduced,
+  children,
+}: {
+  at: ContextMenuPoint
+  onClose: () => void
+  label: string
+  className?: string
+  reduced: boolean
+  children: ReactNode
+}) {
+  const [isPresent] = usePresence()
+  const panelRef = useRef<HTMLElement>(null)
+  const [pos, setPos] = useState<PlacedCard | null>(null)
+
+  useLayoutEffect(() => {
+    if (!isPresent) return
+    const sync = () => {
+      const panelEl = panelRef.current
+      if (!panelEl) return
+      const w = panelEl.offsetWidth
+      const h = panelEl.offsetHeight
+      const card = resolvePointCardRect(at, w, h)
+      const next: PlacedCard = { left: card.x, top: card.y, width: w, height: h }
+      setPos((prev) => (sameCard(prev, next) ? prev : next))
+    }
+    sync()
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(sync) : null
+    if (ro && panelRef.current) ro.observe(panelRef.current)
+    return () => ro?.disconnect()
+  }, [isPresent, at])
+
+  useContextMenuBehavior({
+    panelRef,
+    at,
+    active: isPresent,
+    ready: pos !== null,
+    onClose,
+  })
+
+  const pivot = pos ? computePointPivot(at, pos) : { x: 0, y: 0 }
+
+  return (
+    <MotionGlass
+      ref={panelRef}
+      role="menu"
+      aria-label={label}
+      dense
+      initial={reduced ? false : { opacity: 0, scale: 0.76 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={
+        reduced
+          ? { opacity: 0 }
+          : { opacity: 0, scale: PRISM_CONSTANTS.POINT_CLOSE_END_SCALE, transition: POINT_CLOSE_TRANSITION }
+      }
+      transition={reduced ? still : POINT_OPEN_SPRING}
+      // 量好尺寸之前先藏着，免得在角落闪一下
+      style={{
+        left: pos?.left ?? at.x,
+        top: pos?.top ?? at.y,
+        visibility: pos ? 'visible' : 'hidden',
+        transformOrigin: reduced ? 'top left' : `${pivot.x.toFixed(1)}px ${pivot.y.toFixed(1)}px`,
+        pointerEvents: isPresent ? undefined : 'none',
+      }}
+      className={cn('fixed z-[70] w-[220px] rounded-[24px] p-3 [--g-drop:0_24px_60px_rgba(0,0,0,.45)]', className)}
+      onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+    >
+      {children}
+    </MotionGlass>
+  )
+}
+
+interface MeasuredPointAnchors {
+  anchorRect: Rect
+  avoidRect?: Rect
+  restingCardRect: Rect
+  transitionBounds: Rect
+  restingRadius: number
+  startSurface: ExtractedCssGlassSurface
+  panelSurface: ExtractedCssGlassSurface
+  startVeil: MorphBackdropVeilOptics
+  startTintVars: ElementTintVars
+  panelTintVars: ElementTintVars
+}
+
+/** 液态形变路径：复用 PrismUI `belowPoint` 几何与 `hasControlSource = false` 点菜单物理闭合。 */
+function PointMorphMenuPanel({
+  at,
+  onClose,
+  label,
+  className,
+  children,
+}: {
+  at: ContextMenuPoint
+  onClose: () => void
+  label: string
+  className?: string
+  children: ReactNode
+}) {
+  const [isPresent, safeToRemove] = usePresence()
+  const glassMode = useAppearance((s) => s.glass)
+  const tuning = useGlassTuning()
+  const adaptive = useAdaptiveGlass()
+  const refractSupported = supportsRefract()
+  const morphFilterId = `ctxMorphRefract${useId().replace(/[:«»]/g, '')}`
+
+  const panelRef = useRef<HTMLElement>(null)
+  const morphBackdropRef = useRef<HTMLDivElement>(null)
+  const morphGlassRef = useRef<HTMLDivElement>(null)
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
+  const morphRefractHandleRef = useRef<MorphRefractFilterHandle>(null)
+
+  const [pos, setPos] = useState<PlacedCard | null>(null)
+  const motionRef = useRef<MotionController | null>(null)
+  const overlayRendererRef = useRef<IMorphOverlayRenderer | null>(null)
+  const radiusRef = useRef<number | null>(null)
+  const anchorsRef = useRef<MeasuredPointAnchors | null>(null)
+  const lastPhaseRef = useRef<MorphPhase>('closed')
+  const isTransitioningRef = useRef(false)
+  const transitionRestoreRafRef = useRef(0)
+  const safeToRemoveRef = useRef(safeToRemove)
+  safeToRemoveRef.current = safeToRemove
+  const isPresentRef = useRef(isPresent)
+  isPresentRef.current = isPresent
+  const atRef = useRef(at)
+  atRef.current = at
+
+  const isLegible = Boolean(className?.includes('glass-legible'))
+  const latestVisualRef = useRef({
+    glassMode,
+    tuning,
+    adaptive,
+    isLegible,
+  })
+  latestVisualRef.current = {
+    glassMode,
+    tuning,
+    adaptive,
+    isLegible,
+  }
+
+  useContextMenuBehavior({
+    panelRef,
+    at,
+    active: isPresent,
+    ready: pos !== null,
+    onClose,
+  })
+
+  const measurePointAnchors = (point: ContextMenuPoint): MeasuredPointAnchors | null => {
+    const panelEl = panelRef.current
+    if (!panelEl) return null
+
+    const pw = panelEl.offsetWidth
+    const ph = panelEl.offsetHeight
+    const measuredRadius = parseFloat(getComputedStyle(panelEl).borderTopLeftRadius)
+    radiusRef.current ??= Number.isFinite(measuredRadius) && measuredRadius > 0
+      ? measuredRadius
+      : PRISM_CONSTANTS.RESTING_CARD_RADIUS
+    const restingCardRect = resolvePointCardRect(point, pw, ph, radiusRef.current)
+    const restingRadius = Math.min(radiusRef.current, pw * 0.5, ph * 0.5)
+
+    if (panelEl.dataset.lensRadius !== String(radiusRef.current)) {
+      panelEl.dataset.lensRadius = String(radiusRef.current)
+    }
+
+    const nextPos: PlacedCard = {
+      left: restingCardRect.x,
+      top: restingCardRect.y,
+      width: pw,
+      height: ph,
+    }
+    panelEl.style.left = `${restingCardRect.x}px`
+    panelEl.style.top = `${restingCardRect.y}px`
+    setPos((prev) => (sameCard(prev, nextPos) ? prev : nextPos))
+
+    const anchorRect: Rect = { x: point.x, y: point.y, width: 0, height: 0 }
+    const inflatedAnchor: Rect = {
+      x: point.x - PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_X,
+      y: point.y - PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_Y,
+      width: PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_X * 2,
+      height: PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_Y * 2,
+    }
+    const transitionBounds = computeTransitionBounds(inflatedAnchor, restingCardRect)
+
+    const { surface: panelSurface, plateVeil, tintVars: panelTintVars } = readElementGlassSurface(panelEl)
+    const startSurface: ExtractedCssGlassSurface = {
+      ...panelSurface,
+      veil: plateVeil,
+      borderRgba: [
+        panelSurface.borderRgba[0],
+        panelSurface.borderRgba[1],
+        panelSurface.borderRgba[2],
+        0,
+      ],
+      outlineAlpha: 0,
+      rimOpacity: 0,
+      shadowBlur: 0,
+      shadowOffsetY: 0,
+      shadowAlpha: 0,
+    }
+    const startTintVars: ElementTintVars = {
+      ...panelTintVars,
+      isDense: false,
+    }
+
+    const measured: MeasuredPointAnchors = {
+      anchorRect,
+      avoidRect: point.avoidRect,
+      restingCardRect,
+      transitionBounds,
+      restingRadius,
+      startSurface,
+      panelSurface,
+      startVeil: plateVeil,
+      startTintVars,
+      panelTintVars,
+    }
+    anchorsRef.current = measured
+    return measured
+  }
+
+  const applyFrameToDom = (mState: MotionFrameState) => {
+    const panelEl = panelRef.current
+    const morphGlassEl = morphGlassRef.current
+    const morphBackdropEl = morphBackdropRef.current
+    const overlayCanvasEl = overlayCanvasRef.current
+    const anchors = anchorsRef.current
+    if (!panelEl || !anchors) return
+
+    const isTransitioning = mState.phase === 'opening' || mState.phase === 'closing'
+    isTransitioningRef.current = isTransitioning
+    if (isTransitioning) {
+      cancelAnimFrame(transitionRestoreRafRef.current)
+    }
+
+    if (mState.phase === 'open') {
+      if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
+      if (morphGlassEl) morphGlassEl.style.visibility = 'hidden'
+      if (overlayCanvasEl) {
+        overlayCanvasEl.style.visibility = 'hidden'
+        overlayRendererRef.current?.clear()
+      }
+      panelEl.style.transition = 'none'
+      clearPanelMorphStyles(panelEl, false)
+      cancelAnimFrame(transitionRestoreRafRef.current)
+      transitionRestoreRafRef.current = scheduleAnimFrame(() => {
+        if (panelRef.current && !isTransitioningRef.current) {
+          panelRef.current.style.transition = ''
+        }
+      })
+      return
+    }
+
+    if (mState.phase === 'closed') {
+      if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
+      if (morphGlassEl) morphGlassEl.style.visibility = 'hidden'
+      if (overlayCanvasEl) {
+        overlayCanvasEl.style.visibility = 'hidden'
+        overlayRendererRef.current?.clear()
+      }
+      panelEl.setAttribute('data-morphing', 'true')
+      panelEl.style.opacity = '0'
+      return
+    }
+
+    const { glassMode: gMode, tuning: gTuning, adaptive: gAdaptive, isLegible: legible } = latestVisualRef.current
+
+    const anchorConfig: AnchorConfig = {
+      anchorRect: anchors.anchorRect,
+      avoidRect: anchors.avoidRect,
+      placement: 'belowPoint',
+      bareSource: true,
+      inflateBareAnchor: true,
+      hasControlSource: false,
+      viewportSize: { width: window.innerWidth, height: window.innerHeight },
+    }
+    const menuConfig: MenuConfig = {
+      size: {
+        width: anchors.restingCardRect.width,
+        height: anchors.restingCardRect.height,
+      },
+      targetRectOverride: anchors.restingCardRect,
+      restingRadius: anchors.restingRadius,
+    }
+
+    const geometry = computeMorphGeometry(mState, anchorConfig, menuConfig)
+    const resolvedTheme = resolveElementTheme(panelEl)
+
+    applyPanelMorphFrame(panelEl, geometry, anchors.restingCardRect, mState)
+
+    const bounds = anchors.transitionBounds
+    const glassAlpha = mState.phase === 'closing' ? mState.contentOpacity : clamp01(mState.settled / 0.2)
+    const refractHandle = morphRefractHandleRef.current
+
+    applyMorphBackdropLayers({
+      morphGlassEl,
+      morphBackdropEl,
+      morphFilterId,
+      refractSupported,
+      hasRefractHandle: Boolean(refractHandle),
+      glassMode: gMode,
+      tuning: gTuning,
+      adaptive: gAdaptive,
+      dense: true,
+      isLegible: legible,
+      resolvedTheme,
+      glassAlpha,
+      bounds,
+      geometry,
+      mState,
+      bareSource: true,
+      startTintVars: anchors.startTintVars,
+      panelTintVars: anchors.panelTintVars,
+      startVeil: anchors.startVeil,
+      panelSurface: anchors.panelSurface,
+      onUpdateRefractFrame: (frame) => {
+        if (refractHandle) refractHandle.updateFrame(frame)
+      },
+    })
+
+    const opticalStyle = interpolateCssGlassSurfaceToOverlay(
+      resolveOpticalStyle(resolvedTheme, geometry.styleMix),
+      anchors.startSurface,
+      anchors.panelSurface,
+      geometry.styleMix,
+    )
+    updateMorphOverlayCanvas(
+      overlayCanvasEl,
+      overlayRendererRef.current,
+      bounds,
+      resolvedTheme,
+      geometry,
+      opticalStyle,
+      glassAlpha,
+      gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
+    )
+  }
+
+  useLayoutEffect(() => {
+    const controller = createMotionController({ reducedMotion: false })
+    motionRef.current = controller
+
+    const renderer = createMorphOverlayRenderer()
+    overlayRendererRef.current = renderer
+    if (overlayCanvasRef.current) {
+      renderer.mount(overlayCanvasRef.current)
+    }
+
+    return () => {
+      cancelAnimFrame(transitionRestoreRafRef.current)
+      controller.dispose()
+      if (motionRef.current === controller) motionRef.current = null
+      renderer.dispose()
+      if (overlayRendererRef.current === renderer) overlayRendererRef.current = null
+    }
+  }, [])
+
+  // 外观设置变化时同步重新采样表面光学
+  useLayoutEffect(() => {
+    measurePointAnchors(atRef.current)
+    if (isTransitioningRef.current && motionRef.current && anchorsRef.current) {
+      applyFrameToDom(motionRef.current.getState())
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [glassMode, tuning, adaptive, className])
+
+  // 菜单内容尺寸变化时更新 `belowPoint` 落点
+  useLayoutEffect(() => {
+    const ro = typeof ResizeObserver === 'function'
+      ? new ResizeObserver(() => {
+          const panelEl = panelRef.current
+          if (!panelEl) return
+          const cur = anchorsRef.current?.restingCardRect
+          if (
+            cur &&
+            panelEl.offsetWidth === cur.width &&
+            panelEl.offsetHeight === cur.height
+          ) {
+            return
+          }
+          const measured = measurePointAnchors(atRef.current)
+          if (measured && motionRef.current) applyFrameToDom(motionRef.current.getState())
+        })
+      : null
+    if (ro && panelRef.current) ro.observe(panelRef.current)
+    return () => ro?.disconnect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 由 isPresent 和点击坐标驱动 `belowPoint` 展开与 200ms 点菜单闭合
+  useLayoutEffect(() => {
+    const motion = motionRef.current
+    if (!motion) return
+
+    measurePointAnchors(at)
+
+    if (isPresent) {
+      motion.open(false)
+    } else {
+      motion.close()
+    }
+
+    lastPhaseRef.current = motion.getState().phase
+    applyFrameToDom(motion.getState())
+
+    let rafId = 0
+    let lastTs = performance.now()
+    let active = true
+
+    const tick = (now: number) => {
+      if (!active) return
+      const dt = Math.min(0.05, Math.max(0, (now - lastTs) / 1000))
+      lastTs = now
+      const next = dt > 0 ? motion.step(dt) : motion.getState()
+      applyFrameToDom(next)
+
+      if (next.phase !== lastPhaseRef.current) {
+        lastPhaseRef.current = next.phase
+      }
+
+      if (next.phase === 'closed' && !isPresentRef.current) {
+        safeToRemoveRef.current?.()
+        return
+      }
+
+      if (next.isAnimating || next.phase === 'opening' || next.phase === 'closing') {
+        rafId = scheduleAnimFrame(tick)
+      }
+    }
+
+    rafId = scheduleAnimFrame(tick)
+    return () => {
+      active = false
+      cancelAnimFrame(rafId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPresent, at.x, at.y, at.avoidRect?.x, at.avoidRect?.y, at.avoidRect?.width, at.avoidRect?.height])
+
+  const canUseMorphRefract = glassMode === 'refract' && refractSupported
+
+  return (
+    <>
+      <div
+        ref={morphBackdropRef}
+        aria-hidden="true"
+        style={{ visibility: 'hidden' }}
+        className="pointer-events-none fixed top-0 left-0 z-[70]"
+      />
+      <div
+        ref={morphGlassRef}
+        aria-hidden="true"
+        style={{ visibility: 'hidden' }}
+        className="pointer-events-none fixed top-0 left-0 z-[70] isolate"
+      />
+      <MotionGlass
+        ref={panelRef}
+        role="menu"
+        aria-label={label}
+        dense
+        style={{
+          left: pos?.left ?? at.x,
+          top: pos?.top ?? at.y,
+          visibility: pos ? 'visible' : 'hidden',
+          pointerEvents: isPresent ? undefined : 'none',
+        }}
+        className={cn('fixed z-[70] w-[220px] rounded-[24px] p-3 [--g-drop:0_24px_60px_rgba(0,0,0,.45)]', className)}
+        onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
+      >
+        {children}
+      </MotionGlass>
+      <canvas
+        ref={overlayCanvasRef}
+        aria-hidden="true"
+        style={{ visibility: 'hidden' }}
+        className="pointer-events-none fixed top-0 left-0 z-[70]"
+      />
+      {canUseMorphRefract && (
+        <MorphRefractFilter
+          ref={morphRefractHandleRef}
+          id={morphFilterId}
+          bezel={tuning.bezel}
+          strength={tuning.strength}
+          falloff={tuning.falloff}
+          dispersion={tuning.dispersion}
+        />
+      )}
+    </>
+  )
+}
+
+/** 挂到 body 上，避开网格格子的裁切和层叠；通过 `belowPoint` 策略定位与展开。 */
+export function ContextMenu({ at, onClose, label, children, className }: {
+  at: ContextMenuPoint | null
+  onClose: () => void
+  label: string
+  children: ReactNode
+  className?: string
+}) {
+  const systemReduced = Boolean(useReducedMotion())
+  const popoverMotion = useAppearance((s) => s.popoverMotion)
+  const useFullMorph = !systemReduced && popoverMotion
 
   return createPortal(
     <AnimatePresence>
       {at && (
-        <MotionGlass
-          ref={panel}
-          role="menu"
-          aria-label={label}
-          dense
-          initial={reduced ? false : { opacity: 0, scale: 0.94 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
-          transition={reduced ? still : spring.fast}
-          // 量好尺寸之前先藏着，免得在角落闪一下
-          style={{ left: pos?.left ?? at.x, top: pos?.top ?? at.y, visibility: pos ? 'visible' : 'hidden', transformOrigin: 'top left' }}
-          className={cn('fixed z-[70] w-[220px] rounded-[24px] p-3 [--g-drop:0_24px_60px_rgba(0,0,0,.45)]', className)}
-          onContextMenu={(e: React.MouseEvent) => e.preventDefault()}
-        >
-          {children}
-        </MotionGlass>
+        useFullMorph ? (
+          <PointMorphMenuPanel
+            key="morph"
+            at={at}
+            onClose={onClose}
+            label={label}
+            className={className}
+          >
+            {children}
+          </PointMorphMenuPanel>
+        ) : (
+          <LiteContextMenuPanel
+            key="lite"
+            at={at}
+            onClose={onClose}
+            label={label}
+            className={className}
+            reduced={systemReduced}
+          >
+            {children}
+          </LiteContextMenuPanel>
+        )
       )}
     </AnimatePresence>,
     document.body,
