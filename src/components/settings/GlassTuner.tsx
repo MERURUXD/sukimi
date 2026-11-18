@@ -1,5 +1,6 @@
 import { Download, Heart, RefreshCw } from 'lucide-react'
 import { Glass } from '@/components/glass/Glass'
+import { GlassSlider } from '@/components/ui/GlassSlider'
 import { GLASS_PARAMS, presetDefaults, useGlassTuning } from '@/design/glassTuning'
 import { cn } from '@/lib/cn'
 import { t as tl } from '@/i18n'
@@ -21,14 +22,12 @@ export function GlassSliders({ className }: { className?: string }) {
                 {v !== d && <span className="ml-1 text-faint">{tl('misc.glass.defaultValue', { value: d })}</span>}
               </span>
             </span>
-            <input
-              type="range"
+            <GlassSlider
               min={p.min}
               max={p.max}
               step={p.step}
               value={v}
-              onChange={(e) => t.set({ [p.key]: Number(e.target.value) })}
-              className="accent-[var(--accent)]"
+              onChange={(next) => t.set({ [p.key]: next })}
             />
             {p.hint && <span className="text-[13px] text-faint">{p.hint}</span>}
           </label>

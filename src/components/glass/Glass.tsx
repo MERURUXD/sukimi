@@ -4,6 +4,7 @@ import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { useGlassTuning } from '@/design/glassTuning'
 import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
+import { useElasticPress } from './morph/useElasticPress'
 import { MovingGlassBackdrop } from './MovingGlassBackdrop'
 import { AdaptiveGlassContext } from './AdaptiveGlassContext'
 
@@ -32,6 +33,8 @@ type GlassProps<T extends Tag> = {
   tint?: number
   /** 单独覆盖 dense 状态折射底色浓度 (0-100) */
   denseTint?: number
+  /** 按压弹性反馈：非 flat 的 button / a 默认开启 */
+  elastic?: boolean
   ref?: Ref<HTMLElement>
 } & ComponentPropsWithoutRef<T>
 
@@ -50,6 +53,7 @@ export function Glass<T extends Tag = 'div'>({
   lens,
   tint,
   denseTint,
+  elastic,
   className,
   style,
   children,
@@ -61,6 +65,9 @@ export function Glass<T extends Tag = 'div'>({
   const moving = useContext(MovingGlassBackdrop)
   const adaptive = useContext(AdaptiveGlassContext)
   const host = useRef<HTMLElement>(null)
+  const isDisabled = 'disabled' in rest && Boolean(rest.disabled)
+  const elasticEnabled = (elastic ?? ((as === 'button' || as === 'a') && !flat)) && !isDisabled
+  useElasticPress(host, { enabled: elasticEnabled })
   const filterId = `lens${useId().replace(/[:«»]/g, '')}`
   const tone = !flat && mode === 'refract' && supportsRefract()
   const on = tone && !suspendRefract && moving !== 'suspend'

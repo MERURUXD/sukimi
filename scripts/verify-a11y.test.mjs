@@ -125,8 +125,8 @@ const focused = (el) => assert.ok(document.activeElement === el, `焦点在 ${do
 const press = (key, target = document, init = {}) => {
   target.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }))
 }
-async function until(pred) {
-  for (let i = 0; i < 40; i++) {
+async function until(pred, max = 40) {
+  for (let i = 0; i < max; i++) {
     if (pred()) return
     await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
   }
@@ -829,6 +829,163 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       assert.equal(document.querySelector('[role="alert"]') == null, true)
     } finally {
       t.mock.timers.reset()
+      await cleanup()
+    }
+  })
+
+  test('Switch：切换状态、禁用拦截并遵循减少动态效果', async () => {
+    const { Switch } = await mod('/src/components/ui/Switch.tsx')
+    function Demo() {
+      const [on, setOn] = useState(false)
+      const [locked, setLocked] = useState(true)
+      return createElement(
+        Fragment,
+        null,
+        createElement(Switch, { on, onChange: setOn, label: '演示开关' }),
+        createElement(Switch, { on: locked, onChange: setLocked, label: '禁用开关', disabled: true }),
+      )
+    }
+    try {
+      await render(createElement(Demo))
+      const sw = document.querySelector('[aria-label="演示开关"]')
+      const dis = document.querySelector('[aria-label="禁用开关"]')
+      assert.equal(sw.getAttribute('role'), 'switch')
+      assert.equal(sw.getAttribute('aria-checked'), 'false')
+      await act(async () => { sw.click() })
+      assert.equal(sw.getAttribute('aria-checked'), 'true')
+      await act(async () => { dis.click() })
+      assert.equal(dis.getAttribute('aria-checked'), 'true')
+    } finally {
+      await cleanup()
+    }
+  })
+
+  test('GlassSlider：保持原生滑块语义、RTL 与交互回调', async () => {
+    const { GlassSlider } = await mod('/src/components/ui/GlassSlider.tsx')
+    const PointerEvt = window.PointerEvent ?? window.MouseEvent
+    const pointer = (type, target, init = {}) => {
+      const evt = new PointerEvt(type, { bubbles: true, cancelable: true, button: 0, ...init })
+      if (!('pointerId' in evt)) Object.defineProperty(evt, 'pointerId', { value: 1 })
+      if (!('pointerType' in evt)) Object.defineProperty(evt, 'pointerType', { value: 'mouse' })
+      target.dispatchEvent(evt)
+    }
+    const changes = []
+    function Demo() {
+      const [val, setVal] = useState(20)
+      return createElement(GlassSlider, {
+        value: val,
+        min: 1,
+        max: 100,
+        step: 1,
+        rtl: true,
+        'aria-label': '跳转页面',
+        onChange: (next) => {
+          changes.push(next)
+          setVal(next)
+        },
+      })
+    }
+    reduced = false
+    await act(async () => {
+      medias.forEach((m) => m.dispatchEvent())
+    })
+    try {
+      await render(createElement(Demo))
+      const input = document.querySelector('input[type="range"][aria-label="跳转页面"]')
+      assert.ok(input)
+      assert.equal(input.min, '1')
+      assert.equal(input.max, '100')
+      assert.equal(input.style.direction, 'rtl')
+      await act(async () => {
+        pointer('pointerdown', input)
+        Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '42')
+        input.dispatchEvent(new window.Event('input', { bubbles: true }))
+        pointer('pointerup', window)
+      })
+      assert.deepEqual(changes, [42])
+      assert.equal(input.value, '42')
+    } finally {
+      reduced = true
+      await act(async () => {
+        medias.forEach((m) => m.dispatchEvent())
+      })
+      await cleanup()
+    }
+  })
+
+  test('ElasticPress：非 flat 玻璃按钮按压触发形变并回弹清理，减少动态与禁用时跳过', async () => {
+    const { Glass } = await mod('/src/components/glass/Glass.tsx')
+    const { ElasticButton } = await mod('/src/components/glass/ElasticButton.tsx')
+    const PointerEvt = window.PointerEvent ?? window.MouseEvent
+    const pointer = (type, target, init = {}) => {
+      const evt = new PointerEvt(type, { bubbles: true, cancelable: true, button: 0, clientX: 10, clientY: 10, ...init })
+      if (!('pointerId' in evt)) Object.defineProperty(evt, 'pointerId', { value: init.pointerId ?? 1 })
+      if (!('pointerType' in evt)) Object.defineProperty(evt, 'pointerType', { value: 'mouse' })
+      target.dispatchEvent(evt)
+    }
+    reduced = false
+    await act(async () => {
+      medias.forEach((m) => m.dispatchEvent())
+    })
+    try {
+      await render(
+        createElement(
+          Fragment,
+          null,
+          createElement(Glass, { as: 'button', type: 'button', 'aria-label': '玻璃按钮' }, '点我'),
+          createElement(Glass, { as: 'button', flat: true, type: 'button', 'aria-label': '扁平按钮' }, '扁平'),
+          createElement(ElasticButton, { type: 'button', 'aria-label': '工具栏按钮' }, '工具'),
+          createElement(ElasticButton, { type: 'button', disabled: true, 'aria-label': '禁用按钮' }, '禁用'),
+        ),
+      )
+      const glassBtn = document.querySelector('[aria-label="玻璃按钮"]')
+      const flatBtn = document.querySelector('[aria-label="扁平按钮"]')
+      const toolBtn = document.querySelector('[aria-label="工具栏按钮"]')
+      const disabledBtn = document.querySelector('[aria-label="禁用按钮"]')
+
+      await act(async () => {
+        pointer('pointerdown', glassBtn)
+        await new Promise((r) => setTimeout(r, 40))
+      })
+      assert.equal(glassBtn.getAttribute('data-elastic-press'), 'true')
+      assert.match(glassBtn.style.transform, /scale\(/)
+      await act(async () => {
+        pointer('pointerup', window)
+      })
+      await until(() => !glassBtn.hasAttribute('data-elastic-press') && glassBtn.style.transform === '', 100)
+
+      await act(async () => {
+        pointer('pointerdown', toolBtn)
+        await new Promise((r) => setTimeout(r, 40))
+      })
+      assert.equal(toolBtn.getAttribute('data-elastic-press'), 'true')
+      await act(async () => {
+        pointer('pointerup', window)
+      })
+      await until(() => !toolBtn.hasAttribute('data-elastic-press'), 100)
+
+      await act(async () => {
+        pointer('pointerdown', flatBtn)
+        pointer('pointerdown', disabledBtn)
+        await new Promise((r) => setTimeout(r, 30))
+      })
+      assert.equal(flatBtn.hasAttribute('data-elastic-press'), false)
+      assert.equal(disabledBtn.hasAttribute('data-elastic-press'), false)
+
+      reduced = true
+      await act(async () => {
+        medias.forEach((m) => m.dispatchEvent())
+      })
+      await act(async () => {
+        pointer('pointerdown', glassBtn)
+        await new Promise((r) => setTimeout(r, 30))
+      })
+      assert.equal(glassBtn.hasAttribute('data-elastic-press'), false)
+    } finally {
+      reduced = true
+      await act(async () => {
+        medias.forEach((m) => m.dispatchEvent())
+      })
       await cleanup()
     }
   })

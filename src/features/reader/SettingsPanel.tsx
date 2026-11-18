@@ -2,7 +2,9 @@ import { AnimatePresence } from 'motion/react'
 import { RotateCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { MotionGlass } from '@/components/glass/Glass'
+import { GlassSlider } from '@/components/ui/GlassSlider'
 import { Seg } from '@/components/ui/Seg'
+import { Switch } from '@/components/ui/Switch'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
 import { MODE_ICON } from './ReaderChrome'
@@ -10,25 +12,6 @@ import { DEVICE_LABEL } from './remote'
 import { BGS, DEFAULTS, FITS, MODES, TAP_ZONES, deviceKind, useReaderStore, type ReaderSettings } from './settings'
 import { wakeLockSupported } from './wakeLock'
 import { t } from '@/i18n'
-
-function Switch({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[26px] w-11 flex-none rounded-full transition-colors',
-        on ? 'bg-accent' : 'bg-switch-off',
-        // 与设置页的开关一致：圆点带投影，浅色下关闭时也看得出轮廓
-        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:shadow-[0_1px_2px_rgba(0,0,0,.18),0_2px_6px_rgba(0,0,0,.12)] dark:after:shadow-none after:transition-[left] after:content-['']",
-        on ? 'after:left-[21px] after:bg-on-accent' : 'after:bg-white',
-      )}
-    />
-  )
-}
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -43,15 +26,14 @@ function Slider({ label, value, min, max, onChange }: { label: string; value: nu
   return (
     <div className="flex min-h-11 items-center justify-between gap-3">
       <span className="flex-none">{label}</span>
-      <input
-        type="range"
+      <GlassSlider
         min={min}
         max={max}
         step={5}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={onChange}
         aria-label={label}
-        className="h-[26px] w-36 min-w-0 accent-[var(--accent)]"
+        className="h-[26px] w-36 flex-none"
       />
       <span className="w-10 flex-none text-right text-[13px] text-muted num">{value}%</span>
     </div>

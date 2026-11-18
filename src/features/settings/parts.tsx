@@ -1,6 +1,7 @@
 import { Check, ChevronDown, ChevronsUpDown, CircleHelp, LoaderCircle, TriangleAlert, type LucideIcon } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type InputHTMLAttributes, type KeyboardEvent, type ReactNode } from 'react'
 import { Popover } from '@/components/ui/Popover'
+export { Switch } from '@/components/ui/Switch'
 import { cn } from '@/lib/cn'
 import { t } from '@/i18n'
 
@@ -177,26 +178,6 @@ function StatusBadge({ status }: { status: SaveStatus }) {
       <Check className="size-3.5" strokeWidth={2.5} aria-hidden />
       {t('settings.parts.saved')}
     </span>
-  )
-}
-
-export function Switch({ on, onChange, label, disabled }: { on: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      disabled={disabled}
-      onClick={() => onChange(!on)}
-      className={cn(
-        'relative h-[26px] w-11 flex-none rounded-full transition-colors before:absolute before:-inset-y-[9px] before:inset-x-0 disabled:opacity-50',
-        on ? 'bg-accent' : 'bg-switch-off',
-        // 圆点带投影：浅色下关闭时白点压在浅灰轨道上，没有投影就只剩一团灰
-        "after:absolute after:top-[3px] after:left-[3px] after:size-5 after:rounded-full after:shadow-[0_1px_2px_rgba(0,0,0,.18),0_2px_6px_rgba(0,0,0,.12)] dark:after:shadow-none after:transition-[left] after:content-['']",
-        on ? 'after:left-[21px] after:bg-on-accent' : 'after:bg-white',
-      )}
-    />
   )
 }
 

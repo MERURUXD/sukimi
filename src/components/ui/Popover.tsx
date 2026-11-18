@@ -337,10 +337,12 @@ function findTriggerElement(
 function stripCloneIdsAndInteractiveAttrs(node: HTMLElement): void {
   node.removeAttribute('id')
   node.removeAttribute('data-refract')
+  node.removeAttribute('data-elastic-press')
   node.setAttribute('aria-hidden', 'true')
   node.setAttribute('tabindex', '-1')
   node.style.pointerEvents = 'none'
   node.style.margin = '0'
+  node.style.transform = ''
   for (const desc of node.querySelectorAll<HTMLElement>('[id]')) {
     desc.removeAttribute('id')
   }
@@ -617,7 +619,15 @@ function MorphPanel({
     let overlapsTrigger = false
 
     if (triggerEl) {
-      const tBox = triggerEl.getBoundingClientRect()
+      let tBox: DOMRect
+      if (triggerEl.hasAttribute('data-elastic-press')) {
+        const prevTransform = triggerEl.style.transform
+        triggerEl.style.transform = 'none'
+        tBox = triggerEl.getBoundingClientRect()
+        triggerEl.style.transform = prevTransform
+      } else {
+        tBox = triggerEl.getBoundingClientRect()
+      }
       if (tBox.width > 0 && tBox.height > 0) {
         anchorRect = {
           x: tBox.left - rootRect.left,

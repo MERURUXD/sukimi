@@ -16,7 +16,9 @@ import {
   Shrink,
 } from 'lucide-react'
 import { useCallback, useState } from 'react'
+import { ElasticButton } from '@/components/glass/ElasticButton'
 import { MotionGlass } from '@/components/glass/Glass'
+import { GlassSlider } from '@/components/ui/GlassSlider'
 import { Popover } from '@/components/ui/Popover'
 import { spring } from '@/design/motion'
 import { cn } from '@/lib/cn'
@@ -58,7 +60,7 @@ function BookmarkControl({
   const bookmarked = marks.some(Boolean)
   const label = spread ? t('reader.chrome.bookmarkPages') : bookmarked ? t('reader.chrome.bookmarkRemove') : t('reader.chrome.bookmarkAdd')
   const button = (
-    <button
+    <ElasticButton
       type="button"
       className={cn(ib, bookmarked && on)}
       onClick={spread ? () => setMenu((v) => !v) : () => onToggle(pages[0])}
@@ -69,7 +71,7 @@ function BookmarkControl({
       title={spread ? t('reader.chrome.bookmarkPickTitle') : t('reader.withKey', { label, key: 'B' })}
     >
       <Bookmark className={cn('size-5', bookmarked && 'fill-current')} strokeWidth={1.8} />
-    </button>
+    </ElasticButton>
   )
   if (!spread) return button
 
@@ -177,9 +179,9 @@ export function ReaderChrome({
               dense
               className="pointer-events-auto flex min-w-0 items-center gap-1 rounded-full p-[5px]"
             >
-              <button type="button" onClick={onBack} className={ib} aria-label={t('reader.chrome.back')}>
+              <ElasticButton type="button" onClick={onBack} className={ib} aria-label={t('reader.chrome.back')}>
                 <ChevronLeft className="size-[22px]" strokeWidth={1.8} />
-              </button>
+              </ElasticButton>
               <div className="flex min-w-0 flex-col pr-3.5 pl-1 leading-tight">
                 <span className="truncate font-bold">{title}</span>
                 {/* 手机上底栏已有页码，这里只留章节名，免得章节名被截成省略号 */}
@@ -203,7 +205,7 @@ export function ReaderChrome({
                 {MODES.map((m) => {
                   const Icon = MODE_ICON[m.value]
                   return (
-                    <button
+                    <ElasticButton
                       key={m.value}
                       type="button"
                       className={cn(ib, settings.mode === m.value && on)}
@@ -213,12 +215,12 @@ export function ReaderChrome({
                       aria-pressed={settings.mode === m.value}
                     >
                       <Icon className="size-5" strokeWidth={1.8} />
-                    </button>
+                    </ElasticButton>
                   )
                 })}
                 <span className="mx-1 h-[22px] w-px self-center bg-line" />
               </span>
-              <button
+              <ElasticButton
                 type="button"
                 // 手机上收进设置面板，给书名和书签、分享按钮腾地方
                 className={cn(tb, 'max-sm:hidden')}
@@ -228,19 +230,19 @@ export function ReaderChrome({
               >
                 <ArrowLeftRight className="size-[18px]" strokeWidth={1.8} />
                 {settings.dir.toUpperCase()}
-              </button>
-              <button type="button" className={cn(tb, 'max-sm:hidden')} onClick={() => set({ fit: cycle(FITS, settings.fit) })} title={t('reader.withKey', { label: t('reader.chrome.toggleFit'), key: 'Z' })}>
+              </ElasticButton>
+              <ElasticButton type="button" className={cn(tb, 'max-sm:hidden')} onClick={() => set({ fit: cycle(FITS, settings.fit) })} title={t('reader.withKey', { label: t('reader.chrome.toggleFit'), key: 'Z' })}>
                 {FITS.find((f) => f.value === settings.fit)?.label}
-              </button>
+              </ElasticButton>
               <span className="mx-1 h-[22px] w-px self-center bg-line max-sm:hidden" />
               <BookmarkControl pages={bookmarkPages} bookmarks={bookmarks} rtl={rtl} onToggle={onToggleBookmark} />
-              <button type="button" className={ib} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
+              <ElasticButton type="button" className={ib} onClick={onSave} disabled={saving} aria-label={saveLabel} title={saveLabel}>
                 {touch ? <Share2 className="size-5" strokeWidth={1.8} /> : <Download className="size-5" strokeWidth={1.8} />}
-              </button>
-              <button type="button" className={cn(ib, panel && on)} onClick={onTogglePanel} aria-label={t('reader.chrome.settings')} aria-pressed={panel}>
+              </ElasticButton>
+              <ElasticButton type="button" className={cn(ib, panel && on)} onClick={onTogglePanel} aria-label={t('reader.chrome.settings')} aria-pressed={panel}>
                 <Settings2 className="size-5" strokeWidth={1.8} />
-              </button>
-              <button
+              </ElasticButton>
+              <ElasticButton
                 type="button"
                 // 不支持全屏的浏览器（iPhone Safari）不显示
                 className={cn(ib, !document.fullscreenEnabled && 'hidden')}
@@ -249,7 +251,7 @@ export function ReaderChrome({
                 title={t('reader.withKey', { label: t('reader.chrome.fullscreen'), key: 'F' })}
               >
                 {fullscreen ? <Shrink className="size-5" strokeWidth={1.8} /> : <Expand className="size-5" strokeWidth={1.8} />}
-              </button>
+              </ElasticButton>
             </MotionGlass>
           </div>
 
@@ -262,10 +264,10 @@ export function ReaderChrome({
               className="pointer-events-auto flex w-[min(920px,100%)] items-center gap-3 rounded-full px-2.5 py-2 max-sm:gap-1.5"
             >
               {/* 从右往左读时，下一话在左、上一话在右，和翻页方向一致；用 order 换位，中间的页码与进度条不动 */}
-              <button type="button" className={cn(tb, rtl && 'order-last')} disabled={!hasPrev} onClick={onPrevChapter} title={t('reader.withKey', { label: t('reader.chrome.prevChapter'), key: '[' })}>
+              <ElasticButton type="button" className={cn(tb, rtl && 'order-last')} disabled={!hasPrev} onClick={onPrevChapter} title={t('reader.withKey', { label: t('reader.chrome.prevChapter'), key: '[' })}>
                 {rtl ? <ChevronRight className="size-[18px]" strokeWidth={1.8} /> : <ChevronLeft className="size-[18px]" strokeWidth={1.8} />}
                 <span className="max-sm:hidden">{t('reader.chrome.prevChapter')}</span>
-              </button>
+              </ElasticButton>
               <span className="w-[72px] flex-none text-center text-[13px] font-bold num max-sm:w-auto">{pageLabel}</span>
               <div
                 role="group"
@@ -298,22 +300,21 @@ export function ReaderChrome({
                   )
                 })}
               </div>
-              <input
-                type="range"
+              <GlassSlider
                 min={1}
                 max={pageCount}
                 value={first + 1}
-                onChange={(e) => onJump(Number(e.target.value) - 1)}
+                onChange={(next) => onJump(next - 1)}
+                rtl={rtl}
                 aria-label={t('reader.chrome.jump')}
-                className={cn('h-[42px] min-w-0 flex-1 accent-[var(--accent)]', manyPages ? '' : 'sm:hidden')}
-                style={{ direction: paged && settings.dir === 'rtl' ? 'rtl' : 'ltr' }}
+                className={cn('h-[42px] min-w-0 flex-1', manyPages ? '' : 'sm:hidden')}
               />
               <span className="text-xs whitespace-nowrap text-muted max-md:hidden">{t('reader.chrome.preload', { n: settings.preload })}</span>
-              <button type="button" className={cn(tb, rtl && '-order-1')} disabled={!hasNext} onClick={onNextChapter} title={t('reader.withKey', { label: t('reader.chrome.nextChapter'), key: ']' })}>
+              <ElasticButton type="button" className={cn(tb, rtl && '-order-1')} disabled={!hasNext} onClick={onNextChapter} title={t('reader.withKey', { label: t('reader.chrome.nextChapter'), key: ']' })}>
                 {rtl ? <ChevronLeft className="size-[18px]" strokeWidth={1.8} /> : null}
                 <span className="max-sm:hidden">{t('reader.chrome.nextChapter')}</span>
                 {rtl ? null : <ChevronRight className="size-[18px]" strokeWidth={1.8} />}
-              </button>
+              </ElasticButton>
             </MotionGlass>
           </div>
         </>
