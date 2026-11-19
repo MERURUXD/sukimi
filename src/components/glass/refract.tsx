@@ -143,6 +143,32 @@ function lensMap(w: number, h: number, radius: number, bezel: number, falloff: n
   return url
 }
 
+/** 读取宿主元素的布局边框盒尺寸（保留小数像素，不受 transform 缩放影响） */
+function measureBorderBox(el: HTMLElement, entry?: ResizeObserverEntry): [number, number] {
+  const box = entry?.borderBoxSize?.[0]
+  if (box && box.inlineSize > 0 && box.blockSize > 0) {
+    return [box.inlineSize, box.blockSize]
+  }
+  const style = getComputedStyle(el)
+  const rawW = parseFloat(style.width)
+  const rawH = parseFloat(style.height)
+  if (rawW > 0 && rawH > 0) {
+    if (style.boxSizing === 'border-box') return [rawW, rawH]
+    const px =
+      (parseFloat(style.paddingLeft) || 0) +
+      (parseFloat(style.paddingRight) || 0) +
+      (parseFloat(style.borderLeftWidth) || 0) +
+      (parseFloat(style.borderRightWidth) || 0)
+    const py =
+      (parseFloat(style.paddingTop) || 0) +
+      (parseFloat(style.paddingBottom) || 0) +
+      (parseFloat(style.borderTopWidth) || 0) +
+      (parseFloat(style.borderBottomWidth) || 0)
+    return [rawW + px, rawH + py]
+  }
+  return [el.offsetWidth, el.offsetHeight]
+}
+
 /** 跟随宿主元素尺寸重绘位移图，并把位移量写进滤镜 */
 export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean, o: LensOptions) {
   const feImage = useRef<SVGFEImageElement>(null)
@@ -153,11 +179,13 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
     const el = host.current
     if (!enabled || !el) return
     let lastSize = ''
-    const draw = () => {
-      // 用布局尺寸而不是 getBoundingClientRect：缩放动画中的 transform 不应影响位移图
-      const w = el.offsetWidth
-      const h = el.offsetHeight
-      if (!w || !h) return
+    const draw = (entry?: ResizeObserverEntry) => {
+      if (!el.offsetWidth || !el.offsetHeight) return
+      // offsetWidth/Height 会把 .01–.49 的小数宽度向下取整，导致位移图右/下边缘短缺半像素并露出色散伪色；
+      // 取真实布局边框盒后向上取整（减去极小浮点容差避免整像素误进位），始终完全覆盖宿主区域。
+      const [rawW, rawH] = measureBorderBox(el, entry)
+      const w = Math.max(1, Math.ceil(rawW - 1e-4))
+      const h = Math.max(1, Math.ceil(rawH - 1e-4))
       // 动画中会改内联圆角的玻璃（Popover 展开）用 data-lens-radius 固定落定后的圆角
       const radius = Number(el.dataset.lensRadius) || parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
       const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
@@ -178,7 +206,7 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
     }
     draw()
     // 在本次布局绘制前同步换图；延迟或再等一帧会先拉伸旧透镜带，随后边缘二次跳变。
-    const ro = new ResizeObserver(draw)
+    const ro = new ResizeObserver((entries) => draw(entries?.[0]))
     ro.observe(el)
     return () => {
       ro.disconnect()
@@ -202,7 +230,10 @@ export function LensFilter({
     <svg aria-hidden className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0">
       <defs>
         <filter id={id} colorInterpolationFilters="sRGB" x="0%" y="0%" width="100%" height="100%">
-          <feImage ref={feImage} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="map" />
+          {/* 位移图外的透明黑 (0,0) 会触发最大负位移并产生红橙伪色；用中性灰 (128,128) 兜底保持零位移。 */}
+          <feFlood floodColor="rgb(128,128,128)" result="neutral" />
+          <feImage ref={feImage} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="lens" />
+          <feComposite in="lens" in2="neutral" operator="over" result="map" />
           {dispersion > 0 ? (
             <>
               {(['R', 'G', 'B'] as const).map((channel, index) => (

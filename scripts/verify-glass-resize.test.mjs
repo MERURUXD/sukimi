@@ -13,7 +13,7 @@ function fixture(dispersion = 0, options = {}) {
   const frames = new Map(), timers = new Map()
   let sequence = 0, resize, cleanup, mapSize, draws = 0
   const {
-    width = 360, height = 480, radius = 22, bezel = 0, falloff = 2,
+    width = 360, height = 480, radius = 22, bezel = 0, falloff = 2, computedStyle = {},
   } = options
   const host = { offsetWidth: width, offsetHeight: height, dataset: {} }
   let pixels
@@ -42,7 +42,7 @@ function fixture(dispersion = 0, options = {}) {
     exports,
     require: () => ({ useRef: () => ({ current: image }), useLayoutEffect: effect => { cleanup = effect() } }),
     document: { createElement: () => canvas },
-    getComputedStyle: () => ({ borderTopLeftRadius: `${radius}px` }),
+    getComputedStyle: () => ({ borderTopLeftRadius: `${radius}px`, ...computedStyle }),
     requestAnimationFrame: callback => { frames.set(++sequence, callback); return sequence },
     cancelAnimationFrame: id => frames.delete(id),
     window: {
@@ -58,7 +58,7 @@ function fixture(dispersion = 0, options = {}) {
   exports.useLensMap({ current: host }, true, { bezel, strength: 1, falloff, dispersion })
   const flushFrames = () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(f => f()) }
   return {
-    host, resize: () => resize(), flushFrames,
+    host, resize: (entries) => resize(entries), flushFrames,
     cleanup: () => cleanup(),
     pixel: (x, y) => {
       const i = (y * width + x) * 4
@@ -134,8 +134,59 @@ test('玻璃滤镜：色散开关生成有效的 SVG 输入链，滤镜原语直
       const displacements = [...filter.querySelectorAll('feDisplacementMap')]
       assert.equal(displacements.length, dispersion > 0 ? 3 : 1)
       assert.deepEqual(displacements.map(fe => Number(fe.dataset.extra)), dispersion > 0 ? [-dispersion, 0, dispersion] : [0])
+      const flood = filter.querySelector('feFlood')
+      assert.equal(flood?.getAttribute('flood-color'), 'rgb(128,128,128)', '位移图外必须以中性灰兜底，防止透明黑触发边缘色散伪色')
+      const mapComposite = filter.querySelector('feComposite[result="map"]')
+      assert.equal(mapComposite?.getAttribute('operator'), 'over')
     } finally { dom.window.close() }
   }
+})
+
+test('玻璃缩放：小数宽度向上取整覆盖整个边框盒，避免右缘露出色散伪色', () => {
+  // 模拟英文语言菜单：真实宽度 180.45px，但 offsetWidth 向下取整为 180px
+  const f = fixture(8, {
+    width: 180,
+    height: 138,
+    computedStyle: { boxSizing: 'border-box', width: '180.45px', height: '137.6px' },
+  })
+  assert.equal(f.mapSize, '181x138', '首帧应基于真实小数尺寸向上取整，而非使用向下取整的 offsetWidth')
+  assert.equal(f.imageSize, '181x138')
+
+  // ResizeObserver 回调提供精确的 borderBoxSize
+  f.host.offsetWidth = 160
+  f.host.offsetHeight = 138
+  f.resize([{ borderBoxSize: [{ inlineSize: 160.00001, blockSize: 138 }] }])
+  assert.equal(f.mapSize, '160x138', '极小浮点误差不应导致整像素误进位')
+  assert.equal(f.imageSize, '160x138')
+
+  f.host.offsetWidth = 180
+  f.host.offsetHeight = 138
+  f.resize([{ borderBoxSize: [{ inlineSize: 180.25, blockSize: 137.4 }] }])
+  assert.equal(f.mapSize, '181x138')
+  assert.equal(f.imageSize, '181x138')
+  f.cleanup()
+
+  // content-box 应加上内边距和边框
+  const contentBox = fixture(0, {
+    width: 180,
+    height: 138,
+    computedStyle: {
+      boxSizing: 'content-box',
+      width: '166.45px',
+      height: '123.6px',
+      paddingLeft: '6px',
+      paddingRight: '6px',
+      paddingTop: '6px',
+      paddingBottom: '6px',
+      borderLeftWidth: '1px',
+      borderRightWidth: '1px',
+      borderTopWidth: '1px',
+      borderBottomWidth: '1px',
+    },
+  })
+  assert.equal(contentBox.mapSize, '181x138')
+  assert.equal(contentBox.imageSize, '181x138')
+  contentBox.cleanup()
 })
 
 test('玻璃缩放：相同尺寸与隐藏元素不重复编码，卸载后停止更新', () => {
