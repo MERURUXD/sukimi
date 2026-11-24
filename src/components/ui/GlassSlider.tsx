@@ -1,6 +1,6 @@
 import { motion, useReducedMotion, type Transition } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { PRISM_CONSTANTS } from '@/components/glass/morph/contracts'
+import { DEFAULT_SPRINGS } from '@meniscus/core'
 import { still } from '@/design/motion'
 import { cn } from '@/lib/cn'
 
@@ -8,12 +8,12 @@ const THUMB_W = 20
 
 const DROPLET_SPRING: Transition = {
   type: 'spring',
-  mass: PRISM_CONSTANTS.SPRINGS.elasticPress.mass,
-  stiffness: PRISM_CONSTANTS.SPRINGS.elasticPress.stiffness,
+  mass: DEFAULT_SPRINGS.elasticPress.mass,
+  stiffness: DEFAULT_SPRINGS.elasticPress.stiffness,
   damping:
     2 *
-    PRISM_CONSTANTS.SPRINGS.elasticPress.dampingRatio *
-    Math.sqrt(PRISM_CONSTANTS.SPRINGS.elasticPress.stiffness * PRISM_CONSTANTS.SPRINGS.elasticPress.mass),
+    DEFAULT_SPRINGS.elasticPress.dampingRatio *
+    Math.sqrt(DEFAULT_SPRINGS.elasticPress.stiffness * DEFAULT_SPRINGS.elasticPress.mass),
 }
 
 export interface GlassSliderProps {
