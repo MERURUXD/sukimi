@@ -1,146 +1,66 @@
 /*
  * 液态折射：backdrop-filter: url(#svg) + feDisplacementMap（仅 Chromium 生效）。
  *
- * 位移图按组件尺寸用 canvas 生成，模拟「凸透镜边缘」：
- * - 中间区域不位移，保持通透；
- * - 只有沿边缘一圈「透镜带」会把内容向外拉伸（越靠外缘越强，曲线由 falloff 控制）；
- * - 始终从内侧取样，不会取到元素外面的透明像素而出现黑边。
- * 色散先把输入拆为单色光，再分别沿透镜位移，最后用加法还原 RGB。
+ * 位移图与动态形变共用 @sessile/core 的 Snell 光学 LUT 与 9-slice 切片引擎：
+ * - 单圆角矩形优先走 8 块缓存切片（4 个角 + 4 条 1px 边条）与中性灰（128,128）中心兜底，
+ *   resize 时仅改切片几何坐标而不重复编码 PNG；
+ * - 极小尺寸或奇数胶囊退回整张 Stored-PNG，始终保持与 MorphRefractFilter 一致的折射曲线与位移量；
+ * - 色散先把输入拆为单色光，再分别沿透镜位移，最后用加法还原 RGB，并在强为零时钳位为零。
  */
 import { Fragment, useLayoutEffect, useRef, type RefObject } from 'react'
+import {
+  DEFAULT_REFRACTION_IOR,
+  createRefractMapBuilder,
+  resolveRefractTiles,
+  type GlassFieldState,
+  type RefractMapBuilder,
+  type RefractionProfileSpec,
+} from '@sessile/core'
+import {
+  SVG_NS,
+  computeAutoBezel,
+  resolveEffectiveMapScale,
+  supportsSvgBackdropRefraction,
+} from '@sessile/dom'
 
 export interface LensOptions {
   bezel: number
   strength: number
-  falloff: number
   dispersion: number
+  scaleMultiplier?: number
+  profile?: RefractionProfileSpec
+  ior?: number
+  caustics?: boolean
 }
 
-let supportCache: boolean | undefined
+const TILE_ORDER = ['top', 'bottom', 'left', 'right', 'tl', 'tr', 'bl', 'br'] as const
+type TileName = (typeof TILE_ORDER)[number]
+
+interface TileNode {
+  image: Element
+  mergeNode: Element
+}
 
 /** backdrop-filter: url(#svg) 目前只有 Chromium 真正生效 */
-export function supportsRefract() {
-  if (supportCache !== undefined) return supportCache
-  const ua = navigator.userAgent
-  const webkit = /Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua)
-  const firefox = /Firefox/.test(ua)
-  supportCache = !webkit && !firefox && CSS.supports('backdrop-filter', 'url(#x)')
-  return supportCache
+export function supportsRefract(): boolean {
+  return supportsSvgBackdropRefraction()
 }
 
-export const autoBezel = (w: number, h: number) => Math.max(6, Math.min(22, Math.min(w, h) * 0.3))
+export const autoBezel = computeAutoBezel
 
-const cache = new Map<string, string>()
-let canvas: HTMLCanvasElement | null = null
-
-/** 小圆角在两条边缘带交叠处沿内缩轮廓转向，避免法线沿对角线从水平瞬跳到竖直。 */
-function cornerBend(
-  x: number,
-  y: number,
-  radius: number,
-  bezel: number,
-  falloff: number,
-): [number, number] {
-  // 轮廓圆心沿对角线渐近边缘带内侧，半径耗尽时仍保留连续法线。
-  const center = (distance: number) =>
-    bezel - (bezel - radius) * (1 - distance / bezel) ** 2
-  let lo = 0
-  let hi = Math.min(x, y, bezel)
-  for (let i = 0; i < 12; i++) {
-    const distance = (lo + hi) / 2
-    const centerCoord = center(distance)
-    if (Math.hypot(Math.max(0, centerCoord - x), Math.max(0, centerCoord - y)) <= centerCoord - distance) {
-      lo = distance
-    } else hi = distance
-  }
-  const centerCoord = center(lo)
-  const nx = Math.max(0, centerCoord - x)
-  const ny = Math.max(0, centerCoord - y)
-  const normal = Math.hypot(nx, ny)
-  const weight = (1 - lo / bezel) ** falloff
-  if (normal === 0) return x < y ? [weight, 0] : [0, weight]
-  return [(nx / normal) * weight, (ny / normal) * weight]
+function isNearInt(v: number): boolean {
+  return Math.abs(v - Math.round(v)) < 1e-3
 }
 
-/**
- * 生成位移图。R / G 通道 = 128 ± 位移方向，最大位移对应 ±127。
- * 返回 data URL；同尺寸同参数复用。
- */
-function lensMap(w: number, h: number, radius: number, bezel: number, falloff: number) {
-  const W = Math.max(1, Math.round(w))
-  const H = Math.max(1, Math.round(h))
-  const key = `${W}x${H}r${radius.toFixed(1)}b${bezel.toFixed(1)}f${falloff}`
-  const hit = cache.get(key)
-  if (hit) {
-    cache.delete(key)
-    cache.set(key, hit)
-    return hit
-  }
+function formatSvgCoord(v: number): string {
+  return Math.abs(v - Math.round(v)) < 1e-4 ? String(Math.round(v)) : v.toFixed(3)
+}
 
-  canvas ??= document.createElement('canvas')
-  canvas.width = W
-  canvas.height = H
-  const ctx = canvas.getContext('2d')!
-  const img = ctx.createImageData(W, H)
-  const d = img.data
-  const hw = W / 2
-  const hh = H / 2
-  const r = Math.min(radius, hw, hh)
-
-  for (let y = 0; y < H; y++) {
-    const py = y + 0.5 - hh
-    const ay = Math.abs(py)
-    const sy = py < 0 ? -1 : 1
-    for (let x = 0; x < W; x++) {
-      const px = x + 0.5 - hw
-      const ax = Math.abs(px)
-      const sx = px < 0 ? -1 : 1
-      const qx = ax - (hw - r)
-      const qy = ay - (hh - r)
-      const edgeX = hw - ax
-      const edgeY = hh - ay
-      let dist = bezel
-      let nx = 0
-      let ny = 0
-      let ox = 0
-      let oy = 0
-      if (r > 0 && r < bezel && edgeX < bezel && edgeY < bezel) {
-        const [dx, dy] = cornerBend(edgeX, edgeY, r, bezel, falloff)
-        ox = -sx * dx
-        oy = -sy * dy
-      } else if (qx > 0 && qy > 0) {
-        // 圆角区域：法线沿圆心指向外
-        const len = Math.hypot(qx, qy)
-        dist = r - len
-        nx = qx / len
-        ny = qy / len
-      } else if (edgeX < edgeY) {
-        dist = edgeX
-        nx = 1
-      } else {
-        dist = edgeY
-        ny = 1
-      }
-      const i = (y * W + x) * 4
-      if (dist < bezel) {
-        // 圆角外侧只露出半个像素的边缘也按最外缘位移：不弯的话它们取到原样的背景，
-        // 紧挨着弯折最强的一圈，沿圆角的像素台阶会露出锯齿
-        const m = (1 - Math.max(0, dist) / bezel) ** falloff
-        // 从内侧取样：位移方向与外法线相反
-        ox = -sx * nx * m
-        oy = -sy * ny * m
-      }
-      d[i] = 128 + ox * 127
-      d[i + 1] = 128 + oy * 127
-      d[i + 2] = 128
-      d[i + 3] = 255
-    }
-  }
-  ctx.putImageData(img, 0, 0)
-  const url = canvas.toDataURL()
-  if (cache.size >= 48) cache.delete(cache.keys().next().value!)
-  cache.set(key, url)
-  return url
+function setElementRect(el: Element, x: number, y: number, w: number, h: number): void {
+  el.setAttribute('x', formatSvgCoord(x))
+  el.setAttribute('y', formatSvgCoord(y))
+  el.setAttribute('width', formatSvgCoord(w))
+  el.setAttribute('height', formatSvgCoord(h))
 }
 
 /** 读取宿主元素的布局边框盒尺寸（保留小数像素，不受 transform 缩放影响） */
@@ -161,24 +81,131 @@ function measureBorderBox(el: HTMLElement, entry?: ResizeObserverEntry): [number
       (parseFloat(style.borderRightWidth) || 0)
     const py =
       (parseFloat(style.paddingTop) || 0) +
-      (parseFloat(style.paddingBottom) || 0) +
-      (parseFloat(style.borderTopWidth) || 0) +
-      (parseFloat(style.borderBottomWidth) || 0)
+      (parseFloat(style.paddingBottom) || 0)
+      + (parseFloat(style.borderTopWidth) || 0)
+      + (parseFloat(style.borderBottomWidth) || 0)
     return [rawW + px, rawH + py]
   }
   return [el.offsetWidth, el.offsetHeight]
 }
 
-/** 跟随宿主元素尺寸重绘位移图，并把位移量写进滤镜 */
-export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean, o: LensOptions) {
-  const feImage = useRef<SVGFEImageElement>(null)
-  // 色散开关会换掉滤镜节点，也要重新写 scale
-  const key = `${o.bezel}|${o.strength}|${o.falloff}|${o.dispersion}`
+/** 跟随宿主元素尺寸更新 Snell 位移切片或整图，并同步 feDisplacementMap 的位移倍率 */
+export function useLensMap(
+  host: RefObject<HTMLElement | null>,
+  enabled: boolean,
+  o: LensOptions,
+): RefObject<SVGFilterElement | null> {
+  const filterRef = useRef<SVGFilterElement>(null)
+  const profile = o.profile ?? 'squircle'
+  const ior = o.ior !== undefined && Number.isFinite(o.ior) ? Math.max(1, o.ior) : DEFAULT_REFRACTION_IOR
+  const caustics = Boolean(o.caustics)
+  const scaleMultiplier =
+    o.scaleMultiplier !== undefined && Number.isFinite(o.scaleMultiplier) && o.scaleMultiplier >= 0
+      ? o.scaleMultiplier
+      : 1
+  const dispersive = o.dispersion > 0
 
   useLayoutEffect(() => {
     const el = host.current
-    if (!enabled || !el) return
+    const filter = filterRef.current
+    if (!enabled || !el || !filter) return
+    const mergeEl = filter.querySelector('[data-lens-merge]')
+    if (!mergeEl) return
+    const doc = filter.ownerDocument
+
+    const createTileNode = (name: string): TileNode => {
+      const image = doc.createElementNS(SVG_NS, 'feImage')
+      image.setAttribute('data-tile', name)
+      image.setAttribute('preserveAspectRatio', 'none')
+      image.setAttribute('result', `lens-${name}`)
+      const mergeNode = doc.createElementNS(SVG_NS, 'feMergeNode')
+      mergeNode.setAttribute('in', `lens-${name}`)
+      return { image, mergeNode }
+    }
+
+    let tileNodes: Record<TileName, TileNode> | null = null
+    let fullNode: TileNode | null = null
+    let mapBuilder: RefractMapBuilder | null = null
+    const attachedImages: Element[] = []
+    const attachedMergeNodes: Element[] = []
+    let activeMode: 'none' | 'nine-slice' | 'full' = 'none'
+    let activeMask = -1
+    let prevTileKey = ''
+    let prevGeomKey = ''
+    let prevFullHref = ''
+    let prevFullGeomKey = ''
     let lastSize = ''
+
+    const clearAttached = () => {
+      for (let i = 0; i < attachedImages.length; i++) {
+        const node = attachedImages[i]!
+        if (node.parentNode) node.parentNode.removeChild(node)
+      }
+      for (let i = 0; i < attachedMergeNodes.length; i++) {
+        const node = attachedMergeNodes[i]!
+        if (node.parentNode) node.parentNode.removeChild(node)
+      }
+      attachedImages.length = 0
+      attachedMergeNodes.length = 0
+    }
+
+    const attachNode = (node: TileNode) => {
+      filter.insertBefore(node.image, mergeEl)
+      attachedImages.push(node.image)
+      mergeEl.appendChild(node.mergeNode)
+      attachedMergeNodes.push(node.mergeNode)
+    }
+
+    const ensureNineSlice = (mask: number): Record<TileName, TileNode> => {
+      if (!tileNodes) {
+        tileNodes = {
+          top: createTileNode('top'),
+          bottom: createTileNode('bottom'),
+          left: createTileNode('left'),
+          right: createTileNode('right'),
+          tl: createTileNode('tl'),
+          tr: createTileNode('tr'),
+          bl: createTileNode('bl'),
+          br: createTileNode('br'),
+        }
+      }
+      if (activeMode !== 'nine-slice' || activeMask !== mask) {
+        clearAttached()
+        activeMode = 'nine-slice'
+        activeMask = mask
+        prevTileKey = ''
+        prevGeomKey = ''
+        // 严格按底边条 -> 竖边条 -> 四角顺序合成，让四角盖住边条重叠区。
+        if ((mask & 1) !== 0) {
+          attachNode(tileNodes.top)
+          attachNode(tileNodes.bottom)
+        }
+        if ((mask & 2) !== 0) {
+          attachNode(tileNodes.left)
+          attachNode(tileNodes.right)
+        }
+        attachNode(tileNodes.tl)
+        attachNode(tileNodes.tr)
+        attachNode(tileNodes.bl)
+        attachNode(tileNodes.br)
+      }
+      return tileNodes
+    }
+
+    const ensureFullNode = (): TileNode => {
+      fullNode ??= createTileNode('full')
+      if (activeMode !== 'full') {
+        clearAttached()
+        activeMode = 'full'
+        activeMask = -1
+        prevFullHref = ''
+        prevFullGeomKey = ''
+        mapBuilder?.reset()
+        attachNode(fullNode)
+      }
+      return fullNode
+    }
+
     const draw = (entry?: ResizeObserverEntry) => {
       if (!el.offsetWidth || !el.offsetHeight) return
       // offsetWidth/Height 会把 .01–.49 的小数宽度向下取整，导致位移图右/下边缘短缺半像素并露出色散伪色；
@@ -188,53 +215,156 @@ export function useLensMap(host: RefObject<HTMLElement | null>, enabled: boolean
       const h = Math.max(1, Math.ceil(rawH - 1e-4))
       // 动画中会改内联圆角的玻璃（Popover 展开）用 data-lens-radius 固定落定后的圆角
       const radius = Number(el.dataset.lensRadius) || parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
-      const bezel = o.bezel > 0 ? Math.min(o.bezel, w / 2, h / 2) : autoBezel(w, h)
-      const size = `${w}:${h}:${radius}:${bezel}`
-      if (lastSize === size) return
-      lastSize = size
-      // 百分比图范围可能与宿主尺寸不匹配，边缘错位会产生色散伪色；与位移图同步使用布局尺寸。
-      feImage.current?.setAttribute('width', String(w))
-      feImage.current?.setAttribute('height', String(h))
-      feImage.current?.setAttribute('href', lensMap(w, h, radius, bezel, o.falloff))
-      // 位移图 ±127 对应 ±scale/2，所以 scale = 2 × 最大位移
-      const shift = bezel * o.strength
-      const filter = feImage.current?.parentElement
-      filter?.querySelectorAll('feDisplacementMap').forEach((fe) => {
-        const extra = Number(fe.dataset.extra ?? 0)
-        fe.setAttribute('scale', String(2 * shift + extra))
+      const minHalf = Math.min(w, h) * 0.5
+      const rad = Math.max(0, Math.min(radius, minHalf))
+      const frameBezel = o.bezel > 0 ? Math.max(1, Math.min(o.bezel, minHalf)) : computeAutoBezel(w, h)
+      const effBezel = Math.max(1e-3, Math.min(frameBezel, minHalf))
+      const sizeKey = `${w}:${h}:${rad.toFixed(3)}:${effBezel.toFixed(3)}`
+      if (lastSize === sizeKey) return
+      lastSize = sizeKey
+
+      const slice = Math.min(Math.ceil(Math.max(rad, effBezel)), minHalf)
+      const span = w - 2 * slice
+      const rise = h - 2 * slice
+      const canNineSlice =
+        w >= 4 &&
+        h >= 4 &&
+        slice >= 2 &&
+        (span > 1e-3 || isNearInt(slice)) &&
+        (rise > 1e-3 || isNearInt(slice))
+
+      let maxDisplacementPx = 0
+      if (canNineSlice) {
+        const tiles = resolveRefractTiles({
+          radius: rad,
+          bezel: effBezel,
+          slice,
+          profile,
+          ior,
+          thicknessRatio: o.strength,
+          caustics,
+        })
+        const hasHStrips = span > 1e-3
+        const hasVStrips = rise > 1e-3
+        const mask = (hasHStrips ? 1 : 0) | (hasVStrips ? 2 : 0)
+        const nodes = ensureNineSlice(mask)
+
+        if (tiles.key !== prevTileKey) {
+          for (let i = 0; i < TILE_ORDER.length; i++) {
+            const name = TILE_ORDER[i]!
+            nodes[name].image.setAttribute('href', tiles[name])
+          }
+          prevTileKey = tiles.key
+        }
+
+        const geomKey = `${w}:${h}:${formatSvgCoord(slice)}:${mask}`
+        if (geomKey !== prevGeomKey) {
+          const pad = Math.min(1, slice * 0.25)
+          if (hasHStrips) {
+            setElementRect(nodes.top.image, slice - pad, 0, span + 2 * pad, slice)
+            setElementRect(nodes.bottom.image, slice - pad, h - slice, span + 2 * pad, slice)
+          }
+          if (hasVStrips) {
+            setElementRect(nodes.left.image, 0, slice - pad, slice, rise + 2 * pad)
+            setElementRect(nodes.right.image, w - slice, slice - pad, slice, rise + 2 * pad)
+          }
+          setElementRect(nodes.tl.image, 0, 0, slice, slice)
+          setElementRect(nodes.tr.image, w - slice, 0, slice, slice)
+          setElementRect(nodes.bl.image, 0, h - slice, slice, slice)
+          setElementRect(nodes.br.image, w - slice, h - slice, slice, slice)
+          prevGeomKey = geomKey
+        }
+        maxDisplacementPx = tiles.maxDisplacementPx
+      } else {
+        const node = ensureFullNode()
+        mapBuilder ??= createRefractMapBuilder()
+        const field: GlassFieldState = {
+          primitives: [
+            {
+              id: 'glass',
+              center: { x: w * 0.5, y: h * 0.5 },
+              size: { width: w, height: h },
+              radius: rad,
+            },
+          ],
+          blendK: 0,
+        }
+        const map = mapBuilder.build({
+          bounds: { x: 0, y: 0, width: w, height: h },
+          field,
+          bezel: effBezel,
+          mapScale: resolveEffectiveMapScale(w, h, 0.5),
+          profile,
+          ior,
+          thicknessRatio: o.strength,
+          caustics,
+        })
+        if (map.dataUrl !== prevFullHref) {
+          node.image.setAttribute('href', map.dataUrl)
+          prevFullHref = map.dataUrl
+        }
+        const fullGeomKey = `${w}:${h}`
+        if (fullGeomKey !== prevFullGeomKey) {
+          setElementRect(node.image, 0, 0, w, h)
+          prevFullGeomKey = fullGeomKey
+        }
+        maxDisplacementPx = map.maxDisplacementPx
+      }
+
+      // 与 @sessile/dom refractFilter 保持完全一致的 Snell 位移倍率和零强度色散钳位：
+      // 位移图 ±127 对应 ±scale/2，所以 baseScale = 2 × 最大位移像素 × scaleMultiplier。
+      const baseScale = Math.max(0, 2 * maxDisplacementPx * scaleMultiplier)
+      const effectiveDispersion = baseScale > 0 ? Math.min(o.dispersion, baseScale * 0.5) : 0
+      filter.querySelectorAll('[data-extra]').forEach((fe) => {
+        const extraRaw = Number((fe as SVGElement).dataset?.extra ?? fe.getAttribute('data-extra') ?? 0)
+        const sign = Math.sign(extraRaw)
+        const channelScale = Math.max(0, baseScale + sign * effectiveDispersion)
+        fe.setAttribute('scale', String(channelScale))
       })
     }
+
     draw()
     // 在本次布局绘制前同步换图；延迟或再等一帧会先拉伸旧透镜带，随后边缘二次跳变。
     const ro = new ResizeObserver((entries) => draw(entries?.[0]))
     ro.observe(el)
     return () => {
       ro.disconnect()
+      clearAttached()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, key])
+  }, [enabled, o.bezel, o.strength, o.dispersion, scaleMultiplier, dispersive, profile, ior, caustics])
 
-  return feImage
+  return filterRef
 }
 
 export function LensFilter({
   id,
-  feImage,
+  filterRef,
   dispersion,
 }: {
   id: string
-  feImage: RefObject<SVGFEImageElement | null>
+  filterRef: RefObject<SVGFilterElement | null>
   dispersion: number
 }) {
+  const dispersive = dispersion > 0
   return (
     <svg aria-hidden className="pointer-events-none absolute inset-0 -z-10 size-full opacity-0">
       <defs>
-        <filter id={id} colorInterpolationFilters="sRGB" x="0%" y="0%" width="100%" height="100%">
+        <filter
+          key={dispersive ? 'rgb' : 'mono'}
+          ref={filterRef}
+          id={id}
+          colorInterpolationFilters="sRGB"
+          x="0%"
+          y="0%"
+          width="100%"
+          height="100%"
+        >
           {/* 位移图外的透明黑 (0,0) 会触发最大负位移并产生红橙伪色；用中性灰 (128,128) 兜底保持零位移。 */}
           <feFlood floodColor="rgb(128,128,128)" result="neutral" />
-          <feImage ref={feImage} x="0" y="0" width="100%" height="100%" preserveAspectRatio="none" result="lens" />
-          <feComposite in="lens" in2="neutral" operator="over" result="map" />
-          {dispersion > 0 ? (
+          <feMerge data-lens-merge="" result="map">
+            <feMergeNode in="neutral" />
+          </feMerge>
+          {dispersive ? (
             <>
               {(['R', 'G', 'B'] as const).map((channel, index) => (
                 <Fragment key={channel}>
@@ -248,6 +378,7 @@ export function LensFilter({
                     in2="map"
                     xChannelSelector="R"
                     yChannelSelector="G"
+                    scale="0"
                     data-extra={(index - 1) * dispersion}
                     result={`lens-${channel}`}
                   />
@@ -258,7 +389,14 @@ export function LensFilter({
               <feComposite in="red-green" in2="lens-B" operator="arithmetic" k2={1} k3={1} />
             </>
           ) : (
-            <feDisplacementMap data-extra={0} in="SourceGraphic" in2="map" xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap
+              data-extra={0}
+              scale="0"
+              in="SourceGraphic"
+              in2="map"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
           )}
         </filter>
       </defs>

@@ -6,7 +6,12 @@
  * SPDX-License-Identifier: MPL-2.0
  */
 
-import { createRefractFilterController, type RefractFilterController, type RefractFilterFrame } from '@sessile/dom'
+import {
+  createRefractFilterController,
+  type RefractFilterConfig,
+  type RefractFilterController,
+  type RefractFilterFrame,
+} from '@sessile/dom'
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react'
 
 export interface MorphRefractFilterHandle {
@@ -18,19 +23,25 @@ export function MorphRefractFilter({
   bezel,
   strength,
   dispersion,
-  falloff,
+  scaleMultiplier,
+  profile,
+  ior,
+  caustics,
   ref,
 }: {
   id: string
   bezel: number
   strength: number
   dispersion: number
-  falloff?: number
+  scaleMultiplier?: number
+  profile?: RefractFilterConfig['profile']
+  ior?: number
+  caustics?: boolean
   ref?: Ref<MorphRefractFilterHandle>
 }) {
   const controllerRef = useRef<RefractFilterController | null>(null)
   // 由下面的同步副作用更新，换 id 重建控制器时拿到的是上一次提交的档位参数
-  const configRef = useRef({ bezel, strength, dispersion, falloff })
+  const configRef = useRef({ bezel, strength, dispersion, scaleMultiplier, profile, ior, caustics })
 
   useLayoutEffect(() => {
     const controller = createRefractFilterController({ id, ...configRef.current })
@@ -43,9 +54,9 @@ export function MorphRefractFilter({
   }, [id])
 
   useLayoutEffect(() => {
-    configRef.current = { bezel, strength, dispersion, falloff }
+    configRef.current = { bezel, strength, dispersion, scaleMultiplier, profile, ior, caustics }
     controllerRef.current?.updateConfig(configRef.current)
-  }, [bezel, strength, dispersion, falloff])
+  }, [bezel, strength, dispersion, scaleMultiplier, profile, ior, caustics])
 
   useImperativeHandle(ref, () => ({ updateFrame: (frame) => controllerRef.current?.updateFrame(frame) }), [])
 
