@@ -1049,7 +1049,8 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       assert.ok(liteMenu)
       assert.equal(liteMenu.style.left, '158px')
       assert.equal(liteMenu.style.top, '580px')
-      assert.equal(liteMenu.style.transformOrigin, '142.0px 180.0px')
+      // jsdom 31 起和浏览器一样把 142.0px 规范成 142px，按数值比较，不依赖序列化写法
+      assert.deepEqual(liteMenu.style.transformOrigin.split(' ').map(parseFloat), [142, 180])
       press('Escape')
       await act(async () => {})
       focused(trigger)
