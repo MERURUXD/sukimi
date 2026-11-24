@@ -6,7 +6,7 @@ import { babelOptimizerPlugin } from '@graphql-codegen/client-preset'
 import babel from '@rolldown/plugin-babel'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite'
 import { openComicsFile } from './scripts/open-comics-path.ts'
 
 // https://vite.dev/config/
@@ -65,6 +65,8 @@ export default defineConfig(({ mode, command }) => {
     },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+      // @meniscus/* 以 link: 指向兄弟仓库，其 react 会从那边解析；强制共用本仓库的一份，避免两个 React 实例
+      dedupe: ['react', 'react-dom'],
     },
     build: {
       // 随构建产物保留实际打包依赖的许可，便于发布与分发。
@@ -87,6 +89,8 @@ export default defineConfig(({ mode, command }) => {
       // Vite 8 在检测到 AI 编程代理的环境变量时会自动加上 vite:forward-console 插件，插件名会进依赖预构建的配置哈希。
       // 不固定的话，从代理、预览工具和自己的终端轮流启动，哈希就来回变，每次都整包重新预构建（首个请求卡几十秒）。
       forwardConsole: false,
+      // link: 进来的 @meniscus/* 源码在本仓库之外，开发服务器默认不允许读取
+      fs: { allow: [searchForWorkspaceRoot(process.cwd()), '../meniscus/packages'] },
       // .claude/ 里有十几万个验收截图和记录，不忽略的话 Vite 启动时给其中上万个文件逐个建监听，
       // 同步卡住主线程十几秒（页面空白、请求超时）；它们和前端源码无关
       watch: { ignored: ['**/.claude/**', '**/.agents/**', '**/.codex/**', '**/.cache/**', '**/.codex-remote-attachments/**', '**/dist/**'] },

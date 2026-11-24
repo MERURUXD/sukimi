@@ -20,6 +20,18 @@ importers:
       '@fontsource-variable/space-grotesk':
         specifier: ^5.3.0
         version: 5.3.0
+      '@meniscus/core':
+        specifier: link:../meniscus/packages/core
+        version: link:../meniscus/packages/core
+      '@meniscus/dom':
+        specifier: link:../meniscus/packages/dom
+        version: link:../meniscus/packages/dom
+      '@meniscus/presets':
+        specifier: link:../meniscus/packages/presets
+        version: link:../meniscus/packages/presets
+      '@meniscus/react':
+        specifier: link:../meniscus/packages/react
+        version: link:../meniscus/packages/react
       '@tanstack/react-virtual':
         specifier: ^3.14.26
         version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
