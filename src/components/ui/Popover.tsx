@@ -9,23 +9,34 @@ import {
   type ReactNode,
   type RefObject,
 } from 'react'
-import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
 import {
-  PRISM_CONSTANTS,
-  type AnchorConfig,
-  type GooFrameGeometry,
-  type IMorphOverlayRenderer,
-  type MenuConfig,
-  type MorphPhase,
-  type MorphSnapshot,
-  type MotionFrameState,
+  clamp,
+  createGlassOverlayRenderer,
+  interpolateCssGlassSurfaceToMaterial,
+  parseCssBoxShadow,
+  parseCssRgba,
+  resolveOpticalMaterial,
+  type BackdropVeilOptics,
+  type ExtractedCssGlassSurface,
+  type IGlassOverlayRenderer,
   type Rect,
-} from '@/components/glass/morph/contracts'
-import { computeMorphGeometry } from '@/components/glass/morph/geometry'
+} from '@sessile/core'
+import {
+  POPOVER_MORPH_DEFAULTS,
+  createPopoverMorphController,
+  createPopoverMorphSnapshot,
+  type PopoverAnchorConfig,
+  type PopoverFrameGeometry,
+  type PopoverMorphController,
+  type PopoverMorphPhase,
+  type PopoverMorphSnapshot,
+  type PopoverMotionState,
+  type PopoverPanelConfig,
+} from '@sessile/presets'
+import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
 import {
   applyMorphBackdropLayers,
   applyPanelMorphFrame,
-  clamp01,
   clearPanelMorphStyles,
   computeTransitionBounds,
   readElementGlassSurface,
@@ -33,16 +44,7 @@ import {
   updateMorphOverlayCanvas,
   type ElementTintVars,
 } from '@/components/glass/morph/hybridSurface'
-import { createMotionController, resolveOpticalStyle, type MotionController } from '@/components/glass/morph/motion'
-import { createMorphOverlayRenderer } from '@/components/glass/morph/overlayRenderer'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
-import {
-  interpolateCssGlassSurfaceToOverlay,
-  parseCssBoxShadow,
-  parseCssRgba,
-  type ExtractedCssGlassSurface,
-  type MorphBackdropVeilOptics,
-} from '@/components/glass/morph/refractOptics'
 import { supportsRefract } from '@/components/glass/refract'
 import { useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
@@ -198,7 +200,7 @@ interface MeasuredMorphAnchors {
   overlapsTrigger: boolean
   startSurface: ExtractedCssGlassSurface
   panelSurface: ExtractedCssGlassSurface
-  startVeil: MorphBackdropVeilOptics
+  startVeil: BackdropVeilOptics
   startTintVars: ElementTintVars
   panelTintVars: ElementTintVars
 }
@@ -323,8 +325,8 @@ function MorphPanel({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null)
   const panelRef = useRef<HTMLElement>(null)
 
-  const motionRef = useRef<MotionController | null>(null)
-  const overlayRendererRef = useRef<IMorphOverlayRenderer | null>(null)
+  const motionRef = useRef<PopoverMorphController | null>(null)
+  const overlayRendererRef = useRef<IGlassOverlayRenderer | null>(null)
   const radiusRef = useRef<number | null>(null)
   const measuredSizeRef = useRef({ width: 0, height: 0 })
   const anchorsRef = useRef<MeasuredMorphAnchors | null>(null)
@@ -338,9 +340,9 @@ function MorphPanel({
     prevOpacity: string
   } | null>(null)
   const clonedSourceElRef = useRef<HTMLElement | null>(null)
-  const lastGeometryRef = useRef<GooFrameGeometry | null>(null)
-  const lastMotionRef = useRef<MotionFrameState | null>(null)
-  const lastPhaseRef = useRef<MorphPhase>('closed')
+  const lastGeometryRef = useRef<PopoverFrameGeometry | null>(null)
+  const lastMotionRef = useRef<PopoverMotionState | null>(null)
+  const lastPhaseRef = useRef<PopoverMorphPhase>('closed')
   const isTransitioningRef = useRef(false)
   const transitionRestoreRafRef = useRef<number>(0)
   const safeToRemoveRef = useRef(safeToRemove)
@@ -479,7 +481,7 @@ function MorphPanel({
     }
 
     radiusRef.current ??=
-      parseFloat(getComputedStyle(panelEl).borderTopLeftRadius) || PRISM_CONSTANTS.RESTING_CARD_RADIUS
+      parseFloat(getComputedStyle(panelEl).borderTopLeftRadius) || POPOVER_MORPH_DEFAULTS.restingRadius
     const restingRadius = Math.min(radiusRef.current, pw * 0.5, ph * 0.5)
 
     if (panelEl.dataset.lensRadius !== String(radiusRef.current)) {
@@ -561,7 +563,7 @@ function MorphPanel({
       shadowOffsetY: 0,
       shadowAlpha: 0,
     }
-    let startVeil: MorphBackdropVeilOptics = plateVeil
+    let startVeil: BackdropVeilOptics = plateVeil
     let startTintVars: ElementTintVars = {
       ...panelTintVars,
       isDense: false,
@@ -595,7 +597,7 @@ function MorphPanel({
     return measured
   }
 
-  const applyFrameToDom = (mState: MotionFrameState) => {
+  const applyFrameToDom = (mState: PopoverMotionState) => {
     const panelEl = panelRef.current
     const morphSurfaceEl = morphSurfaceRef.current
     const morphBackdropEl = morphBackdropRef.current
@@ -701,16 +703,15 @@ function MorphPanel({
     }
 
     const useExternalTrigger = anchors.hasControlSource && !anchors.overlapsTrigger
-    const anchorConfig: AnchorConfig = {
+    const anchorConfig: PopoverAnchorConfig = {
       anchorRect: anchors.anchorRect,
       placement: curAlign === 'right' ? 'overAnchorEnd' : 'overAnchorStart',
       bareSource: anchors.bareSource,
       inflateBareAnchor: anchors.inflateBareAnchor,
-      hasControlSource: anchors.hasControlSource,
       externalTrigger: useExternalTrigger,
       viewportSize: { width: window.innerWidth, height: window.innerHeight },
     }
-    const menuConfig: MenuConfig = {
+    const panelConfig: PopoverPanelConfig = {
       size: {
         width: anchors.restingCardRect.width,
         height: anchors.restingCardRect.height,
@@ -719,8 +720,9 @@ function MorphPanel({
       restingRadius: anchors.restingRadius,
     }
 
-    const closeSnap = motionRef.current?.getCloseSnapshot() ?? null
-    const geometry = computeMorphGeometry(mState, anchorConfig, menuConfig, closeSnap)
+    const motion = motionRef.current
+    if (!motion) return
+    const geometry = motion.evaluateGeometry(anchorConfig, panelConfig)
     lastGeometryRef.current = geometry
 
     const resolvedTheme = resolveElementTheme(panelEl)
@@ -770,7 +772,7 @@ function MorphPanel({
       anchors.bareSource &&
       anchors.bareSurfaceCss &&
       !useExternalTrigger
-        ? clamp01(1 - mState.bareGlassOpacity)
+        ? clamp(1 - mState.bareGlassOpacity, 0, 1)
         : 0
     if (morphSurfaceEl) {
       if (bareSurfaceAlpha > 0.005 && anchors.bareSurfaceCss) {
@@ -798,7 +800,7 @@ function MorphPanel({
         : 1
       : mState.phase === 'closing'
         ? mState.contentOpacity
-        : clamp01(mState.settled / 0.2)
+        : clamp(mState.settled / 0.2, 0, 1)
 
     const refractHandle = morphRefractHandleRef.current
     applyMorphBackdropLayers({
@@ -826,8 +828,8 @@ function MorphPanel({
     })
 
     // 3. Update sibling Morph Overlay Canvas inside constant transitionBounds (0 canvas reallocations)
-    const opticalStyle = interpolateCssGlassSurfaceToOverlay(
-      resolveOpticalStyle(resolvedTheme, geometry.styleMix),
+    const material = interpolateCssGlassSurfaceToMaterial(
+      resolveOpticalMaterial(resolvedTheme, geometry.styleMix),
       anchors.startSurface,
       anchors.panelSurface,
       geometry.styleMix,
@@ -838,7 +840,7 @@ function MorphPanel({
       bounds,
       resolvedTheme,
       geometry,
-      opticalStyle,
+      material,
       glassAlpha,
       gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
     )
@@ -846,10 +848,10 @@ function MorphPanel({
 
   // Create and dispose motion controller + overlay renderer before first paint (StrictMode-safe)
   useLayoutEffect(() => {
-    const controller = createMotionController({ reducedMotion: latestVisualRef.current.reduced })
+    const controller = createPopoverMorphController({ reducedMotion: latestVisualRef.current.reduced })
     motionRef.current = controller
 
-    const renderer = createMorphOverlayRenderer()
+    const renderer = createGlassOverlayRenderer()
     overlayRendererRef.current = renderer
     if (overlayCanvasRef.current) {
       renderer.mount(overlayCanvasRef.current)
@@ -920,23 +922,13 @@ function MorphPanel({
       motion.open(hasCtrl)
     } else {
       const curState = motion.getState()
-      let snapshot: MorphSnapshot | undefined
+      // 快照带上当帧的 blendK，收起时液桥从打断处接着缩，中途再打开也能从这里平滑接回
+      let snapshot: PopoverMorphSnapshot | undefined
       if (curState.phase === 'opening' && curState.normalizedT < 1 && lastGeometryRef.current) {
-        snapshot = {
-          platter: {
-            center: { ...lastGeometryRef.current.platter.center },
-            size: { ...lastGeometryRef.current.platter.size },
-            radius: lastGeometryRef.current.platter.radius,
-          },
-          droplet: {
-            center: { ...lastGeometryRef.current.droplet.center },
-            size: { ...lastGeometryRef.current.droplet.size },
-            radius: lastGeometryRef.current.droplet.radius,
-          },
-          platterRadius: lastGeometryRef.current.platter.radius,
-          blurPx: lastMotionRef.current?.contentBlurPx ?? curState.contentBlurPx,
-          elapsedFraction: curState.normalizedT,
-        }
+        snapshot = createPopoverMorphSnapshot(lastGeometryRef.current, {
+          contentBlurPx: lastMotionRef.current?.contentBlurPx ?? curState.contentBlurPx,
+          normalizedT: curState.normalizedT,
+        })
       }
       motion.close(snapshot)
     }

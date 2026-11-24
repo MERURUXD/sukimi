@@ -1,5 +1,5 @@
 import { useCallback, useRef, type ComponentPropsWithoutRef, type Ref } from 'react'
-import { useElasticPress } from './morph/useElasticPress'
+import { useElasticPress } from './elasticPress'
 
 export interface ElasticButtonProps extends ComponentPropsWithoutRef<'button'> {
   elastic?: boolean
