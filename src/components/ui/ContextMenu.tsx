@@ -47,7 +47,7 @@ import {
 } from '@/components/glass/morph/hybridSurface'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
 import { supportsRefract } from '@/components/glass/refract'
-import { useGlassTuning } from '@/design/glassTuning'
+import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
 import { still } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
@@ -697,8 +697,10 @@ function PointMorphMenuPanel({
           id={morphFilterId}
           bezel={tuning.bezel}
           strength={tuning.strength}
-          falloff={tuning.falloff}
           dispersion={tuning.dispersion}
+          scaleMultiplier={GLASS_REFRACT_SCALE_MULTIPLIER}
+          profile={tuning.profile}
+          ior={tuning.ior}
         />
       )}
     </>

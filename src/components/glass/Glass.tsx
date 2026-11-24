@@ -2,7 +2,7 @@ import { createElement, useCallback, useContext, useId, useRef, type ComponentPr
 import { motion } from 'motion/react'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
-import { useGlassTuning } from '@/design/glassTuning'
+import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
 import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
 import { useElasticPress } from './elasticPress'
 import { MovingGlassBackdrop } from './MovingGlassBackdrop'
@@ -74,13 +74,16 @@ export function Glass<T extends Tag = 'div'>({
   const o: LensOptions = {
     bezel: lens?.bezel ?? t.bezel,
     strength: lens?.strength ?? t.strength,
-    falloff: lens?.falloff ?? t.falloff,
     dispersion: lens?.dispersion ?? (moving ? 0 : t.dispersion),
+    scaleMultiplier: lens?.scaleMultiplier ?? GLASS_REFRACT_SCALE_MULTIPLIER,
+    profile: lens?.profile ?? t.profile,
+    ior: lens?.ior ?? t.ior,
+    caustics: lens?.caustics,
   }
   const blur = lens?.blur ?? (dense ? t.denseBlur : t.blur)
-  // 透镜位移图生成仅依赖几何参数（bezel, strength, falloff, dispersion），
+  // 透镜位移图生成仅依赖几何和光学参数（bezel, strength, ior, profile, caustics, dispersion），
   // tint 变化绝不触发布局位移图重绘或滤镜重建。
-  const feImage = useLensMap(host, on, o)
+  const filterRef = useLensMap(host, on, o)
   const setRef = useCallback(
     (el: HTMLElement | null) => {
       host.current = el
@@ -122,7 +125,7 @@ export function Glass<T extends Tag = 'div'>({
       className: cn('glass', dense && 'dense', className),
       style: { ...adaptiveStyle, ...refractStyle, ...style },
     },
-    on && <LensFilter id={filterId} feImage={feImage} dispersion={o.dispersion} />,
+    on && <LensFilter id={filterId} filterRef={filterRef} dispersion={o.dispersion} />,
     children,
   )
 }

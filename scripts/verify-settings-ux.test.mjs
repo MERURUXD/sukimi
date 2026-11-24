@@ -146,7 +146,7 @@ test('玻璃参数：旧共用存储保留通透参数，刷新时选择当前�
   assert.equal(store.getState().blur, 11)
   store.getState().set({ strength: 0.25 })
   const persisted = JSON.parse(data.get('suwayomi-web.glass.demo'))
-  assert.equal(persisted.version, 3)
+  assert.equal(persisted.version, 4)
   assert.equal('tone' in persisted.state.profiles.light, false)
   assert.equal('saved' in persisted.state.profiles.light, false)
   assert.equal(data.size, 1)
@@ -171,7 +171,7 @@ test('玻璃参数：旧经典配置恢复缓存的通透，缺少缓存时按�
   assert.equal(store.getState().strength, defaults.strength)
   assert.equal(store.getState().blur, 2)
   const persisted = JSON.parse(data.get('suwayomi-web.glass.demo'))
-  assert.equal(persisted.version, 3)
+  assert.equal(persisted.version, 4)
   for (const profile of Object.values(persisted.state.profiles)) {
     assert.equal('tone' in profile, false)
     assert.equal('saved' in profile, false)
@@ -310,4 +310,36 @@ test('玻璃预设：支持在「通透」与「PrismUI」间切换，各自记�
   assert.match(appearance, /glassPresetPrism/)
   assert.match(read('src/i18n/zh-CN/settings.ts'), /glassPresetPrism:\s*'PrismUI'/)
   assert.match(read('src/i18n/en/settings.ts'), /glassPresetPrism:\s*'PrismUI'/)
+})
+
+test('玻璃调参迁移：v3 旧数据（含 falloff）平滑迁移至 v4 并持久化 ior 与 profile', () => {
+  const v3Persisted = {
+    version: 3,
+    state: {
+      preset: 'clear',
+      profiles: {
+        dark: { bezel: 18, strength: 1.1, falloff: 3.4, blur: 6, tint: 35 },
+        light: { bezel: 24, strength: 1.4, falloff: 2.2, denseTint: 60 },
+      },
+    },
+  }
+  const migrated = glassFixture('dark', v3Persisted)
+  const state = () => migrated.store.getState()
+  assert.equal(state().bezel, 18)
+  assert.equal(state().strength, 1.1)
+  assert.equal(state().blur, 6)
+  assert.equal(state().tint, 35)
+  assert.equal(state().ior, migrated.defaults.ior)
+  assert.equal(state().profile, migrated.defaults.profile)
+  assert.equal('falloff' in state(), false, '旧 falloff 字段不应继续保留在状态中')
+
+  state().set({ ior: 1.75, profile: 'lip' })
+  assert.equal(state().ior, 1.75)
+  assert.equal(state().profile, 'lip')
+
+  const persisted = JSON.parse(migrated.data.get('suwayomi-web.glass.demo'))
+  assert.equal(persisted.version, 4)
+  const reloaded = glassFixture('dark', persisted).store.getState()
+  assert.equal(reloaded.ior, 1.75)
+  assert.equal(reloaded.profile, 'lip')
 })

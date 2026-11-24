@@ -1,3 +1,4 @@
+import type { RefractionProfileName } from '@sessile/core'
 import { useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
@@ -11,10 +12,12 @@ import { t } from '@/i18n'
 export interface GlassTuning {
   /** 边缘透镜带宽度（px）；0 = 按组件短边自动（约 30%，6–22px） */
   bezel: number
-  /** 折射强度：边缘最大位移 = 透镜带宽度 × 强度 */
+  /** 折射强度：边缘厚度比，决定 Snell 光线偏折上限 */
   strength: number
-  /** 透镜曲线：越大越集中在最外缘 */
-  falloff: number
+  /** 折射率（1.0 = 空气，1.5 = 标准玻璃） */
+  ior: number
+  /** 边缘截面形状 */
+  profile: RefractionProfileName
   /** 色散（px）：0 = 关闭 */
   dispersion: number
   /** 背景模糊（px）：普通 / 浮在内容上的密集条 */
@@ -28,11 +31,22 @@ export interface GlassTuning {
 
 export type GlassTheme = 'light' | 'dark'
 export type GlassPreset = 'clear' | 'prism'
+export type GlassNumericKey = Exclude<keyof GlassTuning, 'profile'>
+
+export const GLASS_PROFILES: readonly RefractionProfileName[] = ['squircle', 'circle', 'parabolic', 'lip']
+
+/**
+ * Snell 几何光学与防折返钳位（caustics: false）下，squircle 截面在 ior=1.5、strength=1.32 时
+ * 单倍最大位移约占透镜带宽度的 46.7%。通过统一倍率 2.7 把折射幅度和 ±10.6% 色散比例
+ * 标定回经典强折射（~1.26–1.32 × bezel）的视觉质感，同时保留物理边缘曲线与无黑边特性。
+ */
+export const GLASS_REFRACT_SCALE_MULTIPLIER = 2.7
 
 export const GLASS_DEFAULTS: GlassTuning = {
   bezel: 30,
   strength: 1.32,
-  falloff: 2.6,
+  ior: 1.5,
+  profile: 'squircle',
   // 在约 20px 宽的透镜带上接近 Lumno 的 ±15%，保留滑块原有的固定偏移单位。
   dispersion: 8,
   blur: 2,
@@ -45,7 +59,8 @@ export const GLASS_DEFAULTS: GlassTuning = {
 export const PRISM_GLASS_DEFAULTS: GlassTuning = {
   bezel: 20,
   strength: 1.5,
-  falloff: 2.0,
+  ior: 1.65,
+  profile: 'squircle',
   dispersion: 0,
   blur: 3,
   denseBlur: 12,
@@ -73,10 +88,10 @@ export function presetDefaults(preset: GlassPreset, theme: GlassTheme): GlassTun
   return preset === 'prism' ? prismGlassDefaults(theme) : glassDefaults(theme)
 }
 
-export const GLASS_PARAMS: { key: keyof GlassTuning; label: string; min: number; max: number; step: number; hint?: string }[] = [
+export const GLASS_PARAMS: { key: GlassNumericKey; label: string; min: number; max: number; step: number; hint?: string }[] = [
   { key: 'bezel', label: t('misc.glass.bezel'), min: 0, max: 40, step: 1, hint: t('misc.glass.bezelHint') },
   { key: 'strength', label: t('misc.glass.strength'), min: 0, max: 2, step: 0.01 },
-  { key: 'falloff', label: t('misc.glass.falloff'), min: 0.5, max: 5, step: 0.1 },
+  { key: 'ior', label: t('misc.glass.ior'), min: 1, max: 2.2, step: 0.05, hint: t('misc.glass.iorHint') },
   { key: 'dispersion', label: t('misc.glass.dispersion'), min: 0, max: 8, step: 0.5, hint: t('misc.glass.dispersionHint') },
   { key: 'blur', label: t('misc.glass.blur'), min: 0, max: 30, step: 1 },
   { key: 'denseBlur', label: t('misc.glass.denseBlur'), min: 0, max: 30, step: 1, hint: t('misc.glass.denseBlurHint') },
@@ -96,7 +111,12 @@ function normalizeProfile(saved: LegacyGlassProfile | undefined, theme: GlassThe
   const profile = presetDefaults(preset, theme)
   for (const { key } of GLASS_PARAMS) {
     const value = source?.[key]
-    if (typeof value === 'number' && Number.isFinite(value)) profile[key] = value
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      profile[key] = key === 'ior' ? Math.max(1, value) : value
+    }
+  }
+  if (source?.profile && (GLASS_PROFILES as readonly string[]).includes(source.profile)) {
+    profile.profile = source.profile
   }
   return profile
 }
@@ -162,7 +182,7 @@ export const useGlassTuning = create<GlassTuningStore>()(
     },
     {
       name: preferenceKey('suwayomi-web.glass'),
-      version: 3,
+      version: 4,
       partialize: ({ preset, profiles, presets }) => ({ preset, profiles, presets }),
       migrate: (saved, version) => {
         if (version >= 2) return saved

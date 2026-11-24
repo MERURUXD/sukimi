@@ -1,7 +1,7 @@
 # pnpm 11 默认只安装发布满一天的版本。@sessile/* 是我们自己维护的包，刚发布就要用，所以只放行这四个确切版本；
 # 发布满一天后这段可以删掉。
 minimumReleaseAgeExclude:
-  - '@sessile/core@0.1.0'
-  - '@sessile/dom@0.1.0'
-  - '@sessile/presets@0.1.0'
-  - '@sessile/react@0.1.0'
+  - '@sessile/core@0.2.0'
+  - '@sessile/dom@0.2.0'
+  - '@sessile/presets@0.2.0'
+  - '@sessile/react@0.2.0'

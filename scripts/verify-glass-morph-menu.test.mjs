@@ -871,8 +871,18 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
 
   // Popover places backdrop-filter: url(#...) on unclipped morphBackdropRef sibling while morphGlassRef keeps clipPath veil
   const popoverSrc = readFileSync(new URL('../src/components/ui/Popover.tsx', import.meta.url), 'utf8')
+  const contextMenuSrc = readFileSync(new URL('../src/components/ui/ContextMenu.tsx', import.meta.url), 'utf8')
+  const glassSrc = readFileSync(new URL('../src/components/glass/Glass.tsx', import.meta.url), 'utf8')
   assert.ok(popoverSrc.includes('morphBackdropRef'), 'Popover must mount separate unclipped morphBackdropRef for Route B3')
   assert.ok(popoverSrc.includes('<MorphRefractFilter'), 'Popover must render MorphRefractFilter')
+  assert.ok(popoverSrc.includes('profile={tuning.profile}') && popoverSrc.includes('ior={tuning.ior}'), 'Popover must forward Snell profile & ior from glassTuning')
+  assert.ok(contextMenuSrc.includes('profile={tuning.profile}') && contextMenuSrc.includes('ior={tuning.ior}'), 'ContextMenu must forward Snell profile & ior from glassTuning')
+  assert.ok(
+    popoverSrc.includes('scaleMultiplier={GLASS_REFRACT_SCALE_MULTIPLIER}') &&
+      contextMenuSrc.includes('scaleMultiplier={GLASS_REFRACT_SCALE_MULTIPLIER}') &&
+      glassSrc.includes('GLASS_REFRACT_SCALE_MULTIPLIER'),
+    'Static Glass, Popover, and ContextMenu must share GLASS_REFRACT_SCALE_MULTIPLIER so refraction amplitude stays identical',
+  )
   assert.ok(popoverSrc.includes('refractHandle.updateFrame'), 'Popover must drive MorphRefractFilter per frame')
   assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToMaterial'), 'Popover must derive overlay styles from live computed CSS')
   const glyphHostIdx = popoverSrc.indexOf('ref={glyphHostRef}')
@@ -908,7 +918,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     'MorphRefractFilter must delegate the SVG graph to @sessile/dom and sync glass tuning into it',
   )
   const { document } = new JSDOM('<!doctype html><body></body>').window
-  const filter = dom.createRefractFilterController({ id: 'morph-test', document, bezel: 30, strength: 1.32, falloff: 2.6, dispersion: 0 })
+  const filter = dom.createRefractFilterController({ id: 'morph-test', document, bezel: 30, strength: 1.32, profile: 'squircle', ior: 1.5, dispersion: 0 })
   filter.mount()
   filter.updateFrame({
     bounds: { x: 0, y: 0, width: 80, height: 60 },
@@ -918,11 +928,12 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     brightness: 1,
     contrast: 1,
   })
+  const expectedLut = core.resolveRefractionProfileLut({ profile: 'squircle', ior: 1.5, thicknessRatio: 1.32 })
   approx(
     Number(document.querySelector('#morph-test feDisplacementMap').getAttribute('scale')),
-    2 * 12 * 1.32,
+    2 * 12 * expectedLut.maxDisplacementRatio,
     1e-9,
-    'MorphRefractFilter must resolve per-frame bezel and update feDisplacementMap scale to match resting Glass',
+    'MorphRefractFilter must resolve per-frame bezel and Snell LUT scale cleanly',
   )
   assert.equal(
     document.querySelector('#morph-test feGaussianBlur[in="refractRaw"]')?.getAttribute('stdDeviation'),
@@ -1041,7 +1052,8 @@ test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward
     blendK: 0,
     isMerged: true,
     bezel: 8,
-    falloff: 2.6,
+    ior: 1.5,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
   const aaPng = decodeStoredRgbaPng(aaRes.dataUrl)
@@ -1057,29 +1069,29 @@ test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward
     blendK: 0,
     isMerged: true,
     bezel: 8,
-    falloff: 2.6,
+    ior: 1.5,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
   const midAaPng = decodeStoredRgbaPng(midAaRes.dataUrl)
   assert.equal(midAaPng.pixelAt(32, 16).a, 128, 'sd=0 must lie at symmetric AA midpoint alpha 128')
 
-  // falloff curve + cache invalidation + small-shape effBezel clamp
-  const steepFalloffRes = build({
+  // Snell IOR change -> cache invalidation + higher peak displacement scale
+  const higherIorRes = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
     blendK: 0,
     isMerged: true,
     bezel: 8,
-    falloff: 5.0,
+    ior: 1.9,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
-  assert.equal(steepFalloffRes.changed, true, 'changing falloff must invalidate cached PNG')
-  const steepPng = decodeStoredRgbaPng(steepFalloffRes.dataUrl)
-  // At distIn=2.5 (py=18, wy=18.5): steeper falloff (5.0) decays displacement faster than falloff 2.6
+  assert.equal(higherIorRes.changed, true, 'changing ior must invalidate cached PNG')
   assert.ok(
-    steepPng.pixelAt(32, 18).g < aaPng.pixelAt(32, 18).g,
-    'higher falloff must decay interior bezel displacement faster',
+    higherIorRes.maxDisplacementPx > aaRes.maxDisplacementPx,
+    'higher IOR must increase peak Snell displacement',
   )
 
   // Small shape (< bezel) clamps effBezel to min(halfW, halfH) cleanly
@@ -1090,7 +1102,8 @@ test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward
     blendK: 0,
     isMerged: true,
     bezel: 20,
-    falloff: 2.6,
+    ior: 1.5,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
   const tinyPng = decodeStoredRgbaPng(tinyRes.dataUrl)
@@ -1104,7 +1117,8 @@ test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward
     blendK: 0,
     isMerged: true,
     bezel: 8,
-    falloff: 2.6,
+    ior: 1.5,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
   const hit1 = build({
@@ -1114,7 +1128,8 @@ test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward
     blendK: 0,
     isMerged: true,
     bezel: 8,
-    falloff: 2.6,
+    ior: 1.5,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
   assert.equal(hit1.changed, false, 'sub-quarter-pixel quantized geometry must reuse cached PNG')
@@ -1166,7 +1181,8 @@ test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward
     blendK: 0,
     isMerged: false,
     bezel: 22,
-    falloff: 2.6,
+    ior: 1.5,
+    thicknessRatio: 1.32,
     mapScale: 1,
   })
   const landingPng = decodeStoredRgbaPng(landingRes.dataUrl)

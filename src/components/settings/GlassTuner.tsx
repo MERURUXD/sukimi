@@ -1,36 +1,72 @@
+import { Fragment } from 'react'
 import { Download, Heart, RefreshCw } from 'lucide-react'
+import type { RefractionProfileName } from '@sessile/core'
 import { Glass } from '@/components/glass/Glass'
 import { GlassSlider } from '@/components/ui/GlassSlider'
-import { GLASS_PARAMS, presetDefaults, useGlassTuning } from '@/design/glassTuning'
+import { Seg } from '@/components/ui/Seg'
+import { GLASS_PARAMS, GLASS_PROFILES, presetDefaults, useGlassTuning } from '@/design/glassTuning'
 import { cn } from '@/lib/cn'
 import { t as tl } from '@/i18n'
+
+const PROFILE_LABEL_KEYS = {
+  squircle: 'misc.glass.profileSquircle',
+  circle: 'misc.glass.profileCircle',
+  parabolic: 'misc.glass.profileParabolic',
+  lip: 'misc.glass.profileLip',
+} as const satisfies Record<RefractionProfileName, string>
 
 export function GlassSliders({ className }: { className?: string }) {
   const t = useGlassTuning()
   const defaults = presetDefaults(t.preset, t.theme)
+  const profileItems = GLASS_PROFILES.map((value) => ({
+    value,
+    label: tl(PROFILE_LABEL_KEYS[value]),
+  }))
   return (
     <div className={cn('flex flex-col gap-3.5', className)}>
       {GLASS_PARAMS.map((p) => {
         const v = t[p.key] as number
         const d = defaults[p.key] as number
         return (
-          <label key={p.key} className="flex flex-col gap-1">
-            <span className="flex justify-between gap-3 text-sm">
-              <span>{p.label}</span>
-              <span className="text-muted num">
-                {v}
-                {v !== d && <span className="ml-1 text-faint">{tl('misc.glass.defaultValue', { value: d })}</span>}
+          <Fragment key={p.key}>
+            <label className="flex flex-col gap-1">
+              <span className="flex justify-between gap-3 text-sm">
+                <span>{p.label}</span>
+                <span className="text-muted num">
+                  {v}
+                  {v !== d && <span className="ml-1 text-faint">{tl('misc.glass.defaultValue', { value: d })}</span>}
+                </span>
               </span>
-            </span>
-            <GlassSlider
-              min={p.min}
-              max={p.max}
-              step={p.step}
-              value={v}
-              onChange={(next) => t.set({ [p.key]: next })}
-            />
-            {p.hint && <span className="text-[13px] text-faint">{p.hint}</span>}
-          </label>
+              <GlassSlider
+                min={p.min}
+                max={p.max}
+                step={p.step}
+                value={v}
+                onChange={(next) => t.set({ [p.key]: next })}
+              />
+              {p.hint && <span className="text-[13px] text-faint">{p.hint}</span>}
+            </label>
+            {p.key === 'ior' && (
+              <div className="flex flex-col gap-1.5">
+                <span className="flex justify-between gap-3 text-sm">
+                  <span>{tl('misc.glass.profile')}</span>
+                  {t.profile !== defaults.profile && (
+                    <span className="text-faint">
+                      {tl('misc.glass.defaultValue', { value: tl(PROFILE_LABEL_KEYS[defaults.profile]) })}
+                    </span>
+                  )}
+                </span>
+                <Seg<RefractionProfileName>
+                  glass={false}
+                  label={tl('misc.glass.profile')}
+                  className="grid w-full grid-cols-4 [&>button]:justify-center [&>button]:px-1"
+                  items={profileItems}
+                  value={t.profile}
+                  onChange={(profile) => t.set({ profile })}
+                />
+              </div>
+            )}
+          </Fragment>
         )
       })}
     </div>
