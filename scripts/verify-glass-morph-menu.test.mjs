@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { crc32 as zlibCrc32, inflateSync } from 'node:zlib'
+import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
 
 let vite
@@ -15,6 +16,7 @@ let morphContourMod
 let morphOverlayMod
 let morphRefractMod
 let morphRefractMapMod
+let meniscusDom
 
 test.before(async () => {
   vite = await createServer({
@@ -32,6 +34,7 @@ test.before(async () => {
   morphOverlayMod = await vite.ssrLoadModule('/src/components/glass/morph/overlayRenderer.ts')
   morphRefractMod = await vite.ssrLoadModule('/src/components/glass/morph/refractOptics.ts')
   morphRefractMapMod = await vite.ssrLoadModule('/src/components/glass/morph/refractMap.ts')
+  meniscusDom = await vite.ssrLoadModule('@meniscus/dom')
 })
 
 test.after(async () => {
@@ -875,7 +878,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
   assert.ok(popoverSrc.includes('morphBackdropRef'), 'Popover must mount separate unclipped morphBackdropRef for Route B3')
   assert.ok(popoverSrc.includes('<MorphRefractFilter'), 'Popover must render MorphRefractFilter')
   assert.ok(popoverSrc.includes('refractHandle.updateFrame'), 'Popover must drive MorphRefractFilter per frame')
-  assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToOverlay'), 'Popover must derive overlay styles from live computed CSS')
+  assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToMaterial'), 'Popover must derive overlay styles from live computed CSS')
   const glyphHostIdx = popoverSrc.indexOf('ref={glyphHostRef}')
   const morphSurfaceIdx = popoverSrc.indexOf('ref={morphSurfaceRef}')
   const morphBackdropIdx = popoverSrc.indexOf('ref={morphBackdropRef}')
@@ -905,13 +908,32 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
   )
   const refractFilterSrc = readFileSync(new URL('../src/components/glass/morph/refractFilter.tsx', import.meta.url), 'utf8')
   assert.ok(
-    refractFilterSrc.includes('resolveFrameBezel') && refractFilterSrc.includes("node.setAttribute('scale'"),
+    refractFilterSrc.includes('createRefractFilterController') && refractFilterSrc.includes('updateConfig'),
+    'MorphRefractFilter must delegate the SVG graph to @meniscus/dom and sync glass tuning into it',
+  )
+  const { document } = new JSDOM('<!doctype html><body></body>').window
+  const filter = meniscusDom.createRefractFilterController({ id: 'morph-test', document, bezel: 30, strength: 1.32, falloff: 2.6, dispersion: 0 })
+  filter.mount()
+  filter.updateFrame({
+    bounds: { x: 0, y: 0, width: 80, height: 60 },
+    field: { blendK: 0, primitives: [{ center: { x: 40, y: 30 }, size: { width: 40, height: 24 }, radius: 12 }] },
+    blurSigma: 4,
+    saturate: 1.6,
+    brightness: 1,
+    contrast: 1,
+  })
+  approx(
+    Number(document.querySelector('#morph-test feDisplacementMap').getAttribute('scale')),
+    2 * 12 * 1.32,
+    1e-9,
     'MorphRefractFilter must resolve per-frame bezel and update feDisplacementMap scale to match resting Glass',
   )
-  assert.ok(
-    refractFilterSrc.includes('stdDeviation="0.5"'),
+  assert.equal(
+    document.querySelector('#morph-test feGaussianBlur[in="refractRaw"]')?.getAttribute('stdDeviation'),
+    '0.5',
     'MorphRefractFilter must include 0.5px post-refraction smoothing matching resting Glass',
   )
+  filter.dispose()
 })
 
 function decodeStoredRgbaPng(dataUrl) {

@@ -10,41 +10,42 @@ import {
   type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
 import {
-  PRISM_CONSTANTS,
-  type AnchorConfig,
-  type IMorphOverlayRenderer,
-  type MenuConfig,
-  type MorphPhase,
-  type MotionFrameState,
+  DEFAULT_SPRINGS,
+  clamp,
+  createGlassOverlayRenderer,
+  interpolateCssGlassSurfaceToMaterial,
+  resolveOpticalMaterial,
+  type BackdropVeilOptics,
+  type ExtractedCssGlassSurface,
+  type IGlassOverlayRenderer,
   type Rect,
-} from '@/components/glass/morph/contracts'
-import { computeMorphGeometry } from '@/components/glass/morph/geometry'
+} from '@meniscus/core'
+import { cancelAnimationFrameSafe, scheduleAnimationFrame } from '@meniscus/dom'
+import {
+  POPOVER_MORPH_DEFAULTS,
+  createPopoverMorphController,
+  type PopoverAnchorConfig,
+  type PopoverMorphController,
+  type PopoverMorphPhase,
+  type PopoverMotionState,
+  type PopoverPanelConfig,
+} from '@meniscus/presets'
+import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
 import {
   applyMorphBackdropLayers,
   applyPanelMorphFrame,
-  cancelAnimFrame,
-  clamp01,
   clearPanelMorphStyles,
   computePointPivot,
   computeTransitionBounds,
   readElementGlassSurface,
   resolveElementTheme,
   resolvePointCardRect,
-  scheduleAnimFrame,
   updateMorphOverlayCanvas,
   type ContextMenuPoint,
   type ElementTintVars,
 } from '@/components/glass/morph/hybridSurface'
-import { createMotionController, resolveOpticalStyle, type MotionController } from '@/components/glass/morph/motion'
-import { createMorphOverlayRenderer } from '@/components/glass/morph/overlayRenderer'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
-import {
-  interpolateCssGlassSurfaceToOverlay,
-  type ExtractedCssGlassSurface,
-  type MorphBackdropVeilOptics,
-} from '@/components/glass/morph/refractOptics'
 import { supportsRefract } from '@/components/glass/refract'
 import { useGlassTuning } from '@/design/glassTuning'
 import { still } from '@/design/motion'
@@ -53,16 +54,16 @@ import { cn } from '@/lib/cn'
 
 const POINT_OPEN_SPRING = {
   type: 'spring' as const,
-  mass: PRISM_CONSTANTS.SPRINGS.open.mass,
-  stiffness: PRISM_CONSTANTS.SPRINGS.open.stiffness,
+  mass: DEFAULT_SPRINGS.standard.mass,
+  stiffness: DEFAULT_SPRINGS.standard.stiffness,
   damping:
     2 *
-    PRISM_CONSTANTS.SPRINGS.open.dampingRatio *
-    Math.sqrt(PRISM_CONSTANTS.SPRINGS.open.stiffness * PRISM_CONSTANTS.SPRINGS.open.mass),
+    DEFAULT_SPRINGS.standard.dampingRatio *
+    Math.sqrt(DEFAULT_SPRINGS.standard.stiffness * DEFAULT_SPRINGS.standard.mass),
 }
 
 const POINT_CLOSE_TRANSITION = {
-  duration: PRISM_CONSTANTS.POINT_CLOSE_DURATION_SEC,
+  duration: POPOVER_MORPH_DEFAULTS.pointCloseDurationSec,
   ease: [0.22, 1, 0.36, 1] as const,
 }
 
@@ -260,7 +261,7 @@ function LiteContextMenuPanel({
       exit={
         reduced
           ? { opacity: 0 }
-          : { opacity: 0, scale: PRISM_CONSTANTS.POINT_CLOSE_END_SCALE, transition: POINT_CLOSE_TRANSITION }
+          : { opacity: 0, scale: POPOVER_MORPH_DEFAULTS.pointCloseEndScale, transition: POINT_CLOSE_TRANSITION }
       }
       transition={reduced ? still : POINT_OPEN_SPRING}
       // 量好尺寸之前先藏着，免得在角落闪一下
@@ -287,7 +288,7 @@ interface MeasuredPointAnchors {
   restingRadius: number
   startSurface: ExtractedCssGlassSurface
   panelSurface: ExtractedCssGlassSurface
-  startVeil: MorphBackdropVeilOptics
+  startVeil: BackdropVeilOptics
   startTintVars: ElementTintVars
   panelTintVars: ElementTintVars
 }
@@ -320,11 +321,11 @@ function PointMorphMenuPanel({
   const morphRefractHandleRef = useRef<MorphRefractFilterHandle>(null)
 
   const [pos, setPos] = useState<PlacedCard | null>(null)
-  const motionRef = useRef<MotionController | null>(null)
-  const overlayRendererRef = useRef<IMorphOverlayRenderer | null>(null)
+  const motionRef = useRef<PopoverMorphController | null>(null)
+  const overlayRendererRef = useRef<IGlassOverlayRenderer | null>(null)
   const radiusRef = useRef<number | null>(null)
   const anchorsRef = useRef<MeasuredPointAnchors | null>(null)
-  const lastPhaseRef = useRef<MorphPhase>('closed')
+  const lastPhaseRef = useRef<PopoverMorphPhase>('closed')
   const isTransitioningRef = useRef(false)
   const transitionRestoreRafRef = useRef(0)
   const safeToRemoveRef = useRef(safeToRemove)
@@ -365,7 +366,7 @@ function PointMorphMenuPanel({
     const measuredRadius = parseFloat(getComputedStyle(panelEl).borderTopLeftRadius)
     radiusRef.current ??= Number.isFinite(measuredRadius) && measuredRadius > 0
       ? measuredRadius
-      : PRISM_CONSTANTS.RESTING_CARD_RADIUS
+      : POPOVER_MORPH_DEFAULTS.restingRadius
     const restingCardRect = resolvePointCardRect(point, pw, ph, radiusRef.current)
     const restingRadius = Math.min(radiusRef.current, pw * 0.5, ph * 0.5)
 
@@ -385,10 +386,10 @@ function PointMorphMenuPanel({
 
     const anchorRect: Rect = { x: point.x, y: point.y, width: 0, height: 0 }
     const inflatedAnchor: Rect = {
-      x: point.x - PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_X,
-      y: point.y - PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_Y,
-      width: PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_X * 2,
-      height: PRISM_CONSTANTS.BARE_ANCHOR_INFLATE_Y * 2,
+      x: point.x - POPOVER_MORPH_DEFAULTS.bareAnchorInflateX,
+      y: point.y - POPOVER_MORPH_DEFAULTS.bareAnchorInflateY,
+      width: POPOVER_MORPH_DEFAULTS.bareAnchorInflateX * 2,
+      height: POPOVER_MORPH_DEFAULTS.bareAnchorInflateY * 2,
     }
     const transitionBounds = computeTransitionBounds(inflatedAnchor, restingCardRect)
 
@@ -429,7 +430,7 @@ function PointMorphMenuPanel({
     return measured
   }
 
-  const applyFrameToDom = (mState: MotionFrameState) => {
+  const applyFrameToDom = (mState: PopoverMotionState) => {
     const panelEl = panelRef.current
     const morphGlassEl = morphGlassRef.current
     const morphBackdropEl = morphBackdropRef.current
@@ -440,7 +441,7 @@ function PointMorphMenuPanel({
     const isTransitioning = mState.phase === 'opening' || mState.phase === 'closing'
     isTransitioningRef.current = isTransitioning
     if (isTransitioning) {
-      cancelAnimFrame(transitionRestoreRafRef.current)
+      cancelAnimationFrameSafe(transitionRestoreRafRef.current)
     }
 
     if (mState.phase === 'open') {
@@ -452,8 +453,8 @@ function PointMorphMenuPanel({
       }
       panelEl.style.transition = 'none'
       clearPanelMorphStyles(panelEl, false)
-      cancelAnimFrame(transitionRestoreRafRef.current)
-      transitionRestoreRafRef.current = scheduleAnimFrame(() => {
+      cancelAnimationFrameSafe(transitionRestoreRafRef.current)
+      transitionRestoreRafRef.current = scheduleAnimationFrame(() => {
         if (panelRef.current && !isTransitioningRef.current) {
           panelRef.current.style.transition = ''
         }
@@ -475,16 +476,15 @@ function PointMorphMenuPanel({
 
     const { glassMode: gMode, tuning: gTuning, adaptive: gAdaptive, isLegible: legible } = latestVisualRef.current
 
-    const anchorConfig: AnchorConfig = {
+    const anchorConfig: PopoverAnchorConfig = {
       anchorRect: anchors.anchorRect,
       avoidRect: anchors.avoidRect,
       placement: 'belowPoint',
       bareSource: true,
       inflateBareAnchor: true,
-      hasControlSource: false,
       viewportSize: { width: window.innerWidth, height: window.innerHeight },
     }
-    const menuConfig: MenuConfig = {
+    const panelConfig: PopoverPanelConfig = {
       size: {
         width: anchors.restingCardRect.width,
         height: anchors.restingCardRect.height,
@@ -493,13 +493,15 @@ function PointMorphMenuPanel({
       restingRadius: anchors.restingRadius,
     }
 
-    const geometry = computeMorphGeometry(mState, anchorConfig, menuConfig)
+    const motion = motionRef.current
+    if (!motion) return
+    const geometry = motion.evaluateGeometry(anchorConfig, panelConfig)
     const resolvedTheme = resolveElementTheme(panelEl)
 
     applyPanelMorphFrame(panelEl, geometry, anchors.restingCardRect, mState)
 
     const bounds = anchors.transitionBounds
-    const glassAlpha = mState.phase === 'closing' ? mState.contentOpacity : clamp01(mState.settled / 0.2)
+    const glassAlpha = mState.phase === 'closing' ? mState.contentOpacity : clamp(mState.settled / 0.2, 0, 1)
     const refractHandle = morphRefractHandleRef.current
 
     applyMorphBackdropLayers({
@@ -528,8 +530,8 @@ function PointMorphMenuPanel({
       },
     })
 
-    const opticalStyle = interpolateCssGlassSurfaceToOverlay(
-      resolveOpticalStyle(resolvedTheme, geometry.styleMix),
+    const material = interpolateCssGlassSurfaceToMaterial(
+      resolveOpticalMaterial(resolvedTheme, geometry.styleMix),
       anchors.startSurface,
       anchors.panelSurface,
       geometry.styleMix,
@@ -540,24 +542,24 @@ function PointMorphMenuPanel({
       bounds,
       resolvedTheme,
       geometry,
-      opticalStyle,
+      material,
       glassAlpha,
       gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
     )
   }
 
   useLayoutEffect(() => {
-    const controller = createMotionController({ reducedMotion: false })
+    const controller = createPopoverMorphController({ reducedMotion: false })
     motionRef.current = controller
 
-    const renderer = createMorphOverlayRenderer()
+    const renderer = createGlassOverlayRenderer()
     overlayRendererRef.current = renderer
     if (overlayCanvasRef.current) {
       renderer.mount(overlayCanvasRef.current)
     }
 
     return () => {
-      cancelAnimFrame(transitionRestoreRafRef.current)
+      cancelAnimationFrameSafe(transitionRestoreRafRef.current)
       controller.dispose()
       if (motionRef.current === controller) motionRef.current = null
       renderer.dispose()
@@ -605,6 +607,11 @@ function PointMorphMenuPanel({
     measurePointAnchors(at)
 
     if (isPresent) {
+      // 打开着或正在展开时换了点击位置：从头在新位置重放展开，和换位置前的观感一致。
+      // Meniscus 的 open() 在这两个阶段是幂等的，不重置就会让面板直接跳到新位置。
+      // 收起中途重新打开仍交给 open() 从当前形态接回。
+      const { phase } = motion.getState()
+      if (phase === 'open' || phase === 'opening') motion.reset('closed')
       motion.open(false)
     } else {
       motion.close()
@@ -634,14 +641,14 @@ function PointMorphMenuPanel({
       }
 
       if (next.isAnimating || next.phase === 'opening' || next.phase === 'closing') {
-        rafId = scheduleAnimFrame(tick)
+        rafId = scheduleAnimationFrame(tick)
       }
     }
 
-    rafId = scheduleAnimFrame(tick)
+    rafId = scheduleAnimationFrame(tick)
     return () => {
       active = false
-      cancelAnimFrame(rafId)
+      cancelAnimationFrameSafe(rafId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPresent, at.x, at.y, at.avoidRect?.x, at.avoidRect?.y, at.avoidRect?.width, at.avoidRect?.height])
