@@ -16,9 +16,9 @@ test.before(async () => {
     appType: 'custom',
     logLevel: 'error',
   })
-  core = await vite.ssrLoadModule('@meniscus/core')
-  dom = await vite.ssrLoadModule('@meniscus/dom')
-  presets = await vite.ssrLoadModule('@meniscus/presets')
+  core = await vite.ssrLoadModule('@sessile/core')
+  dom = await vite.ssrLoadModule('@sessile/dom')
+  presets = await vite.ssrLoadModule('@sessile/presets')
 })
 
 test.after(async () => {
@@ -206,7 +206,7 @@ test('Motion: point close fallback (200ms), mid-flight interruption continuity, 
   assert.equal(ctrl.step(0.26).phase, 'closed', 'completes after 500ms total')
 
   // ElasticPress bounds
-  // Meniscus 没有导出弹性按压的默认上限，期望值沿用原 PRISM_CONSTANTS：增长 0.25 / 16px，拖拽 7/32
+  // Sessile 没有导出弹性按压的默认上限，期望值沿用原 PRISM_CONSTANTS：增长 0.25 / 16px，拖拽 7/32
   const press = core.createElasticPressController()
   const box = { width: 120, height: 40 }
   press.pressStart(box)
@@ -366,7 +366,7 @@ test('Geometry: open/close goo trajectory, beyondRound elongation, merge thresho
   assert.equal(g460.blendK, 0)
 })
 
-test('Meniscus contour (computeFieldBounds / extractFieldContourPath): union bounds, merged rounded-rect, smin single bridge, and dual pinch-off loops', () => {
+test('Sessile contour (computeFieldBounds / extractFieldContourPath): union bounds, merged rounded-rect, smin single bridge, and dual pinch-off loops', () => {
   const { computeFieldBounds, extractFieldContourPath } = core
   // 旧参数 (platter, droplet, blendK, isMerged) 换成 field：isMerged 时旧实现只画 platter，对应只含 platter 的 field
   const field = (primitives, blendK) => ({ primitives, blendK })
@@ -412,7 +412,7 @@ test('Meniscus contour (computeFieldBounds / extractFieldContourPath): union bou
   assert.equal(pinchedPath.includes('NaN'), false, 'pinched-off path must not contain NaN')
 })
 
-test('Meniscus popover geometry (computePopoverTargetRect / computePopoverMorphGeometry): targetRectOverride bypasses placement clamping/flipping cleanly', () => {
+test('Sessile popover geometry (computePopoverTargetRect / computePopoverMorphGeometry): targetRectOverride bypasses placement clamping/flipping cleanly', () => {
   const computeTargetCardRect = presets.computePopoverTargetRect
   const computeMorphGeometry = presets.computePopoverMorphGeometry
 
@@ -444,7 +444,7 @@ test('Meniscus popover geometry (computePopoverTargetRect / computePopoverMorphG
   approx(gEnd.platter.center.y, override.y + override.height * 0.5, 1e-4, 'settled platter cy matches override')
 })
 
-test('Meniscus popover motion (createPopoverMorphController): mid-closing open() resumes smoothly without snapping to closed start', () => {
+test('Sessile popover motion (createPopoverMorphController): mid-closing open() resumes smoothly without snapping to closed start', () => {
   const createMotionController = presets.createPopoverMorphController
 
   // Standard spring mode: open -> step to open -> close -> mid-close -> re-open
@@ -489,7 +489,7 @@ test('Meniscus popover motion (createPopoverMorphController): mid-closing open()
   rmCtrl.dispose()
 })
 
-test('Meniscus overlay renderer (createGlassOverlayRenderer): GLSL safePow/transparent interior, MPL-2.0 headers, and 2D fallback', () => {
+test('Sessile overlay renderer (createGlassOverlayRenderer): GLSL safePow/transparent interior, MPL-2.0 headers, and 2D fallback', () => {
   const { OVERLAY_VERTEX_SHADER, OVERLAY_FRAGMENT_SHADER, createGlassOverlayRenderer } = core
 
   assert.ok(OVERLAY_VERTEX_SHADER.includes('#version 300 es'))
@@ -566,7 +566,7 @@ test('Meniscus overlay renderer (createGlassOverlayRenderer): GLSL safePow/trans
   })
   assert.equal(mockCanvas.width, 440)
   assert.equal(mockCanvas.height, 480)
-  // Meniscus 不再用 clip('evenodd')，改为 destination-out 擦掉玻璃内部的投影，同样保证投影只落在外侧
+  // Sessile 不再用 clip('evenodd')，改为 destination-out 擦掉玻璃内部的投影，同样保证投影只落在外侧
   assert.ok(calls.some((c) => c[0] === 'fill' && c[1] === 'destination-out'), '2D fallback shadow must stay outside the glass')
   assert.ok(calls.some((c) => c[0] === 'stroke'), '2D fallback must draw hairline/rim strokes')
 
@@ -905,7 +905,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
   const refractFilterSrc = readFileSync(new URL('../src/components/glass/morph/refractFilter.tsx', import.meta.url), 'utf8')
   assert.ok(
     refractFilterSrc.includes('createRefractFilterController') && refractFilterSrc.includes('updateConfig'),
-    'MorphRefractFilter must delegate the SVG graph to @meniscus/dom and sync glass tuning into it',
+    'MorphRefractFilter must delegate the SVG graph to @sessile/dom and sync glass tuning into it',
   )
   const { document } = new JSDOM('<!doctype html><body></body>').window
   const filter = dom.createRefractFilterController({ id: 'morph-test', document, bezel: 30, strength: 1.32, falloff: 2.6, dispersion: 0 })
@@ -1247,7 +1247,7 @@ test('createPopoverMorphController P2 #5: open() interrupting closing preserves 
   assert.equal(rCtrl.getState().contentOpacity, 1)
 
   // Mid-flight setReducedMotion(true) resets press offsets/lift and lets step() finish cleanly
-  // 按压在 Meniscus 里是独立的 createElasticPressController，和形变控制器同步切换减少动态
+  // 按压在 Sessile 里是独立的 createElasticPressController，和形变控制器同步切换减少动态
   const press = core.createElasticPressController()
   rCtrl.setReducedMotion(false)
   press.pressStart({ width: 120, height: 40 })

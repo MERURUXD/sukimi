@@ -20,8 +20,8 @@ import {
   type ExtractedCssGlassSurface,
   type IGlassOverlayRenderer,
   type Rect,
-} from '@meniscus/core'
-import { cancelAnimationFrameSafe, scheduleAnimationFrame } from '@meniscus/dom'
+} from '@sessile/core'
+import { cancelAnimationFrameSafe, scheduleAnimationFrame } from '@sessile/dom'
 import {
   POPOVER_MORPH_DEFAULTS,
   createPopoverMorphController,
@@ -30,7 +30,7 @@ import {
   type PopoverMorphPhase,
   type PopoverMotionState,
   type PopoverPanelConfig,
-} from '@meniscus/presets'
+} from '@sessile/presets'
 import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
 import {
   applyMorphBackdropLayers,
@@ -608,7 +608,7 @@ function PointMorphMenuPanel({
 
     if (isPresent) {
       // 打开着或正在展开时换了点击位置：从头在新位置重放展开，和换位置前的观感一致。
-      // Meniscus 的 open() 在这两个阶段是幂等的，不重置就会让面板直接跳到新位置。
+      // Sessile 的 open() 在这两个阶段是幂等的，不重置就会让面板直接跳到新位置。
       // 收起中途重新打开仍交给 open() 从当前形态接回。
       const { phase } = motion.getState()
       if (phase === 'open' || phase === 'opening') motion.reset('closed')

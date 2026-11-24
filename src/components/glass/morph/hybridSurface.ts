@@ -13,14 +13,14 @@ import {
   type OpticalMaterial,
   type Point,
   type Rect,
-} from '@meniscus/core'
-import { computeClampedRefractBounds, type RefractFilterFrame } from '@meniscus/dom'
+} from '@sessile/core'
+import { computeClampedRefractBounds, type RefractFilterFrame } from '@sessile/dom'
 import {
   POPOVER_MORPH_DEFAULTS,
   computePopoverTargetRect,
   type PopoverFrameGeometry,
   type PopoverMotionState,
-} from '@meniscus/presets'
+} from '@sessile/presets'
 
 export const OVERLAY_UNION_PADDING_PX = 48
 export const CONTEXT_MENU_EDGE_MARGIN = 12

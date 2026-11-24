@@ -1,12 +1,12 @@
 /**
  * 形变期间 Route B3 折射滤镜的 React 外壳。SVG 滤镜图（位移图、背景模糊、色彩矩阵、RGB 色散、
- * 按位移图 alpha 自遮罩）由 @meniscus/dom 的控制器建在 body 下；这里只负责随组件挂载和卸载
+ * 按位移图 alpha 自遮罩）由 @sessile/dom 的控制器建在 body 下；这里只负责随组件挂载和卸载
  * 创建、销毁控制器，并同步玻璃档位参数。逐帧更新走命令式句柄，不经过 React 渲染。
  *
  * SPDX-License-Identifier: MPL-2.0
  */
 
-import { createRefractFilterController, type RefractFilterController, type RefractFilterFrame } from '@meniscus/dom'
+import { createRefractFilterController, type RefractFilterController, type RefractFilterFrame } from '@sessile/dom'
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react'
 
 export interface MorphRefractFilterHandle {

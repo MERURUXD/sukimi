@@ -1,6 +1,6 @@
 import { motion, useReducedMotion, type Transition } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { DEFAULT_SPRINGS } from '@meniscus/core'
+import { DEFAULT_SPRINGS } from '@sessile/core'
 import { still } from '@/design/motion'
 import { cn } from '@/lib/cn'
 

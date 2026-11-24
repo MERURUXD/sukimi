@@ -20,7 +20,7 @@ import {
   type ExtractedCssGlassSurface,
   type IGlassOverlayRenderer,
   type Rect,
-} from '@meniscus/core'
+} from '@sessile/core'
 import {
   POPOVER_MORPH_DEFAULTS,
   createPopoverMorphController,
@@ -32,7 +32,7 @@ import {
   type PopoverMorphSnapshot,
   type PopoverMotionState,
   type PopoverPanelConfig,
-} from '@meniscus/presets'
+} from '@sessile/presets'
 import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
 import {
   applyMorphBackdropLayers,
