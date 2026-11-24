@@ -2,19 +2,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { crc32 as zlibCrc32, inflateSync } from 'node:zlib'
+import { JSDOM } from 'jsdom'
 import { createServer } from 'vite'
 
 let vite
-let contracts
-let motionMod
-let geometryMod
-let morphContracts
-let morphMotionMod
-let morphGeometryMod
-let morphContourMod
-let morphOverlayMod
-let morphRefractMod
-let morphRefractMapMod
+let core
+let dom
+let presets
 
 test.before(async () => {
   vite = await createServer({
@@ -22,16 +16,9 @@ test.before(async () => {
     appType: 'custom',
     logLevel: 'error',
   })
-  morphContracts = await vite.ssrLoadModule('/src/components/glass/morph/contracts.ts')
-  morphMotionMod = await vite.ssrLoadModule('/src/components/glass/morph/motion.ts')
-  morphGeometryMod = await vite.ssrLoadModule('/src/components/glass/morph/geometry.ts')
-  contracts = morphContracts
-  motionMod = morphMotionMod
-  geometryMod = morphGeometryMod
-  morphContourMod = await vite.ssrLoadModule('/src/components/glass/morph/contour.ts')
-  morphOverlayMod = await vite.ssrLoadModule('/src/components/glass/morph/overlayRenderer.ts')
-  morphRefractMod = await vite.ssrLoadModule('/src/components/glass/morph/refractOptics.ts')
-  morphRefractMapMod = await vite.ssrLoadModule('/src/components/glass/morph/refractMap.ts')
+  core = await vite.ssrLoadModule('@sessile/core')
+  dom = await vite.ssrLoadModule('@sessile/dom')
+  presets = await vite.ssrLoadModule('@sessile/presets')
 })
 
 test.after(async () => {
@@ -45,36 +32,38 @@ function approx(actual, expected, eps = 1e-4, label = '') {
   )
 }
 
-test('PRISM_CONSTANTS: exact physics, timing, and optical preset constants', () => {
-  const C = contracts.PRISM_CONSTANTS
-  assert.equal(C.OPEN_DURATION_SEC, 0.45)
-  assert.equal(C.CLOSE_DURATION_SEC, 0.5)
-  assert.equal(C.POINT_CLOSE_DURATION_SEC, 0.2)
-  assert.equal(C.DROPPLET_BLEND_K, 28)
-  assert.equal(C.CORNER_DELAY_SEC, 0.07)
-  assert.equal(C.ITEM_RADIUS, 16)
-  assert.equal(C.CARD_INSET, 8)
-  assert.equal(C.RESTING_CARD_RADIUS, 24)
-  assert.deepEqual(C.SPRINGS.open, { mass: 1, stiffness: 400, dampingRatio: 0.754 })
-  assert.deepEqual(C.SPRINGS.corners, { mass: 1, stiffness: 324, dampingRatio: 0.75 })
-  assert.deepEqual(C.SPRINGS.droplet, { mass: 1, stiffness: 165, dampingRatio: 0.8 })
-  assert.deepEqual(C.SPRINGS.elasticPress, { mass: 1, stiffness: 311, dampingRatio: 0.593 })
-  assert.equal(C.OPTICAL.light.regular.rimMode, 'control')
-  assert.equal(C.OPTICAL.light.menu.rimMode, 'menu')
-  assert.equal(C.OPTICAL.dark.regular.rimMode, 'control')
-  assert.equal(C.OPTICAL.dark.menu.rimMode, 'menu')
-  assert.deepEqual(C.OPTICAL.dark.regular.tintRgba, [0.207, 0.207, 0.22, 0.62])
-  assert.deepEqual(C.OPTICAL.dark.menu.tintRgba, [0.207, 0.207, 0.22, 0.63])
+test('POPOVER_MORPH_DEFAULTS / DEFAULT_SPRINGS / DEFAULT_OPTICAL_MATERIALS: exact physics, timing, and optical preset constants', () => {
+  const C = presets.POPOVER_MORPH_DEFAULTS
+  assert.equal(C.openDurationSec, 0.45)
+  assert.equal(C.closeDurationSec, 0.5)
+  assert.equal(C.pointCloseDurationSec, 0.2)
+  assert.equal(C.dropletBlendK, 28)
+  assert.equal(C.cornerDelaySec, 0.07)
+  assert.equal(C.itemRadius, 16)
+  assert.equal(C.panelInset, 8)
+  assert.equal(C.restingRadius, 24)
+  assert.deepEqual(C.springs.open, { mass: 1, stiffness: 400, dampingRatio: 0.754 })
+  assert.deepEqual(C.springs.corners, { mass: 1, stiffness: 324, dampingRatio: 0.75 })
+  assert.deepEqual(C.springs.droplet, { mass: 1, stiffness: 165, dampingRatio: 0.8 })
+  assert.deepEqual(core.DEFAULT_SPRINGS.elasticPress, { mass: 1, stiffness: 311, dampingRatio: 0.593 })
+  // 旧名 regular / menu 对应 crisp / frosted，rimMode 的 control / menu 对应 directional / soft
+  const M = core.DEFAULT_OPTICAL_MATERIALS
+  assert.equal(M.light.crisp.rimMode, 'directional')
+  assert.equal(M.light.frosted.rimMode, 'soft')
+  assert.equal(M.dark.crisp.rimMode, 'directional')
+  assert.equal(M.dark.frosted.rimMode, 'soft')
+  assert.deepEqual(M.dark.crisp.tintRgba, [0.207, 0.207, 0.22, 0.62])
+  assert.deepEqual(M.dark.frosted.tintRgba, [0.207, 0.207, 0.22, 0.63])
 })
 
 test('Motion: riseAndFall peaks at exactly 1.0 at spec peak times and 0 at t <= 0', () => {
-  const { riseAndFall } = motionMod
-  const C = contracts.PRISM_CONSTANTS
+  const { riseAndFall } = core
+  const C = presets.POPOVER_MORPH_DEFAULTS
   const peaks = [
-    [C.OPEN_DIP_PEAK_SEC, C.OPEN_DIP_SHARPNESS],
-    [C.OPEN_BLUR_BUMP_PEAK_SEC, C.OPEN_BLUR_BUMP_SHARPNESS],
-    [C.CLOSE_PLATTER_DIP_PEAK_SEC, C.CLOSE_PLATTER_DIP_SHARPNESS],
-    [C.CLOSE_DROPLET_OVERSHOOT_PEAK_SEC, C.CLOSE_DROPLET_OVERSHOOT_SHARPNESS],
+    [C.openDipPeakSec, C.openDipSharpness],
+    [C.openBlurBumpPeakSec, C.openBlurBumpSharpness],
+    [C.closePlatterDipPeakSec, C.closePlatterDipSharpness],
+    [C.closeDropletOvershootPeakSec, C.closeDropletOvershootSharpness],
   ]
   for (const [peak, sharpness] of peaks) {
     assert.equal(riseAndFall(0, peak, sharpness), 0)
@@ -86,16 +75,16 @@ test('Motion: riseAndFall peaks at exactly 1.0 at spec peak times and 0 at t <= 
 })
 
 test('Motion: analytical spring solver handles underdamped, critical, and overdamped regimes', () => {
-  const { evaluateSpringState } = motionMod
-  const C = contracts.PRISM_CONSTANTS
+  const { evaluateSpringState } = core
+  const C = presets.POPOVER_MORPH_DEFAULTS
 
   // Underdamped open spring (zeta = 0.754 < 1) peaks near pi / omegaD ~= 0.239s (> 1.0) before settling
-  const at0 = evaluateSpringState(0, C.SPRINGS.open)
+  const at0 = evaluateSpringState(0, C.springs.open)
   assert.equal(at0.value, 0)
   assert.equal(at0.velocity, 0)
-  const peakOpen = evaluateSpringState(0.24, C.SPRINGS.open)
+  const peakOpen = evaluateSpringState(0.24, C.springs.open)
   assert.ok(peakOpen.value > 1.02, `underdamped open spring should overshoot past 1.0 at peak (got ${peakOpen.value})`)
-  const endOpen = evaluateSpringState(0.45, C.SPRINGS.open)
+  const endOpen = evaluateSpringState(0.45, C.springs.open)
   approx(endOpen.value, 1.0, 0.005, 'open spring settles near 1 at 450ms')
 
   // Critically damped (zeta = 1.0) never overshoots target
@@ -113,24 +102,24 @@ test('Motion: analytical spring solver handles underdamped, critical, and overda
 })
 
 test('Motion: open phase timing (70ms corner delay, 98ms dip, 69ms blur bump, glyph & content choreography)', () => {
-  const { evaluateMotionFrame } = motionMod
-  const C = contracts.PRISM_CONSTANTS
+  const evaluateMotionFrame = presets.evaluatePopoverMotion
+  const C = presets.POPOVER_MORPH_DEFAULTS
 
   // Before 70ms corner delay: cornerProgress remains 1
-  const at50ms = evaluateMotionFrame('opening', 0.05 / C.OPEN_DURATION_SEC)
+  const at50ms = evaluateMotionFrame('opening', 0.05 / C.openDurationSec)
   assert.equal(at50ms.cornerProgress, 1)
   approx(at50ms.bareGlassOpacity, 0.5, 1e-4, 'bareGlassOpacity at 50ms')
 
   // At 98ms dip peak & 69ms blur bump peak
-  const atDipPeak = evaluateMotionFrame('opening', C.OPEN_DIP_PEAK_SEC / C.OPEN_DURATION_SEC)
+  const atDipPeak = evaluateMotionFrame('opening', C.openDipPeakSec / C.openDurationSec)
   approx(atDipPeak.platterDipEnvelope, 1.0, 1e-6, 'open dip envelope peak')
   assert.ok(atDipPeak.cornerProgress < 1.0, 'cornerProgress decays after 70ms')
 
-  const atBlurPeak = evaluateMotionFrame('opening', C.OPEN_BLUR_BUMP_PEAK_SEC / C.OPEN_DURATION_SEC)
-  approx(atBlurPeak.blurBumpPx, C.OPEN_BLUR_BUMP_AMP_PX, 1e-6, 'open blur bump peak')
+  const atBlurPeak = evaluateMotionFrame('opening', C.openBlurBumpPeakSec / C.openDurationSec)
+  approx(atBlurPeak.blurBumpPx, C.openBlurBumpAmpPx, 1e-6, 'open blur bump peak')
 
   // At 100ms+, bareGlassOpacity reaches 1
-  const at120ms = evaluateMotionFrame('opening', 0.12 / C.OPEN_DURATION_SEC)
+  const at120ms = evaluateMotionFrame('opening', 0.12 / C.openDurationSec)
   assert.equal(at120ms.bareGlassOpacity, 1)
 
   // Glyph hides over settled in [0, 0.25], content blurs with hypot(4*(1-settled), blurBumpPx)
@@ -138,40 +127,40 @@ test('Motion: open phase timing (70ms corner delay, 98ms dip, 69ms blur bump, gl
   approx(atBlurPeak.contentBlurPx, expectedBlur, 1e-6, 'contentBlurPx hypot')
 
   // Once settled >= 0.25, triggerGlyphOpacity === 0 and triggerGlyphBlurPx === 4
-  const at200ms = evaluateMotionFrame('opening', 0.2 / C.OPEN_DURATION_SEC)
+  const at200ms = evaluateMotionFrame('opening', 0.2 / C.openDurationSec)
   assert.ok(at200ms.settled >= 0.25)
   assert.equal(at200ms.triggerGlyphOpacity, 0)
-  assert.equal(at200ms.triggerGlyphBlurPx, C.OPEN_GLYPH_BLUR_MAX_PX)
+  assert.equal(at200ms.triggerGlyphBlurPx, C.openGlyphBlurMaxPx)
 })
 
 test('Motion: close phase timing (ringing 400..500ms, absorption 300..450ms, 100ms content out, 470ms glyph back)', () => {
-  const { evaluateMotionFrame } = motionMod
-  const C = contracts.PRISM_CONSTANTS
+  const evaluateMotionFrame = presets.evaluatePopoverMotion
+  const C = presets.POPOVER_MORPH_DEFAULTS
 
-  const at25ms = evaluateMotionFrame('closing', 0.025 / C.CLOSE_DURATION_SEC)
+  const at25ms = evaluateMotionFrame('closing', 0.025 / C.closeDurationSec)
   approx(at25ms.closeBlendRamp, 0.5, 1e-4, 'blend ramp at 25ms')
   assert.equal(at25ms.absorbed, 0, 'no absorption before 300ms')
   assert.equal(at25ms.ringing, 1, 'ringing is 1 before 400ms')
 
-  const at72ms = evaluateMotionFrame('closing', C.CLOSE_PLATTER_DIP_PEAK_SEC / C.CLOSE_DURATION_SEC)
+  const at72ms = evaluateMotionFrame('closing', C.closePlatterDipPeakSec / C.closeDurationSec)
   approx(at72ms.platterDipEnvelope, 1.0, 1e-6, 'close platter dip peak')
 
-  const at100ms = evaluateMotionFrame('closing', 0.1 / C.CLOSE_DURATION_SEC)
+  const at100ms = evaluateMotionFrame('closing', 0.1 / C.closeDurationSec)
   assert.equal(at100ms.contentOpacity, 0, 'content hidden by 100ms')
-  assert.equal(at100ms.contentBlurPx, C.CLOSE_CONTENT_BLUR_MAX_PX, 'content blur reaches 8px by 100ms')
+  assert.equal(at100ms.contentBlurPx, C.closeContentBlurMaxPx, 'content blur reaches 8px by 100ms')
 
-  const at176ms = evaluateMotionFrame('closing', C.CLOSE_DROPLET_OVERSHOOT_PEAK_SEC / C.CLOSE_DURATION_SEC)
+  const at176ms = evaluateMotionFrame('closing', C.closeDropletOvershootPeakSec / C.closeDurationSec)
   approx(at176ms.dropletOvershootEnvelope, 1.0, 1e-6, 'close droplet overshoot peak')
 
-  const at375ms = evaluateMotionFrame('closing', 0.375 / C.CLOSE_DURATION_SEC)
+  const at375ms = evaluateMotionFrame('closing', 0.375 / C.closeDurationSec)
   approx(at375ms.absorbed, 0.5, 1e-4, 'absorption midpoint at 375ms')
   approx(at375ms.bareGlassOpacity, 0.5, 1e-4, 'bareGlassOpacity fades with 1 - absorbed')
 
-  const at450ms = evaluateMotionFrame('closing', 0.45 / C.CLOSE_DURATION_SEC)
+  const at450ms = evaluateMotionFrame('closing', 0.45 / C.closeDurationSec)
   assert.equal(at450ms.absorbed, 1, 'absorption complete at 450ms')
   assert.ok(at450ms.ringing > 0 && at450ms.ringing < 1, 'ringing damps between 400ms and 500ms')
 
-  const at470ms = evaluateMotionFrame('closing', 0.47 / C.CLOSE_DURATION_SEC)
+  const at470ms = evaluateMotionFrame('closing', 0.47 / C.closeDurationSec)
   assert.equal(at470ms.triggerGlyphOpacity, 1, 'glyph back by 470ms')
 
   const at500ms = evaluateMotionFrame('closing', 1.0)
@@ -180,8 +169,7 @@ test('Motion: close phase timing (ringing 400..500ms, absorption 300..450ms, 100
 })
 
 test('Motion: point close fallback (200ms), mid-flight interruption continuity, ElasticPress, and reducedMotion', () => {
-  const { createMotionController } = motionMod
-  const C = contracts.PRISM_CONSTANTS
+  const createMotionController = presets.createPopoverMorphController
 
   // Point-menu close (200ms)
   const pointCtrl = createMotionController()
@@ -218,20 +206,22 @@ test('Motion: point close fallback (200ms), mid-flight interruption continuity, 
   assert.equal(ctrl.step(0.26).phase, 'closed', 'completes after 500ms total')
 
   // ElasticPress bounds
+  // Sessile 没有导出弹性按压的默认上限，期望值沿用原 PRISM_CONSTANTS：增长 0.25 / 16px，拖拽 7/32
+  const press = core.createElasticPressController()
   const box = { width: 120, height: 40 }
-  ctrl.pressStart(box)
-  for (let i = 0; i < 40; i += 1) ctrl.step(1 / 60)
-  const maxGrowth = Math.min(C.ELASTIC_MAX_GROWTH_RATIO, C.ELASTIC_MAX_GROWTH_PX / 120)
-  approx(ctrl.getState().pressScaleX, 1 + maxGrowth, 1e-2, 'ElasticPress max growth')
-  ctrl.pressMove({ x: 1000, y: -1000 }, box)
-  for (let i = 0; i < 40; i += 1) ctrl.step(1 / 60)
-  const dragLimit = C.ELASTIC_DRAG_MAX_RATIO * 40
-  const dragMag = Math.hypot(ctrl.getState().pressOffsetX, ctrl.getState().pressOffsetY)
+  press.pressStart(box)
+  for (let i = 0; i < 40; i += 1) press.step(1 / 60)
+  const maxGrowth = Math.min(0.25, 16 / 120)
+  approx(press.getState().scaleX, 1 + maxGrowth, 1e-2, 'ElasticPress max growth')
+  press.pressMove({ x: 1000, y: -1000 }, box)
+  for (let i = 0; i < 40; i += 1) press.step(1 / 60)
+  const dragLimit = (7 / 32) * 40
+  const dragMag = Math.hypot(press.getState().offsetX, press.getState().offsetY)
   assert.ok(dragMag > 0 && dragMag < dragLimit, `rubber-band drag ${dragMag} must stay below ${dragLimit}`)
-  ctrl.pressRelease()
-  for (let i = 0; i < 90; i += 1) ctrl.step(1 / 60)
-  approx(ctrl.getState().pressScaleX, 1, 1e-3, 'ElasticPress returns to 1')
-  approx(ctrl.getState().pressOffsetX, 0, 1e-2, 'ElasticPress offset returns to 0')
+  press.pressRelease()
+  for (let i = 0; i < 90; i += 1) press.step(1 / 60)
+  approx(press.getState().scaleX, 1, 1e-3, 'ElasticPress returns to 1')
+  approx(press.getState().offsetX, 0, 1e-2, 'ElasticPress offset returns to 0')
 
   // Reduced motion
   ctrl.setReducedMotion(true)
@@ -247,7 +237,7 @@ test('Motion: point close fallback (200ms), mid-flight interruption continuity, 
 })
 
 test('Geometry: placement modes (overAnchorEnd, overAnchorStart, belowPoint flip & viewport clamp)', () => {
-  const { computeTargetCardRect } = geometryMod
+  const computeTargetCardRect = presets.computePopoverTargetRect
   const menu = { size: { width: 220, height: 260 } }
   const viewportSize = { width: 400, height: 700 }
 
@@ -286,7 +276,7 @@ test('Geometry: placement modes (overAnchorEnd, overAnchorStart, belowPoint flip
 })
 
 test('Geometry: rounded-box SDF and smooth-min (smin) identities', () => {
-  const { computeRoundedBoxSdf, computeSmin } = geometryMod
+  const { computeRoundedBoxSdf, computeSmin } = core
   const box = { center: { x: 100, y: 100 }, size: { width: 80, height: 40 }, radius: 12 }
 
   // Top edge midpoint (100, 80) -> distance 0, normal (0, -1)
@@ -319,15 +309,14 @@ test('Geometry: rounded-box SDF and smooth-min (smin) identities', () => {
 })
 
 test('Geometry: open/close goo trajectory, beyondRound elongation, merge threshold, dip & overshoot', () => {
-  const { evaluateMotionFrame } = motionMod
-  const { computeMorphGeometry } = geometryMod
-  const C = contracts.PRISM_CONSTANTS
+  const evaluateMotionFrame = presets.evaluatePopoverMotion
+  const computeMorphGeometry = presets.computePopoverMorphGeometry
+  const C = presets.POPOVER_MORPH_DEFAULTS
 
   const anchor = {
     anchorRect: { x: 260, y: 560, width: 96, height: 40 },
     placement: 'overAnchorEnd',
     bareSource: false,
-    hasControlSource: true,
     viewportSize: { width: 420, height: 720 },
   }
   const menu = { size: { width: 220, height: 280 } }
@@ -337,7 +326,7 @@ test('Geometry: open/close goo trajectory, beyondRound elongation, merge thresho
   const gStart = computeMorphGeometry(mStart, anchor, menu)
   approx(gStart.platter.size.width, 0.41 * 40 + 56, 1e-4, 'open start platter width + beyondRound')
   approx(gStart.droplet.size.width, 96, 1e-4)
-  assert.equal(gStart.blendK, C.DROPPLET_BLEND_K)
+  assert.equal(gStart.blendK, C.dropletBlendK)
 
   // Open resting (phase='open'): droplet inside deflated card, merged (mergeDepth >= 0), rimOpacity = 1
   const mOpen = evaluateMotionFrame('open', 1)
@@ -360,10 +349,10 @@ test('Geometry: open/close goo trajectory, beyondRound elongation, merge thresho
   approx(gUninflatedBareStart.droplet.size.height, 40, 1e-4, 'bareSource with inflateBareAnchor:false preserves height')
 
   // Close at 176ms: droplet overshoots past anchorCenter away from card
-  const m176 = evaluateMotionFrame('closing', C.CLOSE_DROPLET_OVERSHOOT_PEAK_SEC / C.CLOSE_DURATION_SEC)
+  const m176 = evaluateMotionFrame('closing', C.closeDropletOvershootPeakSec / C.closeDurationSec)
   const g176 = computeMorphGeometry(m176, anchor, menu)
   const anchorCenterY = anchor.anchorRect.y + anchor.anchorRect.height * 0.5
-  const cardCenterY = g176.targetCardRect.y + g176.targetCardRect.height * 0.5
+  const cardCenterY = g176.targetRect.y + g176.targetRect.height * 0.5
   // Card is above anchor (cardCenterY < anchorCenterY), so overshoot pushes droplet BELOW anchorCenterY
   assert.ok(cardCenterY < anchorCenterY)
   assert.ok(
@@ -372,13 +361,15 @@ test('Geometry: open/close goo trajectory, beyondRound elongation, merge thresho
   )
 
   // Close after absorption (460ms): blendK drops to 0
-  const m460 = evaluateMotionFrame('closing', 0.46 / C.CLOSE_DURATION_SEC)
+  const m460 = evaluateMotionFrame('closing', 0.46 / C.closeDurationSec)
   const g460 = computeMorphGeometry(m460, anchor, menu)
   assert.equal(g460.blendK, 0)
 })
 
-test('Shared Morph Contour (contour.ts): union bounds, merged rounded-rect, smin single bridge, and dual pinch-off loops', () => {
-  const { computeMorphUnionBounds, extractGooContourPath } = morphContourMod
+test('Sessile contour (computeFieldBounds / extractFieldContourPath): union bounds, merged rounded-rect, smin single bridge, and dual pinch-off loops', () => {
+  const { computeFieldBounds, extractFieldContourPath } = core
+  // 旧参数 (platter, droplet, blendK, isMerged) 换成 field：isMerged 时旧实现只画 platter，对应只含 platter 的 field
+  const field = (primitives, blendK) => ({ primitives, blendK })
 
   const platter = { center: { x: 200, y: 200 }, size: { width: 120, height: 140 }, radius: 22 }
   const dropletNear = { center: { x: 200, y: 112 }, size: { width: 44, height: 44 }, radius: 22 }
@@ -386,43 +377,44 @@ test('Shared Morph Contour (contour.ts): union bounds, merged rounded-rect, smin
   const emptyDroplet = { center: { x: 0, y: 0 }, size: { width: 0, height: 0 }, radius: 0 }
 
   // Union bounds
-  const emptyBounds = computeMorphUnionBounds(platter, emptyDroplet, 12)
+  const emptyBounds = computeFieldBounds(field([platter, emptyDroplet], 0), 12)
   assert.deepEqual(emptyBounds, { x: 128, y: 118, width: 144, height: 164 })
 
-  const unionBounds = computeMorphUnionBounds(platter, dropletFar, 8)
+  const unionBounds = computeFieldBounds(field([platter, dropletFar], 0), 8)
   assert.deepEqual(unionBounds, { x: 132, y: 16, width: 136, height: 262 })
 
   // Degenerate shapes yield empty path
-  assert.equal(extractGooContourPath(emptyDroplet, emptyDroplet, 28, false), '')
+  assert.equal(extractFieldContourPath(field([emptyDroplet, emptyDroplet], 28)), '')
 
   // Merged state emits exact analytical rounded-rect path (M...A...Z) shifted by offset
-  const mergedPath = extractGooContourPath(platter, dropletNear, 28, true, { x: 100, y: 80 })
+  const mergedPath = extractFieldContourPath(field([platter], 28), { x: 100, y: 80 })
   assert.match(mergedPath, /^M62 50/)
   assert.ok(mergedPath.includes('A22 22 0 0 1'), 'merged path should use exact arc segments')
   assert.equal((mergedPath.match(/M/g) ?? []).length, 1)
   assert.equal((mergedPath.match(/Z/g) ?? []).length, 1)
 
   // Unblended dual shapes emit two distinct rounded-rect subpaths
-  const unblendedPath = extractGooContourPath(platter, dropletFar, 0, false, { x: 0, y: 0 })
+  const unblendedPath = extractFieldContourPath(field([platter, dropletFar], 0), { x: 0, y: 0 })
   assert.equal((unblendedPath.match(/M/g) ?? []).length, 2, 'blendK<=0.001 should emit 2 subpaths')
   assert.equal((unblendedPath.match(/Z/g) ?? []).length, 2)
 
   // Active smin bridge between overlapping/nearby platter & droplet -> single connected loop
-  const bridgedPath = extractGooContourPath(platter, dropletNear, 28, false, { x: 100, y: 80 })
+  const bridgedPath = extractFieldContourPath(field([platter, dropletNear], 28), { x: 100, y: 80 })
   assert.equal((bridgedPath.match(/M/g) ?? []).length, 1, 'connected smin goo bridge must form 1 closed loop')
   assert.equal((bridgedPath.match(/Z/g) ?? []).length, 1)
   assert.ok(bridgedPath.includes('L'), 'Marching Squares contour should contain polygonal vertices')
   assert.equal(bridgedPath.includes('NaN'), false, 'contour path must not contain NaN')
 
   // Active smin with wide separation -> dual pinched-off closed loops
-  const pinchedPath = extractGooContourPath(platter, dropletFar, 28, false, { x: 0, y: 0 })
+  const pinchedPath = extractFieldContourPath(field([platter, dropletFar], 28), { x: 0, y: 0 })
   assert.equal((pinchedPath.match(/M/g) ?? []).length, 2, 'widely separated droplet should pinch off into 2 closed loops')
   assert.equal((pinchedPath.match(/Z/g) ?? []).length, 2)
   assert.equal(pinchedPath.includes('NaN'), false, 'pinched-off path must not contain NaN')
 })
 
-test('Shared Morph Geometry (geometry.ts): targetRectOverride bypasses placement clamping/flipping cleanly', () => {
-  const { computeTargetCardRect, computeMorphGeometry } = morphGeometryMod
+test('Sessile popover geometry (computePopoverTargetRect / computePopoverMorphGeometry): targetRectOverride bypasses placement clamping/flipping cleanly', () => {
+  const computeTargetCardRect = presets.computePopoverTargetRect
+  const computeMorphGeometry = presets.computePopoverMorphGeometry
 
   const override = { x: 912, y: 42, width: 280, height: 282 }
   const anchor = {
@@ -452,8 +444,8 @@ test('Shared Morph Geometry (geometry.ts): targetRectOverride bypasses placement
   approx(gEnd.platter.center.y, override.y + override.height * 0.5, 1e-4, 'settled platter cy matches override')
 })
 
-test('Shared Morph Motion (motion.ts): mid-closing open() resumes smoothly without snapping to closed start', () => {
-  const { createMotionController } = morphMotionMod
+test('Sessile popover motion (createPopoverMorphController): mid-closing open() resumes smoothly without snapping to closed start', () => {
+  const createMotionController = presets.createPopoverMorphController
 
   // Standard spring mode: open -> step to open -> close -> mid-close -> re-open
   const ctrl = createMotionController({ reducedMotion: false })
@@ -497,8 +489,8 @@ test('Shared Morph Motion (motion.ts): mid-closing open() resumes smoothly witho
   rmCtrl.dispose()
 })
 
-test('Shared Overlay Renderer (overlayRenderer.ts): GLSL safePow/transparent interior, MPL-2.0 headers, and 2D fallback', () => {
-  const { OVERLAY_VERTEX_SHADER, OVERLAY_FRAGMENT_SHADER, createMorphOverlayRenderer } = morphOverlayMod
+test('Sessile overlay renderer (createGlassOverlayRenderer): GLSL safePow/transparent interior, MPL-2.0 headers, and 2D fallback', () => {
+  const { OVERLAY_VERTEX_SHADER, OVERLAY_FRAGMENT_SHADER, createGlassOverlayRenderer } = core
 
   assert.ok(OVERLAY_VERTEX_SHADER.includes('#version 300 es'))
   assert.ok(OVERLAY_FRAGMENT_SHADER.includes('#version 300 es'))
@@ -509,7 +501,7 @@ test('Shared Overlay Renderer (overlayRenderer.ts): GLSL safePow/transparent int
   assert.ok(OVERLAY_FRAGMENT_SHADER.includes('outsideMask') && OVERLAY_FRAGMENT_SHADER.includes('inset < 5.0'), 'overlay shader must keep flat interior transparent')
 
   // Clean-room MPL-2.0 headers across src/components/glass/morph/
-  for (const file of ['contracts.ts', 'motion.ts', 'geometry.ts', 'contour.ts', 'overlayRenderer.ts', 'refractOptics.ts', 'refractFilter.tsx']) {
+  for (const file of ['refractFilter.tsx']) {
     const src = readFileSync(new URL(`../src/components/glass/morph/${file}`, import.meta.url), 'utf8')
     assert.ok(src.includes('SPDX-License-Identifier: MPL-2.0'), `${file} must declare MPL-2.0`)
     assert.equal(src.includes('GPL-3.0'), false, `${file} must not carry GPL-3.0 header`)
@@ -526,8 +518,14 @@ test('Shared Overlay Renderer (overlayRenderer.ts): GLSL safePow/transparent int
     rect: (...a) => calls.push(['rect', ...a]),
     roundRect: (...a) => calls.push(['roundRect', ...a]),
     clip: (...a) => calls.push(['clip', ...a]),
-    fill: () => calls.push(['fill']),
+    fill: () => calls.push(['fill', fake2d.globalCompositeOperation]),
     stroke: () => calls.push(['stroke']),
+    translate: (...a) => calls.push(['translate', ...a]),
+    moveTo: (...a) => calls.push(['moveTo', ...a]),
+    lineTo: (...a) => calls.push(['lineTo', ...a]),
+    arc: (...a) => calls.push(['arc', ...a]),
+    closePath: () => calls.push(['closePath']),
+    globalCompositeOperation: 'source-over',
     createLinearGradient: () => ({ addColorStop() {} }),
     shadowColor: '',
     shadowBlur: 0,
@@ -545,39 +543,39 @@ test('Shared Overlay Renderer (overlayRenderer.ts): GLSL safePow/transparent int
     removeEventListener: (k) => listeners.delete(k),
     getContext: (kind) => (kind === '2d' ? fake2d : null),
   }
-  const renderer = createMorphOverlayRenderer()
+  const renderer = createGlassOverlayRenderer()
   const caps = renderer.mount(mockCanvas)
   assert.equal(caps.webgl2, false)
   assert.ok(caps.fallbackNotice && caps.fallbackNotice.includes('2D Canvas'))
 
   const platter = { center: { x: 100, y: 120 }, size: { width: 160, height: 180 }, radius: 22 }
   const droplet = { center: { x: 100, y: 30 }, size: { width: 40, height: 40 }, radius: 20 }
-  const geometry = morphGeometryMod.computeMorphGeometry(
+  const geometry = presets.computePopoverMorphGeometry(
     { phase: 'opening', normalizedT: 0.4, morphProgress: 0.5, cornerProgress: 0.4, ringing: 0, absorbed: 0, closeBlendRamp: 0, platterDipEnvelope: 0, dropletOvershootEnvelope: 0, blurBumpPx: 0, settled: 0, contentOpacity: 0.5, contentBlurPx: 1, triggerGlyphOpacity: 0, triggerGlyphBlurPx: 0, bareGlassOpacity: 0, pointScale: 1, pressScaleX: 1, pressScaleY: 1, pressOffsetX: 0, pressOffsetY: 0, pressLift: 0, isAnimating: true },
     { anchorRect: { x: 80, y: 10, width: 40, height: 40 }, placement: 'overAnchorEnd', viewportSize: { width: 400, height: 400 } },
     { size: { width: 160, height: 180 }, cornerRadius: 22 },
   )
-  geometry.platter = platter
-  geometry.droplet = droplet
+  const field = { ...geometry.field, primitives: [platter, droplet] }
 
   renderer.render({
     viewport: { width: 220, height: 240 },
     dpr: 2,
-    geometry,
-    style: morphContracts.PRISM_CONSTANTS.OPTICAL.dark.menu,
+    field,
+    material: core.DEFAULT_OPTICAL_MATERIALS.dark.frosted,
     opacity: 1,
   })
   assert.equal(mockCanvas.width, 440)
   assert.equal(mockCanvas.height, 480)
-  assert.ok(calls.some((c) => c[0] === 'clip' && c[1] === 'evenodd'), '2D fallback shadow must clip with evenodd')
+  // Sessile 不再用 clip('evenodd')，改为 destination-out 擦掉玻璃内部的投影，同样保证投影只落在外侧
+  assert.ok(calls.some((c) => c[0] === 'fill' && c[1] === 'destination-out'), '2D fallback shadow must stay outside the glass')
   assert.ok(calls.some((c) => c[0] === 'stroke'), '2D fallback must draw hairline/rim strokes')
 
   calls.length = 0
   renderer.render({
     viewport: { width: 220, height: 240 },
     dpr: 2,
-    geometry,
-    style: morphContracts.PRISM_CONSTANTS.OPTICAL.dark.menu,
+    field,
+    material: core.DEFAULT_OPTICAL_MATERIALS.dark.frosted,
     opacity: 0,
   })
   assert.ok(calls.some((c) => c[0] === 'clearRect'), 'opacity <= 0.001 should clear canvas cleanly')
@@ -586,7 +584,8 @@ test('Shared Overlay Renderer (overlayRenderer.ts): GLSL safePow/transparent int
 })
 
 test('geometry externalTrigger: open tugs & returns to 1:1 anchor, close catches & overshoots past anchor, externalTrigger=false keeps PoC behavior', () => {
-  const { computeTargetCardRect, computeMorphGeometry } = morphGeometryMod
+  const computeTargetCardRect = presets.computePopoverTargetRect
+  const computeMorphGeometry = presets.computePopoverMorphGeometry
   const anchor = {
     anchorRect: { x: 420, y: 26, width: 112, height: 36 },
     placement: 'belowPoint',
@@ -662,7 +661,7 @@ test('geometry externalTrigger: open tugs & returns to 1:1 anchor, close catches
 
   // Opening settled (phase='open'): returns cleanly to anchorCenter at 1:1 scale
   const openSettled = computeMorphGeometry(
-    morphMotionMod.evaluateMotionFrame('open', 1),
+    presets.evaluatePopoverMotion('open', 1),
     { ...anchor, externalTrigger: true },
     menu,
   )
@@ -704,7 +703,7 @@ test('geometry externalTrigger: open tugs & returns to 1:1 anchor, close catches
 
   // PoC externalTrigger: false keeps original merged-platter contract when open on overAnchorEnd placement
   const pocSettled = computeMorphGeometry(
-    morphMotionMod.evaluateMotionFrame('open', 1),
+    presets.evaluatePopoverMotion('open', 1),
     {
       ...anchor,
       anchorRect: { x: 420, y: 360, width: 96, height: 40 },
@@ -716,11 +715,11 @@ test('geometry externalTrigger: open tugs & returns to 1:1 anchor, close catches
   assert.equal(pocSettled.isMerged, true, 'externalTrigger=false must keep original PoC isMerged=true when open')
 })
 
-test('contour extractGooContourPath: 128-step bisected Marching Squares achieves < 0.1px SDF accuracy on active goo bridge', () => {
+test('contour extractFieldContourPath: 128-step bisected Marching Squares achieves < 0.1px SDF accuracy on active goo bridge', () => {
   const platter = { center: { x: 240, y: 220 }, size: { width: 220, height: 260 }, radius: 24 }
   const droplet = { center: { x: 240, y: 74 }, size: { width: 112, height: 38 }, radius: 19 }
   const blendK = 28
-  const path = morphContourMod.extractGooContourPath(platter, droplet, blendK, false, { x: 0, y: 0 })
+  const path = core.extractFieldContourPath({ primitives: [platter, droplet], blendK }, { x: 0, y: 0 })
   assert.ok(path.startsWith('M'), 'expected SVG contour path')
 
   const tokens = [...path.matchAll(/[ML](-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/g)]
@@ -729,9 +728,9 @@ test('contour extractGooContourPath: 128-step bisected Marching Squares achieves
   let maxAbsSdf = 0
   for (const [, xs, ys] of tokens) {
     const pt = { x: Number(xs), y: Number(ys) }
-    const sdfA = morphGeometryMod.computeRoundedBoxSdf(pt, platter)
-    const sdfB = morphGeometryMod.computeRoundedBoxSdf(pt, droplet)
-    const smin = morphGeometryMod.computeSmin(sdfA.distance, sdfB.distance, sdfA.normal, sdfB.normal, blendK)
+    const sdfA = core.computeRoundedBoxSdf(pt, platter)
+    const sdfB = core.computeRoundedBoxSdf(pt, droplet)
+    const smin = core.computeSmin(sdfA.distance, sdfB.distance, sdfA.normal, sdfB.normal, blendK)
     maxAbsSdf = Math.max(maxAbsSdf, Math.abs(smin.distance))
   }
   assert.ok(
@@ -747,9 +746,9 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     parseCssFilterOptics,
     parseCssBoxShadow,
     parseCssGlassSurface,
-    interpolateCssGlassSurfaceToOverlay,
+    interpolateCssGlassSurfaceToMaterial: interpolateCssGlassSurfaceToOverlay,
     buildContourAlphaDataUrl,
-  } = morphRefractMod
+  } = core
 
   // Circular-bevel lookup table: monotonically non-decreasing, antisymmetric around 0.5, calibrated Sobel divisor
   const b20 = buildCircularBevelTable(20, 8.5)
@@ -788,7 +787,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
       'rgba(255, 255, 255, 0.34) 0px 1.5px 3px -0.5px inset, rgba(255, 255, 255, 0.16) 0px -1px 2px -0.5px inset, rgba(0, 0, 0, 0.34) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.45) 0px 24px 60px 0px',
   })
   const prismOverlay = interpolateCssGlassSurfaceToOverlay(
-    morphContracts.PRISM_CONSTANTS.OPTICAL.dark.menu,
+    core.DEFAULT_OPTICAL_MATERIALS.dark.frosted,
     prismSurface,
     prismSurface,
     1,
@@ -810,7 +809,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     boxShadow: 'rgba(255, 255, 255, 0.45) 0px 0px 6px -2px inset, rgba(0, 0, 0, 0.28) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0.45) 0px 24px 60px 0px',
   })
   const clearDarkOverlay = interpolateCssGlassSurfaceToOverlay(
-    morphContracts.PRISM_CONSTANTS.OPTICAL.dark.menu,
+    core.DEFAULT_OPTICAL_MATERIALS.dark.frosted,
     clearDarkSurface,
     clearDarkSurface,
     1,
@@ -829,7 +828,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
     boxShadow: 'rgba(255, 255, 255, 0.65) 0px 0px 6px -2px inset, rgba(0, 0, 0, 0.08) 0px 4px 14px 0px',
   })
   const clearLightOverlay = interpolateCssGlassSurfaceToOverlay(
-    morphContracts.PRISM_CONSTANTS.OPTICAL.light.menu,
+    core.DEFAULT_OPTICAL_MATERIALS.light.frosted,
     clearLightSurface,
     clearLightSurface,
     1,
@@ -849,7 +848,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
       'rgba(255, 255, 255, 0.34) 0px 1.5px 3px -0.5px inset, rgba(255, 255, 255, 0.16) 0px -1px 2px -0.5px inset, rgba(0, 0, 0, 0.34) 0px 0px 0px 0.5px, rgba(0, 0, 0, 0) 0px 0px 0px 0px',
   })
   const zeroDropOverlay = interpolateCssGlassSurfaceToOverlay(
-    morphContracts.PRISM_CONSTANTS.OPTICAL.dark.menu,
+    core.DEFAULT_OPTICAL_MATERIALS.dark.frosted,
     zeroDropSurface,
     zeroDropSurface,
     1,
@@ -875,7 +874,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
   assert.ok(popoverSrc.includes('morphBackdropRef'), 'Popover must mount separate unclipped morphBackdropRef for Route B3')
   assert.ok(popoverSrc.includes('<MorphRefractFilter'), 'Popover must render MorphRefractFilter')
   assert.ok(popoverSrc.includes('refractHandle.updateFrame'), 'Popover must drive MorphRefractFilter per frame')
-  assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToOverlay'), 'Popover must derive overlay styles from live computed CSS')
+  assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToMaterial'), 'Popover must derive overlay styles from live computed CSS')
   const glyphHostIdx = popoverSrc.indexOf('ref={glyphHostRef}')
   const morphSurfaceIdx = popoverSrc.indexOf('ref={morphSurfaceRef}')
   const morphBackdropIdx = popoverSrc.indexOf('ref={morphBackdropRef}')
@@ -905,13 +904,32 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
   )
   const refractFilterSrc = readFileSync(new URL('../src/components/glass/morph/refractFilter.tsx', import.meta.url), 'utf8')
   assert.ok(
-    refractFilterSrc.includes('resolveFrameBezel') && refractFilterSrc.includes("node.setAttribute('scale'"),
+    refractFilterSrc.includes('createRefractFilterController') && refractFilterSrc.includes('updateConfig'),
+    'MorphRefractFilter must delegate the SVG graph to @sessile/dom and sync glass tuning into it',
+  )
+  const { document } = new JSDOM('<!doctype html><body></body>').window
+  const filter = dom.createRefractFilterController({ id: 'morph-test', document, bezel: 30, strength: 1.32, falloff: 2.6, dispersion: 0 })
+  filter.mount()
+  filter.updateFrame({
+    bounds: { x: 0, y: 0, width: 80, height: 60 },
+    field: { blendK: 0, primitives: [{ center: { x: 40, y: 30 }, size: { width: 40, height: 24 }, radius: 12 }] },
+    blurSigma: 4,
+    saturate: 1.6,
+    brightness: 1,
+    contrast: 1,
+  })
+  approx(
+    Number(document.querySelector('#morph-test feDisplacementMap').getAttribute('scale')),
+    2 * 12 * 1.32,
+    1e-9,
     'MorphRefractFilter must resolve per-frame bezel and update feDisplacementMap scale to match resting Glass',
   )
-  assert.ok(
-    refractFilterSrc.includes('stdDeviation="0.5"'),
+  assert.equal(
+    document.querySelector('#morph-test feGaussianBlur[in="refractRaw"]')?.getAttribute('stdDeviation'),
+    '0.5',
     'MorphRefractFilter must include 0.5px post-refraction smoothing matching resting Glass',
   )
+  filter.dispose()
 })
 
 function decodeStoredRgbaPng(dataUrl) {
@@ -960,14 +978,16 @@ function decodeStoredRgbaPng(dataUrl) {
   return { width, height, raw, pixelAt }
 }
 
-test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal polarity, bevel decay, inward AA alpha, smin neck, and cache reuse', () => {
-  const { createMorphRefractMapBuilder } = morphRefractMapMod
-  const builder = createMorphRefractMapBuilder()
+test('createRefractMapBuilder: stored PNG validity (>65535B multi-block), inward normal polarity, bevel decay, inward AA alpha, smin neck, and cache reuse', () => {
+  const builder = core.createRefractMapBuilder()
+  // 旧参数 (platter, droplet, blendK, isMerged) 换成 field：droplet 为 null 或 isMerged 时只含 platter
+  const build = ({ platter, droplet, blendK, isMerged, ...rest }) =>
+    builder.build({ ...rest, field: { primitives: droplet && !isMerged ? [platter, droplet] : [platter], blendK } })
 
   // 1. Multi-block (>65535B) 0.5x stored PNG validity on 400x400 CSS bounds (200x200 PNG -> 160,200 scanline bytes)
   const bounds = { x: 0, y: 0, width: 400, height: 400 }
   const platter = { center: { x: 200, y: 200 }, size: { width: 240, height: 240 }, radius: 24 }
-  const singleRes = builder.build({
+  const singleRes = build({
     bounds,
     platter,
     droplet: null,
@@ -1014,7 +1034,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   // Symmetric edge AA alpha: sd >= 0.5 -> A=0; sd in (-0.5, 0.5) -> midpoint ~128 at sd=0; sd <= -0.5 -> A=255
   const outsidePx = sampleCss(77, 200) // sd = +3 -> outside
   assert.deepEqual(outsidePx, { r: 128, g: 128, b: 128, a: 0 }, 'outside sd >= 0.5 must be transparent neutral')
-  const aaRes = builder.build({
+  const aaRes = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
@@ -1030,7 +1050,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   assert.equal(aaPng.pixelAt(32, 16).a, 255, 'sd=-0.5 <= -0.5 must be opaque 255 so full rim refracts')
 
   // Half-pixel shifted edge (top at y=16.5) hits sd=0 exact midpoint alpha=128
-  const midAaRes = builder.build({
+  const midAaRes = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32.5 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
@@ -1044,7 +1064,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   assert.equal(midAaPng.pixelAt(32, 16).a, 128, 'sd=0 must lie at symmetric AA midpoint alpha 128')
 
   // falloff curve + cache invalidation + small-shape effBezel clamp
-  const steepFalloffRes = builder.build({
+  const steepFalloffRes = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
@@ -1063,7 +1083,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   )
 
   // Small shape (< bezel) clamps effBezel to min(halfW, halfH) cleanly
-  const tinyRes = builder.build({
+  const tinyRes = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 16, height: 16 }, radius: 4 },
     droplet: null,
@@ -1077,7 +1097,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   assert.deepEqual(tinyPng.pixelAt(31, 31), { r: 128, g: 128, b: 128, a: 255 }, 'clamped small shape center stays neutral')
 
   // 2. Cache reuse: identical or <0.1px jittered geometry hits cache (changed: false)
-  builder.build({
+  build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
@@ -1087,7 +1107,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
     falloff: 2.6,
     mapScale: 1,
   })
-  const hit1 = builder.build({
+  const hit1 = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32.04, y: 32.02 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
@@ -1099,7 +1119,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   })
   assert.equal(hit1.changed, false, 'sub-quarter-pixel quantized geometry must reuse cached PNG')
   builder.reset()
-  const afterReset = builder.build({
+  const afterReset = build({
     bounds: { x: 0, y: 0, width: 64, height: 64 },
     platter: { center: { x: 32, y: 32 }, size: { width: 32, height: 32 }, radius: 6 },
     droplet: null,
@@ -1114,7 +1134,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   const dualBounds = { x: 0, y: 0, width: 200, height: 220 }
   const dualPlatter = { center: { x: 100, y: 150 }, size: { width: 120, height: 100 }, radius: 20 } // top at y=100
   const bridgedDroplet = { center: { x: 100, y: 70 }, size: { width: 60, height: 40 }, radius: 20 } // bottom at y=90, 10px gap -> mid y=95 (sd=5 -> smin(5,5,28)=-2 -> alpha 255)
-  const sminNeckRes = builder.build({
+  const sminNeckRes = build({
     bounds: dualBounds,
     platter: dualPlatter,
     droplet: bridgedDroplet,
@@ -1126,7 +1146,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   const sminPng = decodeStoredRgbaPng(sminNeckRes.dataUrl)
   assert.equal(sminPng.pixelAt(100, 95).a, 255, 'smin blendK=28 must form solid opaque goo neck across 10px gap')
 
-  const unblendedRes = builder.build({
+  const unblendedRes = build({
     bounds: dualBounds,
     platter: dualPlatter,
     droplet: bridgedDroplet,
@@ -1139,7 +1159,7 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   assert.equal(unblendedPng.pixelAt(100, 95).a, 0, 'blendK=0 hard union must leave 10px gap transparent')
 
   // 4. Shrunken platter (18x18) inside 44x44 droplet must preserve the droplet's 22px bezel for seamless landing
-  const landingRes = builder.build({
+  const landingRes = build({
     bounds: { x: 0, y: 0, width: 56, height: 56 },
     platter: { center: { x: 28, y: 28 }, size: { width: 18, height: 18 }, radius: 9 },
     droplet: { center: { x: 28, y: 28 }, size: { width: 44, height: 44 }, radius: 22 },
@@ -1157,8 +1177,8 @@ test('refractMap.ts: stored PNG validity (>65535B multi-block), inward normal po
   )
 })
 
-test('motion.ts P2 #5: open() interrupting closing preserves optical channels without snapping (normal & reducedMotion)', () => {
-  const { createMotionController } = morphMotionMod
+test('createPopoverMorphController P2 #5: open() interrupting closing preserves optical channels without snapping (normal & reducedMotion)', () => {
+  const createMotionController = presets.createPopoverMorphController
 
   // 1. Normal spring mode: mid-closing open() must preserve contentOpacity, contentBlurPx, triggerGlyphOpacity, bareGlassOpacity
   const ctrl = createMotionController({ reducedMotion: false })
@@ -1227,22 +1247,24 @@ test('motion.ts P2 #5: open() interrupting closing preserves optical channels wi
   assert.equal(rCtrl.getState().contentOpacity, 1)
 
   // Mid-flight setReducedMotion(true) resets press offsets/lift and lets step() finish cleanly
+  // 按压在 Sessile 里是独立的 createElasticPressController，和形变控制器同步切换减少动态
+  const press = core.createElasticPressController()
   rCtrl.setReducedMotion(false)
-  rCtrl.pressStart({ width: 120, height: 40 })
-  rCtrl.pressMove({ x: 18, y: 12 }, { width: 120, height: 40 })
+  press.pressStart({ width: 120, height: 40 })
+  press.pressMove({ x: 18, y: 12 }, { width: 120, height: 40 })
   rCtrl.step(0.05)
+  press.step(0.05)
   rCtrl.close()
   rCtrl.step(0.05)
+  press.step(0.05)
   rCtrl.setReducedMotion(true)
+  press.setReducedMotion(true)
   const switched = rCtrl.getState()
   assert.equal(switched.reducedMotion, true)
-  assert.equal(switched.pressLift, 0)
-  assert.equal(switched.pressOffsetX, 0)
-  assert.equal(switched.pressOffsetY, 0)
+  assert.equal(press.getState().lift, 0)
+  assert.equal(press.getState().offsetX, 0)
+  assert.equal(press.getState().offsetY, 0)
   rCtrl.step(0.25)
   assert.equal(rCtrl.getState().phase, 'closed')
   rCtrl.dispose()
 })
-
-
-

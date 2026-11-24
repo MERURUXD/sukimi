@@ -4,7 +4,7 @@ import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { useGlassTuning } from '@/design/glassTuning'
 import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
-import { useElasticPress } from './morph/useElasticPress'
+import { useElasticPress } from './elasticPress'
 import { MovingGlassBackdrop } from './MovingGlassBackdrop'
 import { AdaptiveGlassContext } from './AdaptiveGlassContext'
 

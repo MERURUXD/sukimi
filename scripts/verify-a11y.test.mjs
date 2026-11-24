@@ -1023,10 +1023,11 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       get() { return this.getAttribute('role') === 'menu' ? 180 : 0 },
     })
 
-    function Harness({ point }) {
+    function Harness({ point, nextPoint }) {
       const menu = useContextMenu()
       return createElement(Fragment, null,
         createElement('button', { type: 'button', onClick: () => menu.open(point.x, point.y, 'demo') }, '右键触发'),
+        nextPoint && createElement('button', { type: 'button', onClick: () => menu.open(nextPoint.x, nextPoint.y, 'demo') }, '换位置'),
         createElement(ContextMenu, { at: menu.menu, onClose: menu.close, label: '操作菜单' },
           createElement('button', { type: 'button', role: 'menuitem' }, '查看详情'),
         ),
@@ -1056,7 +1057,7 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
 
       // 3. 液态形变路径（popoverMotion = true）：PointMorphMenuPanel 接入 belowPoint + 200ms 点菜单闭合
       await act(async () => { useAppearance.setState({ popoverMotion: true }) })
-      await render(createElement(Harness, { point: { x: 40, y: 120 } }))
+      await render(createElement(Harness, { point: { x: 40, y: 120 }, nextPoint: { x: 60, y: 200 } }))
       const triggerMorph = [...document.querySelectorAll('button')].find((b) => named(b) === '右键触发')
       triggerMorph.focus()
       await act(async () => { triggerMorph.click() })
@@ -1070,6 +1071,22 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       press('Escape')
       await act(async () => {})
       focused(triggerMorph)
+      await until(() => !document.querySelector('[role="menu"]'), 500)
+
+      // 菜单开着时在别处再次唤出（如键盘菜单键，不经过 pointerdown 关闭）：同一个面板在新位置从头重放展开
+      await act(async () => { triggerMorph.click() })
+      const reopened = document.querySelector('[role="menu"]')
+      await until(() => !reopened.hasAttribute('data-morphing'), 800)
+      const repoint = [...document.querySelectorAll('button')].find((b) => named(b) === '换位置')
+      repoint.focus()
+      await act(async () => { repoint.click() })
+      assert.equal(document.querySelector('[role="menu"]'), reopened)
+      assert.equal(reopened.style.left, '60px')
+      assert.equal(reopened.style.top, '200px')
+      assert.equal(reopened.getAttribute('data-morphing'), 'true')
+      await until(() => !reopened.hasAttribute('data-morphing'), 800)
+      press('Escape')
+      await act(async () => {})
       await until(() => !document.querySelector('[role="menu"]'), 500)
     } finally {
       if (origW) Object.defineProperty(window.HTMLElement.prototype, 'offsetWidth', origW)

@@ -20,6 +20,18 @@ importers:
       '@fontsource-variable/space-grotesk':
         specifier: ^5.3.0
         version: 5.3.0
+      '@sessile/core':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@sessile/dom':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@sessile/presets':
+        specifier: ^0.1.0
+        version: 0.1.0
+      '@sessile/react':
+        specifier: ^0.1.0
+        version: 0.1.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-virtual':
         specifier: ^3.14.26
         version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1048,6 +1060,21 @@ packages:
 
   '@rolldown/pluginutils@1.1.0':
     resolution: {integrity: sha512-K+NU2HDCEem4sClgHH4ZZXwdJeNFkJo+hRk479DIwdIviAPN2hFJH1KHHwg8CxHQXvi0M5XY4deTXINfIiSG6w==}
+
+  '@sessile/core@0.1.0':
+    resolution: {integrity: sha512-wCwEkhp7o6UkJxbr0rt6dxE1LyQ+tdBmSOlLvlOFkDhqrB8KjyaJ8teb7EXEmLJnqUPq6xt1YflYJcRZiDa7+w==}
+
+  '@sessile/dom@0.1.0':
+    resolution: {integrity: sha512-cE9qDQpJQoJICo3A1swaV9jfREr8M3/wE6yBN7QYPRQyK3VvE7rtObFBFjIEMGEx00WKSEzJTvigOndwZu49nQ==}
+
+  '@sessile/presets@0.1.0':
+    resolution: {integrity: sha512-aLsNJleQCkgvpAq9kXhZOLz4SR/g9/tAX+Hr4WusSwNynQkx7+/kbZLsQyW7dp8gF4j9nKehSiLQDcvj//L9Zg==}
+
+  '@sessile/react@0.1.0':
+    resolution: {integrity: sha512-DkEu0lnCtWkUCO3ipeuxb/YEPfR33XHVJcidLrmWcQW/r/95DFmupCG4jdyAc4gzinokEl9tWvE/BLgyssGf5g==}
+    peerDependencies:
+      react: '>=19.0.0'
+      react-dom: '>=19.0.0'
 
   '@tailwindcss/node@4.3.5':
     resolution: {integrity: sha512-yT53FzV4ke0cr/BguDxhWMpm5MJu1O2muzk+tKw6lKHjODAsYArBbWwFbJiaksfzFv1tpkO9QHGzmfs1hJT66g==}
@@ -3330,6 +3357,23 @@ snapshots:
       vite: 8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)
 
   '@rolldown/pluginutils@1.1.0': {}
+
+  '@sessile/core@0.1.0': {}
+
+  '@sessile/dom@0.1.0':
+    dependencies:
+      '@sessile/core': 0.1.0
+
+  '@sessile/presets@0.1.0':
+    dependencies:
+      '@sessile/core': 0.1.0
+
+  '@sessile/react@0.1.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@sessile/core': 0.1.0
+      '@sessile/dom': 0.1.0
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
 
   '@tailwindcss/node@4.3.5':
     dependencies:
