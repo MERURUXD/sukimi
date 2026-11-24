@@ -1,29 +1,29 @@
 import type { AdaptiveGlassContextValue } from '@/components/glass/AdaptiveGlassContext'
 import type { GlassPreset, GlassTuning } from '@/design/glassTuning'
 import type { GlassMode } from '@/design/settings'
-import { extractGooContourPath, computeMorphUnionBounds } from './contour'
-import { computeTargetCardRect } from './geometry'
 import {
-  PRISM_CONSTANTS,
-  type GlassOpticalStyle,
-  type GooFrameGeometry,
-  type IMorphOverlayRenderer,
-  type MotionFrameState,
-  type Point,
-  type Rect,
-} from './contracts'
-import type { MorphRefractFrame } from './refractFilter'
-import {
+  extractFieldContourPath,
   interpolateVeilOptics,
   parseCssFilterOptics,
   parseCssGlassSurface,
+  type BackdropVeilOptics,
   type ExtractedCssGlassSurface,
-  type MorphBackdropVeilOptics,
-} from './refractOptics'
+  type GlassFieldState,
+  type IGlassOverlayRenderer,
+  type OpticalMaterial,
+  type Point,
+  type Rect,
+} from '@sessile/core'
+import { computeClampedRefractBounds, type RefractFilterFrame } from '@sessile/dom'
+import {
+  POPOVER_MORPH_DEFAULTS,
+  computePopoverTargetRect,
+  type PopoverFrameGeometry,
+  type PopoverMotionState,
+} from '@sessile/presets'
 
 export const OVERLAY_UNION_PADDING_PX = 48
 export const CONTEXT_MENU_EDGE_MARGIN = 12
-const MORPH_BACKDROP_MARGIN_PX = 6
 
 export interface ContextMenuPoint {
   x: number
@@ -42,18 +42,17 @@ export function resolvePointCardRect(
   const viewportSize = typeof window !== 'undefined'
     ? { width: window.innerWidth, height: window.innerHeight }
     : { width: 1280, height: 800 }
-  return computeTargetCardRect(
+  return computePopoverTargetRect(
     {
       anchorRect: { x: at.x, y: at.y, width: 0, height: 0 },
       avoidRect: at.avoidRect,
       placement: 'belowPoint',
       bareSource: true,
-      hasControlSource: false,
       viewportSize,
     },
     {
       size: { width: Math.max(0, width), height: Math.max(0, height) },
-      avoidGap: at.avoidRect ? PRISM_CONSTANTS.AVOID_GAP : 0,
+      avoidGap: at.avoidRect ? POPOVER_MORPH_DEFAULTS.avoidGap : 0,
       screenMargin: CONTEXT_MENU_EDGE_MARGIN,
       restingRadius,
     },
@@ -78,31 +77,6 @@ export interface ElementTintVars {
   isDense: boolean
 }
 
-export function clamp01(v: number): number {
-  return Math.min(1, Math.max(0, v))
-}
-
-export function scheduleAnimFrame(cb: FrameRequestCallback): number {
-  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
-    return window.requestAnimationFrame(cb)
-  }
-  if (typeof requestAnimationFrame === 'function') {
-    return requestAnimationFrame(cb)
-  }
-  return 0
-}
-
-export function cancelAnimFrame(id: number): void {
-  if (!id) return
-  if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
-    window.cancelAnimationFrame(id)
-    return
-  }
-  if (typeof cancelAnimationFrame === 'function') {
-    cancelAnimationFrame(id)
-  }
-}
-
 function parseCssNumberVar(cs: CSSStyleDeclaration, name: string): number | null {
   const raw = cs.getPropertyValue(name).trim()
   if (!raw) return null
@@ -122,7 +96,7 @@ export function resolveElementTheme(el: HTMLElement | null): 'light' | 'dark' {
 /** Reads live computed `.glass` backdrop optics, border, shadow, and tint vars for an element at rest. */
 export function readElementGlassSurface(el: HTMLElement): {
   surface: ExtractedCssGlassSurface
-  plateVeil: MorphBackdropVeilOptics
+  plateVeil: BackdropVeilOptics
   tintVars: ElementTintVars
 } {
   const wasMorphing = el.hasAttribute('data-morphing')
@@ -179,41 +153,11 @@ export function computeTransitionBounds(anchorBox: Rect, restingCardRect: Rect):
   }
 }
 
-export function computeClampedBackdropBounds(
-  platter: GooFrameGeometry['platter'],
-  droplet: GooFrameGeometry['droplet'],
-  transitionBounds: Rect,
-): Rect {
-  const raw = computeMorphUnionBounds(platter, droplet, MORPH_BACKDROP_MARGIN_PX)
-  const minX = Math.max(transitionBounds.x, Math.floor(raw.x))
-  const minY = Math.max(transitionBounds.y, Math.floor(raw.y))
-  const maxX = Math.min(transitionBounds.x + transitionBounds.width, Math.ceil(raw.x + raw.width))
-  const maxY = Math.min(transitionBounds.y + transitionBounds.height, Math.ceil(raw.y + raw.height))
+/** 叠加层画布以 transitionBounds 左上角为原点，图元要平移到画布坐标里再交给渲染器。 */
+function shiftField(field: GlassFieldState, ox: number, oy: number): GlassFieldState {
   return {
-    x: minX,
-    y: minY,
-    width: Math.max(1, maxX - minX),
-    height: Math.max(1, maxY - minY),
-  }
-}
-
-export function shiftGeometryByOffset(geometry: GooFrameGeometry, ox: number, oy: number): GooFrameGeometry {
-  return {
-    ...geometry,
-    platter: {
-      ...geometry.platter,
-      center: {
-        x: geometry.platter.center.x - ox,
-        y: geometry.platter.center.y - oy,
-      },
-    },
-    droplet: {
-      ...geometry.droplet,
-      center: {
-        x: geometry.droplet.center.x - ox,
-        y: geometry.droplet.center.y - oy,
-      },
-    },
+    ...field,
+    primitives: field.primitives.map((p) => ({ ...p, center: { x: p.center.x - ox, y: p.center.y - oy } })),
   }
 }
 
@@ -233,9 +177,9 @@ export function clearPanelMorphStyles(panelEl: HTMLElement, clearTransitionImmed
 /** Updates live-DOM panel transform, clip-path, blur, and opacity while morphing. */
 export function applyPanelMorphFrame(
   panelEl: HTMLElement,
-  geometry: GooFrameGeometry,
+  geometry: PopoverFrameGeometry,
   restingCardSize: { width: number; height: number },
-  mState: MotionFrameState,
+  mState: PopoverMotionState,
 ): void {
   const ct = geometry.contentTransform
   const safeScale = Math.max(ct.scale, 1e-3)
@@ -266,14 +210,14 @@ export interface MorphBackdropStyleOptions {
   resolvedTheme: 'light' | 'dark'
   glassAlpha: number
   bounds: Rect
-  geometry: GooFrameGeometry
-  mState: MotionFrameState
+  geometry: PopoverFrameGeometry
+  mState: PopoverMotionState
   bareSource: boolean
   startTintVars: ElementTintVars
   panelTintVars: ElementTintVars
-  startVeil: MorphBackdropVeilOptics
+  startVeil: BackdropVeilOptics
   panelSurface: ExtractedCssGlassSurface
-  onUpdateRefractFrame?: (frame: MorphRefractFrame) => void
+  onUpdateRefractFrame?: (frame: RefractFilterFrame) => void
 }
 
 /** Updates clipped glass veil and Route B3 unclipped refraction backdrop siblings during morphing. */
@@ -308,13 +252,7 @@ export function applyMorphBackdropLayers({
     return
   }
 
-  const contourPath = extractGooContourPath(
-    geometry.platter,
-    geometry.droplet,
-    geometry.blendK,
-    geometry.isMerged,
-    { x: bounds.x, y: bounds.y },
-  )
+  const contourPath = extractFieldContourPath(geometry.field, { x: bounds.x, y: bounds.y })
   morphGlassEl.style.visibility = 'visible'
   morphGlassEl.style.transform = `translate3d(${bounds.x}px, ${bounds.y}px, 0)`
   morphGlassEl.style.width = `${bounds.width}px`
@@ -393,14 +331,11 @@ export function applyMorphBackdropLayers({
   if (contourPath && morphBackdropEl && hasRefractHandle && onUpdateRefractFrame) {
     // Route B3: place backdrop-filter: url(#svg) on an unclipped sibling while SVG self-masks to shapeAlpha,
     // preventing Chromium's clip-path rectangular bounding-box leak.
-    const backdropBounds = computeClampedBackdropBounds(geometry.platter, geometry.droplet, bounds)
+    const backdropBounds = computeClampedRefractBounds(geometry.field, bounds)
     const veilOptics = interpolateVeilOptics(startVeil, panelSurface.veil, geometry.styleMix)
     onUpdateRefractFrame({
       bounds: backdropBounds,
-      platter: geometry.platter,
-      droplet: geometry.droplet,
-      blendK: geometry.blendK,
-      isMerged: geometry.isMerged,
+      field: geometry.field,
       blurSigma: activeBlur,
       saturate: tuning.saturate,
       brightness: veilOptics.brightness,
@@ -429,11 +364,11 @@ export function applyMorphBackdropLayers({
 /** Updates WebGL2/2D perimeter specular highlight and shadow overlay canvas for the current morph frame. */
 export function updateMorphOverlayCanvas(
   overlayCanvasEl: HTMLCanvasElement | null,
-  renderer: IMorphOverlayRenderer | null,
+  renderer: IGlassOverlayRenderer | null,
   bounds: Rect,
   resolvedTheme: 'light' | 'dark',
-  geometry: GooFrameGeometry,
-  opticalStyle: GlassOpticalStyle,
+  geometry: PopoverFrameGeometry,
+  material: OpticalMaterial,
   glassAlpha: number,
   blurBumpPx: number,
 ): void {
@@ -449,13 +384,12 @@ export function updateMorphOverlayCanvas(
   overlayCanvasEl.style.width = `${bounds.width}px`
   overlayCanvasEl.style.height = `${bounds.height}px`
 
-  const shiftedGeom = shiftGeometryByOffset(geometry, bounds.x, bounds.y)
   renderer?.render({
     viewport: { width: bounds.width, height: bounds.height },
     dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
     theme: resolvedTheme,
-    geometry: shiftedGeom,
-    style: opticalStyle,
+    field: shiftField(geometry.field, bounds.x, bounds.y),
+    material,
     opacity: glassAlpha,
     blurBumpPx,
   })
