@@ -18,17 +18,17 @@ importers:
         specifier: ^5.3.0
         version: 5.3.0
       '@sessile/core':
-        specifier: ^0.3.1
-        version: 0.3.1
+        specifier: ^0.3.2
+        version: 0.3.2
       '@sessile/dom':
-        specifier: ^0.3.1
-        version: 0.3.1
+        specifier: ^0.3.2
+        version: 0.3.2
       '@sessile/presets':
-        specifier: ^0.3.1
-        version: 0.3.1
+        specifier: ^0.3.2
+        version: 0.3.2
       '@sessile/react':
-        specifier: ^0.3.1
-        version: 0.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: ^0.3.2
+        version: 0.3.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@tanstack/react-virtual':
         specifier: ^3.14.26
         version: 3.14.26(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1017,17 +1017,17 @@ packages:
   '@rolldown/pluginutils@1.1.0':
     resolution: {integrity: sha512-K+NU2HDCEem4sClgHH4ZZXwdJeNFkJo+hRk479DIwdIviAPN2hFJH1KHHwg8CxHQXvi0M5XY4deTXINfIiSG6w==}
 
-  '@sessile/core@0.3.1':
-    resolution: {integrity: sha512-FapSS84i/oa7XCuPakZkXmM0K2WTZjlOu1X/3JVoPidZwuQqoEkP03Q8OdQsl2pEptJOjkGDjaGEn9+Z8E+iag==}
+  '@sessile/core@0.3.2':
+    resolution: {integrity: sha512-2NmKhkCwOJ9lYM8dLFzdw5ujfRU2wCQ+LllGr62zZgw/e83OQjAWCyYGwk1dmF3zrWqvX1FTqBBUHCcC3Z1kjA==}
 
-  '@sessile/dom@0.3.1':
-    resolution: {integrity: sha512-TX6blp4d3h5jd9EQyeHene8qfuLfF78GVaXvvDSKqiRwefUMY0SsBWbK32ccjkYSehvVIkG9d4QGAya57m8rNw==}
+  '@sessile/dom@0.3.2':
+    resolution: {integrity: sha512-P/6Wv0kh/dH8//BKa+qmg+EwpSyxEma3SAy4aM+VvmEBrFFX7rHI8dFBdwfaao4acZNNlTHK4M507aSwVOVOaQ==}
 
-  '@sessile/presets@0.3.1':
-    resolution: {integrity: sha512-7jeyabh5rI8nIdjzytnAlBI4+zAyVkS3tY6AC+Zkq8ynWU0Y35LAZMFY3NQCZcOa/NNKnJVji48La+tprb+pAA==}
+  '@sessile/presets@0.3.2':
+    resolution: {integrity: sha512-sF3SFiWOSgwVBtTUqioKsfmYDW46xsgXZnoDXx4H/9Ak2yyzJHyCYPtL0VTSs18wrtKOfUb1ZGfESNmkIa39YQ==}
 
-  '@sessile/react@0.3.1':
-    resolution: {integrity: sha512-BldPy7HJswHOyW1+FuLUWruIj2e3ZpjaAONRvo+RS6AweVYE8H0mF8U0ZIXhDFkPR3pDAN6wfva8/8YrXiskFA==}
+  '@sessile/react@0.3.2':
+    resolution: {integrity: sha512-KWpvfEhwnmvkLFKbaAHkwwNHxEADfyBMzcvqyx78CLrHV1l0ENY21TTBx1goaK1oPnFHiSe/idRyCX1223gRNA==}
     peerDependencies:
       react: '>=19.0.0'
       react-dom: '>=19.0.0'
@@ -3270,20 +3270,20 @@ snapshots:
 
   '@rolldown/pluginutils@1.1.0': {}
 
-  '@sessile/core@0.3.1': {}
+  '@sessile/core@0.3.2': {}
 
-  '@sessile/dom@0.3.1':
+  '@sessile/dom@0.3.2':
     dependencies:
-      '@sessile/core': 0.3.1
+      '@sessile/core': 0.3.2
 
-  '@sessile/presets@0.3.1':
+  '@sessile/presets@0.3.2':
     dependencies:
-      '@sessile/core': 0.3.1
+      '@sessile/core': 0.3.2
 
-  '@sessile/react@0.3.1(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@sessile/react@0.3.2(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@sessile/core': 0.3.1
-      '@sessile/dom': 0.3.1
+      '@sessile/core': 0.3.2
+      '@sessile/dom': 0.3.2
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
