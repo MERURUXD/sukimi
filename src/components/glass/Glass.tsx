@@ -1,5 +1,5 @@
 import { createElement, useCallback, useContext, useRef, type ComponentPropsWithoutRef, type Ref } from 'react'
-import { motion } from 'motion/react'
+import { motion, type HTMLMotionProps } from 'motion/react'
 import { supportsSvgBackdropRefraction, type RefractFilterConfig } from '@sessile/dom'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
@@ -111,3 +111,11 @@ export function Glass<T extends Tag = 'div'>({
  * 祖先元素 opacity < 1 时 Chrome 会把它当成 backdrop 根，玻璃里就采不到背后的内容。
  */
 export const MotionGlass = motion.create(Glass)
+
+/**
+ * 玻璃里的滚动层。玻璃宿主自己不能滚动：边缘叠加层是宿主的子节点，会被裁到内边距盒并跟着内容滚走。
+ * 需要滚动的面板把内容和内边距放在这一层，宿主只管形状、尺寸上限和定位。
+ */
+export function GlassScroll({ className, ...rest }: HTMLMotionProps<'div'>) {
+  return <motion.div layoutScroll {...rest} className={cn('no-scrollbar min-h-0 overflow-y-auto overscroll-contain rounded-[inherit]', className)} />
+}

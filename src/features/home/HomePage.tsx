@@ -10,6 +10,7 @@ import { EnqueueDownloads } from '@/api/chapters'
 import { captureUser, resetOnUserContext, StaleSessionError } from '@/api/userContext'
 import { Can } from '@/features/auth/Can'
 import { Glass } from '@/components/glass/Glass'
+import { BlurredCover } from '@/components/manga/BlurredCover'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { LoadError } from '@/components/ui/LoadError'
@@ -333,10 +334,9 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
   const target = resume(cur)
   const staticBg = checking ? null : (
     <AnimatePresence initial={false}>
-      <motion.img
+      <BlurredCover
         key={bg.id}
-        src={bg.thumbnailUrl ?? undefined}
-        alt=""
+        src={bg.thumbnailUrl}
         initial={{ opacity: 0, scale: 1.08 }}
         animate={{ opacity: 0.95, scale: 1 }}
         exit={{ opacity: 0 }}

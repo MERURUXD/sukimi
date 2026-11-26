@@ -5,7 +5,8 @@ export type { Rgb, Swatch }
 
 export const NEUTRAL: Rgb = [0.2, 0.2, 0.22]
 
-const NEUTRAL_SWATCHES: Swatch[] = Array.from({ length: 4 }, () => ({
+/** 读不了封面时的中性灰色板；按引用比较即可知道没有取到真实颜色 */
+export const NEUTRAL_SWATCHES: Swatch[] = Array.from({ length: 4 }, () => ({
   rgb: NEUTRAL,
   weight: 0.25,
 }))

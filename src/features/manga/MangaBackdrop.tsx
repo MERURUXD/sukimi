@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { BlurredCover } from '@/components/manga/BlurredCover'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
@@ -45,7 +46,7 @@ export function MangaBackdrop({
             still={!motion}
             className="absolute inset-0"
             fallback={
-              src && <img src={src} alt="" className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]" />
+              src && <BlurredCover src={src} className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]" />
             }
           />
         </div>

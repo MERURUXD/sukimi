@@ -158,6 +158,11 @@ export function borderBoxSize(el: HTMLElement, cs: CSSStyleDeclaration = getComp
   return { width: parseFloat(cs.width) || el.offsetWidth, height: parseFloat(cs.height) || el.offsetHeight }
 }
 
+function isScrollContainer(cs: CSSStyleDeclaration): boolean {
+  const scrolls = (v: string) => v === 'auto' || v === 'scroll'
+  return scrolls(cs.overflowX) || scrolls(cs.overflowY)
+}
+
 function outset(box: { x: number; y: number; width: number; height: number }, px: number) {
   return { x: box.x - px, y: box.y - px, width: box.width + 2 * px, height: box.height + 2 * px }
 }
@@ -225,6 +230,9 @@ export function useGlassSurface(host: RefObject<HTMLElement | null>, o: GlassSur
     const refresh = () => {
       const opts = optionsRef.current
       resting = readRestingGlass(el, opts)
+      if (import.meta.env.DEV && isScrollContainer(getComputedStyle(el))) {
+        console.warn('[glass] 玻璃宿主不能是滚动容器，边缘会跟着内容滚走；把滚动放进 <GlassScroll>。', el)
+      }
       controller.setMode(opts.refract ? 'refract' : 'frosted')
       controller.setTheme(resting.theme)
       controller.setLegibility(opts.legibility ? { ...opts.legibility, foreground: resting.foreground } : null)

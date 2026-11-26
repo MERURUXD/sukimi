@@ -1,7 +1,7 @@
 import { AnimatePresence } from 'motion/react'
 import { ChevronRight, ExternalLink, RefreshCw, Search, X } from 'lucide-react'
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import { MotionGlass } from '@/components/glass/Glass'
+import { GlassScroll, MotionGlass } from '@/components/glass/Glass'
 import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { scoreWord } from '@/features/tracking/tracking'
 import { cn } from '@/lib/cn'
@@ -287,65 +287,67 @@ function Detail({ open, subject, at, state, mine, guess, onRefresh, onClose }: {
           <MotionGlass
             dense
             {...pop}
-            className="no-scrollbar relative flex max-h-[calc(100dvh-24px)] w-[min(460px,100%)] flex-col gap-6 overflow-y-auto overscroll-contain rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
+            className="relative flex max-h-[calc(100dvh-24px)] w-[min(460px,100%)] flex-col rounded-[26px] [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
           >
-            <div className="flex items-center gap-3">
-              <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">{guess?.search ? t('bangumi.searchTitle') : subject ? subject.nameCn || subject.name : t('bangumi.title')}</h2>
-              <button type="button" className="gicon size-10 flex-none" aria-label={t('common.close')} onClick={onClose}>
-                <X className="size-5" />
-              </button>
-            </div>
+            <GlassScroll className="flex flex-col gap-6 p-6">
+              <div className="flex items-center gap-3">
+                <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">{guess?.search ? t('bangumi.searchTitle') : subject ? subject.nameCn || subject.name : t('bangumi.title')}</h2>
+                <button type="button" className="gicon size-10 flex-none" aria-label={t('common.close')} onClick={onClose}>
+                  <X className="size-5" />
+                </button>
+              </div>
 
-            {guess?.search ? (
-              <Picker guess={guess} />
-            ) : subject ? (
-              <>
-                <div className="flex items-baseline gap-3" role="img" aria-label={describe(subject)}>
-                  <span className="text-[44px] leading-none font-bold num"><Score value={subject.score} /></span>
-                  <span className="flex flex-col text-sm text-muted num">
-                    <span className="text-text">{[word(subject), subject.rank ? t('bangumi.rank', { n: subject.rank }) : t('bangumi.unranked')].filter(Boolean).join(' · ')}</span>
-                    <span>{t('bangumi.ratedBy', { n: shortCount(subject.total) })}{subject.name && subject.nameCn && subject.name !== subject.nameCn ? ` · ${subject.name}` : ''}</span>
-                  </span>
-                </div>
-                <Histogram counts={subject.counts} mine={mine} height={88} labels="all" />
-                <div className="grid grid-cols-5 gap-1 text-center">
-                  {collections(subject).map(([k, n]) => (
-                    <span key={k} className="flex flex-col gap-1">
-                      <b className="text-[17px] leading-none num">{shortCount(n)}</b>
-                      <span className="text-xs text-muted">{k}</span>
+              {guess?.search ? (
+                <Picker guess={guess} />
+              ) : subject ? (
+                <>
+                  <div className="flex items-baseline gap-3" role="img" aria-label={describe(subject)}>
+                    <span className="text-[44px] leading-none font-bold num"><Score value={subject.score} /></span>
+                    <span className="flex flex-col text-sm text-muted num">
+                      <span className="text-text">{[word(subject), subject.rank ? t('bangumi.rank', { n: subject.rank }) : t('bangumi.unranked')].filter(Boolean).join(' · ')}</span>
+                      <span>{t('bangumi.ratedBy', { n: shortCount(subject.total) })}{subject.name && subject.nameCn && subject.name !== subject.nameCn ? ` · ${subject.name}` : ''}</span>
                     </span>
-                  ))}
-                </div>
-                {subject.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {subject.tags.map((t) => <ExternalTag key={t.name} name={t.name}>{t.name} <span className="text-faint num">{shortCount(t.count)}</span></ExternalTag>)}
                   </div>
-                )}
-                {guess && (guess.bind || !guess.match?.sure) && (
-                  <div className="flex flex-wrap gap-2">
-                    {guess.bind && <button type="button" className="fopt cta" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? t('bangumi.binding') : guess.match?.sure ? t('bangumi.bind') : t('bangumi.confirmBind')}</button>}
-                    {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>{t('bangumi.isThis')}</button>}
-                    {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>{t('bangumi.notThis')}</button>}
-                    {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>{t('bangumi.change')}</button>}
+                  <Histogram counts={subject.counts} mine={mine} height={88} labels="all" />
+                  <div className="grid grid-cols-5 gap-1 text-center">
+                    {collections(subject).map(([k, n]) => (
+                      <span key={k} className="flex flex-col gap-1">
+                        <b className="text-[17px] leading-none num">{shortCount(n)}</b>
+                        <span className="text-xs text-muted">{k}</span>
+                      </span>
+                    ))}
                   </div>
-                )}
-                {guess?.match?.sure && (
-                  <button type="button" className="self-start text-[13px] font-semibold text-muted hover:text-text" onClick={guess.onSearch}>{t('bangumi.changeItem')}</button>
-                )}
-                <div className="flex items-center justify-between gap-3 text-xs text-muted">
-                  <button type="button" className="inline-flex min-h-8 items-center gap-1.5 hover:text-text" onClick={onRefresh} disabled={state === 'loading'}>
-                    <RefreshCw className={cn('size-3.5', state === 'loading' && 'animate-spin')} />
-                    {state === 'loading' ? t('bangumi.refreshing') : at ? t('bangumi.updatedAgo', { time: timeAgo(at) }) : t('bangumi.refresh')}
-                  </button>
-                  <a href={subjectUrl(subject.id)} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 font-semibold text-muted no-underline hover:text-text">
-                    {t('bangumi.openOn')}
-                    <ExternalLink className="size-3.5" />
-                  </a>
-                </div>
-              </>
-            ) : (
-              <Status state={state} onRetry={onRefresh} />
-            )}
+                  {subject.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {subject.tags.map((t) => <ExternalTag key={t.name} name={t.name}>{t.name} <span className="text-faint num">{shortCount(t.count)}</span></ExternalTag>)}
+                    </div>
+                  )}
+                  {guess && (guess.bind || !guess.match?.sure) && (
+                    <div className="flex flex-wrap gap-2">
+                      {guess.bind && <button type="button" className="fopt cta" disabled={guess.binding} onClick={() => void guess.bind!().then((ok) => { if (ok) onClose() })}>{guess.binding ? t('bangumi.binding') : guess.match?.sure ? t('bangumi.bind') : t('bangumi.confirmBind')}</button>}
+                      {!guess.match?.sure && !guess.bind && <button type="button" className="fopt" onClick={() => setBgmMatch(guess.mangaId, subject.id)}>{t('bangumi.isThis')}</button>}
+                      {!guess.match?.sure && <button type="button" className="fopt" onClick={() => { setBgmMatch(guess.mangaId, 0); onClose() }}>{t('bangumi.notThis')}</button>}
+                      {!guess.match?.sure && <button type="button" className="fopt" onClick={guess.onSearch}>{t('bangumi.change')}</button>}
+                    </div>
+                  )}
+                  {guess?.match?.sure && (
+                    <button type="button" className="self-start text-[13px] font-semibold text-muted hover:text-text" onClick={guess.onSearch}>{t('bangumi.changeItem')}</button>
+                  )}
+                  <div className="flex items-center justify-between gap-3 text-xs text-muted">
+                    <button type="button" className="inline-flex min-h-8 items-center gap-1.5 hover:text-text" onClick={onRefresh} disabled={state === 'loading'}>
+                      <RefreshCw className={cn('size-3.5', state === 'loading' && 'animate-spin')} />
+                      {state === 'loading' ? t('bangumi.refreshing') : at ? t('bangumi.updatedAgo', { time: timeAgo(at) }) : t('bangumi.refresh')}
+                    </button>
+                    <a href={subjectUrl(subject.id)} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1 font-semibold text-muted no-underline hover:text-text">
+                      {t('bangumi.openOn')}
+                      <ExternalLink className="size-3.5" />
+                    </a>
+                  </div>
+                </>
+              ) : (
+                <Status state={state} onRetry={onRefresh} />
+              )}
+            </GlassScroll>
           </MotionGlass>
         </Dialog>
       )}

@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, usePresence, useReducedMotion } from 'motion/react'
+import { AnimatePresence, usePresence, useReducedMotion } from 'motion/react'
 import {
   useEffect,
   useId,
@@ -33,7 +33,7 @@ import {
   type PopoverMotionState,
   type PopoverPanelConfig,
 } from '@sessile/presets'
-import { MotionGlass } from '@/components/glass/Glass'
+import { GlassScroll, MotionGlass } from '@/components/glass/Glass'
 import { borderBoxSize, getGlassSurface } from '@/components/glass/surface'
 import {
   applyMorphBackdropLayers,
@@ -182,9 +182,7 @@ export function Popover({
             )}
           >
             {fitViewport ? (
-              <motion.div layoutScroll className={cn('no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[inherit] p-3', bodyClassName)}>
-                {children}
-              </motion.div>
+              <GlassScroll className={cn('flex-1 p-3', bodyClassName)}>{children}</GlassScroll>
             ) : (
               children
             )}
