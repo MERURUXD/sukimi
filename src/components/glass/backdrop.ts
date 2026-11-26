@@ -84,30 +84,33 @@ function rebuildInner() {
   }
 }
 
-function show(el: Element, region: Region) {
+/** 返回探针内容是否变了；调用方一批处理完再统一通知 */
+function show(el: Element, region: Region): boolean {
   region.visible = true
   // 读不到时下次可见再试：换图后元素可能还在加载
   region.telemetry ??= region.measure() ?? undefined
-  if (region.telemetry && inner) {
-    inner.set(el, region.telemetry)
-    notify()
-  }
+  if (!region.telemetry || !inner) return false
+  inner.set(el, region.telemetry)
+  return true
 }
 
 function startObserving() {
   if (typeof IntersectionObserver === 'undefined') return
   io = new IntersectionObserver(
     (entries) => {
+      // 滚动时一批常有十几张封面进出；每次通知都让所有玻璃重新取样，所以整批只通知一次
+      let changed = false
       for (const entry of entries) {
         const region = regions.get(entry.target)
         if (!region) continue
-        if (entry.isIntersecting) show(entry.target, region)
+        if (entry.isIntersecting) changed = show(entry.target, region) || changed
         else if (region.visible) {
           region.visible = false
           if (inner) inner.delete(entry.target)
-          notify()
+          changed = true
         }
       }
+      if (changed) notify()
     },
     { rootMargin: '25%' },
   )
