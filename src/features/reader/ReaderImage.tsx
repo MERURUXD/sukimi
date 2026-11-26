@@ -1,5 +1,6 @@
 import { ImageOff, LoaderCircle, RotateCw } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useBackdropImage } from '@/components/glass/backdrop'
 import { Glass } from '@/components/glass/Glass'
 import { cn } from '@/lib/cn'
 import { bust, releaseShown, retainShown, retryOriginal } from './pageImage'
@@ -42,6 +43,7 @@ export function ReaderImage({
   // 重试成功后先显示刚请求到的原图。父组件稍后换成新的 Blob 时再改回去，避免中间一帧还指着刚回收的地址。
   const [fresh, setFresh] = useState<string | null>(null)
   const seenBlob = useRef(src.startsWith('blob:') ? src : null)
+  const image = useRef<HTMLImageElement | null>(null)
   useEffect(() => {
     if (!fresh) {
       if (src.startsWith('blob:')) seenBlob.current = src
@@ -50,6 +52,7 @@ export function ReaderImage({
     if (src.startsWith('blob:') && src !== seenBlob.current) setFresh(null)
   }, [src, fresh])
   const displaySrc = fresh ?? (src.startsWith('blob:') ? src : bust(src, src === url ? attempt : 0))
+  useBackdropImage(image, loaded && !failed ? displaySrc : null)
 
   // 挂在文档里的 Blob 不回收。失败提示不占着那张图，回收才不会把重试用的地址一起废掉。
   useLayoutEffect(() => {
@@ -114,6 +117,7 @@ export function ReaderImage({
         key={attempt}
         // 缓存里已有的图挂载时就绪，不闪占位
         ref={(el) => {
+          image.current = el
           if (el?.complete && el.naturalWidth) setLoaded(true)
         }}
         src={displaySrc}

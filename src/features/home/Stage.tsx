@@ -4,7 +4,7 @@ import { Download, Play, Shuffle } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject, type WheelEvent } from 'react'
 import { Link, useHref, useNavigate } from 'react-router'
 import { Can } from '@/features/auth/Can'
-import { Glass, AdaptiveGlassContainer } from '@/components/glass/Glass'
+import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { spring } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
@@ -220,7 +220,7 @@ function useFanEntrance(deck: RefObject<HTMLDivElement | null>, pos: MotionValue
 interface Target { id: number; label: string; page: string; pct: number | null; isNext: boolean }
 
 /** 桌面「舞台」；开屏动画可在外观设置关闭，悬停两侧封面会预览对应背景色。 */
-export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownload, background, target, meta, entrance, tint, denseTint }: {
+export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownload, background, target, meta, entrance }: {
   items: ReadChapter[]
   active: number
   onSelect: (i: number) => void
@@ -231,10 +231,7 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   target: Target | null
   meta: string
   entrance: ReturnType<typeof useEntrance>
-  tint?: number
-  denseTint?: number
 }) {
-  const glassAdaptiveTint = useAppearance((s) => s.glassAdaptiveTint)
   const reduced = useReducedMotion()
   // 进场动画播完前用它的时间线，之后切换都用弹簧
   const { mode, entering } = entrance
@@ -320,11 +317,7 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   const riseEach = rise && `${rise}-each`
 
   return (
-    <AdaptiveGlassContainer
-      as="section"
-      enabled={glassAdaptiveTint}
-      tint={tint}
-      denseTint={denseTint}
+    <section
       aria-label={t('home.continue')}
       className="relative isolate -mt-[var(--nav-h)] pt-[var(--nav-h)]"
       data-desktop-layout="stage"
@@ -438,7 +431,7 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
           )}
         </div>
       </div>
-    </AdaptiveGlassContainer>
+    </section>
   )
 }
 

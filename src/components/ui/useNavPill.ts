@@ -6,8 +6,8 @@ export type PillBox = { x: number; y: number; width: number; height: number }
  * 量出导航容器里当前链接（NavLink 自带 aria-current="page"）的位置，给 <NavPill> 用。
  * 坐标是容器内的 offsetLeft / offsetTop，和页面滚动无关。
  */
-export function useNavPill(pathname: string) {
-  const ref = useRef<HTMLElement>(null)
+export function useNavPill<T extends HTMLElement = HTMLElement>(pathname: string) {
+  const ref = useRef<T>(null)
   const boxes = useRef(new Map<HTMLElement, PillBox>())
   const select = useRef<() => void>(() => {})
   const [box, setBox] = useState<PillBox | null>(null)

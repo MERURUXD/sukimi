@@ -1,4 +1,4 @@
-import { AnimatePresence, usePresence, useReducedMotion } from 'motion/react'
+import { AnimatePresence, motion, usePresence, useReducedMotion } from 'motion/react'
 import {
   useEffect,
   useId,
@@ -33,7 +33,8 @@ import {
   type PopoverMotionState,
   type PopoverPanelConfig,
 } from '@sessile/presets'
-import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
+import { MotionGlass } from '@/components/glass/Glass'
+import { borderBoxSize, getGlassSurface } from '@/components/glass/surface'
 import {
   applyMorphBackdropLayers,
   applyPanelMorphFrame,
@@ -45,7 +46,7 @@ import {
   type ElementTintVars,
 } from '@/components/glass/morph/hybridSurface'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
-import { supportsRefract } from '@/components/glass/refract'
+import { supportsSvgBackdropRefraction } from '@sessile/dom'
 import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
@@ -59,6 +60,7 @@ export function Popover({
   align = 'right',
   side = 'bottom',
   className,
+  bodyClassName,
   rootClassName,
   label,
   id,
@@ -72,7 +74,13 @@ export function Popover({
   children: ReactNode
   align?: 'left' | 'right'
   side?: 'top' | 'bottom'
+  /** 面板的形状与定位（宽度、窄屏 fixed 等） */
   className?: string
+  /**
+   * 内容的排版与内边距。fitViewport 时写在面板里的滚动层上，否则直接写在面板上：
+   * 玻璃宿主自己不能滚动，否则边缘叠加层会被裁到内边距盒并跟着内容滚走。
+   */
+  bodyClassName?: string
   /** 外层定位容器的类名；放进网格当格子时用来补 min-w-0 */
   rootClassName?: string
   label?: string
@@ -163,17 +171,23 @@ export function Popover({
             label={label}
             dense={dense}
             vtGlass={vtGlass}
-            layoutScroll={fitViewport}
             style={fitViewport && bounds ? ({ '--popover-room': `${bounds.room}px`, maxHeight: bounds.room } as CSSProperties) : undefined}
             className={cn(
-              'absolute z-50 rounded-[24px] p-3 [--g-drop:0_0_0_transparent]',
+              'absolute z-50 rounded-[24px] [--g-drop:0_0_0_transparent]',
               placedSide === 'bottom' ? '-top-2' : '-bottom-2',
               align === 'right' ? 'right-0' : 'left-0',
-              fitViewport && 'no-scrollbar overflow-y-auto overscroll-contain',
+              fitViewport ? 'flex flex-col' : 'p-3',
               className,
+              !fitViewport && bodyClassName,
             )}
           >
-            {children}
+            {fitViewport ? (
+              <motion.div layoutScroll className={cn('no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-[inherit] p-3', bodyClassName)}>
+                {children}
+              </motion.div>
+            ) : (
+              children
+            )}
           </MorphPanel>
         )}
       </AnimatePresence>
@@ -288,7 +302,6 @@ function MorphPanel({
   label,
   dense,
   vtGlass,
-  layoutScroll,
   style,
   className,
   children,
@@ -302,7 +315,6 @@ function MorphPanel({
   label?: string
   dense: boolean
   vtGlass?: string
-  layoutScroll: boolean
   style?: CSSProperties
   className: string
   children: ReactNode
@@ -313,8 +325,7 @@ function MorphPanel({
   const reduced = systemReduced || !popoverMotion
   const glassMode = useAppearance((s) => s.glass)
   const tuning = useGlassTuning()
-  const adaptive = useAdaptiveGlass()
-  const refractSupported = supportsRefract()
+  const refractSupported = supportsSvgBackdropRefraction()
   const morphFilterId = `morphRefract${useId().replace(/[:«»]/g, '')}`
 
   const morphSurfaceRef = useRef<HTMLDivElement>(null)
@@ -354,7 +365,6 @@ function MorphPanel({
     reduced,
     glassMode,
     tuning,
-    adaptive,
     dense,
     isLegible: className.includes('glass-legible'),
     side,
@@ -364,7 +374,6 @@ function MorphPanel({
     reduced,
     glassMode,
     tuning,
-    adaptive,
     dense,
     isLegible: className.includes('glass-legible'),
     side,
@@ -465,8 +474,7 @@ function MorphPanel({
     const panelEl = panelRef.current
     if (!rootEl || !panelEl) return null
 
-    const pw = panelEl.offsetWidth
-    const ph = panelEl.offsetHeight
+    const { width: pw, height: ph } = borderBoxSize(panelEl)
     if (!pw || !ph) return null
     measuredSizeRef.current = { width: pw, height: ph }
 
@@ -611,7 +619,6 @@ function MorphPanel({
       reduced: isReduced,
       glassMode: gMode,
       tuning: gTuning,
-      adaptive: gAdaptive,
       dense: isDense,
       isLegible,
       align: curAlign,
@@ -803,6 +810,7 @@ function MorphPanel({
         : clamp(mState.settled / 0.2, 0, 1)
 
     const refractHandle = morphRefractHandleRef.current
+    const legibility = getGlassSurface(panelEl)?.getLegibilityParams() ?? null
     applyMorphBackdropLayers({
       morphGlassEl,
       morphBackdropEl,
@@ -811,7 +819,6 @@ function MorphPanel({
       hasRefractHandle: Boolean(refractHandle),
       glassMode: gMode,
       tuning: gTuning,
-      adaptive: gAdaptive,
       dense: isDense,
       isLegible,
       resolvedTheme,
@@ -824,7 +831,12 @@ function MorphPanel({
       panelTintVars: anchors.panelTintVars,
       startVeil: anchors.startVeil,
       panelSurface: anchors.panelSurface,
-      onUpdateRefractFrame: (frame) => { if (refractHandle) refractHandle.updateFrame(frame) },
+      legibility,
+      refractScaleMultiplier: GLASS_REFRACT_SCALE_MULTIPLIER,
+      onUpdateRefractFrame: (frame, legibility) => {
+        refractHandle?.updateFrame(frame)
+        refractHandle?.updateLegibility(legibility)
+      },
     })
 
     // 3. Update sibling Morph Overlay Canvas inside constant transitionBounds (0 canvas reallocations)
@@ -843,6 +855,7 @@ function MorphPanel({
       material,
       glassAlpha,
       gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
+      legibility,
     )
   }
 
@@ -851,7 +864,8 @@ function MorphPanel({
     const controller = createPopoverMorphController({ reducedMotion: latestVisualRef.current.reduced })
     motionRef.current = controller
 
-    const renderer = createGlassOverlayRenderer()
+    // 和静态玻璃共用一个 WebGL2 上下文，反复打开也不会挤掉其他上下文
+    const renderer = createGlassOverlayRenderer({ context: 'shared' })
     overlayRendererRef.current = renderer
     if (overlayCanvasRef.current) {
       renderer.mount(overlayCanvasRef.current)
@@ -883,7 +897,7 @@ function MorphPanel({
       applyFrameToDom(motionRef.current.getState())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [style, glassMode, tuning, adaptive, dense, className])
+  }, [style, glassMode, tuning, dense, className])
 
   // Measure anchors & react to dynamic content size changes via ResizeObserver
   useLayoutEffect(() => {
@@ -1007,7 +1021,6 @@ function MorphPanel({
         data-vt-glass={vtGlass}
         dense={dense}
         suspendRefract={false}
-        layoutScroll={layoutScroll}
         style={{
           ...style,
           pointerEvents: isPresent ? undefined : 'none',

@@ -1,21 +1,15 @@
-import { createElement, useCallback, useContext, useId, useRef, type ComponentPropsWithoutRef, type CSSProperties, type Ref } from 'react'
+import { createElement, useCallback, useContext, useRef, type ComponentPropsWithoutRef, type Ref } from 'react'
 import { motion } from 'motion/react'
+import { supportsSvgBackdropRefraction, type RefractFilterConfig } from '@sessile/dom'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
-import { LensFilter, supportsRefract, useLensMap, type LensOptions } from './refract'
+import { glassBackdropProbe } from './backdrop'
 import { useElasticPress } from './elasticPress'
 import { MovingGlassBackdrop } from './MovingGlassBackdrop'
-import { AdaptiveGlassContext } from './AdaptiveGlassContext'
+import { useGlassSurface } from './surface'
 
-export {
-  AdaptiveGlassContext,
-  AdaptiveGlassContainer,
-  AdaptiveGlassProvider,
-  useAdaptiveGlass,
-  type AdaptiveGlassContextValue,
-  type AdaptiveGlassContainerProps,
-} from './AdaptiveGlassContext'
+type LensOptions = Pick<RefractFilterConfig, 'bezel' | 'strength' | 'dispersion' | 'scaleMultiplier' | 'profile' | 'ior' | 'caustics'>
 
 type Tag = 'div' | 'span' | 'nav' | 'header' | 'section' | 'aside' | 'form' | 'footer' | 'label' | 'button' | 'a'
 
@@ -29,10 +23,6 @@ type GlassProps<T extends Tag> = {
   flat?: boolean
   /** 单独覆盖折射参数 */
   lens?: Partial<LensOptions & { blur: number }>
-  /** 单独覆盖自适应或折射底色浓度 (0-100) */
-  tint?: number
-  /** 单独覆盖 dense 状态折射底色浓度 (0-100) */
-  denseTint?: number
   /** 按压弹性反馈：非 flat 的 button / a 默认开启 */
   elastic?: boolean
   ref?: Ref<HTMLElement>
@@ -40,10 +30,11 @@ type GlassProps<T extends Tag> = {
 
 /**
  * 玻璃容器。外观取决于设置里的玻璃档位：
- * - frosted / solid：纯 CSS（.glass 与 [data-glass] 规则）
- * - refract：在 Chromium 上额外挂透镜位移滤镜，其他浏览器自动退回毛玻璃；
- *   关掉透镜时仍用折射档的底色，不然会突然换成毛玻璃的白底，在氛围光上明显发亮
- * - flat：不论档位都是不透明表面
+ * - refract / frosted：由 Sessile 控制器绘制（见 surface.ts），材质取自 .glass 的 CSS；
+ *   refract 在 Chromium 上挂透镜位移滤镜，其他浏览器自动退回毛玻璃。关掉透镜时仍用折射档的底色，
+ *   不然会突然换成毛玻璃的白底，在氛围光上明显发亮
+ * - solid 与 flat：纯 CSS 的不透明表面
+ * - 开启「自适应底色」时按背后的内容调整底色、提亮和压缩力度，保证文字对比度
  */
 export function Glass<T extends Tag = 'div'>({
   as,
@@ -51,8 +42,6 @@ export function Glass<T extends Tag = 'div'>({
   suspendRefract,
   flat,
   lens,
-  tint,
-  denseTint,
   elastic,
   className,
   style,
@@ -63,13 +52,12 @@ export function Glass<T extends Tag = 'div'>({
   const mode = useAppearance((s) => s.glass)
   const t = useGlassTuning()
   const moving = useContext(MovingGlassBackdrop)
-  const adaptive = useContext(AdaptiveGlassContext)
+  const adaptive = useAppearance((s) => s.glassAdaptiveTint)
   const host = useRef<HTMLElement>(null)
   const isDisabled = 'disabled' in rest && Boolean(rest.disabled)
   const elasticEnabled = (elastic ?? ((as === 'button' || as === 'a') && !flat)) && !isDisabled
   useElasticPress(host, { enabled: elasticEnabled })
-  const filterId = `lens${useId().replace(/[:«»]/g, '')}`
-  const tone = !flat && mode === 'refract' && supportsRefract()
+  const tone = !flat && mode === 'refract' && supportsSvgBackdropRefraction()
   const on = tone && !suspendRefract && moving !== 'suspend'
   const o: LensOptions = {
     bezel: lens?.bezel ?? t.bezel,
@@ -81,9 +69,20 @@ export function Glass<T extends Tag = 'div'>({
     caustics: lens?.caustics,
   }
   const blur = lens?.blur ?? (dense ? t.denseBlur : t.blur)
-  // 透镜位移图生成仅依赖几何和光学参数（bezel, strength, ior, profile, caustics, dispersion），
-  // tint 变化绝不触发布局位移图重绘或滤镜重建。
-  const filterRef = useLensMap(host, on, o)
+  const classes = typeof className === 'string' ? className.split(/\s+/) : []
+  // 文字按 WCAG AA（4.5:1）托住；纯图标按钮只需非文字对比度（3:1），玻璃保持更通透
+  const tier = classes.includes('glass-legible') ? 'legible' : classes.includes('gicon') ? 'clear' : 'regular'
+  useGlassSurface(host, {
+    enabled: !flat && mode !== 'solid',
+    refract: on,
+    tone,
+    // 毛玻璃档的模糊与饱和度取 .glass 的 CSS
+    blur: tone ? blur : null,
+    saturate: tone ? t.saturate : null,
+    refraction: o,
+    legibility: adaptive ? { tier, probe: glassBackdropProbe } : null,
+    styleKey: `${t.preset}|${t.tint}|${t.denseTint}|${dense}|${className}`,
+  })
   const setRef = useCallback(
     (el: HTMLElement | null) => {
       host.current = el
@@ -93,28 +92,6 @@ export function Glass<T extends Tag = 'div'>({
     [ref],
   )
 
-  const activeTint = tint ?? (adaptive?.enabled ? adaptive.tint : undefined)
-  const activeDenseTint = denseTint ?? (adaptive?.enabled ? adaptive.denseTint : undefined)
-
-  const adaptiveStyle: CSSProperties | undefined =
-    activeTint !== undefined
-      ? ({
-          '--refract-tint': `${activeTint}%`,
-          '--refract-tint-dense': `${activeDenseTint ?? activeTint}%`,
-        } as CSSProperties)
-      : undefined
-
-  const refractStyle: CSSProperties | undefined = on
-    ? {
-        // 提亮 / 压暗按主题和 dense 取自 CSS 变量 --g-veil（见 index.css）；
-        // 透镜放到最后，弯折和色散的彩边不再被模糊揉开。外缘一个像素要挤进好几个像素的画面，
-        // 黑白文字会挤成断续的虚线，透镜后再补 0.5px 抹平这些台阶
-        backdropFilter: `blur(${blur}px) saturate(${t.saturate}) var(--g-veil) url(#${filterId}) blur(0.5px)`,
-      }
-    : tone
-      ? { backdropFilter: `blur(${blur}px) saturate(${t.saturate}) var(--g-veil)` }
-      : undefined
-
   return createElement(
     as ?? 'div',
     {
@@ -123,9 +100,8 @@ export function Glass<T extends Tag = 'div'>({
       'data-refract': tone || undefined,
       'data-flat': flat || undefined,
       className: cn('glass', dense && 'dense', className),
-      style: { ...adaptiveStyle, ...refractStyle, ...style },
+      style,
     },
-    on && <LensFilter id={filterId} filterRef={filterRef} dispersion={o.dispersion} />,
     children,
   )
 }

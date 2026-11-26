@@ -256,7 +256,8 @@ export function ExtensionsPage() {
             label={t('browse.ext.langsAria')}
             align="left"
             fitViewport
-            className="flex w-[380px] max-w-[calc(100vw-32px)] flex-col gap-5 px-4 py-5"
+            className="w-[380px] max-w-[calc(100vw-32px)]"
+            bodyClassName="flex flex-col gap-5 px-4 py-5"
             trigger={
               <Glass as="button" type="button" className={cn('gbtn rounded-full', langPop && 'bg-g-hi')} aria-expanded={langPop} onClick={() => setLangPop((v) => !v)}>
                 <Globe className="size-[18px]" strokeWidth={1.8} />

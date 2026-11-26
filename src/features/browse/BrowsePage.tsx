@@ -268,7 +268,8 @@ export function SourceBrowser({ source, mode, q, onMode }: { source: Source; mod
             fitViewport
             open={panel}
             onClose={closePanel}
-            className="w-[400px] max-w-[calc(100vw-32px)] px-4 py-4 [--g-drop:0_0_0_transparent] [&_.solid]:shadow-none max-md:fixed max-md:inset-x-4 max-md:top-4 max-md:w-auto"
+            bodyClassName="px-4 py-4"
+            className="w-[400px] max-w-[calc(100vw-32px)] [--g-drop:0_0_0_transparent] [&_.solid]:shadow-none max-md:fixed max-md:inset-x-4 max-md:top-4 max-md:w-auto"
             trigger={
               <Glass as="button" ref={filterButton} type="button" aria-expanded={panel} aria-controls={panelId} aria-haspopup="dialog" onClick={() => setPanel((value) => !value)} className={cn('gbtn rounded-full', (panel || (mode === 'SEARCH' && filters.length > 0)) && 'bg-g-hi')}>
                 <SlidersHorizontal className="size-[18px]" strokeWidth={1.8} />

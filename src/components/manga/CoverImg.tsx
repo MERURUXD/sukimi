@@ -1,6 +1,7 @@
 import { ImageOff } from 'lucide-react'
 import { useCallback, useRef, useState, type ImgHTMLAttributes } from 'react'
 import { refreshAccessToken, tokenExpiring, tokenRecentlyApplied, useAuth, useAuthChecking } from '@/api/auth'
+import { useBackdropImage } from '@/components/glass/backdrop'
 import { onCoverVisibility } from '@/lib/coverVisibility'
 import { CoverSkeleton } from './CoverSkeleton'
 
@@ -25,8 +26,11 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
   // 已载入的地址；只对在屏内等待后载入的封面渐显
   const [loaded, setLoaded] = useState<{ src: string; fade: boolean } | null>(null)
   const cancelVisibility = useRef<(() => void) | undefined>(undefined)
+  const image = useRef<HTMLImageElement | null>(null)
+  useBackdropImage(image, src && loaded?.src === src ? src : null)
 
   const attach = useCallback((el: HTMLImageElement | null) => {
+    image.current = el
     cancelVisibility.current?.()
     cancelVisibility.current = undefined
     const current = el?.getAttribute('src')

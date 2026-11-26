@@ -4,7 +4,7 @@ import { Archive, ArchiveRestore, ArrowLeftRight, ChevronLeft, ClockCheck, Clock
 import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { Glass, AdaptiveGlassContainer } from '@/components/glass/Glass'
+import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { COVER_VT } from '@/lib/coverTransition'
 import { Popover } from '@/components/ui/Popover'
@@ -39,7 +39,6 @@ import { mangaIntro, mangaIntroDelay as delay } from './intro'
 import { lastRead, nextToRead } from './progress'
 import { STATUS } from './status'
 import { NextUpdate, type NextPrediction } from './NextUpdate'
-import { useAdaptiveHeroTint } from '@/design/useAdaptiveHeroTint'
 import './MangaHero.css'
 import { t } from '@/i18n'
 
@@ -62,7 +61,6 @@ export function MangaHero({
   onRefresh: () => void
   onDownloadUnread: () => void
 }) {
-  const { enabled: adaptiveEnabled, tint: adaptiveTint, denseTint: adaptiveDenseTint } = useAdaptiveHeroTint(manga.thumbnailUrl)
   const [setInLibrary, { loading: favBusy }] = useMutation(SetMangaInLibrary)
   const animate = intro && !placeholder
 
@@ -171,10 +169,7 @@ export function MangaHero({
           {manga.description && <MangaDescription key={manga.id} description={manga.description} intro={animate} />}
           {/* 标签和按钮背后只是封面取色的氛围光，折射看不出来，关掉透镜省开销 */}
           {!placeholder && (
-            <AdaptiveGlassContainer
-              enabled={adaptiveEnabled}
-              tint={adaptiveTint}
-              denseTint={adaptiveDenseTint}
+            <div
               className="manga-hero-tags flex flex-wrap gap-1.5"
             >
               {genres.map((t, i) => (
@@ -196,14 +191,11 @@ export function MangaHero({
                 <Pencil className="size-3.5" strokeWidth={2} />
                 {genres.length === 0 && t('misc.tags.edit')}
               </Glass>
-            </AdaptiveGlassContainer>
+            </div>
           )}
           <TagEditor open={editingTags} mangaId={manga.id} genre={manga.genre} onClose={() => { setEditingTags(false); tagTrigger.current?.focus({ preventScroll: true }) }} />
 
-          <AdaptiveGlassContainer
-            enabled={adaptiveEnabled}
-            tint={adaptiveTint}
-            denseTint={adaptiveDenseTint}
+          <div
             className={cn('manga-hero-actions', placeholder && 'invisible')}
           >
             {target ? (
@@ -221,7 +213,7 @@ export function MangaHero({
               <Glass suspendRefract as="button" type="button" style={delay(mangaIntro.actions + 60)} className={cn('gicon manga-hero-wide-only rounded-full', animate && 'rise')} onClick={onDownloadUnread} aria-label={t('manga.hero.downloadUnread')} title={t('manga.hero.downloadUnread')}><Download className="size-5" strokeWidth={1.8} /></Glass>
             </Can>
             <MangaMore manga={manga} fetching={fetching} onRefresh={onRefresh} onDownloadUnread={onDownloadUnread} intro={animate} />
-          </AdaptiveGlassContainer>
+          </div>
           {createPortal(
             <AnimatePresence>
               {same && (

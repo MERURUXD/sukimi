@@ -1,7 +1,8 @@
-import type { AdaptiveGlassContextValue } from '@/components/glass/AdaptiveGlassContext'
+import { readRestingStyles } from '@/components/glass/surface'
 import type { GlassPreset, GlassTuning } from '@/design/glassTuning'
 import type { GlassMode } from '@/design/settings'
 import {
+  compensateLegibilityEdges,
   extractFieldContourPath,
   interpolateVeilOptics,
   parseCssFilterOptics,
@@ -10,11 +11,12 @@ import {
   type ExtractedCssGlassSurface,
   type GlassFieldState,
   type IGlassOverlayRenderer,
+  type LegibilityParams,
   type OpticalMaterial,
   type Point,
   type Rect,
 } from '@sessile/core'
-import { computeClampedRefractBounds, type RefractFilterFrame } from '@sessile/dom'
+import { buildBackdropFilterCss, computeClampedRefractBounds, formatRgbaCss, type RefractFilterFrame } from '@sessile/dom'
 import {
   POPOVER_MORPH_DEFAULTS,
   computePopoverTargetRect,
@@ -99,13 +101,10 @@ export function readElementGlassSurface(el: HTMLElement): {
   plateVeil: BackdropVeilOptics
   tintVars: ElementTintVars
 } {
-  const wasMorphing = el.hasAttribute('data-morphing')
-  const prevTransition = el.style.transition
-  const prevOpacity = el.style.opacity
-  if (wasMorphing) {
-    el.style.transition = 'none'
-    el.removeAttribute('data-morphing')
-  }
+  return readRestingStyles(el, () => readRestingSurface(el))
+}
+
+function readRestingSurface(el: HTMLElement) {
   const cs = getComputedStyle(el)
   const bf = cs.backdropFilter || cs.getPropertyValue('-webkit-backdrop-filter') || ''
   const surface = parseCssGlassSurface({
@@ -122,11 +121,6 @@ export function readElementGlassSurface(el: HTMLElement): {
     denseTint: parseCssNumberVar(cs, '--refract-tint-dense'),
     tintScale: parseCssNumberVar(cs, '--g-tint-scale'),
     isDense: el.classList.contains('dense') || el.classList.contains('glass-legible'),
-  }
-  if (wasMorphing) {
-    el.setAttribute('data-morphing', 'true')
-    el.style.transition = prevTransition
-    el.style.opacity = prevOpacity
   }
   return { surface, plateVeil, tintVars }
 }
@@ -204,7 +198,10 @@ export interface MorphBackdropStyleOptions {
   hasRefractHandle: boolean
   glassMode: GlassMode
   tuning: GlassTuning & { preset: GlassPreset }
-  adaptive: AdaptiveGlassContextValue | null
+  /** 静息面板的可读性响应（宿主开启自适应底色时），过渡沿用它，收尾交接不跳变 */
+  legibility: Readonly<LegibilityParams> | null
+  /** 静态玻璃的折射倍率；可读性响应再乘上 refractionScale，和静态宿主一致 */
+  refractScaleMultiplier: number
   dense: boolean
   isLegible: boolean
   resolvedTheme: 'light' | 'dark'
@@ -217,7 +214,7 @@ export interface MorphBackdropStyleOptions {
   panelTintVars: ElementTintVars
   startVeil: BackdropVeilOptics
   panelSurface: ExtractedCssGlassSurface
-  onUpdateRefractFrame?: (frame: RefractFilterFrame) => void
+  onUpdateRefractFrame?: (frame: RefractFilterFrame, legibility: Readonly<LegibilityParams> | null) => void
 }
 
 /** Updates clipped glass veil and Route B3 unclipped refraction backdrop siblings during morphing. */
@@ -229,7 +226,8 @@ export function applyMorphBackdropLayers({
   hasRefractHandle,
   glassMode,
   tuning,
-  adaptive,
+  legibility,
+  refractScaleMultiplier,
   dense,
   isLegible,
   resolvedTheme,
@@ -273,11 +271,16 @@ export function applyMorphBackdropLayers({
   if (effectiveMode === 'frosted') {
     if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
     morphGlassEl.style.removeProperty('--g-tint-scale')
-    const blurPx = 22 + mState.blurBumpPx
-    const bf = `blur(${blurPx.toFixed(2)}px) saturate(1.7)`
+    const bf = buildBackdropFilterCss({
+      blurPx: 22 + mState.blurBumpPx + (legibility?.blurBoostPx ?? 0),
+      saturation: 1.7 * (legibility?.saturationScale ?? 1),
+      correction: legibility?.fallbackVeil,
+    })
     morphGlassEl.style.backdropFilter = bf
     morphGlassEl.style.setProperty('-webkit-backdrop-filter', bf)
-    if (resolvedTheme === 'dark' && isLegible) {
+    if (legibility) {
+      morphGlassEl.style.background = formatRgbaCss(legibility.veilRgba)
+    } else if (resolvedTheme === 'dark' && isLegible) {
       morphGlassEl.style.background = 'color-mix(in srgb, var(--bg) 78%, transparent)'
     } else if (dense) {
       morphGlassEl.style.background = 'color-mix(in srgb, var(--bg) 55%, transparent)'
@@ -291,20 +294,11 @@ export function applyMorphBackdropLayers({
   const startBlur = !bareSource && startTintVars.isDense ? tuning.denseBlur : tuning.blur
   const targetBlur = dense ? tuning.denseBlur : tuning.blur
   const baseBlur = startBlur + (targetBlur - startBlur) * geometry.styleMix
-  const activeBlur = baseBlur + (tuning.preset === 'prism' ? mState.blurBumpPx : 0)
+  const activeBlur =
+    baseBlur + (tuning.preset === 'prism' ? mState.blurBumpPx : 0) + (legibility?.blurBoostPx ?? 0)
 
   const fallbackStartTint = startTintVars.isDense ? tuning.denseTint : tuning.tint
   const fallbackTargetTint = dense || isLegible ? tuning.denseTint : tuning.tint
-  const adaptiveStartTint = adaptive?.enabled
-    ? (startTintVars.isDense
-        ? (adaptive.denseTint ?? adaptive.tint ?? tuning.denseTint)
-        : (adaptive.tint ?? tuning.tint))
-    : fallbackStartTint
-  const adaptiveTargetTint = adaptive?.enabled
-    ? (dense || isLegible
-        ? (adaptive.denseTint ?? adaptive.tint ?? tuning.denseTint)
-        : (adaptive.tint ?? tuning.tint))
-    : fallbackTargetTint
   const startCssTint = startTintVars.isDense
     ? (startTintVars.denseTint ?? startTintVars.tint)
     : startTintVars.tint
@@ -312,12 +306,8 @@ export function applyMorphBackdropLayers({
     ? (panelTintVars.denseTint ?? panelTintVars.tint)
     : panelTintVars.tint
 
-  const startTint = !bareSource
-    ? (startCssTint ?? adaptiveStartTint)
-    : (adaptive?.enabled ? (adaptive.tint ?? tuning.tint) : (panelTintVars.tint ?? tuning.tint))
-  const targetTint = adaptive?.enabled
-    ? adaptiveTargetTint
-    : (panelCssTint ?? adaptiveTargetTint)
+  const startTint = !bareSource ? (startCssTint ?? fallbackStartTint) : (panelTintVars.tint ?? tuning.tint)
+  const targetTint = panelCssTint ?? fallbackTargetTint
   const activeTint = startTint + (targetTint - startTint) * geometry.styleMix
 
   const themeDefaultScale = resolvedTheme === 'dark' ? (tuning.preset === 'prism' ? 1.55 : 1.6) : 1
@@ -326,7 +316,9 @@ export function applyMorphBackdropLayers({
   const activeTintScale = startScale + (targetScale - startScale) * geometry.styleMix
 
   morphGlassEl.style.setProperty('--g-tint-scale', `${activeTintScale.toFixed(4)}`)
-  morphGlassEl.style.background = `color-mix(in srgb, var(--g-neutral) min(100%, calc(${activeTint.toFixed(2)}% * var(--g-tint-scale, ${activeTintScale.toFixed(4)}))), transparent)`
+  morphGlassEl.style.background = legibility
+    ? formatRgbaCss(legibility.veilRgba)
+    : `color-mix(in srgb, var(--g-neutral) min(100%, calc(${activeTint.toFixed(2)}% * var(--g-tint-scale, ${activeTintScale.toFixed(4)}))), transparent)`
 
   if (contourPath && morphBackdropEl && hasRefractHandle && onUpdateRefractFrame) {
     // Route B3: place backdrop-filter: url(#svg) on an unclipped sibling while SVG self-masks to shapeAlpha,
@@ -337,11 +329,12 @@ export function applyMorphBackdropLayers({
       bounds: backdropBounds,
       field: geometry.field,
       blurSigma: activeBlur,
-      saturate: tuning.saturate,
+      saturate: tuning.saturate * (legibility?.saturationScale ?? 1),
+      scaleMultiplier: refractScaleMultiplier * (legibility?.refractionScale ?? 1),
       brightness: veilOptics.brightness,
       contrast: veilOptics.contrast,
       contrastFirst: veilOptics.contrastFirst,
-    })
+    }, legibility)
     morphBackdropEl.style.visibility = 'visible'
     morphBackdropEl.style.transform = `translate3d(${backdropBounds.x}px, ${backdropBounds.y}px, 0)`
     morphBackdropEl.style.width = `${backdropBounds.width}px`
@@ -355,11 +348,14 @@ export function applyMorphBackdropLayers({
   } else {
     if (morphBackdropEl) morphBackdropEl.style.visibility = 'hidden'
     const veilVar = dense ? '--g-veil-float' : '--g-veil-plate'
-    const bf = `blur(${activeBlur.toFixed(2)}px) saturate(${tuning.saturate}) var(${veilVar})`
+    const correction = legibility ? ` ${buildBackdropFilterCss({ blurPx: 0, correction: legibility.fallbackVeil }).replace('none', '')}` : ''
+    const bf = `blur(${activeBlur.toFixed(2)}px) saturate(${tuning.saturate * (legibility?.saturationScale ?? 1)}) var(${veilVar})${correction}`
     morphGlassEl.style.backdropFilter = bf
     morphGlassEl.style.setProperty('-webkit-backdrop-filter', bf)
   }
 }
+
+const edgeMaterial = {} as OpticalMaterial
 
 /** Updates WebGL2/2D perimeter specular highlight and shadow overlay canvas for the current morph frame. */
 export function updateMorphOverlayCanvas(
@@ -371,6 +367,7 @@ export function updateMorphOverlayCanvas(
   material: OpticalMaterial,
   glassAlpha: number,
   blurBumpPx: number,
+  legibility: Readonly<LegibilityParams> | null,
 ): void {
   if (!overlayCanvasEl) return
   if (glassAlpha <= 0.005) {
@@ -389,7 +386,8 @@ export function updateMorphOverlayCanvas(
     dpr: typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1,
     theme: resolvedTheme,
     field: shiftField(geometry.field, bounds.x, bounds.y),
-    material,
+    // 静态宿主的控制器对边缘做同样的补偿，交接时细线与高光不跳
+    material: legibility ? compensateLegibilityEdges(material, legibility, edgeMaterial) : material,
     opacity: glassAlpha,
     blurBumpPx,
   })
