@@ -2,7 +2,7 @@ import { useQuery } from '@apollo/client/react'
 import { AnimatePresence } from 'motion/react'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
-import { MotionGlass } from '@/components/glass/Glass'
+import { GlassScroll, MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import type { LibraryManga } from '@/features/library/queries'
@@ -29,36 +29,38 @@ export function SameTitleDialog({ target, matches, onAdd, onClose, onMigrated }:
       <MotionGlass
         dense
         {...pop}
-        className="no-scrollbar relative flex max-h-[calc(100dvh-32px)] w-[min(480px,100%)] flex-col gap-5 overflow-y-auto rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
+        className="relative flex max-h-[calc(100dvh-32px)] w-[min(480px,100%)] flex-col rounded-[26px] [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
       >
-        <div className="flex flex-col gap-1.5">
-          <h2 className="m-0 text-lg font-bold">{t('manga.sameTitle.title')}</h2>
-          <p className="m-0 text-sm leading-relaxed text-muted">
-            {t('manga.sameTitle.body', { title: target.title, source: target.source.displayName })}
-          </p>
-        </div>
+        <GlassScroll className="flex flex-col gap-5 p-6">
+          <div className="flex flex-col gap-1.5">
+            <h2 className="m-0 text-lg font-bold">{t('manga.sameTitle.title')}</h2>
+            <p className="m-0 text-sm leading-relaxed text-muted">
+              {t('manga.sameTitle.body', { title: target.title, source: target.source.displayName })}
+            </p>
+          </div>
 
-        <ul className="m-0 flex list-none flex-col gap-3 p-0">
-          {matches.map((m) => (
-            <li key={m.id} data-sfw={sfwAttr(m.source?.displayName)} className="flex items-center gap-3.5">
-              <span className="cv w-12 flex-none rounded-md">
-                <CoverImg src={m.thumbnailUrl} />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate font-semibold">{m.title}</span>
-                <span className="truncate text-[13px] text-muted">{[m.source?.displayName, m.unreadCount ? t('manga.sameTitle.unread', { n: m.unreadCount }) : t('manga.sameTitle.finished')].filter(Boolean).join(' · ')}</span>
-              </span>
-              <button type="button" className="solid min-h-10 flex-none" onClick={() => setFrom(m.id)}>
-                {t('manga.sameTitle.migrate')}
-              </button>
-            </li>
-          ))}
-        </ul>
+          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+            {matches.map((m) => (
+              <li key={m.id} data-sfw={sfwAttr(m.source?.displayName)} className="flex items-center gap-3.5">
+                <span className="cv w-12 flex-none rounded-md">
+                  <CoverImg src={m.thumbnailUrl} />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-semibold">{m.title}</span>
+                  <span className="truncate text-[13px] text-muted">{[m.source?.displayName, m.unreadCount ? t('manga.sameTitle.unread', { n: m.unreadCount }) : t('manga.sameTitle.finished')].filter(Boolean).join(' · ')}</span>
+                </span>
+                <button type="button" className="solid min-h-10 flex-none" onClick={() => setFrom(m.id)}>
+                  {t('manga.sameTitle.migrate')}
+                </button>
+              </li>
+            ))}
+          </ul>
 
-        <div className="flex flex-wrap items-center justify-end gap-2.5">
-          <button type="button" className="gbtn rounded-full hover:bg-hover" onClick={onClose}>{t('common.cancel')}</button>
-          <button type="button" className="gbtn rounded-full hover:bg-hover" onClick={onAdd}>{t('manga.sameTitle.onlyAdd')}</button>
-        </div>
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <button type="button" className="gbtn rounded-full hover:bg-hover" onClick={onClose}>{t('common.cancel')}</button>
+            <button type="button" className="gbtn rounded-full hover:bg-hover" onClick={onAdd}>{t('manga.sameTitle.onlyAdd')}</button>
+          </div>
+        </GlassScroll>
       </MotionGlass>
     </Dialog>
   )

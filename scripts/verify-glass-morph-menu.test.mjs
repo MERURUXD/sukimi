@@ -883,7 +883,7 @@ test('Route B3 MorphRefractFilter helpers & Popover integration contracts', () =
       glassSrc.includes('GLASS_REFRACT_SCALE_MULTIPLIER'),
     'Static Glass, Popover, and ContextMenu must share GLASS_REFRACT_SCALE_MULTIPLIER so refraction amplitude stays identical',
   )
-  assert.ok(popoverSrc.includes('refractHandle.updateFrame'), 'Popover must drive MorphRefractFilter per frame')
+  assert.match(popoverSrc, /refractHandle\??\.updateFrame\(/, 'Popover must drive MorphRefractFilter per frame')
   assert.ok(popoverSrc.includes('interpolateCssGlassSurfaceToMaterial'), 'Popover must derive overlay styles from live computed CSS')
   const glyphHostIdx = popoverSrc.indexOf('ref={glyphHostRef}')
   const morphSurfaceIdx = popoverSrc.indexOf('ref={morphSurfaceRef}')

@@ -250,7 +250,8 @@ export function Dropdown<T extends string | number>({
       align={align}
       fitViewport={options.length > 8}
       rootClassName={cn('max-w-full', className)}
-      className="glass-legible min-w-full p-1.5"
+      className="glass-legible min-w-full"
+      bodyClassName="p-1.5"
       trigger={
         <button
           ref={trigger}

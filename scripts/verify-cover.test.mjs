@@ -32,6 +32,7 @@ function cover({ isDemo = false, isDevLab = false, recentlyApplied = false } = {
         refreshAccessToken: () => assert.fail('首屏渲染不应另行续期'),
       }
       if (name === '@/lib/coverVisibility') return { onCoverVisibility() {} }
+      if (name === '@/components/glass/backdrop') return { useBackdropImage() {} }
       if (name === './CoverSkeleton') return { CoverSkeleton: () => createElement('span', { 'data-placeholder': true }) }
       return require(name)
     },
@@ -177,7 +178,7 @@ test('CoverFlow 与 coverPalette 在登录校验完成前不触发未鉴权图�
     require: name => {
       if (name === '@/api/auth') return { useAuthChecking: () => checking }
       if (name === '@/lib/cn') return { cn: (...xs) => xs.filter(Boolean).join(' ') }
-      if (name === '@/lib/coverColor') return { NEUTRAL_SWATCHES: [{ rgb: [0.2, 0.2, 0.22], weight: 1 }] }
+      if (name === '@/components/glass/backdrop') return { registerBackdrop: () => () => {}, swatchTelemetry: () => null }
       if (name === '@/lib/palette') return { extractPalette: () => [] }
       return require(name)
     },
@@ -286,6 +287,7 @@ test('CoverImg 刚写好 Cookie 时若仍收到迟到的 401/错误，重试一�
         refreshAccessToken: () => { refreshCalled++; return Promise.resolve('unused') },
       }
       if (name === '@/lib/coverVisibility') return { onCoverVisibility() {} }
+      if (name === '@/components/glass/backdrop') return { useBackdropImage() {} }
       if (name === './CoverSkeleton') return { CoverSkeleton: () => createElement('span', { 'data-placeholder': true }) }
       return require(name)
     },

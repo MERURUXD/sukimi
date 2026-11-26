@@ -28,6 +28,8 @@
   --accent-soft: rgba(0, 0, 0, 0.06);
   --g-bg: rgba(255, 255, 255, 0.42);
   --g-bg-hi: rgba(255, 255, 255, 0.72);
+  /* 叠在 --g-bg 上正好得到 --g-bg-hi 的白：(0.72 - 0.42) / (1 - 0.42) */
+  --g-lift: rgba(255, 255, 255, 0.52);
   --g-line: rgba(255, 255, 255, 0.85);
   --g-glow: rgba(255, 255, 255, 0.45);
   /* --g-bg 叠在页面底色上的不透明结果，给纯色页面上的 flat 控件用 */
@@ -61,6 +63,7 @@
   --accent-soft: rgba(255, 255, 255, 0.1);
   --g-bg: rgba(255, 255, 255, 0.09);
   --g-bg-hi: rgba(255, 255, 255, 0.18);
+  --g-lift: rgba(255, 255, 255, 0.1);
   --g-line: rgba(255, 255, 255, 0.26);
   --g-glow: rgba(255, 255, 255, 0.09);
   --g-flat: color-mix(in srgb, #fff 9%, var(--bg));
@@ -359,6 +362,16 @@
     box-shadow: var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.18));
   }
 
+  /* Sessile 控制器绘制底色与边缘：宿主只保留采样用的 backdrop-filter（内联写入） */
+  html:root .glass[data-sessile] {
+    transition: none;
+    border-color: transparent;
+    box-shadow: var(--g-drop, 0 10px 30px rgba(0, 0, 0, 0.22));
+  }
+  html:root .glass[data-sessile][data-refract] {
+    box-shadow: var(--g-veil-outer-shadow);
+  }
+
   /* Morph 过渡期暂时由兄弟轮廓层承接玻璃外观，不覆盖 React 写入的内联 backdropFilter（url(#lens)） */
   .glass[data-morphing='true'] {
     transition: none !important;
@@ -367,6 +380,10 @@
     backdrop-filter: none !important;
     border-color: transparent !important;
     box-shadow: none !important;
+  }
+  /* 静态玻璃的边缘层画在宿主盒上，形变期间由形变层画边缘 */
+  .glass[data-morphing='true'] > [data-sessile-layer] {
+    visibility: hidden !important;
   }
 
   /* 设置正文里的静态控件（输入框、分段、按钮）：普通表面，不挂模糊和折射，保留圆角与轻描边 */
@@ -388,7 +405,7 @@
     color: var(--text);
     transition: background-color 0.15s;
   }
-  .gbtn:hover {
+  .gbtn:not(.glass):hover {
     background: var(--g-bg-hi);
   }
   .gicon {
@@ -401,13 +418,30 @@
     color: var(--text);
     transition: background-color 0.15s;
   }
-  .gicon:hover {
+  .gicon:not(.glass):hover {
     background: var(--g-bg-hi);
   }
-  /* 深色主题按钮的图标悬停时已经在发光，底色只提亮一半，免得整颗按钮变成一片灰；
-     权重压到和 .gicon:hover 一样，「通透」底色压住图标悬停时它也照样被压住，和旁边的按钮一致 */
-  :where(.theme-btn[data-dark]) .gicon:hover {
-    background: color-mix(in srgb, var(--g-bg) 50%, var(--g-bg-hi));
+  /*
+   * 玻璃按钮的悬停提亮是叠在底色上的一层白，不改宿主的 background：底色由 Sessile 内联写入，
+   * 读静息材质时也不能把悬停色当成底色。折射档的「通透」底色原本就压住悬停，保持不变。
+   */
+  .glass:is(.gbtn, .gicon):not([data-refract])::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--g-lift);
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+  }
+  .glass:is(.gbtn, .gicon):not([data-refract]):hover::before {
+    opacity: 1;
+  }
+  /* 深色主题按钮的图标悬停时已经在发光，底色只提亮一半，免得整颗按钮变成一片灰 */
+  :where(.theme-btn[data-dark]) .glass.gicon:not([data-refract]):hover::before {
+    opacity: 0.5;
   }
   /* 精确指针按需显示次要操作；保留占位防止行宽跳动，触屏与键盘仍可直接操作。 */
   @media (hover: hover) and (pointer: fine) {

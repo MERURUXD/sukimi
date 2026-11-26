@@ -1,5 +1,5 @@
 import { CloudFog, Droplet, RotateCcw, Square } from 'lucide-react'
-import { supportsRefract } from '@/components/glass/refract'
+import { supportsSvgBackdropRefraction } from '@sessile/dom'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
 import { useGlassTuning, type GlassPreset } from '@/design/glassTuning'
@@ -18,7 +18,7 @@ export function AppearanceTab() {
   const glassTheme = useGlassTuning((s) => s.theme)
   const glassPreset = useGlassTuning((s) => s.preset)
   const setGlassPreset = useGlassTuning((s) => s.setPreset)
-  const canRefract = supportsRefract()
+  const canRefract = supportsSvgBackdropRefraction()
 
   return (
     <>

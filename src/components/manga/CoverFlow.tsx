@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuthChecking } from '@/api/auth'
 import { cn } from '@/lib/cn'
-import { NEUTRAL_SWATCHES } from '@/lib/coverColor'
+import { registerBackdrop, swatchTelemetry } from '@/components/glass/backdrop'
 import { extractPalette, type Rgb, type Swatch } from '@/lib/palette'
 
 /**
@@ -12,6 +12,7 @@ import { extractPalette, type Rgb, type Swatch } from '@/lib/palette'
  * 画面全是低频色块，半分辨率绘制，再加一点抖动消除 8 位色深下的色带。
  * 不支持 WebGL、上下文丢失或封面像素无法读取时显示 fallback（静态模糊封面）。
  * 开启 pull 时，光标周围的背景被吸向光标、移动时顺着带走一点，移动时最明显、停下后渐弱。
+ * 取到的色板登记为玻璃的背景统计（见 glass/backdrop），浮在上面的玻璃据此保证文字可读。
  */
 export function CoverFlow({
   src,
@@ -20,7 +21,6 @@ export function CoverFlow({
   speed = 1,
   still = false,
   pull = false,
-  onPaletteChange,
 }: {
   src?: string | null
   className?: string
@@ -31,19 +31,22 @@ export function CoverFlow({
   still?: boolean
   /** 光标周围的背景被吸向光标（首页舞台）；触控和减弱动态效果时不做 */
   pull?: boolean
-  /** 色板提取或回退时的回调 */
-  onPaletteChange?: (swatches: Swatch[]) => void
 }) {
   const host = useRef<HTMLDivElement>(null)
   const flow = useRef<Flow | null>(null)
   const [failed, setFailed] = useState(false)
   const [ready, setReady] = useState(false)
   const checking = useAuthChecking()
-  const onPaletteRef = useRef(onPaletteChange)
-
-  useEffect(() => {
-    onPaletteRef.current = onPaletteChange
-  }, [onPaletteChange])
+  const unregister = useRef<(() => void) | null>(null)
+  // 色板为 null 表示退回静态背景：画布不再显示，撤下登记
+  const publish = useCallback((swatches: Swatch[] | null) => {
+    unregister.current?.()
+    unregister.current = null
+    const el = host.current
+    const telemetry = swatches && swatchTelemetry(swatches)
+    if (el && telemetry) unregister.current = registerBackdrop(el, () => telemetry)
+  }, [])
+  useEffect(() => () => unregister.current?.(), [])
 
   useEffect(() => {
     const el = host.current
@@ -53,13 +56,13 @@ export function CoverFlow({
       el,
       () => {
         setFailed(true)
-        onPaletteRef.current?.(NEUTRAL_SWATCHES)
+        publish(null)
       },
-      (swatches) => onPaletteRef.current?.(swatches),
+      publish,
     )
     if (!f) {
       setFailed(true)
-      onPaletteRef.current?.(NEUTRAL_SWATCHES)
+      publish(null)
       return
     }
     flow.current = f
@@ -67,7 +70,7 @@ export function CoverFlow({
       f.dispose()
       flow.current = null
     }
-  }, [])
+  }, [publish])
 
   useEffect(() => {
     flow.current?.motion(speed, still)
@@ -79,7 +82,7 @@ export function CoverFlow({
 
   useEffect(() => {
     if (!src) {
-      onPaletteRef.current?.(NEUTRAL_SWATCHES)
+      publish(null)
       return
     }
     if (failed || checking) return
@@ -94,7 +97,7 @@ export function CoverFlow({
         // 封面跨域时读取像素会抛错，退回静态背景
         if (!flow.current.show(img)) {
           setFailed(true)
-          onPaletteRef.current?.(NEUTRAL_SWATCHES)
+          publish(null)
         } else {
           setReady(true)
         }
@@ -102,12 +105,12 @@ export function CoverFlow({
       .catch(() => {
         /* 封面加载失败就保留上一张的颜色，没有上一张则停在底色 */
         if (!alive) return
-        onPaletteRef.current?.(NEUTRAL_SWATCHES)
+        publish(null)
       })
     return () => {
       alive = false
     }
-  }, [src, failed, checking])
+  }, [src, failed, checking, publish])
 
   if (failed) return checking ? null : fallback
   return (

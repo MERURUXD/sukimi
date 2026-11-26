@@ -21,7 +21,7 @@ import {
   type IGlassOverlayRenderer,
   type Rect,
 } from '@sessile/core'
-import { cancelAnimationFrameSafe, scheduleAnimationFrame } from '@sessile/dom'
+import { cancelAnimationFrameSafe, scheduleAnimationFrame, supportsSvgBackdropRefraction } from '@sessile/dom'
 import {
   POPOVER_MORPH_DEFAULTS,
   createPopoverMorphController,
@@ -31,7 +31,8 @@ import {
   type PopoverMotionState,
   type PopoverPanelConfig,
 } from '@sessile/presets'
-import { MotionGlass, useAdaptiveGlass } from '@/components/glass/Glass'
+import { MotionGlass } from '@/components/glass/Glass'
+import { borderBoxSize, getGlassSurface } from '@/components/glass/surface'
 import {
   applyMorphBackdropLayers,
   applyPanelMorphFrame,
@@ -46,7 +47,6 @@ import {
   type ElementTintVars,
 } from '@/components/glass/morph/hybridSurface'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
-import { supportsRefract } from '@/components/glass/refract'
 import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
 import { still } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
@@ -228,8 +228,7 @@ function LiteContextMenuPanel({
     const sync = () => {
       const panelEl = panelRef.current
       if (!panelEl) return
-      const w = panelEl.offsetWidth
-      const h = panelEl.offsetHeight
+      const { width: w, height: h } = borderBoxSize(panelEl)
       const card = resolvePointCardRect(at, w, h)
       const next: PlacedCard = { left: card.x, top: card.y, width: w, height: h }
       setPos((prev) => (sameCard(prev, next) ? prev : next))
@@ -310,8 +309,7 @@ function PointMorphMenuPanel({
   const [isPresent, safeToRemove] = usePresence()
   const glassMode = useAppearance((s) => s.glass)
   const tuning = useGlassTuning()
-  const adaptive = useAdaptiveGlass()
-  const refractSupported = supportsRefract()
+  const refractSupported = supportsSvgBackdropRefraction()
   const morphFilterId = `ctxMorphRefract${useId().replace(/[:«»]/g, '')}`
 
   const panelRef = useRef<HTMLElement>(null)
@@ -339,13 +337,11 @@ function PointMorphMenuPanel({
   const latestVisualRef = useRef({
     glassMode,
     tuning,
-    adaptive,
     isLegible,
   })
   latestVisualRef.current = {
     glassMode,
     tuning,
-    adaptive,
     isLegible,
   }
 
@@ -361,8 +357,7 @@ function PointMorphMenuPanel({
     const panelEl = panelRef.current
     if (!panelEl) return null
 
-    const pw = panelEl.offsetWidth
-    const ph = panelEl.offsetHeight
+    const { width: pw, height: ph } = borderBoxSize(panelEl)
     const measuredRadius = parseFloat(getComputedStyle(panelEl).borderTopLeftRadius)
     radiusRef.current ??= Number.isFinite(measuredRadius) && measuredRadius > 0
       ? measuredRadius
@@ -474,7 +469,7 @@ function PointMorphMenuPanel({
       return
     }
 
-    const { glassMode: gMode, tuning: gTuning, adaptive: gAdaptive, isLegible: legible } = latestVisualRef.current
+    const { glassMode: gMode, tuning: gTuning, isLegible: legible } = latestVisualRef.current
 
     const anchorConfig: PopoverAnchorConfig = {
       anchorRect: anchors.anchorRect,
@@ -503,6 +498,7 @@ function PointMorphMenuPanel({
     const bounds = anchors.transitionBounds
     const glassAlpha = mState.phase === 'closing' ? mState.contentOpacity : clamp(mState.settled / 0.2, 0, 1)
     const refractHandle = morphRefractHandleRef.current
+    const legibility = getGlassSurface(panelEl)?.getLegibilityParams() ?? null
 
     applyMorphBackdropLayers({
       morphGlassEl,
@@ -512,7 +508,6 @@ function PointMorphMenuPanel({
       hasRefractHandle: Boolean(refractHandle),
       glassMode: gMode,
       tuning: gTuning,
-      adaptive: gAdaptive,
       dense: true,
       isLegible: legible,
       resolvedTheme,
@@ -525,8 +520,11 @@ function PointMorphMenuPanel({
       panelTintVars: anchors.panelTintVars,
       startVeil: anchors.startVeil,
       panelSurface: anchors.panelSurface,
-      onUpdateRefractFrame: (frame) => {
-        if (refractHandle) refractHandle.updateFrame(frame)
+      legibility,
+      refractScaleMultiplier: GLASS_REFRACT_SCALE_MULTIPLIER,
+      onUpdateRefractFrame: (frame, legibility) => {
+        refractHandle?.updateFrame(frame)
+        refractHandle?.updateLegibility(legibility)
       },
     })
 
@@ -545,6 +543,7 @@ function PointMorphMenuPanel({
       material,
       glassAlpha,
       gTuning.preset === 'prism' ? mState.blurBumpPx : 0,
+      legibility,
     )
   }
 
@@ -552,7 +551,8 @@ function PointMorphMenuPanel({
     const controller = createPopoverMorphController({ reducedMotion: false })
     motionRef.current = controller
 
-    const renderer = createGlassOverlayRenderer()
+    // 和静态玻璃共用一个 WebGL2 上下文，反复打开也不会挤掉其他上下文
+    const renderer = createGlassOverlayRenderer({ context: 'shared' })
     overlayRendererRef.current = renderer
     if (overlayCanvasRef.current) {
       renderer.mount(overlayCanvasRef.current)
@@ -574,7 +574,7 @@ function PointMorphMenuPanel({
       applyFrameToDom(motionRef.current.getState())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [glassMode, tuning, adaptive, className])
+  }, [glassMode, tuning, className])
 
   // 菜单内容尺寸变化时更新 `belowPoint` 落点
   useLayoutEffect(() => {
@@ -583,13 +583,8 @@ function PointMorphMenuPanel({
           const panelEl = panelRef.current
           if (!panelEl) return
           const cur = anchorsRef.current?.restingCardRect
-          if (
-            cur &&
-            panelEl.offsetWidth === cur.width &&
-            panelEl.offsetHeight === cur.height
-          ) {
-            return
-          }
+          const size = borderBoxSize(panelEl)
+          if (cur && size.width === cur.width && size.height === cur.height) return
           const measured = measurePointAnchors(atRef.current)
           if (measured && motionRef.current) applyFrameToDom(motionRef.current.getState())
         })

@@ -5,6 +5,7 @@ export type { Rgb, Swatch }
 
 export const NEUTRAL: Rgb = [0.2, 0.2, 0.22]
 
+/** 读不了封面时的中性灰色板；按引用比较即可知道没有取到真实颜色 */
 export const NEUTRAL_SWATCHES: Swatch[] = Array.from({ length: 4 }, () => ({
   rgb: NEUTRAL,
   weight: 0.25,
@@ -16,7 +17,7 @@ const paletteCache = new Map<string, Promise<Swatch[]>>()
 const chroma = (rgb: Rgb) => Math.max(...rgb) - Math.min(...rgb)
 
 /**
- * 封面的色板（0–1 的 RGB 列表，包含权重），给自适应玻璃色调和背景渐变用。
+ * 封面的色板（0–1 的 RGB 列表，包含权重），给封面主色（coverColor）用。
  * 把封面画到小画布上提取主色。按图片地址缓存 Promise，确保同张封面只加载和提取一次。
  * 读不了（跨域、加载失败、URL 为空）时退回中性灰色板。
  */

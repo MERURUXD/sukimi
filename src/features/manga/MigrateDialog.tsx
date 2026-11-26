@@ -15,7 +15,7 @@ import { useNsfwActions, useNsfwStore } from '@/features/nsfw/useNsfw'
 import { useShelf } from '@/features/shelf/useShelf'
 import { copyTracks, trackCopyPlan } from '@/features/tracking/migrateTracks'
 import { syncTrackProgress } from '@/features/tracking/sync'
-import { MotionGlass } from '@/components/glass/Glass'
+import { GlassScroll, MotionGlass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { Seg } from '@/components/ui/Seg'
@@ -222,77 +222,79 @@ export function MigrateDialog({ from, fromChapters, target, onClose, onDone }: {
       <MotionGlass
         dense
         {...pop}
-        className="no-scrollbar relative flex max-h-[calc(100dvh-32px)] w-[min(480px,100%)] flex-col gap-5 overflow-y-auto rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
+        className="relative flex max-h-[calc(100dvh-32px)] w-[min(480px,100%)] flex-col rounded-[26px] [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
       >
-        <div className="flex gap-4" data-sfw={sfwAttr(target.source.displayName)}>
-          <span className="cv w-[72px] flex-none rounded-lg">
-            <CoverImg src={target.thumbnailUrl} />
-          </span>
-          <span className="flex min-w-0 flex-col gap-1">
-            <span className="text-xs font-bold tracking-[.08em] text-muted">{t('migrate.toHeading', { source: target.source.displayName })}</span>
-            <span className="line-clamp-2 text-lg leading-snug font-bold">{target.title}</span>
-            {target.author && <span className="truncate text-sm text-muted">{target.author}</span>}
-            <Link to={`/manga/${target.id}`} className="text-sm font-semibold text-text">{t('migrate.viewDetails')}</Link>
-          </span>
-        </div>
-
-        <div className="text-sm leading-relaxed text-muted" role="status">
-          {info.status === 'loading' && (
-            <span className="inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />{t('migrate.fetching')}</span>
-          )}
-          {info.status === 'error' && (
-            <span>
-              {t('migrate.fetchFailed', { reason: info.message })}
-              <button type="button" className="ml-2 font-semibold text-text" onClick={() => { setInfo({ status: 'loading' }); setAttempt((n) => n + 1) }}>{t('common.retry')}</button>
+        <GlassScroll className="flex flex-col gap-5 p-6">
+          <div className="flex gap-4" data-sfw={sfwAttr(target.source.displayName)}>
+            <span className="cv w-[72px] flex-none rounded-lg">
+              <CoverImg src={target.thumbnailUrl} />
             </span>
-          )}
-          {info.status === 'ready' && plan && (
-            <span>
-              {t('migrate.counts', { to: info.chapters.length, from: fromChapters.length, matched: plan.matched })}
-              {readCount ? t('migrate.readNote', { n: readCount }) : t('migrate.noRead')}
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="text-xs font-bold tracking-[.08em] text-muted">{t('migrate.toHeading', { source: target.source.displayName })}</span>
+              <span className="line-clamp-2 text-lg leading-snug font-bold">{target.title}</span>
+              {target.author && <span className="truncate text-sm text-muted">{target.author}</span>}
+              <Link to={`/manga/${target.id}`} className="text-sm font-semibold text-text">{t('migrate.viewDetails')}</Link>
             </span>
-          )}
-        </div>
+          </div>
 
-        <div className="flex flex-col gap-3.5">
-          <Option label={t('migrate.opt.read')} hint={plan ? t('migrate.opt.readHint', { n: plan.read.length }) : undefined} on={read} onChange={setRead} />
-          <Option label={t('migrate.opt.bookmarks')} hint={plan ? t('migrate.opt.bookmarksHint', { n: plan.bookmarked.length }) : undefined} on={bookmarks} onChange={setBookmarks} />
-          <Option label={t('migrate.opt.categories')} hint={cats.length ? t('migrate.opt.catsHint', { n: cats.length }) : t('migrate.opt.defaultCat')} on={categories} onChange={setCategories} disabled={!cats.length} />
-          {trackCount > 0 && <Option label={t('migrate.opt.tracks')} hint={t('migrate.opt.tracksHint', { n: trackCount })} on={tracks} onChange={setTracks} />}
-          {hasLater && <Option label={t('home.section.later')} hint={t('migrate.opt.laterHint')} on={later} onChange={setLater} />}
-          {hasFav && <Option label={t('home.section.favorite')} on={fav} onChange={setFav} />}
-        </div>
+          <div className="text-sm leading-relaxed text-muted" role="status">
+            {info.status === 'loading' && (
+              <span className="inline-flex items-center gap-1.5"><Loader2 className="size-4 animate-spin" />{t('migrate.fetching')}</span>
+            )}
+            {info.status === 'error' && (
+              <span>
+                {t('migrate.fetchFailed', { reason: info.message })}
+                <button type="button" className="ml-2 font-semibold text-text" onClick={() => { setInfo({ status: 'loading' }); setAttempt((n) => n + 1) }}>{t('common.retry')}</button>
+              </span>
+            )}
+            {info.status === 'ready' && plan && (
+              <span>
+                {t('migrate.counts', { to: info.chapters.length, from: fromChapters.length, matched: plan.matched })}
+                {readCount ? t('migrate.readNote', { n: readCount }) : t('migrate.noRead')}
+              </span>
+            )}
+          </div>
 
-        <div className="flex flex-col gap-3">
-          <Seg
-            glass={false}
-            label={t('migrate.opt.old')}
-            value={keepOld ? 'keep' : 'move'}
-            onChange={(v) => setKeepOld(v === 'keep')}
-            items={[
-              { value: 'move', label: t('migrate.opt.move') },
-              { value: 'keep', label: t('migrate.opt.keep') },
-            ]}
-            className="grid grid-cols-2 [&>button]:justify-center"
-          />
-          {!keepOld && downloaded.length > 0 && (
-            <Option label={t('migrate.opt.delDl')} hint={t('migrate.opt.delDlHint', { n: downloaded.length })} on={deleteDownloads} onChange={setDeleteDownloads} />
-          )}
-        </div>
+          <div className="flex flex-col gap-3.5">
+            <Option label={t('migrate.opt.read')} hint={plan ? t('migrate.opt.readHint', { n: plan.read.length }) : undefined} on={read} onChange={setRead} />
+            <Option label={t('migrate.opt.bookmarks')} hint={plan ? t('migrate.opt.bookmarksHint', { n: plan.bookmarked.length }) : undefined} on={bookmarks} onChange={setBookmarks} />
+            <Option label={t('migrate.opt.categories')} hint={cats.length ? t('migrate.opt.catsHint', { n: cats.length }) : t('migrate.opt.defaultCat')} on={categories} onChange={setCategories} disabled={!cats.length} />
+            {trackCount > 0 && <Option label={t('migrate.opt.tracks')} hint={t('migrate.opt.tracksHint', { n: trackCount })} on={tracks} onChange={setTracks} />}
+            {hasLater && <Option label={t('home.section.later')} hint={t('migrate.opt.laterHint')} on={later} onChange={setLater} />}
+            {hasFav && <Option label={t('home.section.favorite')} on={fav} onChange={setFav} />}
+          </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2.5">
-          {summary && summary.length > 0 && !step && <span className="mr-auto text-xs text-muted">{summary.join(' · ')}</span>}
-          {step && (
-            <span className="mr-auto inline-flex items-center gap-1.5 text-sm text-muted" role="status">
-              <Loader2 className="size-4 animate-spin" />
-              {step}…
-            </span>
-          )}
-          <button type="button" className="gbtn rounded-full hover:bg-hover" disabled={!!step} onClick={onClose}>{t('common.cancel')}</button>
-          <button type="button" className="solid min-h-11" disabled={!plan || !marksReady || !!step} onClick={() => void run()}>
-            {keepOld ? t('migrate.copy') : t('migrate.go')}
-          </button>
-        </div>
+          <div className="flex flex-col gap-3">
+            <Seg
+              glass={false}
+              label={t('migrate.opt.old')}
+              value={keepOld ? 'keep' : 'move'}
+              onChange={(v) => setKeepOld(v === 'keep')}
+              items={[
+                { value: 'move', label: t('migrate.opt.move') },
+                { value: 'keep', label: t('migrate.opt.keep') },
+              ]}
+              className="grid grid-cols-2 [&>button]:justify-center"
+            />
+            {!keepOld && downloaded.length > 0 && (
+              <Option label={t('migrate.opt.delDl')} hint={t('migrate.opt.delDlHint', { n: downloaded.length })} on={deleteDownloads} onChange={setDeleteDownloads} />
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            {summary && summary.length > 0 && !step && <span className="mr-auto text-xs text-muted">{summary.join(' · ')}</span>}
+            {step && (
+              <span className="mr-auto inline-flex items-center gap-1.5 text-sm text-muted" role="status">
+                <Loader2 className="size-4 animate-spin" />
+                {step}…
+              </span>
+            )}
+            <button type="button" className="gbtn rounded-full hover:bg-hover" disabled={!!step} onClick={onClose}>{t('common.cancel')}</button>
+            <button type="button" className="solid min-h-11" disabled={!plan || !marksReady || !!step} onClick={() => void run()}>
+              {keepOld ? t('migrate.copy') : t('migrate.go')}
+            </button>
+          </div>
+        </GlassScroll>
       </MotionGlass>
     </Dialog>
   )

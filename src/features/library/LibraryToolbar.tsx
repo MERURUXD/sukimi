@@ -344,7 +344,8 @@ export function LibraryToolbar({
           label={t('library.toolbar.filterSort')}
           fitViewport
           rootClassName="ml-auto"
-          className="glass-legible flex w-[360px] max-w-[calc(100vw-32px)] flex-col gap-4 px-4 py-4"
+          className="glass-legible w-[360px] max-w-[calc(100vw-32px)]"
+          bodyClassName="flex flex-col gap-4 px-4 py-4"
           trigger={button}
         >
           {content}

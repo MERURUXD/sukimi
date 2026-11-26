@@ -12,10 +12,12 @@ import {
   type RefractFilterController,
   type RefractFilterFrame,
 } from '@sessile/dom'
+import type { LegibilityParams } from '@sessile/core'
 import { useImperativeHandle, useLayoutEffect, useRef, type Ref } from 'react'
 
 export interface MorphRefractFilterHandle {
   updateFrame: (frame: RefractFilterFrame) => void
+  updateLegibility: (params: Readonly<LegibilityParams> | null) => void
 }
 
 export function MorphRefractFilter({
@@ -58,7 +60,14 @@ export function MorphRefractFilter({
     controllerRef.current?.updateConfig(configRef.current)
   }, [bezel, strength, dispersion, scaleMultiplier, profile, ior, caustics])
 
-  useImperativeHandle(ref, () => ({ updateFrame: (frame) => controllerRef.current?.updateFrame(frame) }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      updateFrame: (frame) => controllerRef.current?.updateFrame(frame),
+      updateLegibility: (params) => controllerRef.current?.updateLegibility(params as LegibilityParams | null),
+    }),
+    [],
+  )
 
   return null
 }

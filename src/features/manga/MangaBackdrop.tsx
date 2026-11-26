@@ -1,9 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
+import { BlurredCover } from '@/components/manga/BlurredCover'
 import { CoverFlow } from '@/components/manga/CoverFlow'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
-import { notifyCoverPalette } from '@/design/useAdaptiveHeroTint'
-import type { Swatch } from '@/design/adaptiveTone'
 
 // 背景越过大图区再延伸这么多，在章节标题与前几行背后慢慢淡出，而不是在区块底边整齐截断
 const EXTEND = 'clamp(200px, 32vh, 380px)'
@@ -17,12 +16,10 @@ export function MangaBackdrop({
   src,
   hero,
   intro,
-  onPaletteChange,
 }: {
   src?: string | null
   hero: HTMLElement | null
   intro: boolean
-  onPaletteChange?: (swatches: Swatch[]) => void
 }) {
   const motion = useAppearance((s) => s.homeMotionBg)
   const [h, setH] = useState(0)
@@ -48,12 +45,8 @@ export function MangaBackdrop({
             speed={0.5}
             still={!motion}
             className="absolute inset-0"
-            onPaletteChange={(swatches) => {
-              if (src) notifyCoverPalette(src, swatches)
-              onPaletteChange?.(swatches)
-            }}
             fallback={
-              src && <img src={src} alt="" className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]" />
+              src && <BlurredCover src={src} className="absolute -top-1/2 -left-[10%] h-[200%] w-[120%] object-cover blur-[70px] saturate-[1.6]" />
             }
           />
         </div>

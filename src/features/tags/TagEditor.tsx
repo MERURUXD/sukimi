@@ -1,7 +1,7 @@
 import { AnimatePresence } from 'motion/react'
 import { EyeOff, Plus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { MotionGlass } from '@/components/glass/Glass'
+import { GlassScroll, MotionGlass } from '@/components/glass/Glass'
 import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { LoadError } from '@/components/ui/LoadError'
 import { toastError } from '@/components/ui/toast'
@@ -22,15 +22,17 @@ export function TagEditor({ open, mangaId, genre, onClose }: { open: boolean; ma
           <MotionGlass
             dense
             {...pop}
-            className="no-scrollbar relative flex max-h-[calc(100dvh-24px)] w-[min(460px,100%)] flex-col gap-5 overflow-y-auto overscroll-contain rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
+            className="relative flex max-h-[calc(100dvh-24px)] w-[min(460px,100%)] flex-col rounded-[26px] [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
           >
-            <div className="flex items-center gap-3">
-              <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">{t('misc.tags.edit')}</h2>
-              <button type="button" className="gicon size-10 flex-none" aria-label={t('common.close')} onClick={onClose}>
-                <X className="size-5" />
-              </button>
-            </div>
-            <Body mangaId={mangaId} genre={genre} />
+            <GlassScroll className="flex flex-col gap-5 p-6">
+              <div className="flex items-center gap-3">
+                <h2 className="m-0 min-w-0 flex-1 truncate text-lg font-bold">{t('misc.tags.edit')}</h2>
+                <button type="button" className="gicon size-10 flex-none" aria-label={t('common.close')} onClick={onClose}>
+                  <X className="size-5" />
+                </button>
+              </div>
+              <Body mangaId={mangaId} genre={genre} />
+            </GlassScroll>
           </MotionGlass>
         </Dialog>
       )}

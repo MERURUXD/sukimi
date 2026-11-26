@@ -3,7 +3,7 @@ import { AnimatePresence } from 'motion/react'
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, ListChecks, Loader2, Minus, Plus, RefreshCw, Search, Unlink, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router'
-import { Glass, MotionGlass } from '@/components/glass/Glass'
+import { Glass, GlassScroll, MotionGlass } from '@/components/glass/Glass'
 import { confirm } from '@/components/ui/Confirm'
 import { Dialog, usePopMotion } from '@/components/ui/Dialog'
 import { toast, toastError } from '@/components/ui/toast'
@@ -65,54 +65,56 @@ export function TrackDialog({ mangaId, title, onClose }: { mangaId: number; titl
       <MotionGlass
         dense
         {...pop}
-        className="no-scrollbar relative flex max-h-[calc(100dvh-32px)] w-[min(560px,100%)] flex-col gap-6 overflow-y-auto overscroll-contain rounded-[26px] p-6 [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
+        className="relative flex max-h-[calc(100dvh-32px)] w-[min(560px,100%)] flex-col rounded-[26px] [--g-drop:0_30px_80px_rgba(0,0,0,.5)]"
       >
-        <div className="flex items-center gap-3">
-          <h2 className="m-0 flex-1 text-lg font-bold">{tl('track.title')}</h2>
-          <button type="button" className="gicon size-10" aria-label={tl('common.close')} onClick={onClose}>
-            <X className="size-5" />
-          </button>
-        </div>
-
-        {records && records.length > 0 && (
-          <div className="-mt-2 flex flex-col gap-1.5">
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('pull')}>
-                <ArrowDownToLine className={cn('size-4', syncing === 'pull' && 'animate-pulse')} />
-                {tl('track.toLocal')}
-              </button>
-              <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('push')}>
-                <ArrowUpFromLine className={cn('size-4', syncing === 'push' && 'animate-pulse')} />
-                {tl('track.toSite')}
-              </button>
-            </div>
-            <p className="m-0 text-xs leading-relaxed text-muted">
-              {tl('track.syncHint')}
-            </p>
+        <GlassScroll className="flex flex-col gap-6 p-6">
+          <div className="flex items-center gap-3">
+            <h2 className="m-0 flex-1 text-lg font-bold">{tl('track.title')}</h2>
+            <button type="button" className="gicon size-10" aria-label={tl('common.close')} onClick={onClose}>
+              <X className="size-5" />
+            </button>
           </div>
-        )}
 
-        {!trackers && <span className="text-sm text-muted">{tl('manga.loading')}</span>}
-        {trackers && loggedIn.length === 0 && (
-          <p className="m-0 text-sm leading-relaxed text-muted">
-            {tl('track.noLogin')}
-            <Link to="/settings/tracking" className="ml-1 font-semibold text-text">{tl('track.goLogin')}</Link>
-          </p>
-        )}
-
-        {loggedIn.map((t) => {
-          const record = records?.find((r) => r.trackerId === t.id)
-          return (
-            <section key={t.id} aria-label={t.name} className="flex flex-col gap-3.5">
-              <div className="flex items-center gap-2.5">
-                <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
-                <h3 className="m-0 flex-1 text-base font-bold">{t.name}</h3>
-                {t.isTokenExpired && <span className="text-xs text-danger">{tl('track.expired')}</span>}
+          {records && records.length > 0 && (
+            <div className="-mt-2 flex flex-col gap-1.5">
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('pull')}>
+                  <ArrowDownToLine className={cn('size-4', syncing === 'pull' && 'animate-pulse')} />
+                  {tl('track.toLocal')}
+                </button>
+                <button type="button" className="gbtn min-h-10 rounded-full hover:bg-hover" disabled={!!syncing} onClick={() => void sync('push')}>
+                  <ArrowUpFromLine className={cn('size-4', syncing === 'push' && 'animate-pulse')} />
+                  {tl('track.toSite')}
+                </button>
               </div>
-              {record ? <RecordEditor key={`${record.id}:${record.lastChapterRead}`} t={t} r={record} /> : <Binder t={t} mangaId={mangaId} title={title} />}
-            </section>
-          )
-        })}
+              <p className="m-0 text-xs leading-relaxed text-muted">
+                {tl('track.syncHint')}
+              </p>
+            </div>
+          )}
+
+          {!trackers && <span className="text-sm text-muted">{tl('manga.loading')}</span>}
+          {trackers && loggedIn.length === 0 && (
+            <p className="m-0 text-sm leading-relaxed text-muted">
+              {tl('track.noLogin')}
+              <Link to="/settings/tracking" className="ml-1 font-semibold text-text">{tl('track.goLogin')}</Link>
+            </p>
+          )}
+
+          {loggedIn.map((t) => {
+            const record = records?.find((r) => r.trackerId === t.id)
+            return (
+              <section key={t.id} aria-label={t.name} className="flex flex-col gap-3.5">
+                <div className="flex items-center gap-2.5">
+                  <SourceIcon s={{ iconUrl: t.icon, displayName: t.name }} size={28} />
+                  <h3 className="m-0 flex-1 text-base font-bold">{t.name}</h3>
+                  {t.isTokenExpired && <span className="text-xs text-danger">{tl('track.expired')}</span>}
+                </div>
+                {record ? <RecordEditor key={`${record.id}:${record.lastChapterRead}`} t={t} r={record} /> : <Binder t={t} mangaId={mangaId} title={title} />}
+              </section>
+            )
+          })}
+        </GlassScroll>
       </MotionGlass>
     </Dialog>
   )
