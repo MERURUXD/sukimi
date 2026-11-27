@@ -278,6 +278,7 @@ test('CoverImg 刚写好 Cookie 时若仍收到迟到的 401/错误，重试一�
   const exports = {}
   runInNewContext(code, {
     exports,
+    performance,
     require: name => {
       if (name === '@/api/auth') return {
         useAuth: Object.assign(selector => selector({ status: 'signedIn' }), { getState: () => ({ status: 'signedIn' }) }),
@@ -317,6 +318,67 @@ test('CoverImg 刚写好 Cookie 时若仍收到迟到的 401/错误，重试一�
     })
     assert.equal(rootEl.querySelector('img'), null)
     assert.ok(rootEl.querySelector('svg'))
+  } finally {
+    await act(async () => { root.unmount() })
+    dom.window.close()
+    if (saved.window === undefined) delete globalThis.window
+    else globalThis.window = saved.window
+    if (saved.document === undefined) delete globalThis.document
+    else globalThis.document = saved.document
+    if (saved.actEnv === undefined) delete globalThis.IS_REACT_ACT_ENVIRONMENT
+    else globalThis.IS_REACT_ACT_ENVIRONMENT = saved.actEnv
+  }
+})
+
+test('CoverImg 挂载后很快载入的封面（磁盘缓存）直接显示，慢的才在屏内渐显', async () => {
+  const { JSDOM } = await import('jsdom')
+  const { createRoot } = await import('react-dom/client')
+  const { act } = await import('react')
+  const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/' })
+  const saved = { window: globalThis.window, document: globalThis.document, actEnv: globalThis.IS_REACT_ACT_ENVIRONMENT }
+  globalThis.window = dom.window
+  globalThis.document = dom.window.document
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true
+
+  let now = 0
+  let observed = 0
+  const exports = {}
+  runInNewContext(code, {
+    exports,
+    performance: { now: () => now },
+    require: name => {
+      if (name === '@/api/auth') return {
+        useAuth: Object.assign(selector => selector({ status: 'signedIn' }), { getState: () => ({ status: 'signedIn' }) }),
+        useAuthChecking: () => false,
+        tokenExpiring: () => false,
+        tokenRecentlyApplied: () => false,
+        refreshAccessToken: () => Promise.resolve('unused'),
+      }
+      // 慢载入走可见性判断，这里当作在屏内
+      if (name === '@/lib/coverVisibility') return { onCoverVisibility(_image, callback) { observed++; callback(true); return () => {} } }
+      if (name === '@/components/glass/backdrop') return { useBackdropImage() {} }
+      if (name === './CoverSkeleton') return { CoverSkeleton: () => createElement('span', { 'data-placeholder': true }) }
+      return require(name)
+    },
+  })
+
+  const rootEl = dom.window.document.getElementById('root')
+  const root = createRoot(rootEl)
+  const mountAndLoad = async (src, delay) => {
+    now = 1000
+    await act(async () => { root.render(createElement(exports.CoverImg, { key: src, src })) })
+    const img = rootEl.querySelector('img')
+    assert.equal(img.dataset.cover, 'loading')
+    now += delay
+    await act(async () => { img.dispatchEvent(new dom.window.Event('load')) })
+    return rootEl.querySelector('img').dataset.cover
+  }
+  try {
+    assert.equal(await mountAndLoad('/fictional-cached.jpg', 30), 'done', '几十毫秒载入的按缓存命中，不渐显')
+    assert.equal(observed, 0, '缓存命中不再等可见性')
+    assert.equal(rootEl.querySelector('[data-placeholder]'), null)
+    assert.equal(await mountAndLoad('/fictional-slow.jpg', 800), 'fade', '等了一阵才载入的在屏内渐显')
+    assert.equal(observed, 1)
   } finally {
     await act(async () => { root.unmount() })
     dom.window.close()

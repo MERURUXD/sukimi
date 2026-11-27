@@ -10,7 +10,7 @@ import { CoverSkeleton } from './CoverSkeleton'
  * 这时显示占位图标而不是破图。
  *
  * 封面较大时加载要几秒：加载期间显示流光占位，载入后渐显，避免整块纯黑像坏图。
- * 已经在浏览器缓存里的封面第一帧就是完整的，直接显示，不播渐显。
+ * 已经在浏览器缓存里的封面直接显示，不播渐显：内存缓存里的第一帧就完整，磁盘缓存的按载入耗时判断。
  *
  * 重开页面时书库等页面在登录验证完成前就先显示，这时封面 Cookie 可能已过期：
  * 验证完成前只显示占位，不发图片请求。不能等 onError 才检查登录状态，
@@ -18,6 +18,9 @@ import { CoverSkeleton } from './CoverSkeleton'
  * 同样，令牌过期后（比如服务端停机很久又恢复）Cookie 也失效，先续期再重试一次。
  * 演示和验收页没有登录验证，状态一直是 checking，不能照此推迟。
  */
+/** 挂载后这么快就载入的封面算缓存命中，直接显示不渐显 */
+const CACHED_MS = 100
+
 export function CoverImg({ src, ...rest }: { src: string | null | undefined } & Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'>) {
   const [failed, setFailed] = useState<string | null>(null)
   const [deferred, setDeferred] = useState<string | null>(null)
@@ -27,6 +30,7 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
   const [loaded, setLoaded] = useState<{ src: string; fade: boolean } | null>(null)
   const cancelVisibility = useRef<(() => void) | undefined>(undefined)
   const image = useRef<HTMLImageElement | null>(null)
+  const mounted = useRef<{ src: string; at: number } | null>(null)
   useBackdropImage(image, src && loaded?.src === src ? src : null)
 
   const attach = useCallback((el: HTMLImageElement | null) => {
@@ -34,6 +38,7 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
     cancelVisibility.current?.()
     cancelVisibility.current = undefined
     const current = el?.getAttribute('src')
+    mounted.current = current ? { src: current, at: performance.now() } : null
     if (current && el!.complete && el!.naturalWidth > 0) setLoaded((l) => (l?.src === current ? l : { src: current, fade: false }))
   }, [])
 
@@ -62,6 +67,12 @@ export function CoverImg({ src, ...rest }: { src: string | null | undefined } & 
         onLoad={(e) => {
           if (loaded?.src === src) return
           cancelVisibility.current?.()
+          // 挂载时没在内存缓存里、要从磁盘缓存解码的封面也是异步载入（比如从详情页返回书库），
+          // 但几十毫秒就好，占位几乎看不见，再补 0.4s 渐显反而像没加载出来
+          if (mounted.current?.src === src && performance.now() - mounted.current.at < CACHED_MS) {
+            setLoaded({ src, fade: false })
+            return
+          }
           const image = e.currentTarget
           cancelVisibility.current = onCoverVisibility(image, (fade) => {
             if (!image.isConnected || image.getAttribute('src') !== src) return
