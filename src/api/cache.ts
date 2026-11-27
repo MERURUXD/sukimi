@@ -1,4 +1,18 @@
-import { InMemoryCache } from '@apollo/client'
+import { InMemoryCache, type FieldFunctionOptions } from '@apollo/client'
+
+type PageField = { nodes?: readonly unknown[] }
+
+/**
+ * 带 @connection 的分页列表（历史、更新）：往下加载时只把新的一页接在已加载部分后面，
+ * 不再由 updateQuery 把整份列表重写一遍——翻到上千条时每页都要重新规范化全部条目。
+ * offset 为 0 是整段刷新，照常整体替换；没有 @connection 的章节查询行为不变。
+ */
+function mergePage(existing: PageField | undefined, incoming: PageField, { args, field }: FieldFunctionOptions) {
+  const offset = typeof args?.offset === 'number' ? args.offset : 0
+  const paged = field?.directives?.some((d) => d.name.value === 'connection')
+  if (!paged || !offset || !existing?.nodes || !incoming.nodes) return incoming
+  return { ...incoming, nodes: [...existing.nodes.slice(0, offset), ...incoming.nodes] }
+}
 
 /** 正式客户端与开发验收共用同一套缓存规则，避免测试页掩盖真实缓存行为。 */
 export function createCache() {
@@ -10,6 +24,7 @@ export function createCache() {
       Preference: ['CheckBoxPreference', 'EditTextPreference', 'ListPreference', 'MultiSelectListPreference', 'SwitchPreference'],
     },
     typePolicies: {
+      Query: { fields: { chapters: { merge: mergePage } } },
       // 没有 id 的全局单例：查询和 setSettings 返回的结果合并到同一个对象上
       SettingsType: { keyFields: [] },
       UserSettingsType: { keyFields: [] },

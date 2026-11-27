@@ -50,12 +50,8 @@ export function HistoryPage() {
 
   const more = () => {
     const offset = list.length
-    return fetchMore({
-      variables: { first: HISTORY_PAGE, offset },
-      updateQuery: (prev, { fetchMoreResult }) => ({
-        chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
-      }),
-    }).then((result) => {
+    // 新的一页由缓存的分页合并接到后面（见 api/cache.ts）
+    return fetchMore({ variables: { first: HISTORY_PAGE, offset } }).then((result) => {
       const added = result.data?.chapters.nodes.length ?? 0
       if (added) rememberLoadedWindow(history.observable, offset + added, HISTORY_PAGE)
     })

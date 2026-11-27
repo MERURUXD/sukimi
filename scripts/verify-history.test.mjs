@@ -90,9 +90,6 @@ const ready = query => firstValueFrom(query.pipe(filter(result => !result.loadin
 async function more(query, offset) {
   const result = await query.fetchMore({
     variables: { first: HISTORY_PAGE, offset },
-    updateQuery: (prev, { fetchMoreResult }) => ({
-      chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
-    }),
   })
   const loaded = offset + result.data.chapters.nodes.length
   rememberLoadedWindow(query, loaded, HISTORY_PAGE)
@@ -190,4 +187,20 @@ test('历史缓存独立于其他章节查询，清空后不沿用上一会话�
     await client.clearStore()
     assert.deepEqual(historyVariables(client.cache), { first: 100, offset: 0 })
   } finally { subscription.unsubscribe(); client.stop() }
+})
+
+test('分页合并只作用于 @connection 列表：普通章节查询按 offset 写入仍整体替换', () => {
+  const cache = createCache()
+  const plain = gql`query PlainChapters($offset: Int!) { chapters(first: 1, offset: $offset) { nodes { id } } }`
+  const page = (id) => ({ chapters: { __typename: 'ChapterNodeList', nodes: [{ __typename: 'ChapterType', id }] } })
+  cache.writeQuery({ query: plain, variables: { offset: 0 }, data: page(1) })
+  cache.writeQuery({ query: plain, variables: { offset: 1 }, data: page(2) })
+  assert.deepEqual(cache.readQuery({ query: plain, variables: { offset: 1 } }).chapters.nodes.map((c) => c.id), [2])
+
+  const paged = gql`query PagedChapters($offset: Int!) { chapters(first: 1, offset: $offset) @connection(key: "TestPaged") { nodes { id } } }`
+  cache.writeQuery({ query: paged, variables: { offset: 0 }, data: page(1) })
+  cache.writeQuery({ query: paged, variables: { offset: 1 }, data: page(2) })
+  assert.deepEqual(cache.readQuery({ query: paged, variables: { offset: 0 } }).chapters.nodes.map((c) => c.id), [1, 2])
+  cache.writeQuery({ query: paged, variables: { offset: 0 }, data: page(3) })
+  assert.deepEqual(cache.readQuery({ query: paged, variables: { offset: 0 } }).chapters.nodes.map((c) => c.id), [3], 'offset 0 是整段刷新')
 })

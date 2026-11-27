@@ -115,12 +115,8 @@ export function UpdatesPage() {
       ([e]) => {
         // 快照数据只用来先显示，网络数据到了再分页
         if (e.isIntersecting && !loading && updates.data)
-          void fetchMore({
-            variables: { first: UPDATES_PAGE, offset: loaded },
-            updateQuery: (prev, { fetchMoreResult }) => ({
-              chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
-            }),
-          }).then((result) => {
+          // 新的一页由缓存的分页合并接到后面（见 api/cache.ts）
+          void fetchMore({ variables: { first: UPDATES_PAGE, offset: loaded } }).then((result) => {
             const added = result.data?.chapters.nodes.length ?? 0
             if (added) rememberLoadedWindow(updates.observable, loaded + added, UPDATES_PAGE)
           })

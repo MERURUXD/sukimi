@@ -93,9 +93,6 @@ const ready = query => firstValueFrom(query.pipe(filter(result => !result.loadin
 async function more(query, offset) {
   const result = await query.fetchMore({
     variables: { first: UPDATES_PAGE, offset },
-    updateQuery: (prev, { fetchMoreResult }) => ({
-      chapters: { ...fetchMoreResult.chapters, nodes: [...prev.chapters.nodes, ...fetchMoreResult.chapters.nodes] },
-    }),
   })
   const loaded = offset + result.data.chapters.nodes.length
   rememberLoadedWindow(query, loaded, UPDATES_PAGE)
