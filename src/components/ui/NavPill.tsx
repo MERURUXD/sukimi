@@ -1,42 +1,106 @@
-import { motion, useMotionValue, useReducedMotion, useTransform, useVelocity } from 'motion/react'
-import { spring, still } from '@/design/motion'
+import { useReducedMotion } from 'motion/react'
+import type { ReactNode } from 'react'
 import { cn } from '@/lib/cn'
-import type { PillBox } from './useNavPill'
+import { useOpticalSlider, type SliderOrientation } from './opticalSlider'
 
-/** 速度到拉伸量：每 px/s 拉多少，以及上限（再大就不像玻璃块了） */
-const STRETCH = 1 / 5000
-const MAX_STRETCH = 0.16
+export interface NavLensTrackProps {
+  orientation?: SliderOrientation
+  activeIndex: number
+  pillClassName?: string
+  pillRadius?: number
+  magnification?: number
+  dragMagBoost?: number
+  trackClassName?: string
+  listClassName?: string
+  measureKey: string | number
+  onCommit: (index: number) => void
+  children: ReactNode
+  clone: ReactNode
+}
 
 /**
- * 导航的选中块：一个常驻元素，按容器内坐标滑到当前链接下面（位置由 useNavPill 量出）。
- * 滑动时顺着运动方向拉长、垂直方向微微压扁（按速度算，停下就回弹到原样），像一滴液体。
- *
- * 不用 motion 的 layoutId 共享布局：它按页面坐标测量，顶栏、底栏是 fixed，
- * 页面滑动过再切换时，新页面渲染后才滚回顶部，旧位置带着滚动距离，选中块会从错位的地方飞过来。
- *
- * 容器需要定位且 isolate（玻璃 .glass 已经是）。没有当前链接时不显示；
- * 重新出现时 initial={false} 直接放到位，不从左上角滑过来。
+ * 导航栏光学放大镜滑块轨道：
+ * 外层玻璃留在调用方（<Glass>），内部拆为「速度拉伸高光滑块」与「不拉伸光学放大镜克隆层」，
+ * 仅对包裹真实 <NavLink> 的内层 wrapper 施加 SVG 挖洞遮罩去除重影，同时支持按住拖拽滑动。
  */
-export function NavPill({ box, className }: { box: PillBox | null; className?: string }) {
-  // x、y 交给 animate 驱动，同时从它们的速度推出拉伸，横向（顶栏）与纵向（平板侧栏）通用
-  const x = useMotionValue(box?.x ?? 0)
-  const y = useMotionValue(box?.y ?? 0)
-  const vx = useVelocity(x)
-  const vy = useVelocity(y)
-  const stretch = (v: number) => Math.min(Math.abs(v) * STRETCH, MAX_STRETCH)
-  const scaleX = useTransform([vx, vy], ([a, b]: number[]) => 1 + stretch(a) - stretch(b) / 2)
-  const scaleY = useTransform([vx, vy], ([a, b]: number[]) => 1 + stretch(b) - stretch(a) / 2)
-  const reduced = useReducedMotion()
+export function NavLensTrack({
+  orientation = 'horizontal',
+  activeIndex,
+  pillClassName,
+  pillRadius = 999,
+  magnification = 1.08,
+  dragMagBoost = 0.04,
+  trackClassName,
+  listClassName,
+  measureKey,
+  onCommit,
+  children,
+  clone,
+}: NavLensTrackProps) {
+  const reduced = Boolean(useReducedMotion())
+  const {
+    maskId,
+    setTrackRef,
+    baseRef,
+    pillBgRef,
+    lensWinRef,
+    lensCloneRef,
+    maskRef,
+    maskBgRef,
+    maskHoleRef,
+    pointerProps,
+  } = useOpticalSlider({
+    orientation,
+    activeIndex,
+    itemSelector: 'a',
+    magnification,
+    dragMagBoost,
+    pillRadius,
+    reduced,
+    maskMode: 'wrapper',
+    maskIdPrefix: 'nav-cutout',
+    measureKey,
+    onCommit,
+  })
 
-  if (!box) return null
   return (
-    <motion.span
-      aria-hidden
-      initial={false}
-      animate={box}
-      transition={reduced ? still : spring.fast}
-      style={reduced ? { x, y, scaleX: 1, scaleY: 1 } : { x, y, scaleX, scaleY }}
-      className={cn('nav-pill pointer-events-none absolute top-0 left-0 -z-10', className)}
-    />
+    <div
+      ref={setTrackRef}
+      className={cn('relative z-0 isolate', trackClassName)}
+      {...pointerProps}
+    >
+      {!reduced && (
+        <svg width="0" height="0" className="pointer-events-none absolute" aria-hidden>
+          <defs>
+            <mask ref={maskRef} id={maskId} maskUnits="userSpaceOnUse" x="-16" y="-16" width="800" height="200">
+              <rect ref={maskBgRef} x="-16" y="-16" width="800" height="200" fill="white" />
+              <rect ref={maskHoleRef} x="0" y="0" width="0" height="0" rx={pillRadius} ry={pillRadius} fill="black" />
+            </mask>
+          </defs>
+        </svg>
+      )}
+
+      <span
+        ref={pillBgRef}
+        aria-hidden
+        className={cn('nav-pill pointer-events-none absolute top-0 left-0 -z-10', pillClassName)}
+      />
+
+      <div ref={baseRef} className={cn('relative z-10', listClassName)}>
+        {children}
+      </div>
+
+      {!reduced && (
+        <div
+          ref={lensWinRef}
+          aria-hidden
+          className={cn('nav-lens-window pointer-events-none absolute top-0 left-0 z-20 overflow-hidden', pillClassName)}
+        >
+          <div ref={lensCloneRef} className={cn('nav-lens-clone', listClassName)}>
+            {clone}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

@@ -7,12 +7,11 @@ import { Glass, MotionGlass } from '@/components/glass/Glass'
 import { spring } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
-import { NavPill } from '@/components/ui/NavPill'
-import { useNavPill } from '@/components/ui/useNavPill'
+import { NavLensTrack } from '@/components/ui/NavPill'
 import { AppearanceMenu } from './AppearanceMenu'
 import { BrandMark } from './BrandMark'
 import { exitGalleryToLibrary } from '@/features/gallery/readMorph'
-import { markNavDirection } from './navTabs'
+import { activeTabIndex, markNavDirection } from './navTabs'
 import { ThemeToggle } from './ThemeToggle'
 import { useHideOnScroll } from './useHideOnScroll'
 import { isDemo } from '@/lib/demo'
@@ -31,7 +30,14 @@ export function TopNav() {
   const inManga = useMatch('/manga/:id/*')
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { ref: pillRef, box: pillBox } = useNavPill<HTMLDivElement>(pathname)
+  const activeIndex = activeTabIndex(pathname)
+  const commitTab = (index: number) => {
+    const target = LINKS[index]
+    if (!target) return
+    if (target.to === '/library' && exitGalleryToLibrary({ button: 0, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false })) return
+    markNavDirection(pathname, target.to)
+    void navigate(target.to, { viewTransition: true })
+  }
   // 从站内进来就后退，直接打开的详情页回书库
   const back = () => ((window.history.state?.idx ?? 0) > 0 ? navigate(-1) : navigate('/library'))
   // 左上角在标志和返回键之间切换时，新出现的图形淡入（玻璃本身照常直接换）；刚打开页面时不播
@@ -76,14 +82,30 @@ export function TopNav() {
 
         {/* 滚动放在玻璃里面一层：玻璃宿主自己滚动时，边缘叠加层会被裁到内边距盒并跟着内容滚走 */}
         <Glass as="nav" data-vt-glass="topnav-tabs" className="topnav-tabs min-w-0 max-w-full items-center rounded-full">
-          <div ref={pillRef} className="relative flex min-w-0 items-center gap-0.5 overflow-x-auto rounded-full p-[5px]">
-            <NavPill box={pillBox} className="rounded-full" />
+          <NavLensTrack
+            orientation="horizontal"
+            activeIndex={activeIndex}
+            pillClassName="rounded-full"
+            pillRadius={999}
+            magnification={1.09}
+            dragMagBoost={0.045}
+            trackClassName="optical-track optical-x flex min-w-0 items-center overflow-x-auto rounded-full p-[5px] no-scrollbar"
+            listClassName="flex shrink-0 items-center gap-0.5"
+            measureKey={LINKS.length}
+            onCommit={commitTab}
+            clone={LINKS.map((l) => (
+              <span key={l.to} className="inline-flex min-h-10 items-center rounded-full px-4 font-semibold whitespace-nowrap text-text">
+                {l.label}
+              </span>
+            ))}
+          >
             {LINKS.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
                 end={l.end}
                 viewTransition
+                draggable={false}
                 onClick={(e) => {
                   // 在画廊首页点「书库」：播放封面飞回书库的动画，由画廊自己换页
                   if (l.to === '/library' && exitGalleryToLibrary(e)) return e.preventDefault()
@@ -99,7 +121,7 @@ export function TopNav() {
                 {l.label}
               </NavLink>
             ))}
-          </div>
+          </NavLensTrack>
         </Glass>
 
         <div className="topnav-actions flex items-center gap-2">

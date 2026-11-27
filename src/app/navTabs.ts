@@ -17,6 +17,9 @@ export const TABS = [
 
 const tabIndex = (path: string) => TABS.findIndex((tab) => (tab.end ? path === tab.to : path === tab.to || path.startsWith(`${tab.to}/`)))
 
+/** 当前路径对应的主导航标签索引，不在主标签页时返回 -1 */
+export const activeTabIndex = (path: string) => tabIndex(path)
+
 let clearTimer: ReturnType<typeof setTimeout> | undefined
 
 /**
