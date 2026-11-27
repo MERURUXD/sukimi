@@ -38,8 +38,15 @@ const pagePath = () => document.querySelector(`[${PAGE_PATH_ATTR}]`)?.getAttribu
 
 const onScreen = (r: DOMRect) => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth
 
-/** 打码的封面不飞：克隆按目标尺寸绘制再缩放，模糊半径会跟着缩小，比原图看得更清楚 */
-const blurred = (img: HTMLImageElement) => getComputedStyle(img).filter !== 'none'
+/**
+ * 打码的封面不飞：克隆是不带模糊的原图，又在打码区域外面，飞行期间会把原图露出来。
+ * 图片还在载入（只有骨架屏）时没法读滤镜，按所在区域是否打码保守处理。
+ */
+const guarded = (cover: HTMLElement, img: HTMLImageElement | null) =>
+  img ? getComputedStyle(img).filter !== 'none' : !!cover.closest('[data-nsfw]')
+
+/** 克隆只做等比缩放，两端比例不同（如手机首页铺满的大图区）时会被裁切、落地时跳变，就只淡入 */
+const sameShape = (a: DOMRect, b: DOMRect) => Math.abs((a.width / a.height) / (b.width / b.height) - 1) < 0.03
 
 interface Shot { src: string; rect: DOMRect; radius: number; shadow: string }
 
@@ -49,7 +56,7 @@ interface Shot { src: string; rect: DOMRect; radius: number; shadow: string }
  */
 function shoot(cover: HTMLElement | null | undefined, withImage = true): Shot | undefined {
   const img = cover?.querySelector('img')
-  if (!cover || (img?.complete && blurred(img))) return
+  if (!cover || guarded(cover, img ?? null)) return
   if (withImage && (!img?.complete || !img.currentSrc)) return
   const rect = cover.getBoundingClientRect()
   if (!onScreen(rect)) return
@@ -145,7 +152,7 @@ function coverFlight(update: ViewTransitionUpdateCallback | null | undefined, fr
       : DETAIL_PATH.test(to) ? document.querySelector<HTMLElement>(HERO_COVER) : null
     const dest = source && target ? shoot(target, false) : undefined
     anims = [cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_MS, easing: EASE, fill: 'both' })]
-    if (source && dest && target) anims.push(...fly(source, dest, target))
+    if (source && dest && target && sameShape(source.rect, dest.rect)) anims.push(...fly(source, dest, target))
   })
   const finished = ready
     .then(() => Promise.allSettled(anims.map((a) => a.finished)))
