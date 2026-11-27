@@ -35,8 +35,9 @@ export function MangaBackdrop({
 
   if (!h) return null
   const height = `calc(${h}px + ${EXTEND})`
+  // manga-backdrop：返回原页面时，lib/coverTransition 复制一份垫在新页面下面淡出
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -z-10" style={{ height }}>
+    <div aria-hidden className="manga-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10" style={{ height }}>
       {/* 裁切层保持不动，避免进场缩放撑宽手机视口；比淡出层短 2px，防止画布取整后在底边漏出亮线 */}
       <div className="absolute inset-x-0 top-0 bottom-0.5 overflow-hidden">
         <div className={cn('absolute inset-0', intro && 'bg-in')}>

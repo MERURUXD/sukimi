@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useAuthChecking } from '@/api/auth'
 import { cn } from '@/lib/cn'
 import { registerBackdrop, swatchTelemetry } from '@/components/glass/backdrop'
+import { registerRedraw } from '@/lib/canvasSnapshot'
 import { extractPalette, type Rgb, type Swatch } from '@/lib/palette'
 
 /**
@@ -345,6 +346,7 @@ function createFlow(
     schedule()
   }
   reduced.addEventListener('change', motionChanged)
+  const unregisterRedraw = registerRedraw(canvas, draw)
   host.appendChild(canvas)
   resize()
 
@@ -395,6 +397,7 @@ function createFlow(
       io.disconnect()
       canvas.removeEventListener('webglcontextlost', lost)
       reduced.removeEventListener('change', motionChanged)
+      unregisterRedraw()
       window.removeEventListener('pointermove', onPointer)
       document.documentElement.removeEventListener('pointerleave', onLeave)
       gl.getExtension('WEBGL_lose_context')?.loseContext()

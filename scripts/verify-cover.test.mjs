@@ -180,6 +180,7 @@ test('CoverFlow 与 coverPalette 在登录校验完成前不触发未鉴权图�
       if (name === '@/lib/cn') return { cn: (...xs) => xs.filter(Boolean).join(' ') }
       if (name === '@/components/glass/backdrop') return { registerBackdrop: () => () => {}, swatchTelemetry: () => null }
       if (name === '@/lib/palette') return { extractPalette: () => [] }
+      if (name === '@/lib/canvasSnapshot') return { registerRedraw: () => () => {} }
       return require(name)
     },
   })
