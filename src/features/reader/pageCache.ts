@@ -49,6 +49,13 @@ export function forgetWarm(url: string) {
   forgetImage(url)
 }
 
+/** 离开阅读器时清空：预加载记录指向的图片已被丢掉，留着会让下次进来不再预加载 */
+export function forgetAllWarm() {
+  warmed.clear()
+  aspects.clear()
+  widths.clear()
+}
+
 /** 预加载图片（同源 Cookie 鉴权）。同一地址和裁边、预解码共用一张图。宽高比只通知一次，避免阅读页的预取效果来回触发。 */
 export function warm(url: string, onAspect?: () => void) {
   if (warmed.has(url)) return

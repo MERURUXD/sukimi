@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn'
 import { isDemo } from '@/lib/demo'
 import { useBackToDetail } from './nav'
 import { loadPages, warm, aspectOf } from './pageCache'
-import { reloadPage, pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
+import { releaseReaderImages, reloadPage, pageReady, pageSrc, requestPage, splitFailed, usePageImages, type Variant } from './pageImage'
 import { prefetchIndexes } from './scrollWindow'
 import { decodePage } from './pageDecode'
 import { usePageBookmarks } from './pageBookmarks'
@@ -44,6 +44,9 @@ export function ReaderPage() {
   const request = useRef({ active: false })
   const reloadLock = useRef(false)
   const [attempt, setAttempt] = useState(0)
+
+  // 换话时本组件不卸载，只有真正离开阅读器才走到这里
+  useEffect(() => releaseReaderImages, [])
 
   useEffect(() => {
     const current = { active: true }

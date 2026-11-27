@@ -5,6 +5,7 @@ const decoded = new Map<string, { img: HTMLImageElement; ready: Promise<void> }>
 
 /** 重新加载一页前忘掉它：失败的解码结果不能留着，否则换了新地址也读到旧的 */
 export const forgetDecoded = (src: string) => void decoded.delete(src)
+export const forgetAllDecoded = () => decoded.clear()
 
 export function decodePage(src: string | undefined) {
   if (!src) return Promise.resolve()

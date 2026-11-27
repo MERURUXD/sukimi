@@ -42,8 +42,8 @@ function imageCache({ failed: failedAtStart = false, unique = false } = {}) {
     Image: FakeImage,
     require: name => {
       if (name === './pageTools') return tools
-      if (name === './pageCache') return { rememberAspect() {}, forgetWarm(url) { shared.delete(url) } }
-      if (name === './pageDecode') return { forgetDecoded() {} }
+      if (name === './pageCache') return { rememberAspect() {}, forgetWarm(url) { shared.delete(url) }, forgetAllWarm() {} }
+      if (name === './pageDecode') return { forgetDecoded() {}, forgetAllDecoded() {} }
       if (name === './imageLoad') return {
         acquireImage(url) {
           let img = shared.get(url)
@@ -56,6 +56,7 @@ function imageCache({ failed: failedAtStart = false, unique = false } = {}) {
           return img
         },
         forgetImage(url) { shared.delete(url) },
+        forgetAllImages() { shared.clear() },
       }
       if (name === 'react') return { useSyncExternalStore() {} }
       throw new Error(name)
@@ -359,4 +360,58 @@ test('处理失败后重试重新请求原图，成功后再给出新的结果',
   cache.finish()
   await tick()
   assert.match(cache.pageSrc(url, v), /^blob:/)
+})
+
+test('离开阅读器：回收未显示的处理结果，显示中的等卸载，路上的处理作废', async () => {
+  const cache = imageCache({ unique: true })
+  const v = { crop: true, rtl: false }
+  cache.pageSrc('shown', v)
+  cache.pageSrc('idle', v)
+  await tick()
+  cache.finish()
+  cache.finish()
+  await tick()
+  const shown = cache.pageSrc('shown', v)
+  const idle = cache.pageSrc('idle', v)
+  cache.retainShown(shown)
+  cache.pageSrc('late', v)
+  await tick()
+
+  cache.releaseReaderImages()
+  assert.deepEqual(cache.revoked, [idle])
+  cache.finish()
+  await tick()
+  assert.equal(cache.revoked.length, 2, '离开后才完成的处理直接回收')
+  assert.equal(cache.pageReady('late', v), false)
+  cache.releaseShown(shown)
+  assert.ok(cache.revoked.includes(shown))
+
+  // 再进阅读器：重新加载原图并处理，照常显示
+  assert.equal(cache.pageSrc('shown', v), 'shown')
+  await tick()
+  assert.equal(cache.loads('shown'), 2)
+  cache.finish()
+  await tick()
+  assert.match(cache.pageSrc('shown', v), /^blob:processed-/)
+})
+
+test('离开后马上重进：旧处理晚到不打乱新一轮，同一页只再处理一次', async () => {
+  const cache = imageCache({ unique: true })
+  const v = { crop: true, rtl: false }
+  cache.pageSrc('page', v)
+  await tick()
+  cache.releaseReaderImages()
+  cache.pageSrc('page', v)
+  await tick()
+  cache.finish()
+  await tick()
+  assert.equal(cache.revoked.length, 1, '旧一轮的结果回收')
+  cache.pageSrc('page', v)
+  await tick()
+  cache.finish()
+  await tick()
+  const out = cache.pageSrc('page', v)
+  assert.match(out, /^blob:processed-/)
+  assert.ok(!cache.revoked.includes(out))
+  assert.throws(() => cache.finish(), /没有待完成的画布/, '没有第三次处理')
 })

@@ -32,3 +32,7 @@ export function acquireImage(url: string) {
 export function forgetImage(url: string) {
   images.delete(url)
 }
+
+export function forgetAllImages() {
+  images.clear()
+}

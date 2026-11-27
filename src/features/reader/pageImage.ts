@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
-import { acquireImage } from './imageLoad'
-import { forgetWarm, rememberAspect } from './pageCache'
-import { forgetDecoded } from './pageDecode'
+import { acquireImage, forgetAllImages } from './imageLoad'
+import { forgetAllWarm, forgetWarm, rememberAspect } from './pageCache'
+import { forgetAllDecoded, forgetDecoded } from './pageDecode'
 import { FULL, bust, contentBox, halfBox, type Box, type Half } from './pageTools'
 
 /**
@@ -45,6 +45,8 @@ const retired = new Set<string>()
 const running = new Set<string>()
 /** 重新加载后递增。晚到的旧处理不能把刚清掉的结果写回去 */
 const urlGen = new Map<string, number>()
+/** 离开阅读器后递增，作废还在路上的处理 */
+let epoch = 0
 let version = 0
 const listeners = new Set<() => void>()
 const notify = () => {
@@ -226,6 +228,26 @@ export function reloadPage(url: string, fresh?: HTMLImageElement) {
 }
 
 /**
+ * 离开阅读器：放掉解码好的原图、预解码位图和裁边结果，不让它们在书库、首页里继续占内存。
+ * 换话不走这里，前后话的预取仍可复用。还挂在页面上的 Blob 等图片卸载后再回收。
+ */
+export function releaseReaderImages() {
+  epoch++
+  for (const out of done.values()) {
+    if (!out) continue
+    if (isShown(out)) retired.add(out)
+    else revokeProcessed(out)
+  }
+  done.clear()
+  running.clear()
+  sources.clear()
+  urlGen.clear()
+  forgetAllWarm()
+  forgetAllDecoded()
+  forgetAllImages()
+}
+
+/**
  * 失败后的重试只重新请求原图。成功后再清掉旧的处理结果，由阅读器重新 requestPage。
  * 不探已经失败或被回收的 Blob / data 地址。
  */
@@ -247,10 +269,16 @@ export function requestPage(url: string, v: Variant) {
   const key = keyOf(url, v)
   if (done.has(key) || running.has(key)) return
   const gen = genOf(url)
+  const at = epoch
   running.add(key)
   void render(url, v)
     .catch(() => null)
     .then((out) => {
+      // 离开阅读器前开始的处理：新一轮可能已在处理同一页，只回收结果，不动它的登记
+      if (at !== epoch) {
+        if (out) revokeProcessed(out)
+        return
+      }
       running.delete(key)
       if (genOf(url) !== gen) {
         if (out) revokeProcessed(out)
