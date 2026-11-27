@@ -943,12 +943,18 @@ html[data-reader-vt='out']::view-transition-group(reader-src) {
     rotate: -14deg;
   }
 }
-/* 进出详情页：底色层盖住页面再淡出，克隆封面在它上面飞；两者都在导航（z-40）下面，顶栏玻璃照常折射 */
+/* 进出详情页：底色层盖住页面再淡出（返回原页面时改用下面的背景替身），克隆封面在它上面飞；都在导航（z-40）下面，顶栏玻璃照常折射 */
 .cover-veil {
   position: fixed;
   inset: 0;
   z-index: 35;
   background: var(--bg);
+  pointer-events: none;
+}
+/* 返回时详情页背景的替身：垫在页面内容下面（外壳是 isolate，负层级仍画在页面底色之上） */
+.cover-ghost {
+  position: fixed;
+  z-index: -1;
   pointer-events: none;
 }
 .cover-flight {

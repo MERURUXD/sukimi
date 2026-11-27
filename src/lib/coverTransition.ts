@@ -1,5 +1,6 @@
 import { fade } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
+import { copyCanvas } from './canvasSnapshot'
 import { READER_VT_ATTR } from './readerTransition'
 
 /** 详情页大封面在阅读器转场里单独成组用的 view-transition-name */
@@ -10,9 +11,10 @@ export const PAGE_PATH_ATTR = 'data-page-path'
 
 const DETAIL_PATH = /^\/manga\/\d+$/
 const HERO_COVER = '.manga-hero-cover'
+const BACKDROP = '.manga-backdrop'
 const FLIGHT_MS = 450
 const FADE_MS = fade.default.duration * 1000
-const LEAD_MS = fade.fast.duration * 1000
+const GHOST_MS = fade.slow.duration * 1000
 const EASE = `cubic-bezier(${fade.default.ease.join(', ')})`
 
 /**
@@ -71,8 +73,8 @@ const place = (el: HTMLElement, r: DOMRect) =>
   Object.assign(el.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` })
 
 /**
- * 起飞：点下去的同一帧就把克隆图原样摆在起点、盖在底色上面，
- * 换页期间（返回时底色渐入、新页面挂载）封面一直留在原处，不会跟着页面一起消失再冒出来。
+ * 起飞：点下去的同一帧就把克隆图原样摆在起点、盖在底色和页面上面，
+ * 换页期间（新页面挂载）封面一直留在原处，不会跟着页面一起消失再冒出来。
  */
 function launch(from: Shot): Flight {
   const el = document.createElement('div')
@@ -122,7 +124,40 @@ function land({ el, img, shadow }: Flight, from: Shot, to: Shot, target: HTMLEle
   return anims
 }
 
-/** 页面内容从底色淡入，代替原来整页快照的交叉淡化。盖在导航下面，不改页面祖先的透明度，玻璃照常采样 */
+/**
+ * 返回时详情页背景的替身：换页前复制一份取色背景（画布按当前画面复制），固定在原位、垫在所有页面内容下面。
+ * 换页前它被详情页自己的同一张背景盖住，看不出来；换页后书库直接出现在它上面，背景再慢慢淡掉。
+ * 不用不透明底色盖住再揭开：两个页面不会同时存在，盖住期间屏幕上只剩底色。
+ */
+function ghost() {
+  const src = document.querySelector<HTMLElement>(BACKDROP)
+  const rect = src?.getBoundingClientRect()
+  if (!src || !rect || !onScreen(rect)) return
+  const copy = src.cloneNode(true) as HTMLElement
+  const canvases = src.querySelectorAll('canvas')
+  copy.querySelectorAll('canvas').forEach((c, i) => c.replaceWith(copyCanvas(canvases[i])))
+  // 背景还没进场完就返回时，复制品会直接是终态（过渡）或从头播（动画），换页那一刻亮度跳一下：
+  // 过渡中的属性在挂上去之前写成原件此刻的值（挂上后再改会触发新的过渡），动画挂上后对齐原件的进度
+  const from = [src, ...src.querySelectorAll<HTMLElement>('*')]
+  const to = [copy, ...copy.querySelectorAll<HTMLElement>('*')]
+  const played = from.map((node) => node.getAnimations())
+  played.forEach((anims, i) => anims.forEach((a) => {
+    if (a instanceof CSSTransition) to[i].style.setProperty(a.transitionProperty, getComputedStyle(from[i]).getPropertyValue(a.transitionProperty))
+  }))
+  const el = document.createElement('div')
+  el.className = 'cover-ghost'
+  el.inert = true
+  place(el, rect)
+  el.append(copy)
+  layer().append(el)
+  to.forEach((node, i) => node.getAnimations().forEach((a, j) => {
+    const twin = played[i].filter((p) => !(p instanceof CSSTransition))[j]
+    if (twin) a.currentTime = twin.currentTime
+  }))
+  return el
+}
+
+/** 进详情页（或从详情页去别处）时页面内容从底色淡入，代替原来整页快照的交叉淡化。盖在导航下面，不改页面祖先的透明度，玻璃照常采样 */
 function veil() {
   const el = document.createElement('div')
   el.className = 'cover-veil'
@@ -161,7 +196,7 @@ const nextFrame = () => within(new Promise<void>((resolve) => requestAnimationFr
 /**
  * 进出详情页不走 View Transition，自己做封面飞行和页面淡入：
  * 浏览器转场期间整页每帧都要合成新旧快照，真实显卡上空转场也掉帧，时长越长掉得越多；
- * 普通动画只动一张图和一层底色，其余页面照常渲染。
+ * 普通动画只动一张图和一层底色（返回时是背景替身），其余页面照常渲染。
  *
  * 返回 React Router 需要的那几个 ViewTransition 字段，它照常在 finished 后收尾，
  * 下一次换页打断时调 skipTransition。
@@ -176,37 +211,38 @@ function coverFlight(update: ViewTransitionUpdateCallback | null | undefined, fr
   const back = !!from && DETAIL_PATH.test(from) && origin?.path === to
   const source = !motion ? undefined : back ? shoot(document.querySelector<HTMLElement>(HERO_COVER)) : shoot(pending)
   active?.skip()
-  const cover = motion ? veil() : undefined
+  // 返回时只淡出详情页背景的替身；背景已滚出屏时没有替身，直接换页
+  const backdrop = motion && back ? ghost() : undefined
+  const cover = motion && !back ? veil() : undefined
   const flight = source ? launch(source) : undefined
-  // 只有封面在飞时才拦：没有克隆（大封面已滚出屏、从导航去别的页）只是底色淡出，不必吞掉输入
+  // 只有封面在飞时才拦：没有克隆（大封面已滚出屏、从导航去别的页）只是底色或背景替身淡出，不必吞掉输入
   const release = flight ? holdScroll() : undefined
-  // 返回时详情页带着取色背景，书库是纯底色：先让底色渐入盖住详情页再换页，不然背景是硬切的
-  const lead = cover && back
-    ? cover.animate([{ opacity: 0 }, { opacity: 1 }], { duration: LEAD_MS, easing: EASE, fill: 'both' })
-    : undefined
 
   let anims: Animation[] = []
   let skipped = false
   let updating: Promise<void> | undefined
   // 被打断时也要换页，且只换一次
   const runUpdate = () => (updating ??= Promise.resolve().then(() => update?.()).then(() => undefined))
+  const cleanup = () => {
+    cover?.remove()
+    backdrop?.remove()
+    flight?.el.remove()
+    release?.()
+  }
   const handle = {
     skip: () => {
       skipped = true
-      lead?.finish()
       void runUpdate().catch(() => {})
       anims.forEach((a) => a.finish())
-      cover?.remove()
-      flight?.el.remove()
-      release?.()
+      cleanup()
     },
   }
   active = handle
 
-  const updateCallbackDone = (lead ? within(lead.finished, LEAD_MS + 50) : Promise.resolve()).then(runUpdate)
+  const updateCallbackDone = runUpdate()
   const ready = updateCallbackDone.then(async () => {
-    if (!cover) return
-    // 等一帧：滚动恢复与虚拟列表首帧都已落定，量到的终点才准；这一帧还被底色盖着
+    if (!motion) return
+    // 等一帧：滚动恢复与虚拟列表首帧都已落定，量到的终点才准；进入时这一帧还被底色盖着
     await nextFrame()
     if (skipped) return
     const target = back
@@ -214,19 +250,19 @@ function coverFlight(update: ViewTransitionUpdateCallback | null | undefined, fr
       : DETAIL_PATH.test(to) ? document.querySelector<HTMLElement>(HERO_COVER) : null
     const dest = source && target ? shoot(target, false) : undefined
     const fadeOut = { duration: FADE_MS, easing: EASE, fill: 'both' } as const
-    anims = [cover.animate([{ opacity: 1 }, { opacity: 0 }], fadeOut)]
+    if (cover) anims.push(cover.animate([{ opacity: 1 }, { opacity: 0 }], fadeOut))
+    // 背景在封面飞行期间淡掉，比进入时的底色淡出长一些
+    if (backdrop) anims.push(backdrop.animate([{ opacity: 1 }, { opacity: 0 }], { duration: GHOST_MS, easing: EASE, fill: 'both' }))
     if (!flight || !source) return
     if (dest && target && sameShape(source.rect, dest.rect)) anims.push(...land(flight, source, dest, target))
-    // 没有落点（格子不在屏内、打码或比例不同）：已经摆出来的克隆跟着底色一起淡掉
+    // 没有落点（格子不在屏内、打码或比例不同）：已经摆出来的克隆原地淡掉
     else anims.push(flight.el.animate([{ opacity: 1 }, { opacity: 0 }], fadeOut))
   })
   const finished = ready
     .then(() => Promise.allSettled(anims.map((a) => a.finished)))
     .then(() => undefined)
     .finally(() => {
-      cover?.remove()
-      flight?.el.remove()
-      release?.()
+      cleanup()
       if (active === handle) active = undefined
     })
   void finished.catch(() => {})
