@@ -50,6 +50,7 @@ import { PERSPECTIVE, poseTransform, screenCenter, tileTransform, type TilePose 
 import { PlayView, type PlayEntry } from './PlayView'
 import { fit } from './titleFit'
 import './gallery.css'
+import './window.css'
 import { t as tl } from '@/i18n'
 
 interface Selection {
@@ -720,7 +721,7 @@ export function CanvasPage() {
           手势库只收到松开，会把这次点击当成拖动结束吞掉（「点标志回不去」就是这样） */}
       <div
         inert={modalOpen}
-        className={cn('absolute inset-0', ready && !sel && 'cursor-grab active:cursor-grabbing')}
+        className={cn('wall-soft-mask wall-soft-mask-canvas absolute inset-0', ready && !sel && 'cursor-grab active:cursor-grabbing')}
         {...bind()}
         // 拖动手势过了阈值才开始，单击时不会进手势处理；每次按下先清掉上次拖动的标记
         onPointerDownCapture={() => (view.current.moved = false)}

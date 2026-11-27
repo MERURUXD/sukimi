@@ -72,7 +72,7 @@ function createScene() {
   const root = make('gw-scene')
   root.setAttribute('aria-hidden', 'true')
   const frame = make('gw-frame', root)
-  const tone = make('gwin-wall gw-tone', frame)
+  const tone = make('gwin-wall gw-tone wall-soft-mask', frame)
   const shift = make('gw-shift', tone)
   const plane = make('gwin-plane gw-plane', shift)
   const drift = make('gw-drift', plane)

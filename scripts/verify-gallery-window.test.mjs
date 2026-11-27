@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { DESKTOP_GRID, MOBILE_GRID, cellIndex } from '../src/features/gallery/canvasMath.ts'
-import { WINDOW_K, WINDOW_K_ON, ensureWall, wallItem, wallRange, wallScale, wallState, windowCells, windowOrder } from '../src/features/gallery/wall.ts'
+import { WINDOW_K, WINDOW_K_ON, ensureWall, wallItem, wallMaskStrength, wallRange, wallScale, wallState, windowCells, windowOrder } from '../src/features/gallery/wall.ts'
 
 test('橱窗：墙比画廊里更斜更小，指上去往画廊的姿态靠', () => {
   assert.equal(wallScale(1), 0.72)
@@ -146,4 +146,15 @@ test('橱窗：普通桌面导航不额外等待，取消后的迟到收尾不�
     await new Promise(resolve => setImmediate(resolve))
     assert.equal(cleaned, cancel ? 0 : 1)
   }
+})
+
+test('封面墙：柔边遮罩强度在书库平铺原位为 0，随后单调渐入至 1', () => {
+  assert.equal(wallMaskStrength(-0.2), 0)
+  assert.equal(wallMaskStrength(0), 0)
+  assert.equal(wallMaskStrength(0.15), 0)
+  const samples = [0.3, 0.5, 0.7].map(wallMaskStrength)
+  assert.ok(samples[0] > 0 && samples[0] < samples[1] && samples[1] < samples[2] && samples[2] < 1)
+  assert.equal(wallMaskStrength(0.85), 1)
+  assert.equal(wallMaskStrength(1), 1)
+  assert.equal(wallMaskStrength(1.5), 1)
 })

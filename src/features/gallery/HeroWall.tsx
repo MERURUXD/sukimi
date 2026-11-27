@@ -1,11 +1,12 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { LibraryManga } from '@/features/library/queries'
 import { cn } from '@/lib/cn'
 import { DESKTOP_GRID, HOME_WALL, MOBILE_GRID, assignSlots, cellIndex, clamp01, easeInOut, homeWallExtra, placeOrder, visibleCells } from './canvasMath'
 import { useReducedMotionPref } from './hooks'
 import { libraryCoversForReturn, type CoverRect } from './readMorph'
 import { libraryRewind } from './coverLayout'
-import { cellsInWindow, ensureWall, wallItem, wallScale, wallState, wallTransform } from './wall'
+import { cellsInWindow, ensureWall, wallItem, wallMaskStrength, wallScale, wallState, wallTransform } from './wall'
+import './window.css'
 
 /** 从书库进来的过场：先停一下（书库的标题和工具栏在上面淡出），再飞上墙 */
 const ENTRY_HOLD = 260
@@ -35,6 +36,7 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
   // 宽度跟随首屏，滚动条出现或消失时会变；高度取视口，才能和画布第一帧一致。
   const [size, setSize] = useState(() => ({ w: document.documentElement.clientWidth, h: window.innerHeight }))
   const root = useRef<HTMLDivElement>(null)
+  const mask = useRef<HTMLDivElement>(null)
   const plane = useRef<HTMLDivElement>(null)
   const drift = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -144,9 +146,15 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
 
     let painted = ''
     let paintedOrder = wallState.order
+    let paintedMask = -1
     /** k：进场时 0 = 书库、1 = 墙；出场时 0 = 墙、1 = 书库 */
     const paint = (k = 1, fly: Fly | null = null, out = false) => {
       const e = fly ? (out ? 1 - k : k) : 1
+      const maskLevel = fly ? wallMaskStrength(e) : 1
+      if (maskLevel !== paintedMask) {
+        paintedMask = maskLevel
+        mask.current?.style.setProperty('--wall-mask', maskLevel.toFixed(3))
+      }
       const ox = wallState.cx + w / 2 + HOME_WALL.slide
       const oy = wallState.cy + h / 2
       const flying = !!fly && e < 1
@@ -322,23 +330,25 @@ export function HeroWall({ items, mobile, entry, className }: { items: readonly 
 
   return (
     <div ref={root} data-hero-wall aria-hidden className={cn('pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2', className)} style={{ width: size.w, height: size.h }}>
-      <div ref={plane} className="absolute inset-0 origin-center" style={{ perspective: 1100, transform: intro.current ? wallTransform(0) : wallTransform(1) }}>
-        <div ref={drift} className="absolute inset-0 will-change-transform">
-          {Array.from({ length: items.length ? pool : 0 }, (_, i) => (
-            <span
-              key={i}
-              ref={(el) => {
-                if (slots.current[i] !== el) shown.current[i] = null
-                slots.current[i] = el
-              }}
-              className="cv absolute top-0 left-0 origin-top-left rounded-[14px]"
-              style={{ width: grid.cw, visibility: 'hidden' }}
-            >
-              <img alt="" draggable={false} decoding="async" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
-              {/* 从书库飞进来时叠在上面的书库封面，飞到后段淡掉 */}
-              {overlay && <img alt="" draggable={false} decoding="async" className="absolute inset-0" style={{ opacity: 0 }} />}
-            </span>
-          ))}
+      <div ref={mask} className="wall-soft-mask absolute inset-0" style={{ '--wall-mask': intro.current ? 0 : 1 } as CSSProperties}>
+        <div ref={plane} className="absolute inset-0 origin-center" style={{ perspective: 1100, transform: intro.current ? wallTransform(0) : wallTransform(1) }}>
+          <div ref={drift} className="absolute inset-0 will-change-transform">
+            {Array.from({ length: items.length ? pool : 0 }, (_, i) => (
+              <span
+                key={i}
+                ref={(el) => {
+                  if (slots.current[i] !== el) shown.current[i] = null
+                  slots.current[i] = el
+                }}
+                className="cv absolute top-0 left-0 origin-top-left rounded-[14px]"
+                style={{ width: grid.cw, visibility: 'hidden' }}
+              >
+                <img alt="" draggable={false} decoding="async" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
+                {/* 从书库飞进来时叠在上面的书库封面，飞到后段淡掉 */}
+                {overlay && <img alt="" draggable={false} decoding="async" className="absolute inset-0" style={{ opacity: 0 }} />}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

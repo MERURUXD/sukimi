@@ -51,12 +51,16 @@
   z-index: -1;
   pointer-events: none;
   background:
-    linear-gradient(90deg, #0b0b0d 0%, rgba(11, 11, 13, 0.94) 28%, rgba(11, 11, 13, 0.55) 52%, rgba(11, 11, 13, 0) 80%),
-    linear-gradient(180deg, rgba(11, 11, 13, 0.55) 0%, rgba(11, 11, 13, 0) 22%, rgba(11, 11, 13, 0) 78%, rgba(11, 11, 13, 0.6) 100%);
+    linear-gradient(90deg, #0b0b0d 0%, rgba(11, 11, 13, 0.94) 28%, rgba(11, 11, 13, 0.52) 52%, rgba(11, 11, 13, 0) 78%),
+    linear-gradient(270deg, rgba(11, 11, 13, 0.82) 0%, rgba(11, 11, 13, 0.34) 5%, rgba(11, 11, 13, 0) 14%),
+    linear-gradient(180deg, rgba(11, 11, 13, 0.72) 0%, rgba(11, 11, 13, 0) 20%, rgba(11, 11, 13, 0) 80%, rgba(11, 11, 13, 0.76) 100%);
 }
 @media (max-width: 767.98px) {
   .gwin-shade {
-    background: linear-gradient(0deg, #0b0b0d 0%, rgba(11, 11, 13, 0.96) 34%, rgba(11, 11, 13, 0.5) 62%, rgba(11, 11, 13, 0) 88%);
+    background:
+      linear-gradient(0deg, #0b0b0d 0%, rgba(11, 11, 13, 0.96) 34%, rgba(11, 11, 13, 0.48) 62%, rgba(11, 11, 13, 0) 88%),
+      linear-gradient(180deg, rgba(11, 11, 13, 0.68) 0%, rgba(11, 11, 13, 0) 16%),
+      linear-gradient(90deg, rgba(11, 11, 13, 0.65) 0%, rgba(11, 11, 13, 0) 11%, rgba(11, 11, 13, 0) 89%, rgba(11, 11, 13, 0.65) 100%);
   }
 }
 
@@ -151,10 +155,83 @@
   }
 }
 
+/* 四向柔边消融：smoothstep 曲线消除深底上的渐变折痕；--wall-mask 可在书库飞入/飞出时动态归零 */
+.wall-soft-mask {
+  --wall-mask: 1;
+  --wall-fade-top: clamp(72px, 14%, 150px);
+  --wall-fade-bottom: clamp(96px, 22%, 230px);
+  --wall-fade-left: clamp(64px, 12%, 170px);
+  --wall-fade-right: clamp(64px, 12%, 170px);
+  --_a0: calc(1 - var(--wall-mask));
+  --_a1: calc(1 - var(--wall-mask) * 0.81);
+  --_a2: calc(1 - var(--wall-mask) * 0.35);
+  --_a3: calc(1 - var(--wall-mask) * 0.06);
+  --_mask-y: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / var(--_a0)) 0%,
+    rgb(0 0 0 / var(--_a1)) calc(var(--wall-fade-top) * 0.28),
+    rgb(0 0 0 / var(--_a2)) calc(var(--wall-fade-top) * 0.60),
+    rgb(0 0 0 / var(--_a3)) calc(var(--wall-fade-top) * 0.86),
+    #000 var(--wall-fade-top),
+    #000 calc(100% - var(--wall-fade-bottom)),
+    rgb(0 0 0 / var(--_a3)) calc(100% - var(--wall-fade-bottom) * 0.86),
+    rgb(0 0 0 / var(--_a2)) calc(100% - var(--wall-fade-bottom) * 0.60),
+    rgb(0 0 0 / var(--_a1)) calc(100% - var(--wall-fade-bottom) * 0.28),
+    rgb(0 0 0 / var(--_a0)) 100%
+  );
+  --_mask-x: linear-gradient(
+    to right,
+    rgb(0 0 0 / var(--_a0)) 0%,
+    rgb(0 0 0 / var(--_a1)) calc(var(--wall-fade-left) * 0.28),
+    rgb(0 0 0 / var(--_a2)) calc(var(--wall-fade-left) * 0.60),
+    rgb(0 0 0 / var(--_a3)) calc(var(--wall-fade-left) * 0.86),
+    #000 var(--wall-fade-left),
+    #000 calc(100% - var(--wall-fade-right)),
+    rgb(0 0 0 / var(--_a3)) calc(100% - var(--wall-fade-right) * 0.86),
+    rgb(0 0 0 / var(--_a2)) calc(100% - var(--wall-fade-right) * 0.60),
+    rgb(0 0 0 / var(--_a1)) calc(100% - var(--wall-fade-right) * 0.28),
+    rgb(0 0 0 / var(--_a0)) 100%
+  );
+  -webkit-mask-image: var(--_mask-y), var(--_mask-x);
+  mask-image: var(--_mask-y), var(--_mask-x);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+@media (max-width: 767.98px) {
+  .wall-soft-mask {
+    --wall-fade-top: clamp(48px, 12%, 96px);
+    --wall-fade-bottom: clamp(84px, 20%, 160px);
+    --wall-fade-left: clamp(28px, 9%, 56px);
+    --wall-fade-right: clamp(28px, 9%, 56px);
+  }
+}
+.wall-soft-mask-canvas {
+  --wall-fade-top: clamp(56px, 10%, 110px);
+  --wall-fade-bottom: clamp(72px, 14%, 150px);
+  --wall-fade-left: clamp(56px, 10%, 140px);
+  --wall-fade-right: clamp(56px, 10%, 140px);
+}
+
 /* 场景归墙所有：路由只提供取景框，过渡时同一批封面暂时移到视口坐标系。 */
 .gw-scene, .gw-frame, .gw-shift, .gw-plane, .gw-drift, .gw-hero-shade {
   position: absolute;
   inset: 0;
+}
+.gw-scene[data-wall-kind='window']:not(.gw-flying) .gw-tone {
+  --wall-fade-top: clamp(32px, 16%, 72px);
+  --wall-fade-bottom: clamp(36px, 18%, 80px);
+  --wall-fade-left: clamp(48px, 10%, 120px);
+  --wall-fade-right: clamp(56px, 11%, 140px);
+}
+@media (max-width: 767.98px) {
+  .gw-scene[data-wall-kind='window']:not(.gw-flying) .gw-tone {
+    --wall-fade-top: clamp(40px, 14%, 76px);
+    --wall-fade-bottom: clamp(64px, 24%, 130px);
+    --wall-fade-left: clamp(24px, 10%, 48px);
+    --wall-fade-right: clamp(24px, 10%, 48px);
+  }
 }
 .gw-frame { overflow: hidden; isolation: isolate; background: #0b0b0d; }
 .gw-flying { position: fixed; inset: 0 auto auto 0; z-index: 40; pointer-events: none; }

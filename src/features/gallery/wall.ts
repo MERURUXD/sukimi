@@ -1,4 +1,4 @@
-import { HOME_WALL, cellIndex, centerOn, placeOrder, visibleCells, type Grid } from './canvasMath.ts'
+import { HOME_WALL, cellIndex, centerOn, clamp01, placeOrder, visibleCells, type Grid } from './canvasMath.ts'
 import type { LibraryLanding } from './coverLayout.ts'
 
 /*
@@ -54,6 +54,9 @@ export const wallTransform = (k: number) =>
 
 export const wallScale = (k: number) => 1 + (HOME_WALL.scale - 1) * k
 const tiltY = (k: number) => Math.cos((HOME_WALL.rotateX * k * Math.PI) / 180)
+
+/** 封面墙四向柔边遮罩的显现强度：e=0（书库平铺原位）完全关闭，避免裁淡飞入/飞回边缘的封面；e→1 渐入到满强度。 */
+export const wallMaskStrength = (e: number) => clamp01((e - 0.15) / 0.7)
 
 /*
  * 首页橱窗里的墙比画廊里的更斜、更小，窗里才有好几行封面、像一面墙；指上去 / 按住时往画廊的姿态靠。

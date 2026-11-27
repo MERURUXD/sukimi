@@ -224,7 +224,7 @@ export interface HeroLayout {
 
 export const HERO_VIGNETTE = {
   desktop:
-    'radial-gradient(ellipse 62% 50% at 50% 40%, color-mix(in srgb, var(--bg) 12%, transparent) 0%, color-mix(in srgb, var(--bg) 55%, transparent) 62%, color-mix(in srgb, var(--bg) 92%, transparent) 100%), linear-gradient(180deg, color-mix(in srgb, var(--bg) 55%, transparent) 0%, transparent 20%, transparent 42%, color-mix(in srgb, var(--bg) 78%, transparent) 72%, var(--bg) 100%)',
+    'radial-gradient(ellipse 66% 54% at 50% 42%, color-mix(in srgb, var(--bg) 10%, transparent) 0%, color-mix(in srgb, var(--bg) 42%, transparent) 64%, color-mix(in srgb, var(--bg) 72%, transparent) 100%), linear-gradient(180deg, color-mix(in srgb, var(--bg) 35%, transparent) 0%, transparent 18%, transparent 44%, color-mix(in srgb, var(--bg) 76%, transparent) 74%, var(--bg) 100%)',
   mobile:
-    'linear-gradient(180deg, color-mix(in srgb, var(--bg) 55%, transparent) 0%, color-mix(in srgb, var(--bg) 10%, transparent) 22%, color-mix(in srgb, var(--bg) 25%, transparent) 48%, color-mix(in srgb, var(--bg) 92%, transparent) 80%, var(--bg) 100%)',
+    'linear-gradient(180deg, color-mix(in srgb, var(--bg) 35%, transparent) 0%, color-mix(in srgb, var(--bg) 8%, transparent) 20%, color-mix(in srgb, var(--bg) 22%, transparent) 48%, color-mix(in srgb, var(--bg) 90%, transparent) 78%, var(--bg) 100%)',
 }
