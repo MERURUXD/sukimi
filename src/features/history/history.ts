@@ -38,14 +38,22 @@ export interface HistoryEntry<C extends HistoryChapter> {
  */
 export function groupHistory<C extends HistoryChapter>(list: readonly C[], dayOf: (t: number) => string, userId: number | undefined) {
   const days: { label: string; entries: HistoryEntry<C>[] }[] = []
+  let byManga = new Map<number, HistoryEntry<C>>()
   for (const c of list) {
     if (!isVisible(c, userId)) continue
     const label = dayOf(Number(c.lastReadAt) * 1000)
     let day = days.at(-1)
-    if (day?.label !== label) days.push((day = { label, entries: [] }))
-    const entry = day.entries.find((e) => e.latest.manga.id === c.manga.id)
+    if (day?.label !== label) {
+      days.push((day = { label, entries: [] }))
+      byManga = new Map()
+    }
+    const entry = byManga.get(c.manga.id)
     if (entry) entry.chapters.push(c)
-    else day.entries.push({ latest: c, chapters: [c] })
+    else {
+      const created = { latest: c, chapters: [c] }
+      byManga.set(c.manga.id, created)
+      day.entries.push(created)
+    }
   }
   return days
 }

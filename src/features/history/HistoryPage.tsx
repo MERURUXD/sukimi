@@ -1,10 +1,12 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { Play, Search, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import type { Reference } from '@apollo/client'
 import { useAuth } from '@/api/auth'
 import { rememberLoadedWindow } from '@/api/paging'
+import { useRestoredOffset } from '@/app/ScrollManager'
 import { Glass } from '@/components/glass/Glass'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
@@ -18,6 +20,7 @@ import { useNsfwBlur } from '@/features/nsfw/useNsfw'
 import { chapterLabel, clock, count, dayLabel } from '@/lib/format'
 import { cn } from '@/lib/cn'
 import { riseStep, useIntro } from '@/lib/intro'
+import { useMediaQuery } from '@/lib/useMediaQuery'
 import { groupHistory, hiddenKey, hiddenValue, visibleHistoryCount, type HistoryEntry } from './history'
 import { HideHistory, History, type HistoryItem } from './queries'
 import { HISTORY_PAGE, historyVariables } from './pagination'
@@ -71,7 +74,7 @@ export function HistoryPage() {
 
   const [hide] = useMutation(HideHistory)
   const hiddenKeyOfUser = userId === undefined ? undefined : hiddenKey(userId)
-  const remove = async (entry: HistoryEntry<HistoryItem>) => {
+  const remove = useCallback(async (entry: HistoryEntry<HistoryItem>) => {
     const ok = await confirm({
       title: t('downloads.history.deleteTitle'),
       body: t('downloads.history.deleteBody', { title: entry.latest.manga.title, n: entry.chapters.length }),
@@ -102,9 +105,8 @@ export function HistoryPage() {
     } catch (e) {
       toastError(t('downloads.history.deleteFailed'), e)
     }
-  }
+  }, [hide, hiddenKeyOfUser])
 
-  let row = 0
   const shown = days.reduce((n, d) => n + d.entries.length, 0)
   const visible = data ? visibleHistoryCount(data.chapters.totalCount, list, userId) : null
 
@@ -143,16 +145,7 @@ export function HistoryPage() {
         </div>
       )}
 
-      {days.map((d) => (
-        <section key={d.label} aria-label={d.label} className="mb-6">
-          <h2 className="m-0 pb-2 text-xs font-bold tracking-[.08em] text-muted">{d.label}</h2>
-          <div className="grid grid-cols-1 gap-x-6 gap-y-0.5 lg:grid-cols-2">
-            {d.entries.map((e) => (
-              <HistoryRow key={e.latest.id} entry={e} rise={intro ? riseStep(row++) : undefined} onRemove={() => void remove(e)} />
-            ))}
-          </div>
-        </section>
-      ))}
+      <HistoryList days={days} intro={intro} onRemove={remove} />
 
       {hasMore && (shown > 0 || !q) && (
         <div ref={q ? undefined : sentinel} className="py-6 text-center text-sm text-muted">
@@ -167,7 +160,80 @@ export function HistoryPage() {
   )
 }
 
-function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem>; rise?: React.CSSProperties; onRemove: () => void }) {
+type Day = { label: string; entries: HistoryEntry<HistoryItem>[] }
+/**
+ * 虚拟列表的一行：日期标题，或同一天里并排的一到两条记录。
+ * first 是这行第一条在全部记录里的序号，排进场动画用；end 表示这一天的最后一行，下面留组间距。
+ */
+type Item = { kind: 'day'; label: string } | { kind: 'row'; entries: HistoryEntry<HistoryItem>[]; first: number; end: boolean }
+
+/** 历史可能翻到上千条，只挂视口附近的行；桌面两栏，按天分组 */
+function HistoryList({ days, intro, onRemove }: { days: Day[]; intro: boolean; onRemove: (entry: HistoryEntry<HistoryItem>) => void }) {
+  const cols = useMediaQuery('(min-width: 1024px)') ? 2 : 1
+  const items = useMemo(() => {
+    const out: Item[] = []
+    let n = 0
+    for (const d of days) {
+      out.push({ kind: 'day', label: d.label })
+      for (let i = 0; i < d.entries.length; i += cols) {
+        out.push({ kind: 'row', entries: d.entries.slice(i, i + cols), first: n, end: i + cols >= d.entries.length })
+        n += cols
+      }
+    }
+    return out
+  }, [days, cols])
+
+  const initialOffset = useRestoredOffset()
+  const box = useRef<HTMLDivElement>(null)
+  const [top, setTop] = useState(0)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const y = el.getBoundingClientRect().top + window.scrollY
+    if (Math.abs(y - top) > 0.5) setTop(y)
+  })
+  const v = useWindowVirtualizer({
+    count: items.length,
+    // 行：封面 84 + 上下内边距 20，再加行距 2 或组间距 24；日期：文字 16 + 下距 8
+    estimateSize: (i) => {
+      const it = items[i]
+      return it.kind === 'day' ? 24 : it.end ? 128 : 106
+    },
+    overscan: 6,
+    scrollMargin: top,
+    // 默认会取创建时的 window.scrollY，切页时那是上一页的位置；改用 ScrollManager 记下的位置
+    initialOffset,
+    getItemKey: (i) => {
+      const it = items[i]
+      return it.kind === 'day' ? `d:${it.label}` : `${cols}:${it.entries[0].latest.id}`
+    },
+  })
+
+  return (
+    <div ref={box} className="relative" style={{ height: v.getTotalSize() }}>
+      {v.getVirtualItems().map((r) => {
+        const it = items[r.index]
+        return (
+          <div
+            key={r.key}
+            data-index={r.index}
+            ref={v.measureElement}
+            className={cn('absolute inset-x-0 top-0', it.kind === 'row' && ['grid gap-x-6', it.end ? 'pb-6' : 'pb-0.5', cols > 1 ? 'grid-cols-2' : 'grid-cols-1'])}
+            style={{ transform: `translateY(${r.start - v.options.scrollMargin}px)` }}
+          >
+            {it.kind === 'day' ? (
+              <h2 className="m-0 pb-2 text-xs font-bold tracking-[.08em] text-muted">{it.label}</h2>
+            ) : (
+              it.entries.map((e, j) => <HistoryRow key={e.latest.id} entry={e} rise={intro ? riseStep(it.first + j) : undefined} onRemove={onRemove} />)
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+const HistoryRow = memo(function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem>; rise?: React.CSSProperties; onRemove: (entry: HistoryEntry<HistoryItem>) => void }) {
   const c = entry.latest
   const prefetch = usePrefetchManga(c.manga.id)
   const progress = c.isRead ? t('downloads.history.finished') : c.pageCount > 0 ? t('downloads.history.readPageOf', { current: c.lastPageRead + 1, total: c.pageCount }) : t('downloads.history.readPage', { page: c.lastPageRead + 1 })
@@ -198,12 +264,12 @@ function HistoryRow({ entry, rise, onRemove }: { entry: HistoryEntry<HistoryItem
           <Play className="size-[18px] fill-current" strokeWidth={1.6} />
         </Link>
       )}
-      <button type="button" className="row-action gicon size-10 text-muted hover:text-danger" aria-label={t('downloads.history.deleteAria', { title: c.manga.title })} title={t('downloads.history.deleteRow')} onClick={onRemove}>
+      <button type="button" className="row-action gicon size-10 text-muted hover:text-danger" aria-label={t('downloads.history.deleteAria', { title: c.manga.title })} title={t('downloads.history.deleteRow')} onClick={() => onRemove(entry)}>
         <Trash2 className="size-[18px]" strokeWidth={1.8} />
       </button>
     </div>
   )
-}
+})
 
 function HistorySkeleton() {
   return (

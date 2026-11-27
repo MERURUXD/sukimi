@@ -15,7 +15,7 @@ import {
   MoreHorizontal,
   Trash2,
 } from 'lucide-react'
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { DeleteDownloads, EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Glass } from '@/components/glass/Glass'
@@ -29,6 +29,7 @@ import type { NextPrediction } from './NextUpdate'
 import { cn } from '@/lib/cn'
 import { useLongPress } from '@/lib/useLongPress'
 import { useSelection } from '@/lib/useSelection'
+import { useMediaQuery } from '@/lib/useMediaQuery'
 import type { Chapter } from './queries'
 import { FROM_DETAIL } from '@/features/reader/nav'
 import { parsePageBookmarks } from '@/features/reader/pageTools'
@@ -173,7 +174,7 @@ export function ChapterList({
     [sel],
   )
 
-  const cols = useWideScreen() ? 2 : 1
+  const cols = useMediaQuery('(min-width: 1280px)') ? 2 : 1
   const box = useRef<HTMLDivElement>(null)
   const [top, setTop] = useState(0)
   useLayoutEffect(() => {
@@ -537,14 +538,3 @@ function ProgressRing({ value, error }: { value: number; error: boolean }) {
   )
 }
 
-const WIDE = '(min-width: 1280px)'
-function useWideScreen() {
-  return useSyncExternalStore(
-    (cb) => {
-      const m = window.matchMedia(WIDE)
-      m.addEventListener('change', cb)
-      return () => m.removeEventListener('change', cb)
-    },
-    () => window.matchMedia(WIDE).matches,
-  )
-}
