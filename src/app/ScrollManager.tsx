@@ -53,14 +53,16 @@ export function ScrollManager() {
       if (Math.abs(window.scrollY - target) > 1) window.scrollTo(0, target)
       if (++frames < 10) raf = requestAnimationFrame(fix)
     })
-    // 用户自己开始滚动就不再校正
-    const stop = () => cancelAnimationFrame(raf)
-    window.addEventListener('wheel', stop, { once: true, passive: true })
-    window.addEventListener('touchstart', stop, { once: true, passive: true })
+    // 用户自己开始滚动就不再校正；封面飞行期间被拦下的滚动（defaultPrevented）不算
+    const stop = (e?: Event) => {
+      if (!e?.defaultPrevented) cancelAnimationFrame(raf)
+    }
+    window.addEventListener('wheel', stop, { passive: true })
+    window.addEventListener('touchmove', stop, { passive: true })
     return () => {
       stop()
       window.removeEventListener('wheel', stop)
-      window.removeEventListener('touchstart', stop)
+      window.removeEventListener('touchmove', stop)
     }
   }, [key, nav, address, pathname, keepScroll])
 

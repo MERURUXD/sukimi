@@ -12,6 +12,7 @@ const DETAIL_PATH = /^\/manga\/\d+$/
 const HERO_COVER = '.manga-hero-cover'
 const FLIGHT_MS = 450
 const FADE_MS = fade.default.duration * 1000
+const LEAD_MS = fade.fast.duration * 1000
 const EASE = `cubic-bezier(${fade.default.ease.join(', ')})`
 
 /**
@@ -64,31 +65,46 @@ function shoot(cover: HTMLElement | null | undefined, withImage = true): Shot | 
   return { src: img?.currentSrc ?? '', rect, radius: parseFloat(style.borderTopLeftRadius) || 0, shadow: style.boxShadow }
 }
 
-/**
- * 封面飞行：一张固定定位的克隆图从起点移到终点，期间藏起终点的真封面。
- * 克隆按两端里较大的尺寸绘制、只往小缩放，任何一端都不会被放大发虚；
- * 位移和缩放单独一段动画，交给合成器，新页面挂载占住主线程时也不卡；
- * 圆角和投影透明度另起动画，两端不同时才有。
- */
-function fly(from: Shot, to: Shot, target: HTMLElement): Animation[] {
-  const base = from.rect.width >= to.rect.width ? from.rect : to.rect
-  const at = (r: DOMRect) => `translate(${r.left - base.left}px, ${r.top - base.top}px) scale(${r.width / base.width})`
-  const radius = (s: Shot) => `${s.radius * (base.width / s.rect.width)}px`
+interface Flight { el: HTMLDivElement; img: HTMLImageElement; shadow: HTMLDivElement }
 
-  const flight = document.createElement('div')
-  flight.className = 'cover-flight'
-  Object.assign(flight.style, { left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px` })
+const place = (el: HTMLElement, r: DOMRect) =>
+  Object.assign(el.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` })
+
+/**
+ * 起飞：点下去的同一帧就把克隆图原样摆在起点、盖在底色上面，
+ * 换页期间（返回时底色渐入、新页面挂载）封面一直留在原处，不会跟着页面一起消失再冒出来。
+ */
+function launch(from: Shot): Flight {
+  const el = document.createElement('div')
+  el.className = 'cover-flight'
+  place(el, from.rect)
   const shadow = document.createElement('div')
+  shadow.style.boxShadow = from.shadow
   const img = new Image()
   img.alt = ''
   img.decoding = 'sync'
   img.src = from.src
-  flight.append(shadow, img)
-  layer().append(flight)
+  img.style.borderRadius = shadow.style.borderRadius = `${from.radius}px`
+  el.append(shadow, img)
+  layer().append(el)
+  return { el, img, shadow }
+}
+
+/**
+ * 落地：一张固定定位的克隆图从起点移到终点，期间藏起终点的真封面。
+ * 克隆改按两端里较大的尺寸绘制、只往小缩放，任何一端都不会被放大发虚（和动画同一帧换，看不出跳动）；
+ * 位移和缩放单独一段动画，交给合成器，新页面挂载占住主线程时也不卡；
+ * 圆角和投影透明度另起动画，两端不同时才有。
+ */
+function land({ el, img, shadow }: Flight, from: Shot, to: Shot, target: HTMLElement): Animation[] {
+  const base = from.rect.width >= to.rect.width ? from.rect : to.rect
+  const at = (r: DOMRect) => `translate(${r.left - base.left}px, ${r.top - base.top}px) scale(${r.width / base.width})`
+  const radius = (s: Shot) => `${s.radius * (base.width / s.rect.width)}px`
+  place(el, base)
   target.style.visibility = 'hidden'
 
   const timing = { duration: FLIGHT_MS, easing: EASE, fill: 'both' } as const
-  const anims = [flight.animate([{ transform: at(from.rect) }, { transform: at(to.rect) }], timing)]
+  const anims = [el.animate([{ transform: at(from.rect) }, { transform: at(to.rect) }], timing)]
   // 投影只取有投影的一端（详情页大封面），另一端淡掉
   shadow.style.boxShadow = from.shadow !== 'none' ? from.shadow : to.shadow
   const shade = (s: Shot) => (s.shadow !== 'none' ? 1 : 0)
@@ -101,7 +117,7 @@ function fly(from: Shot, to: Shot, target: HTMLElement): Animation[] {
   }
   void Promise.allSettled(anims.map((a) => a.finished)).then(() => {
     target.style.visibility = ''
-    flight.remove()
+    el.remove()
   })
   return anims
 }
@@ -114,7 +130,33 @@ function veil() {
   return el
 }
 
-const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+const SCROLL_KEYS = new Set([' ', 'PageUp', 'PageDown', 'Home', 'End', 'ArrowUp', 'ArrowDown'])
+
+/**
+ * 动画期间不让用户滚动：终点在动画开始时量好，中途滚动会让封面落到错位的格子上。
+ * 原来的浏览器转场有一层覆盖全屏的转场层，顺带挡住了滚动；自绘动画要自己拦。
+ * 只拦用户输入，程序里的滚动恢复照常（ScrollManager 会忽略这里拦下的滚轮和触摸滑动）；按钮、输入框上的按键不拦。
+ */
+function holdScroll() {
+  const block = (e: Event) => e.preventDefault()
+  const key = (e: KeyboardEvent) => {
+    if (SCROLL_KEYS.has(e.key) && !(e.target as Element | null)?.closest?.('input, textarea, select, button, a, [contenteditable], [role="slider"]')) e.preventDefault()
+  }
+  const opts = { capture: true, passive: false }
+  addEventListener('wheel', block, opts)
+  addEventListener('touchmove', block, opts)
+  addEventListener('keydown', key, true)
+  return () => {
+    removeEventListener('wheel', block, opts)
+    removeEventListener('touchmove', block, opts)
+    removeEventListener('keydown', key, true)
+  }
+}
+
+/** 后台标签页里 rAF 和动画会降速甚至暂停，换页不能只等它们 */
+const within = (p: Promise<unknown>, ms: number) =>
+  Promise.race([p.then(() => {}, () => {}), new Promise<void>((resolve) => setTimeout(resolve, ms))])
+const nextFrame = () => within(new Promise<void>((resolve) => requestAnimationFrame(() => resolve())), 100)
 
 /**
  * 进出详情页不走 View Transition，自己做封面飞行和页面淡入：
@@ -133,15 +175,35 @@ function coverFlight(update: ViewTransitionUpdateCallback | null | undefined, fr
   const origin = from ? origins.get(from) : undefined
   const back = !!from && DETAIL_PATH.test(from) && origin?.path === to
   const source = !motion ? undefined : back ? shoot(document.querySelector<HTMLElement>(HERO_COVER)) : shoot(pending)
+  active?.skip()
   const cover = motion ? veil() : undefined
+  const flight = source ? launch(source) : undefined
+  // 只有封面在飞时才拦：没有克隆（大封面已滚出屏、从导航去别的页）只是底色淡出，不必吞掉输入
+  const release = flight ? holdScroll() : undefined
+  // 返回时详情页带着取色背景，书库是纯底色：先让底色渐入盖住详情页再换页，不然背景是硬切的
+  const lead = cover && back
+    ? cover.animate([{ opacity: 0 }, { opacity: 1 }], { duration: LEAD_MS, easing: EASE, fill: 'both' })
+    : undefined
 
   let anims: Animation[] = []
   let skipped = false
-  const handle = { skip: () => { skipped = true; anims.forEach((a) => a.finish()); cover?.remove() } }
-  active?.skip()
+  let updating: Promise<void> | undefined
+  // 被打断时也要换页，且只换一次
+  const runUpdate = () => (updating ??= Promise.resolve().then(() => update?.()).then(() => undefined))
+  const handle = {
+    skip: () => {
+      skipped = true
+      lead?.finish()
+      void runUpdate().catch(() => {})
+      anims.forEach((a) => a.finish())
+      cover?.remove()
+      flight?.el.remove()
+      release?.()
+    },
+  }
   active = handle
 
-  const updateCallbackDone = Promise.resolve().then(() => update?.()).then(() => undefined)
+  const updateCallbackDone = (lead ? within(lead.finished, LEAD_MS + 50) : Promise.resolve()).then(runUpdate)
   const ready = updateCallbackDone.then(async () => {
     if (!cover) return
     // 等一帧：滚动恢复与虚拟列表首帧都已落定，量到的终点才准；这一帧还被底色盖着
@@ -151,14 +213,20 @@ function coverFlight(update: ViewTransitionUpdateCallback | null | undefined, fr
       ? (() => { const covers = coversOf(`${basePath}${from}`); return covers[origin!.index] ?? covers[0] })()
       : DETAIL_PATH.test(to) ? document.querySelector<HTMLElement>(HERO_COVER) : null
     const dest = source && target ? shoot(target, false) : undefined
-    anims = [cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_MS, easing: EASE, fill: 'both' })]
-    if (source && dest && target && sameShape(source.rect, dest.rect)) anims.push(...fly(source, dest, target))
+    const fadeOut = { duration: FADE_MS, easing: EASE, fill: 'both' } as const
+    anims = [cover.animate([{ opacity: 1 }, { opacity: 0 }], fadeOut)]
+    if (!flight || !source) return
+    if (dest && target && sameShape(source.rect, dest.rect)) anims.push(...land(flight, source, dest, target))
+    // 没有落点（格子不在屏内、打码或比例不同）：已经摆出来的克隆跟着底色一起淡掉
+    else anims.push(flight.el.animate([{ opacity: 1 }, { opacity: 0 }], fadeOut))
   })
   const finished = ready
     .then(() => Promise.allSettled(anims.map((a) => a.finished)))
     .then(() => undefined)
     .finally(() => {
       cover?.remove()
+      flight?.el.remove()
+      release?.()
       if (active === handle) active = undefined
     })
   void finished.catch(() => {})

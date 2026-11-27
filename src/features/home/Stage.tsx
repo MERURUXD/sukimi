@@ -292,7 +292,8 @@ export function Stage({ items, active, onSelect, onPreview, onShuffle, onDownloa
   }, { axis: 'x', filterTaps: true, enabled: n > 1 })
   const wheelTimer = useRef(0)
   const onWheel = (e: WheelEvent<HTMLDivElement>) => {
-    if (n < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
+    // 封面飞回舞台途中滚轮被拦下（见 lib/coverTransition 的 holdScroll），这时转动舞台会让落点错位
+    if (e.nativeEvent.defaultPrevented || n < 2 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return
     interrupt()
     pos.stop()
     pos.set(pos.get() + e.deltaX / step())
