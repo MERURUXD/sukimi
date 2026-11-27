@@ -242,6 +242,48 @@ describe('光学滑块纯函数', () => {
     for (let i = 0; i < 60; i++) [v, vel] = stepSpring(v, vel, 120, 1 / 60, 340, 26)
     assert.ok(Math.abs(v - 120) < 0.5)
   })
+
+  test('stepSpring 在低帧率下无条件稳定、帧率无关并覆盖临界/过阻尼区间', async () => {
+    const { stepSpring } = await mod('/src/components/ui/opticalSlider.ts')
+
+    // Codex P2 场景：拖拽参数 (680, 38) 在 25 FPS (dt=0.04) 下跑 50 帧不发散且收敛到 100
+    let v = 0
+    let vel = 0
+    for (let i = 0; i < 50; i++) {
+      ;[v, vel] = stepSpring(v, vel, 100, 0.04, 680, 38)
+      assert.ok(Number.isFinite(v) && Number.isFinite(vel))
+      assert.ok(v >= -20 && v <= 125, `第 ${i} 帧越界：v=${v}`)
+    }
+    assert.ok(Math.abs(v - 100) < 0.01 && Math.abs(vel) < 0.05)
+
+    // 极低帧率 (10 FPS, dt=0.1) 同样稳定收敛
+    let lowV = 0
+    let lowVel = 0
+    for (let i = 0; i < 20; i++) {
+      ;[lowV, lowVel] = stepSpring(lowV, lowVel, 100, 0.1, 680, 38)
+      assert.ok(lowV >= -20 && lowV <= 125)
+    }
+    assert.ok(Math.abs(lowV - 100) < 0.01 && Math.abs(lowVel) < 0.05)
+
+    // 帧率无关性：1 步 dt=0.04 与 4 步 dt=0.01 一致
+    const [oneV, oneVel] = stepSpring(12, -35, 100, 0.04, 680, 38)
+    let subV = 12
+    let subVel = -35
+    for (let i = 0; i < 4; i++) [subV, subVel] = stepSpring(subV, subVel, 100, 0.01, 680, 38)
+    assert.ok(Math.abs(oneV - subV) < 1e-9)
+    assert.ok(Math.abs(oneVel - subVel) < 1e-9)
+
+    // 临界阻尼 (disc=0: alpha=20, stiffness=400) 与过阻尼 (damping=60, stiffness=400) 不过冲
+    for (const damping of [40, 60]) {
+      let cv = 0
+      let cvel = 0
+      for (let i = 0; i < 40; i++) {
+        ;[cv, cvel] = stepSpring(cv, cvel, 100, 0.04, 400, damping)
+        assert.ok(cv >= 0 && cv <= 100 + 1e-9, `阻尼 ${damping} 出现过冲: ${cv}`)
+      }
+      assert.ok(Math.abs(cv - 100) < 0.01)
+    }
+  })
 })
 
 describe('光学滑块组件与交互行为', () => {

@@ -93,7 +93,7 @@ export function nearestBoxIndex(boxes: readonly SliderBox[], center: number, ori
   return best
 }
 
-/** 半隐式欧拉弹簧单步推进 */
+/** 阻尼谐振子解析解步进：低帧率下无条件稳定且与步长划分无关 */
 export function stepSpring(
   val: number,
   vel: number,
@@ -102,10 +102,43 @@ export function stepSpring(
   stiffness: number,
   damping: number,
 ): [number, number] {
-  const a = (target - val) * stiffness - vel * damping
-  const nextVel = vel + a * dt
-  const nextVal = val + nextVel * dt
-  return [nextVal, nextVel]
+  if (dt <= 0) return [val, vel]
+  const x0 = val - target
+  if (stiffness <= 0) {
+    if (damping > 0) {
+      const decay = Math.exp(-damping * dt)
+      return [val + (vel * (1 - decay)) / damping, vel * decay]
+    }
+    return [val + vel * dt, vel]
+  }
+
+  const alpha = damping / 2
+  const disc = alpha * alpha - stiffness
+  if (disc < -1e-9) {
+    const wd = Math.sqrt(-disc)
+    const decay = Math.exp(-alpha * dt)
+    const c = Math.cos(wd * dt)
+    const s = Math.sin(wd * dt)
+    const b = (vel + alpha * x0) / wd
+    const x = decay * (x0 * c + b * s)
+    const nextVel = decay * ((b * wd - x0 * alpha) * c - (x0 * wd + b * alpha) * s)
+    return [target + x, nextVel]
+  }
+  if (disc <= 1e-9) {
+    const decay = Math.exp(-alpha * dt)
+    const k = vel + alpha * x0
+    const x = decay * (x0 + k * dt)
+    const nextVel = decay * (vel - alpha * k * dt)
+    return [target + x, nextVel]
+  }
+  const gamma = Math.sqrt(disc)
+  const r1 = -alpha + gamma
+  const r2 = -alpha - gamma
+  const c1 = (vel - r2 * x0) / (2 * gamma)
+  const c2 = (r1 * x0 - vel) / (2 * gamma)
+  const e1 = Math.exp(r1 * dt)
+  const e2 = Math.exp(r2 * dt)
+  return [target + c1 * e1 + c2 * e2, c1 * r1 * e1 + c2 * r2 * e2]
 }
 
 /**
