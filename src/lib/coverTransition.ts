@@ -1,15 +1,32 @@
+import { fade } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
 import { READER_VT_ATTR } from './readerTransition'
 
-/** 封面「飞入 / 飞回」用的 view-transition-name；同一时刻页面上只能有一个 */
+/** 详情页大封面在阅读器转场里单独成组用的 view-transition-name */
 export const COVER_VT = 'manga-cover'
 
-/** 页面根元素上标记当前路径（AppShell 的 main），过渡前后各读一次就知道是从哪页回到哪页 */
+/** 页面根元素上标记当前路径（AppShell 的 main），换页前读一次，得到是从哪页离开的 */
 export const PAGE_PATH_ATTR = 'data-page-path'
+
+const DETAIL_PATH = /^\/manga\/\d+$/
+const HERO_COVER = '.manga-hero-cover'
+const FLIGHT_MS = 450
+const FADE_MS = fade.default.duration * 1000
+const EASE = `cubic-bezier(${fade.default.ease.join(', ')})`
+
+/**
+ * 遮罩和克隆挂在 .app-shell 里：外壳是独立层叠上下文（isolate），挂在 body 上的 z-index 会压过整个外壳，
+ * 连导航一起盖住；放进外壳才和导航（z-40）比层级，且仍是导航的兄弟元素，不影响玻璃采样。
+ */
+const layer = () => document.querySelector('.app-shell') ?? document.body
 
 /** 详情页路径 → 从哪个页面、第几个同名封面点进来的 */
 const origins = new Map<string, { path: string; index: number }>()
 
+/** 刚点下的封面；只给紧接着的那次换页用 */
+let clicked: { el: HTMLElement; at: number } | undefined
+let uaPop = 0
+let active: { skip: () => void } | undefined
 let installed = false
 
 const coversOf = (href: string) =>
@@ -17,64 +34,152 @@ const coversOf = (href: string) =>
     .map((a) => (a.matches('.cv') ? a : a.querySelector<HTMLElement>('.cv')))
     .filter((el): el is HTMLElement => !!el)
 
-function mark(cover: HTMLElement) {
-  document.querySelectorAll<HTMLElement>('[data-cover-vt]').forEach(unmark)
-  cover.style.viewTransitionName = COVER_VT
-  cover.dataset.coverVt = ''
-}
-
-function unmark(el: HTMLElement) {
-  el.style.viewTransitionName = ''
-  delete el.dataset.coverVt
-}
-
-/** 导航玻璃表面，以及顶栏渐进模糊的各层（它们同样靠背景模糊，被封面盖住就失效） */
-const LIFTED = '.glass[data-vt-glass], .nav-blur-layer[data-vt-glass]'
-
-/**
- * 导航的实际玻璃表面用 data-vt-glass 标记，过渡名不加在透明外壳上。
- * 过渡动画的伪元素都画在页面最上层，封面从栏下面的格子里飞出或飞回时会盖在栏上。
- * 封面转场前后都单独捕获玻璃，滤镜由浏览器带到它自己的过渡分组，保持背景采样。
- * 不按起点相交决定：飞行中途也可能经过导航，且前后快照需要配对同一批表面。
- */
-let liftedSurfaces: Map<HTMLElement, string> | undefined
-
-/**
- * blur = false 时不提模糊层。转场开头只有旧快照的那几帧里，模糊层的分组拿不到遮罩，
- * 渐进的模糊带会变成一整块硬边的矩形（点击的一瞬闪一下）；所以它们等新页面渲染好、新旧快照配成对再提。
- */
-function liftSurfaces(surfaces: Map<HTMLElement, string>, blur = true) {
-  document.querySelectorAll<HTMLElement>(LIFTED).forEach((surface) => {
-    if (!blur && surface.classList.contains('nav-blur-layer')) return
-    const r = surface.getBoundingClientRect()
-    if (!r.width || !r.height || r.right <= 0 || r.bottom <= 0 || r.left >= innerWidth || r.top >= innerHeight) return
-    if (!surfaces.has(surface)) surfaces.set(surface, surface.style.viewTransitionName)
-    surface.style.viewTransitionName = `nav-${surface.dataset.vtGlass}`
-  })
-}
-
-function dropSurfaces() {
-  liftedSurfaces?.forEach((name, surface) => { surface.style.viewTransitionName = name })
-  liftedSurfaces = undefined
-}
-
 const pagePath = () => document.querySelector(`[${PAGE_PATH_ATTR}]`)?.getAttribute(PAGE_PATH_ATTR) ?? null
+
+const onScreen = (r: DOMRect) => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth
+
+/**
+ * 打码的封面不飞：克隆是不带模糊的原图，又在打码区域外面，飞行期间会把原图露出来。
+ * 图片还在载入（只有骨架屏）时没法读滤镜，按所在区域是否打码保守处理。
+ */
+const guarded = (cover: HTMLElement, img: HTMLImageElement | null) =>
+  img ? getComputedStyle(img).filter !== 'none' : !!cover.closest('[data-nsfw]')
+
+/** 克隆只做等比缩放，两端比例不同（如手机首页铺满的大图区）时会被裁切、落地时跳变，就只淡入 */
+const sameShape = (a: DOMRect, b: DOMRect) => Math.abs((a.width / a.height) / (b.width / b.height) - 1) < 0.03
+
+interface Shot { src: string; rect: DOMRect; radius: number; shadow: string }
+
+/**
+ * 量一端的位置、圆角和投影。起点还要带上已解码的图（克隆用它）；
+ * 终点只量位置——详情页大封面刚挂载时图片可能还在载入，克隆用的是起点那张。
+ */
+function shoot(cover: HTMLElement | null | undefined, withImage = true): Shot | undefined {
+  const img = cover?.querySelector('img')
+  if (!cover || guarded(cover, img ?? null)) return
+  if (withImage && (!img?.complete || !img.currentSrc)) return
+  const rect = cover.getBoundingClientRect()
+  if (!onScreen(rect)) return
+  const style = getComputedStyle(cover)
+  return { src: img?.currentSrc ?? '', rect, radius: parseFloat(style.borderTopLeftRadius) || 0, shadow: style.boxShadow }
+}
+
+/**
+ * 封面飞行：一张固定定位的克隆图从起点移到终点，期间藏起终点的真封面。
+ * 克隆按两端里较大的尺寸绘制、只往小缩放，任何一端都不会被放大发虚；
+ * 位移和缩放单独一段动画，交给合成器，新页面挂载占住主线程时也不卡；
+ * 圆角和投影透明度另起动画，两端不同时才有。
+ */
+function fly(from: Shot, to: Shot, target: HTMLElement): Animation[] {
+  const base = from.rect.width >= to.rect.width ? from.rect : to.rect
+  const at = (r: DOMRect) => `translate(${r.left - base.left}px, ${r.top - base.top}px) scale(${r.width / base.width})`
+  const radius = (s: Shot) => `${s.radius * (base.width / s.rect.width)}px`
+
+  const flight = document.createElement('div')
+  flight.className = 'cover-flight'
+  Object.assign(flight.style, { left: `${base.left}px`, top: `${base.top}px`, width: `${base.width}px`, height: `${base.height}px` })
+  const shadow = document.createElement('div')
+  const img = new Image()
+  img.alt = ''
+  img.decoding = 'sync'
+  img.src = from.src
+  flight.append(shadow, img)
+  layer().append(flight)
+  target.style.visibility = 'hidden'
+
+  const timing = { duration: FLIGHT_MS, easing: EASE, fill: 'both' } as const
+  const anims = [flight.animate([{ transform: at(from.rect) }, { transform: at(to.rect) }], timing)]
+  // 投影只取有投影的一端（详情页大封面），另一端淡掉
+  shadow.style.boxShadow = from.shadow !== 'none' ? from.shadow : to.shadow
+  const shade = (s: Shot) => (s.shadow !== 'none' ? 1 : 0)
+  if (shade(from) !== shade(to)) anims.push(shadow.animate([{ opacity: shade(from) }, { opacity: shade(to) }], timing))
+  if (from.radius !== to.radius || from.rect.width !== to.rect.width) {
+    const corners = [{ borderRadius: radius(from) }, { borderRadius: radius(to) }]
+    anims.push(img.animate(corners, timing), shadow.animate(corners, timing))
+  } else {
+    img.style.borderRadius = shadow.style.borderRadius = radius(to)
+  }
+  void Promise.allSettled(anims.map((a) => a.finished)).then(() => {
+    target.style.visibility = ''
+    flight.remove()
+  })
+  return anims
+}
+
+/** 页面内容从底色淡入，代替原来整页快照的交叉淡化。盖在导航下面，不改页面祖先的透明度，玻璃照常采样 */
+function veil() {
+  const el = document.createElement('div')
+  el.className = 'cover-veil'
+  layer().append(el)
+  return el
+}
+
+const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+/**
+ * 进出详情页不走 View Transition，自己做封面飞行和页面淡入：
+ * 浏览器转场期间整页每帧都要合成新旧快照，真实显卡上空转场也掉帧，时长越长掉得越多；
+ * 普通动画只动一张图和一层底色，其余页面照常渲染。
+ *
+ * 返回 React Router 需要的那几个 ViewTransition 字段，它照常在 finished 后收尾，
+ * 下一次换页打断时调 skipTransition。
+ */
+function coverFlight(update: ViewTransitionUpdateCallback | null | undefined, from: string | null, to: string, basePath: string): ViewTransition {
+  const pending = clicked && Date.now() - clicked.at < 1000 && clicked.el.isConnected ? clicked.el : undefined
+  clicked = undefined
+  const motion = useAppearance.getState().mangaDetailMotion
+    && !matchMedia('(prefers-reduced-motion: reduce)').matches
+    && Date.now() - uaPop > 1000
+  const origin = from ? origins.get(from) : undefined
+  const back = !!from && DETAIL_PATH.test(from) && origin?.path === to
+  const source = !motion ? undefined : back ? shoot(document.querySelector<HTMLElement>(HERO_COVER)) : shoot(pending)
+  const cover = motion ? veil() : undefined
+
+  let anims: Animation[] = []
+  let skipped = false
+  const handle = { skip: () => { skipped = true; anims.forEach((a) => a.finish()); cover?.remove() } }
+  active?.skip()
+  active = handle
+
+  const updateCallbackDone = Promise.resolve().then(() => update?.()).then(() => undefined)
+  const ready = updateCallbackDone.then(async () => {
+    if (!cover) return
+    // 等一帧：滚动恢复与虚拟列表首帧都已落定，量到的终点才准；这一帧还被底色盖着
+    await nextFrame()
+    if (skipped) return
+    const target = back
+      ? (() => { const covers = coversOf(`${basePath}${from}`); return covers[origin!.index] ?? covers[0] })()
+      : DETAIL_PATH.test(to) ? document.querySelector<HTMLElement>(HERO_COVER) : null
+    const dest = source && target ? shoot(target, false) : undefined
+    anims = [cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_MS, easing: EASE, fill: 'both' })]
+    if (source && dest && target && sameShape(source.rect, dest.rect)) anims.push(...fly(source, dest, target))
+  })
+  const finished = ready
+    .then(() => Promise.allSettled(anims.map((a) => a.finished)))
+    .then(() => undefined)
+    .finally(() => {
+      cover?.remove()
+      if (active === handle) active = undefined
+    })
+  void finished.catch(() => {})
+  return { updateCallbackDone, ready, finished, skipTransition: handle.skip, types: new Set() } as unknown as ViewTransition
+}
 
 /**
  * 封面过渡：
  *
- * - 进入：全局点击监听，点了指向详情页的链接时，只给「被点的那个」封面挂上过渡名。
- *   不能按漫画 id 判断——同一部漫画可能在页面上出现多次（首页大图区和书架），
- *   两个元素同名会让浏览器直接放弃整个过渡。链接本身是 .cv，或者里面有 .cv，都算封面；
- *   都不是时借用同一区块里同一详情的封面。
- * - 返回：React Router 对用 viewTransition 进入的页面，后退时也会走过渡。
- *   包一层 document.startViewTransition，在新页面渲染完、浏览器截图之前，
- *   找到当初点的那个封面挂上过渡名，详情页的大封面就会飞回原来的格子。
+ * - 进入：全局点击监听，点了指向详情页的链接时记下「被点的那个」封面和它在页面上的序号。
+ *   同一部漫画可能在页面上出现多次（首页大图区和书架），返回时按序号找回原来那一个。
+ *   链接本身是 .cv，或者里面有 .cv，都算封面；都不是时借用同一区块里同一详情的封面。
+ * - 返回：React Router 对用 viewTransition 进入的页面，后退时也会调 startViewTransition。
+ *   回到来时的页面就让详情页的大封面飞回原来的格子；
  *   虚拟列表要在第一次渲染时就用恢复后的滚动位置，那个格子才会在 DOM 里（见 useRestoredOffset）。
+ * - 换页涉及详情页时由 coverFlight 接管，不调浏览器的转场；阅读器、画廊和主题切换仍走 View Transition。
  */
 export function installCoverTransition(basePath = '') {
   if (installed) return
   installed = true
+  const strip = (path: string) => (basePath && path.startsWith(basePath) ? path.slice(basePath.length) || '/' : path)
 
   document.addEventListener(
     'click',
@@ -87,55 +192,30 @@ export function installCoverTransition(basePath = '') {
       const cover = ((link.matches('.cv') ? link : link.querySelector('.cv')) as HTMLElement | null)
         ?? coversOf(href).find((el) => link.closest('section')?.contains(el) && el.getClientRects().length > 0)
       if (!cover) return
-      mark(cover)
+      clicked = { el: cover, at: Date.now() }
       const from = pagePath()
       if (from) origins.set(href.slice(basePath.length), { path: from, index: Math.max(0, coversOf(href).indexOf(cover)) })
-      // 过渡结束后旧页面通常已卸载；万一还在（导航被取消），清掉名字
-      setTimeout(() => cover.isConnected && unmark(cover), 1200)
     },
     true,
   )
+  addEventListener('popstate', (e) => {
+    uaPop = (e as PopStateEvent & { hasUAVisualTransition?: boolean }).hasUAVisualTransition ? Date.now() : 0
+  })
 
   const start = document.startViewTransition?.bind(document)
   if (!start) return
   document.startViewTransition = ((arg?: ViewTransitionUpdateCallback | StartViewTransitionOptions) => {
-    const update = typeof arg === 'function' ? arg : arg?.update
+    const html = document.documentElement
+    // 被调用时地址已经换好了
+    const to = strip(location.pathname)
     const from = pagePath()
-    let marked: HTMLElement | undefined
-    // 新转场先接管标记；旧转场迟到的收尾不能清掉正在使用的名字。
-    dropSurfaces()
-    const surfaces = new Map<HTMLElement, string>()
-    liftedSurfaces = surfaces
-    // 进出阅读器由 readerTransition 接管（它包在外层，先挂标记），这里不提升玻璃，也不按详情页开关跳过
-    const readerTransition = document.documentElement.hasAttribute(READER_VT_ATTR)
-    const coverTransition = !readerTransition && !document.documentElement.hasAttribute('data-theme-vt')
-      && (!!document.querySelector('[data-cover-vt]') || !!(from && origins.has(from)))
-    if (coverTransition) liftSurfaces(surfaces, false)
-    const t = start({
-      ...(typeof arg === 'object' ? arg : {}),
-      update: async () => {
-        await update?.()
-        const to = pagePath()
-        // 仅跳过涉及详情页的换页转场，不影响其他页面、菜单动画，以及停在同一页的转场（如切换主题）。
-        if (!readerTransition && !useAppearance.getState().mangaDetailMotion && from !== to && [from, to].some((path) => path && /^\/manga\/\d+$/.test(path))) {
-          t.skipTransition()
-          return
-        }
-        const origin = from ? origins.get(from) : undefined
-        if (from && origin?.path === to) {
-          const covers = coversOf(`${basePath}${from}`)
-          marked = covers[origin.index] ?? covers[0]
-          if (marked) mark(marked)
-        }
-        if (coverTransition) liftSurfaces(surfaces)
-      },
-    })
-    // 快速返回或打开面板可能取消封面过渡；仍清理标记，不产生未处理拒绝。
-    void t.ready.catch(() => {})
-    void t.finished.finally(() => {
-      if (marked) unmark(marked)
-      if (liftedSurfaces === surfaces) dropSurfaces()
-    }).catch(() => {})
-    return t
+    const own = !html.hasAttribute(READER_VT_ATTR) && !html.hasAttribute('data-theme-vt')
+      && !html.getAttributeNames().some((name) => name.startsWith('data-gallery-'))
+      && from !== to && [from, to].some((path) => path && DETAIL_PATH.test(path))
+    if (!own) {
+      active?.skip()
+      return start(arg)
+    }
+    return coverFlight(typeof arg === 'function' ? arg : arg?.update, from, to, basePath)
   }) as typeof document.startViewTransition
 }
