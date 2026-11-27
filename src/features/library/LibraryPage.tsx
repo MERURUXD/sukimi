@@ -1,6 +1,6 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
 import { Archive, ArchiveRestore, BookCheck, ClockFading, Download, Eye, EyeOff, FolderInput, LibraryBig, Star, StarOff } from 'lucide-react'
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router'
 import { EnqueueDownloads, UpdateChapters } from '@/api/chapters'
 import { Can } from '@/features/auth/Can'
@@ -96,10 +96,12 @@ export function LibraryPage() {
     [view.cols, mobile, view.badges, view.titleLines, view.subline],
   )
   const pinned = view.favoriteFirst && !isFavorite ? favorites.ids : undefined
+  // 只依赖参与筛选排序的字段：改密度、角标这些显示设置不必把整个书库重新筛一遍
+  const { category, filters, sources: pickedSources, sort, desc, tags: tagPicks } = view
   const items = useMemo(
     // 空表只在查询完成后才表示没有编辑，避免快照先到时短暂搜到已隐藏的标签。
-    () => tagsUnavailable ? [] : applyView(base, { ...view, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags, tagPicks: view.tags }),
-    [base, view, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned, tags, tagsUnavailable],
+    () => tagsUnavailable ? [] : applyView(base, { category, filters, sources: pickedSources, sort, desc, defaultCategoryId, query: deferredQuery, scales, nsfw: nsfw.test, shelf, pinned, tags, tagPicks }),
+    [base, category, filters, pickedSources, sort, desc, tagPicks, defaultCategoryId, deferredQuery, scales, nsfw.test, shelf, pinned, tags, tagsUnavailable],
   )
   const order = useMemo(() => items.map((m) => m.id), [items])
   const sources = useMemo(() => librarySources(base), [base])
@@ -130,6 +132,13 @@ export function LibraryPage() {
     setSelecting(false)
     sel.clear()
   }, [sel])
+  // 格子是 memo 的，回调要保持同一引用，选中一格才不会让整屏格子重画
+  const { toggle } = sel
+  const onToggle = useCallback((id: number, index: number, e: MouseEvent) => toggle(id, index, e.shiftKey), [toggle])
+  const onLongPress = useCallback((id: number, index: number) => {
+    setSelecting(true)
+    toggle(id, index)
+  }, [toggle])
 
   // 「稍后再看」里读完自动移出的、「特别关心」里刚取消的漫画也从选择里去掉，免得批量操作作用到看不见的那部
   const { selected, setSelected } = sel
@@ -409,11 +418,8 @@ export function LibraryPage() {
             selected={sel.selected}
             favorites={favorites.ids}
             onMenu={onMenu}
-            onToggle={(id, index, e) => sel.toggle(id, index, e.shiftKey)}
-            onLongPress={(id, index) => {
-              setSelecting(true)
-              sel.toggle(id, index)
-            }}
+            onToggle={onToggle}
+            onLongPress={onLongPress}
           />}
         </div>
       </div>

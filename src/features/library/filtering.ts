@@ -57,15 +57,30 @@ export const SORTS: {
   { key: 'downloaded', label: t('library.sort.downloaded'), value: (m) => m.downloadCount },
   { key: 'score', label: t('library.sort.score'), value: (m, ctx) => libraryScore(m.trackRecords.nodes, ctx.scales), nullsLow: true },
 ]
-/** 搜索兼容原名和筛选面板里的归一名；隐藏的来源标签两种写法都不参与 */
-export function matchesSearch(m: LibraryManga, q: string, edit?: TagEdit) {
-  if (!q) return true
+/**
+ * 每部的搜索文本按作品对象记住：书库几千部时逐字输入，每次都重新拼接、转小写会卡输入。
+ * 书库数据更新会换成新对象，标签编辑变了就重新拼。
+ */
+const hays = new WeakMap<LibraryManga, { edit: TagEdit | undefined; hay: string }>()
+
+function hayOf(m: LibraryManga, edit: TagEdit | undefined) {
+  const cached = hays.get(m)
+  if (cached && cached.edit === edit) return cached.hay
   const hay = [m.title, m.author, m.artist, m.source?.displayName, ...tagsOf(m.genre, edit), ...filterTags(m.genre, edit)].filter(Boolean).join('\n').toLowerCase()
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .every((w) => hay.includes(w))
+  hays.set(m, { edit, hay })
+  return hay
 }
+
+const searchWords = (q: string) => q.toLowerCase().split(/\s+/).filter(Boolean)
+
+function matchesWords(m: LibraryManga, words: readonly string[], edit: TagEdit | undefined) {
+  if (!words.length) return true
+  const hay = hayOf(m, edit)
+  return words.every((w) => hay.includes(w))
+}
+
+/** 搜索兼容原名和筛选面板里的归一名；隐藏的来源标签两种写法都不参与 */
+export const matchesSearch = (m: LibraryManga, q: string, edit?: TagEdit) => matchesWords(m, searchWords(q), edit)
 
 export function applyView(
   list: readonly LibraryManga[],
@@ -92,13 +107,14 @@ export function applyView(
   const ctx: FilterContext = { nsfw: opts.nsfw, shelf: opts.shelf }
   const sort = SORTS.find((s) => s.key === opts.sort) ?? SORTS[0]
   const picks = opts.tagPicks && Object.keys(opts.tagPicks).length ? opts.tagPicks : null
+  const words = searchWords(opts.query)
 
   const out = list.filter(
     (m) =>
       inCategory(m, opts.category, opts.defaultCategoryId ?? 0, opts.shelf) &&
       (opts.sources.length === 0 || (m.source != null && opts.sources.includes(m.source.id))) &&
       active.every((f) => f.test(m, ctx) === (opts.filters[f.key] === 1)) &&
-      matchesSearch(m, opts.query, opts.tags?.get(m.id)) &&
+      matchesWords(m, words, opts.tags?.get(m.id)) &&
       (!picks || matchTags(filterTags(m.genre, opts.tags?.get(m.id)), picks)),
   )
   const sortCtx: SortContext = { scales: opts.scales ?? new Map() }
