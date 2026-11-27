@@ -447,7 +447,7 @@ function PointMorphMenuPanel({
         overlayRendererRef.current?.clear()
       }
       panelEl.style.transition = 'none'
-      clearPanelMorphStyles(panelEl, false)
+      clearPanelMorphStyles(panelEl, { keepLayer: true })
       cancelAnimationFrameSafe(transitionRestoreRafRef.current)
       transitionRestoreRafRef.current = scheduleAnimationFrame(() => {
         if (panelRef.current && !isTransitioningRef.current) {

@@ -654,7 +654,7 @@ function MorphPanel({
       }
       // Clear inline morph overrides while keeping transition disabled for one frame so .glass snaps cleanly
       panelEl.style.transition = 'none'
-      clearPanelMorphStyles(panelEl, false)
+      clearPanelMorphStyles(panelEl, { keepLayer: true })
       cancelAnimationFrame(transitionRestoreRafRef.current)
       transitionRestoreRafRef.current = requestAnimationFrame(() => {
         if (panelRef.current && !isTransitioningRef.current) {
@@ -702,7 +702,7 @@ function MorphPanel({
         overlayCanvasEl.style.visibility = 'hidden'
         overlayRendererRef.current?.clear()
       }
-      clearPanelMorphStyles(panelEl, true)
+      clearPanelMorphStyles(panelEl, { clearTransition: true })
       panelEl.style.opacity = `${mState.contentOpacity}`
       return
     }

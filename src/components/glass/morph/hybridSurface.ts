@@ -155,15 +155,22 @@ function shiftField(field: GlassFieldState, ox: number, oy: number): GlassFieldS
   }
 }
 
-export function clearPanelMorphStyles(panelEl: HTMLElement, clearTransitionImmediate: boolean): void {
+/**
+ * `keepLayer`：形变落定后保留 `will-change: transform`。非整数显示缩放下面板常落在小数设备像素上，
+ * 有无这一项时 SVG 图标对齐整像素的方式不同（文字不受影响），撤掉它会让图标在落定瞬间单独跳一像素。
+ */
+export function clearPanelMorphStyles(
+  panelEl: HTMLElement,
+  { clearTransition = false, keepLayer = false }: { clearTransition?: boolean; keepLayer?: boolean } = {},
+): void {
   panelEl.removeAttribute('data-morphing')
   panelEl.style.transform = ''
   panelEl.style.transformOrigin = ''
   panelEl.style.opacity = ''
   panelEl.style.filter = ''
   panelEl.style.clipPath = ''
-  panelEl.style.willChange = ''
-  if (clearTransitionImmediate) {
+  panelEl.style.willChange = keepLayer ? 'transform' : ''
+  if (clearTransition) {
     panelEl.style.transition = ''
   }
 }
