@@ -50,7 +50,7 @@ export function Section({
                 onClick={() => setOpen((v) => !v)}
               >
                 {open ? t('settings.parts.collapse') : t('settings.parts.expand')}
-                <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} strokeWidth={1.8} />
+                <ChevronDown className={cn('size-4 transition-transform duration-350 ease-spring-fast', open && 'rotate-180')} strokeWidth={1.8} />
               </button>
             )}
           </div>

@@ -81,7 +81,7 @@ function MangaTile({ m, source, rise }: { m: SourceManga; source: Pick<Source, '
       style={rise}
       className={cn('group flex min-w-0 flex-col gap-2 text-text no-underline', rise && 'rise')}
     >
-      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-[3px]">
+      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-350 ease-spring-fast group-hover:-translate-y-[3px]">
         <CoverImg src={m.thumbnailUrl} loading="lazy" />
         {inLibrary && (
           <span className="absolute bottom-2 left-2 z-[2] inline-flex h-[26px] items-center gap-1 rounded-full border border-white/20 bg-black/45 px-2.5 text-xs font-bold text-white backdrop-blur-[14px]">

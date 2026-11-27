@@ -286,7 +286,7 @@ export function ReaderChrome({
                       aria-label={marked ? t('reader.chrome.pageMarked', { n: i + 1 }) : t('reader.chrome.page', { n: i + 1 })}
                       title={marked ? t('reader.chrome.pageMarkedTitle', { n: i + 1 }) : t('reader.chrome.page', { n: i + 1 })}
                       className={cn(
-                        'relative h-1.5 min-w-0 flex-1 rounded-[3px] transition-[height] hover:h-3',
+                        'relative h-1.5 min-w-0 flex-1 rounded-[3px] transition-[height] duration-350 ease-spring-fast hover:h-3',
                         marked && "after:absolute after:-top-2 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-accent after:content-['']",
                         cur
                           ? 'h-3.5 bg-accent'

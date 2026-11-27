@@ -5,11 +5,11 @@
 }
 .bgm-bar {
   transform-origin: bottom;
-  transition: height 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.3s;
+  transition: height var(--spring-default-duration) var(--spring-default-ease), background-color 0.3s cubic-bezier(0.2, 0, 0, 1);
   transition-delay: calc(var(--i) * 28ms);
 }
 .bgm-bar.grow {
-  animation: bgm-grow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: bgm-grow var(--spring-default-duration) var(--spring-default-ease) both;
   animation-delay: calc(var(--d, 0ms) + var(--i) * 28ms);
 }
 .bgm-bar.wait { animation: skel 1.6s ease-in-out infinite; }

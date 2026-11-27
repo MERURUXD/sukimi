@@ -193,7 +193,7 @@ function ReadDoor({ read, mobile, decorative, className, style }: { read: number
       </span>
       <span className={cn('flex items-center gap-1.5 font-semibold', mobile ? 'text-[13px]' : 'text-[15px]')}>
         {t('gallery.archive')}
-        <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} />
+        <ArrowRight className="size-4 transition-transform duration-350 ease-spring-fast group-hover:translate-x-1" strokeWidth={2} />
       </span>
     </Link>
   )
@@ -204,7 +204,7 @@ function ClockHint() {
     <svg
       aria-hidden
       viewBox="-150 -150 300 300"
-      className="pointer-events-none absolute top-1/2 left-1/2 -z-10 size-[320px] -translate-x-1/2 -translate-y-1/2 scale-90 -rotate-12 opacity-0 transition-[opacity,scale,rotate] duration-700 ease-[cubic-bezier(.2,.8,.2,1)] group-hover:scale-100 group-hover:rotate-0 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:rotate-0 group-focus-visible:opacity-100"
+      className="pointer-events-none absolute top-1/2 left-1/2 -z-10 size-[320px] -translate-x-1/2 -translate-y-1/2 scale-90 -rotate-12 opacity-0 [transition:opacity_300ms_cubic-bezier(0.2,0,0,1),scale_var(--spring-slow-duration)_var(--spring-slow-ease),rotate_var(--spring-slow-duration)_var(--spring-slow-ease)] group-hover:scale-100 group-hover:rotate-0 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:rotate-0 group-focus-visible:opacity-100"
     >
       <circle r="138" fill="none" stroke="currentColor" strokeOpacity=".18" strokeDasharray="2 6" />
       {Array.from({ length: 24 }, (_, h) => (

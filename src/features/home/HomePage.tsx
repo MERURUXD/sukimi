@@ -519,7 +519,7 @@ function Hero({ items, loading, error, onRetry, stage, entrance, onShuffle }: {
                   onClick={() => setIdx(i)}
                   className="flex size-11 flex-none items-center justify-center rounded-full text-text hover:bg-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-text"
                 >
-                  <span aria-hidden className={cn('h-1.5 rounded-full bg-current transition-[width,opacity] duration-200 motion-reduce:transition-none', i === activeIdx ? 'w-6 opacity-100' : 'w-1.5 opacity-35')} />
+                  <span aria-hidden className={cn('h-1.5 rounded-full bg-current [transition:width_var(--spring-fast-duration)_var(--spring-fast-ease),opacity_200ms_cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none', i === activeIdx ? 'w-6 opacity-100' : 'w-1.5 opacity-35')} />
                 </button>
               ))}
             </div>
@@ -632,7 +632,7 @@ function ShelfItem({ manga, sub, badge }: { manga: ShelfManga; sub: string; badg
       data-sfw={sfwAttr(manga.source?.displayName)}
       className="group flex min-w-0 snap-start flex-col gap-2.5 text-text no-underline"
     >
-      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-1">
+      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-350 ease-spring-fast group-hover:-translate-y-1">
         <CoverImg src={manga.thumbnailUrl} loading="lazy" />
         {/* 角标太小，玻璃看不出来，和书库封面角标一样用半透明黑底 */}
         {badge && (

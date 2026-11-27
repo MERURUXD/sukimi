@@ -330,7 +330,7 @@ export function UpdatesPage() {
                     <GroupRow rows={g.rows} rise={rise} expanded={expanded} onToggle={() => toggleGroup(g.key)} favorite={favorites.ids.has(g.rows[0].mangaId)} onMenu={(x, y) => ctx.open(x, y, g.rows[0].manga)} />
                     {/* 常驻渲染，用网格行高 0fr → 1fr 做展开收起，下面的记录才会顺滑让位；收起时 inert 让键盘与读屏跳过 */}
                     <div
-                      className={cn('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]', expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
+                      className={cn('grid [transition:grid-template-rows_var(--spring-fast-duration)_var(--spring-fast-ease),opacity_200ms_cubic-bezier(0.2,0,0,1)]', expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}
                       inert={!expanded}
                     >
                       <div className="min-h-0 overflow-hidden">
@@ -544,7 +544,7 @@ function GroupRow({ rows, rise, expanded, onToggle, favorite, onMenu }: {
       <span className="w-[52px] flex-none text-right text-[13px] text-muted num max-sm:hidden lg:hidden">{time}</span>
       <span className="w-11 flex-none" aria-hidden />
       <button type="button" className="gicon text-muted hover:text-text" onClick={onToggle} tabIndex={-1} aria-hidden>
-        <ChevronDown className={cn('size-5 transition-transform lg:size-[22px]', expanded && 'rotate-180')} strokeWidth={1.8} />
+        <ChevronDown className={cn('size-5 transition-transform duration-350 ease-spring-fast lg:size-[22px]', expanded && 'rotate-180')} strokeWidth={1.8} />
       </button>
     </div>
   )

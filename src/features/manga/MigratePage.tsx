@@ -161,7 +161,7 @@ export function MigrateView({ mangaId, onDone }: { mangaId: number; onDone: (to:
 function CandidateTile({ m, source, onPick }: { m: SourceManga; source: Source; onPick: () => void }) {
   return (
     <button type="button" onClick={onPick} data-sfw={sfwAttr(source.displayName)} className="group flex w-[120px] flex-none snap-start flex-col gap-2 text-left sm:w-[136px]">
-      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-[3px]">
+      <span className="cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-350 ease-spring-fast group-hover:-translate-y-[3px]">
         <CoverImg src={m.thumbnailUrl} loading="lazy" />
         {m.inLibrary && (
           <span className="absolute bottom-2 left-2 z-[2] inline-flex h-6 items-center gap-1 rounded-full border border-white/20 bg-black/45 px-2 text-[11px] font-bold text-white backdrop-blur-[14px]">

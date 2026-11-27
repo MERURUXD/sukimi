@@ -516,7 +516,7 @@ function ScreenDots({ screen, pager, mobile, style }: { screen: number; pager: P
     <nav data-intro-rise="0.7" aria-label={tl('gallery.stats.switchAria')} className="absolute top-1/2 z-10 flex -translate-y-1/2 flex-col" style={{ right: mobile ? 4 : 14, ...style }}>
       {SCREENS.map((label, i) => (
         <button key={label} type="button" aria-label={label} aria-current={screen === i ? 'true' : undefined} onClick={() => pager.go(i)} className="group grid place-items-center p-2">
-          <span className={cn('block h-[22px] w-1.5 rounded-full transition-[transform,background-color] duration-400 ease-out', screen === i ? 'scale-y-100 bg-white' : 'scale-y-[.273] bg-white/30 group-hover:bg-white/60')} />
+          <span className={cn('block h-[22px] w-1.5 rounded-full [transition:transform_var(--spring-default-duration)_var(--spring-default-ease),background-color_200ms_cubic-bezier(0.2,0,0,1)]', screen === i ? 'scale-y-100 bg-white' : 'scale-y-[.273] bg-white/30 group-hover:bg-white/60')} />
         </button>
       ))}
     </nav>

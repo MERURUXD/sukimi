@@ -57,7 +57,7 @@ export function Stars({ max, value, word, onChange, size }: { max: 5 | 10; value
             <span
               key={`${i}:${pop.n}`}
               style={{ animationDelay: `${i * 45}ms` }}
-              className={cn('relative grid cursor-pointer place-items-center transition-[scale] duration-150 hover:scale-115 active:scale-95', slot, pop.n > 0 && i * per < pop.v && 'track-star-pop')}
+              className={cn('relative grid cursor-pointer place-items-center transition-[scale] duration-350 ease-spring-fast hover:scale-115 active:scale-95', slot, pop.n > 0 && i * per < pop.v && 'track-star-pop')}
               onPointerMove={(e) => e.pointerType === 'mouse' && setHover(at(e, i))}
               // 点当前分数等于取消评分
               onClick={(e) => { const v = at(e, i); setHover(null); set(v === value ? 0 : v) }}

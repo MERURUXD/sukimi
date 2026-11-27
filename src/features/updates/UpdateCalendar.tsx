@@ -503,7 +503,7 @@ function Unpredicted({ rest }: { rest: ReturnType<typeof leftovers<Manga>> }) {
           {' · '}
           {groups.map((g) => t('updates.cal.skipItem', { reason: t(`updates.cal.reason.${g.k}`), n: g.items.length })).join(t('updates.cal.sep'))}
         </span>
-        <ChevronDown className={cn('size-4 flex-none transition-transform', open && 'rotate-180')} strokeWidth={1.8} />
+        <ChevronDown className={cn('size-4 flex-none transition-transform duration-350 ease-spring-fast', open && 'rotate-180')} strokeWidth={1.8} />
       </button>
       {open && groups.map((g) => (
         <div key={g.k} className="mt-4">

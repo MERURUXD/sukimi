@@ -168,7 +168,7 @@ function SourceSelect({ label, options, value, onChange }: { label: string; opti
         <>
           <button ref={trigger} type="button" className="opt" aria-label={t('browse.filter.selectAria', { label, value: options[value] ?? t('browse.filter.noOptions') })} aria-expanded={open} aria-controls={id} disabled={!options.length} onClick={() => setOpen((previous) => !previous)}>
             <span className="min-w-0 flex-1">{options[value] ?? t('browse.filter.noOptions')}</span>
-            <ChevronDown className={cn('size-4 shrink-0 transition-transform', open && 'rotate-180')} />
+            <ChevronDown className={cn('size-4 shrink-0 transition-transform duration-350 ease-spring-fast', open && 'rotate-180')} />
           </button>
           {open && (
             <div id={id} role="group" aria-label={t('browse.filter.optionsOf', { label })} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); close() } }}>

@@ -415,7 +415,7 @@ export function PlayView({
                 aria-current={on || undefined}
                 className="group flex h-12 w-5 items-end justify-center pb-1.5"
               >
-                <span className={cn('block w-[3px] rounded-sm transition-[height,background-color] duration-[450ms] ease-[cubic-bezier(.2,.8,.2,1)] group-hover:bg-white/85', on ? 'h-[34px] bg-[#f4f4f5]' : 'h-3.5 bg-white/38')} />
+                <span className={cn('block w-[3px] rounded-sm [transition:height_var(--spring-default-duration)_var(--spring-default-ease),background-color_200ms_cubic-bezier(0.2,0,0,1)] group-hover:bg-white/85', on ? 'h-[34px] bg-[#f4f4f5]' : 'h-3.5 bg-white/38')} />
               </button>
             )
           })}

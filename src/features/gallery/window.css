@@ -38,7 +38,7 @@
 /* 倾斜姿态：静止是更斜更小的 --wall-rest，指上去往画廊里的姿态 --wall-on 靠，再随横向位置转一点 */
 .gwin-plane {
   transform: var(--wall-rest) rotateY(calc(var(--tx) * 4deg)); /* 4 = wall.ts 的 WINDOW_TILT */
-  transition: transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: transform var(--spring-slow-duration) var(--spring-slow-ease);
 }
 .gwin[data-on] .gwin-plane,
 .gwin:has(:focus-visible) .gwin-plane {

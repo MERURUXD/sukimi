@@ -249,7 +249,7 @@ const Tile = memo(function Tile({
     <>
       <span
         className={cn(
-          'cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-200 group-hover:-translate-y-[3px]',
+          'cv rounded-xl shadow-[0_12px_28px_rgba(0,0,0,.28)] transition-transform duration-350 ease-spring-fast group-hover:-translate-y-[3px]',
           selected && 'outline-3 outline-offset-2 outline-accent',
         )}
       >
