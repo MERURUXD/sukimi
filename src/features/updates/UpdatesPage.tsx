@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { BookCheck, BookOpen, ChevronDown, CircleCheck, Download, RefreshCw, Square, Star } from 'lucide-react'
+import { BookCheck, BookOpen, CalendarDays, ChevronDown, CircleCheck, Download, List, RefreshCw, Square, Star } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { rememberLoadedWindow } from '@/api/paging'
@@ -206,35 +206,49 @@ export function UpdatesPage() {
   return (
     <>
       <div className="wrap pb-10">
-        <header className="pt-4 md:pt-7 md:pb-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-4 md:gap-7">
-              <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">{t('updates.title')}</h1>
-              <Seg flat
-                label={t('updates.view.label')}
-                className="[&>button]:min-h-11 md:[&>button]:min-h-9"
-                items={[
-                  { value: 'recent', label: t('updates.view.recent') },
-                  { value: 'calendar', label: t('updates.view.calendar') },
-                ]}
-                value={view}
-                onChange={setView}
-              />
+        <header className="pt-4 md:pt-7 md:pb-2">
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <h1 className="m-0 font-cjk text-[32px] leading-[1.1] font-black md:text-[40px]">
+                {view === 'calendar' ? t('updates.cal.aria') : t('updates.title')}
+              </h1>
+              <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || '\u00a0'}</p>
             </div>
-            {updater.isRunning ? (
-              <button type="button" className="solid min-h-11 shrink-0" onClick={() => void stop()}>
-                <Square className="size-4 fill-current" strokeWidth={2} />
-                {t('updates.stop')}
-              </button>
-            ) : (
-              <button type="button" className="solid min-h-11 shrink-0" onClick={check}>
-                <RefreshCw className="size-[18px]" strokeWidth={2} />
-                {t('updates.check')}
-              </button>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              <Glass
+                flat
+                as="button"
+                type="button"
+                className="gbtn min-h-11 rounded-full"
+                aria-label={view === 'calendar' ? t('updates.view.toRecent') : t('updates.view.toCalendar')}
+                onClick={() => setView(view === 'calendar' ? 'recent' : 'calendar')}
+              >
+                {view === 'calendar' ? (
+                  <>
+                    <List className="size-[18px]" strokeWidth={1.8} />
+                    {t('updates.view.recent')}
+                  </>
+                ) : (
+                  <>
+                    <CalendarDays className="size-[18px]" strokeWidth={1.8} />
+                    {t('updates.view.calendar')}
+                  </>
+                )}
+              </Glass>
+              {updater.isRunning ? (
+                <button type="button" className="solid min-h-11 shrink-0" onClick={() => void stop()}>
+                  <Square className="size-4 fill-current" strokeWidth={2} />
+                  {t('updates.stop')}
+                </button>
+              ) : (
+                <button type="button" className="solid min-h-11 shrink-0" onClick={check}>
+                  <RefreshCw className="size-[18px]" strokeWidth={2} />
+                  {t('updates.check')}
+                </button>
+              )}
+            </div>
           </div>
-          <p className="mt-1 mb-0 text-[13px] text-muted num md:mt-1.5 md:text-sm">{status || ' '}</p>
-          {view === 'recent' && <div className="mt-3 flex items-center justify-between gap-3 md:flex-wrap">
+          {view === 'recent' && <div className="mt-4 flex items-center justify-between gap-3 md:mt-5 md:flex-wrap">
             <Seg flat
               label={t('updates.filter.label')}
               className="[&>button]:min-h-11 md:[&>button]:min-h-9"
