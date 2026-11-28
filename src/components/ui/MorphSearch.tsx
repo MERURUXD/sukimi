@@ -1,5 +1,5 @@
 import { Search } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Glass } from '@/components/glass/Glass'
 import { Popover } from '@/components/ui/Popover'
 import { searchMorph } from '@/design/motion'
@@ -65,6 +65,16 @@ export function MorphSearch({
     focusOnOpen.current = false
     input.current?.focus()
   }, [open])
+
+  // 跨 768px 切换布局（如平板转屏）会换一个输入框：焦点跟过去；跟不过去就同步成失焦，否则 focused 卡在 true、点外面收不起来
+  const lastMobile = useRef(mobile)
+  useLayoutEffect(() => {
+    if (lastMobile.current === mobile) return
+    lastMobile.current = mobile
+    if (!focused) return
+    input.current?.focus()
+    if (document.activeElement !== input.current) setFocused(false)
+  }, [mobile, focused])
 
   const body = (
     <>
