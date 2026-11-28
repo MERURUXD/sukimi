@@ -1,8 +1,9 @@
 import { useApolloClient, useFragment, useQuery } from '@apollo/client/react'
-import { BookmarkCheck, EyeOff, ExternalLink, Puzzle, Search, SlidersHorizontal } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent, type ReactNode } from 'react'
+import { BookmarkCheck, EyeOff, ExternalLink, Puzzle, SlidersHorizontal } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { Glass } from '@/components/glass/Glass'
+import { MorphSearch } from '@/components/ui/MorphSearch'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { LoadError } from '@/components/ui/LoadError'
 import { PageHeader } from '@/components/ui/PageHeader'
@@ -125,8 +126,7 @@ export function BrowsePage() {
       { replace: true },
     )
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
+  const submit = () => {
     const v = input.trim()
     set({ q: v || null, mode: v ? 'SEARCH' : null })
   }
@@ -141,20 +141,18 @@ export function BrowsePage() {
       <PageHeader
         title={t('browse.title')}
         actions={
-          <form onSubmit={submit} className="min-w-0 flex-[0_1_560px] max-sm:basis-full">
-            <Glass flat as="label" className="flex h-11 items-center gap-2.5 rounded-full px-4 text-muted">
-              <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-              <span className="sr">{t('browse.globalSearch')}</span>
-              <input
-                type="search"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={t('browse.searchPlaceholder')}
-                className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
-              />
-              <span className="text-[13px] whitespace-nowrap num">{t('browse.onlineSources', { count: searchSources.length })}</span>
-            </Glass>
-          </form>
+          <MorphSearch
+            flat
+            value={input}
+            onChange={setInput}
+            onSubmit={submit}
+            label={t('browse.globalSearch')}
+            placeholder={t('browse.searchPlaceholder')}
+            width={560}
+            mobileClassName="flex-[0_1_560px] max-sm:basis-full"
+            inputClassName="text-[15px]"
+            suffix={<span className="text-[13px] whitespace-nowrap num">{t('browse.onlineSources', { count: searchSources.length })}</span>}
+          />
         }
       />
 

@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { Play, Search, Trash2 } from 'lucide-react'
+import { Play, Trash2 } from 'lucide-react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router'
@@ -8,6 +8,7 @@ import { useAuth } from '@/api/auth'
 import { rememberLoadedWindow } from '@/api/paging'
 import { useRestoredOffset } from '@/app/ScrollManager'
 import { Glass } from '@/components/glass/Glass'
+import { MorphSearch } from '@/components/ui/MorphSearch'
 import { CoverImg } from '@/components/manga/CoverImg'
 import { confirm } from '@/components/ui/Confirm'
 import { LoadError } from '@/components/ui/LoadError'
@@ -115,17 +116,15 @@ export function HistoryPage() {
           {visible && (q ? t('downloads.history.searchLoaded', { n: count(visible.loaded) }) : hasMore ? t('downloads.history.loaded', { n: count(visible.loaded) }) : '')}
         </>}
         actions={
-          <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_320px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
-            <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-            <span className="sr">{t('downloads.history.searchLabel')}</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('downloads.history.searchPlaceholder')}
-              className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
-            />
-          </Glass>
+          <MorphSearch
+            flat
+            value={query}
+            onChange={setQuery}
+            label={t('downloads.history.searchLabel')}
+            placeholder={t('downloads.history.searchPlaceholder')}
+            width={320}
+            mobileClassName="flex-[0_1_320px] max-sm:basis-full"
+          />
         }
       />
 

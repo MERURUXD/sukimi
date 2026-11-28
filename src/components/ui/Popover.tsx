@@ -67,6 +67,11 @@ export function Popover({
   fitViewport = false,
   dense = true,
   vtGlass,
+  dismissible = true,
+  onExitComplete,
+  flat = false,
+  role = 'dialog',
+  maxStretchY,
 }: {
   open: boolean
   onClose: () => void
@@ -91,6 +96,18 @@ export function Popover({
   dense?: boolean
   /** 页面转场时把面板和导航玻璃一起提成独立分组（index.css 的 data-vt-glass 规则） */
   vtGlass?: string
+  /** 点外面或按 Esc 时收起；面板常驻、开合由调用方自己管时关掉，否则会吞掉页面上别的 Esc */
+  dismissible?: boolean
+  /** 收起动画播完、面板卸载后调用 */
+  onExitComplete?: () => void
+  /** 面板直接落在纯色页面上（玻璃约定的 flat），形变过渡照常 */
+  flat?: boolean
+  role?: 'dialog' | 'search'
+  /**
+   * 形变途中盘面最多比静息时高出多少（静息高度的倍数，软上限）。菜单从按钮长出来时会先接近正方形
+   * 再落成面板，面板越宽鼓得越高；横向长条（搜索框）只要一点纵向鼓起。不传则不限制。
+   */
+  maxStretchY?: number
 }) {
   const root = useRef<HTMLDivElement>(null)
   const [bounds, setBounds] = useState<{ side: 'top' | 'bottom'; room: number } | null>(null)
@@ -137,7 +154,7 @@ export function Popover({
   }, [open, fitViewport, side])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !dismissible) return
     const onDown = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) onClose()
     }
@@ -153,14 +170,14 @@ export function Popover({
       document.removeEventListener('pointerdown', onDown)
       document.removeEventListener('keydown', onKey)
     }
-  }, [open, onClose])
+  }, [open, dismissible, onClose])
 
   const placedSide = fitViewport ? bounds?.side ?? side : side
 
   return (
     <div ref={root} className={cn('relative', rootClassName)}>
       {trigger}
-      <AnimatePresence>
+      <AnimatePresence onExitComplete={onExitComplete}>
         {open && (
           <MorphPanel
             root={root}
@@ -170,6 +187,9 @@ export function Popover({
             id={id}
             label={label}
             dense={dense}
+            flat={flat}
+            role={role}
+            maxStretchY={maxStretchY}
             vtGlass={vtGlass}
             style={fitViewport && bounds ? ({ '--popover-room': `${bounds.room}px`, maxHeight: bounds.room } as CSSProperties) : undefined}
             className={cn(
@@ -206,6 +226,8 @@ interface MeasuredMorphAnchors {
   transitionBounds: Rect
   restingRadius: number
   hasControlSource: boolean
+  /** 触发元素比面板小得多，面板盖住它时可以整个藏起来；大格子只被盖住一角，不能藏 */
+  smallTrigger: boolean
   bareSource: boolean
   inflateBareAnchor: boolean
   bareSurfaceCss: TriggerSurfaceCss | null
@@ -218,6 +240,32 @@ interface MeasuredMorphAnchors {
 }
 
 const LARGE_TRIGGER_AREA_RATIO = 0.45
+
+/**
+ * 盘面高出静息高度的部分按软上限压到 maxStretch × 静息高度以内：鼓得少时几乎不变，
+ * 鼓得多时趋近上限，曲线连续，弹簧的手感保留。轮廓场、内容裁切都由盘面派生，一起换掉。
+ * 只在渲染时压一次：收起快照要存未压的原始几何，否则反向后会再压一遍（软上限压两次不等于压一次）。
+ */
+function flattenPlatter(geometry: PopoverFrameGeometry, maxStretch: number | undefined): PopoverFrameGeometry {
+  const { platter, targetRect, contentTransform } = geometry
+  const excess = platter.size.height - targetRect.height
+  if (maxStretch === undefined || excess <= 0) return geometry
+  const cap = targetRect.height * maxStretch
+  const height = targetRect.height + (cap > 0 ? cap * (1 - Math.exp(-excess / cap)) : 0)
+  const radius = Math.min(platter.radius, platter.size.width * 0.5, height * 0.5)
+  const flat = { ...platter, size: { width: platter.size.width, height }, radius }
+  return {
+    ...geometry,
+    platter: flat,
+    field: { ...geometry.field, primitives: geometry.field.primitives.map((p) => (p === platter ? flat : p)) },
+    contentTransform: {
+      ...contentTransform,
+      clipTop: flat.center.y - height * 0.5,
+      clipBottom: flat.center.y + height * 0.5,
+      clipRadius: radius,
+    },
+  }
+}
 
 function readVisibleTriggerSurface(el: HTMLElement): TriggerSurfaceCss | null {
   const cs = getComputedStyle(el)
@@ -299,6 +347,9 @@ function MorphPanel({
   id,
   label,
   dense,
+  flat,
+  role,
+  maxStretchY,
   vtGlass,
   style,
   className,
@@ -312,6 +363,9 @@ function MorphPanel({
   id?: string
   label?: string
   dense: boolean
+  flat: boolean
+  role: 'dialog' | 'search'
+  maxStretchY?: number
   vtGlass?: string
   style?: CSSProperties
   className: string
@@ -367,6 +421,7 @@ function MorphPanel({
     isLegible: className.includes('glass-legible'),
     side,
     align,
+    maxStretchY,
   })
   latestVisualRef.current = {
     reduced,
@@ -376,6 +431,7 @@ function MorphPanel({
     isLegible: className.includes('glass-legible'),
     side,
     align,
+    maxStretchY,
   }
 
   const restoreElevatedTrigger = () => {
@@ -511,6 +567,7 @@ function MorphPanel({
       height: 40,
     }
     let hasControlSource = false
+    let smallTrigger = false
     let bareSource = true
     let inflateBareAnchor = true
     let bareSurfaceCss: TriggerSurfaceCss | null = null
@@ -545,9 +602,8 @@ function MorphPanel({
           restingCardRect.x + restingCardRect.width > anchorRect.x &&
           restingCardRect.y < anchorRect.y + anchorRect.height &&
           restingCardRect.y + restingCardRect.height > anchorRect.y
-        hasControlSource =
-          !latestVisualRef.current.reduced &&
-          tBox.width * tBox.height <= pw * ph * LARGE_TRIGGER_AREA_RATIO
+        smallTrigger = tBox.width * tBox.height <= pw * ph * LARGE_TRIGGER_AREA_RATIO
+        hasControlSource = !latestVisualRef.current.reduced && smallTrigger
       }
     }
 
@@ -589,6 +645,7 @@ function MorphPanel({
       transitionBounds,
       restingRadius,
       hasControlSource,
+      smallTrigger,
       bareSource,
       inflateBareAnchor,
       bareSurfaceCss,
@@ -620,6 +677,7 @@ function MorphPanel({
       dense: isDense,
       isLegible,
       align: curAlign,
+      maxStretchY: curMaxStretchY,
     } = latestVisualRef.current
 
     lastMotionRef.current = mState
@@ -633,7 +691,8 @@ function MorphPanel({
     if (mState.phase === 'open') {
       lastGeometryRef.current = null
       restoreElevatedTrigger()
-      if (anchors.overlapsTrigger && anchors.hasControlSource && anchors.triggerEl) {
+      // 淡入淡出时没有控件来源，但面板盖住的小按钮同样要藏，否则会透过半透明面板露出来
+      if (anchors.overlapsTrigger && anchors.smallTrigger && anchors.triggerEl) {
         hideTrigger(anchors.triggerEl)
       } else {
         restoreHiddenTrigger()
@@ -689,7 +748,7 @@ function MorphPanel({
     if (isReduced) {
       // Reduced motion: simple crossfade on panelRef directly, zero spatial displacement/scale
       restoreElevatedTrigger()
-      if (anchors.overlapsTrigger && anchors.triggerEl && mState.contentOpacity > 0.05) {
+      if (anchors.overlapsTrigger && anchors.smallTrigger && anchors.triggerEl && mState.contentOpacity > 0.05) {
         hideTrigger(anchors.triggerEl)
       } else {
         restoreHiddenTrigger()
@@ -727,8 +786,9 @@ function MorphPanel({
 
     const motion = motionRef.current
     if (!motion) return
-    const geometry = motion.evaluateGeometry(anchorConfig, panelConfig)
-    lastGeometryRef.current = geometry
+    const raw = motion.evaluateGeometry(anchorConfig, panelConfig)
+    lastGeometryRef.current = raw
+    const geometry = flattenPlatter(raw, curMaxStretchY)
 
     const resolvedTheme = resolveElementTheme(panelEl)
 
@@ -1014,10 +1074,11 @@ function MorphPanel({
       <MotionGlass
         ref={panelRef}
         id={id}
-        role="dialog"
+        role={role}
         aria-label={label}
         data-vt-glass={vtGlass}
         dense={dense}
+        flat={flat}
         suspendRefract={false}
         style={{
           ...style,

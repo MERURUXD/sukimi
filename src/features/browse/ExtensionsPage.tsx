@@ -1,5 +1,5 @@
 import { useApolloClient, useMutation, useQuery } from '@apollo/client/react'
-import { ChevronLeft, Download, Globe, Loader2, PackagePlus, RefreshCw, Search, Settings2, Trash2 } from 'lucide-react'
+import { ChevronLeft, Download, Globe, Loader2, PackagePlus, RefreshCw, Settings2, Trash2 } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { createPortal } from 'react-dom'
@@ -12,6 +12,7 @@ import { FILE_SLOT, uploadRequest } from '@/api/upload'
 import { rehydrateOnUserChange, scopedMerge, userStorage } from '@/api/userStorage'
 import { contextGeneration, resetOnUserContext } from '@/api/userContext'
 import { Glass } from '@/components/glass/Glass'
+import { MorphSearch } from '@/components/ui/MorphSearch'
 import { confirm } from '@/components/ui/Confirm'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Popover } from '@/components/ui/Popover'
@@ -230,20 +231,21 @@ export function ExtensionsPage() {
           </Link>
         }
         actions={
-          <Glass flat as="label" className="flex h-11 min-w-0 flex-[0_1_560px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:basis-full">
-            <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-            <span className="sr">{t('browse.ext.searchLabel')}</span>
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('browse.ext.searchPlaceholder')}
-              className="min-w-0 flex-1 border-0 bg-transparent text-[15px] text-text outline-none placeholder:text-faint"
-            />
-            <span className="text-[13px] whitespace-nowrap">
-              {checking ? t('browse.ext.checking') : list ? t('browse.ext.count', { count: list.length }) : ''}
-            </span>
-          </Glass>
+          <MorphSearch
+            flat
+            value={query}
+            onChange={setQuery}
+            label={t('browse.ext.searchLabel')}
+            placeholder={t('browse.ext.searchPlaceholder')}
+            width={560}
+            mobileClassName="flex-[0_1_560px] max-sm:basis-full"
+            inputClassName="text-[15px]"
+            suffix={
+              <span className="text-[13px] whitespace-nowrap">
+                {checking ? t('browse.ext.checking') : list ? t('browse.ext.count', { count: list.length }) : ''}
+              </span>
+            }
+          />
         }
       />
 
