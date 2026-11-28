@@ -20,7 +20,7 @@ Sukimi 是配合 Suwayomi Server 使用的漫画 Web 客户端，面向桌面与
 
 ## 开发约定
 
-- 回复与任务交付说明使用用户指定的语言；未指定时遵循当前对话语言，不强制使用简体中文。代码注释遵循相邻代码的语言和既有风格，标识符沿用项目已有命名。提交信息和 PR 标题使用 Conventional Commits（如 `fix(reader): ...`）。
+- 回复与任务交付说明使用用户指定的语言；未指定时遵循当前对话语言，不强制使用简体中文。代码注释遵循相邻代码的语言和既有风格，标识符沿用项目已有命名。提交与 PR 的格式见下文“提交与 PR”。
 - 用户可见文案通过现有 i18next 机制维护，修改时兼顾 `src/i18n/zh-CN/` 与 `src/i18n/en/`，不要把新文案直接写死为一种语言。
 - 优先复用已有模块、组件、状态和设计令牌。修改保持聚焦，不为了顺手“清理”而扩大范围；重构时保留可观察行为。
 - UI 延续项目的中性配色、玻璃质感与以留白组织内容的设计语言。兼顾触屏、键盘、窄屏以及 `prefers-reduced-motion`，不要引入无必要的装饰性卡片或分隔线。
@@ -52,6 +52,36 @@ pnpm codegen          # GraphQL 文档生成
 ```
 
 根据改动范围选择验证：优先运行相关测试，代码改动尽可能运行 `pnpm typecheck`；涉及公共逻辑、构建渠道、依赖或发版时，再运行完整测试、lint 与 build。不要把既有 warning 直接归因于当前修改，也不要隐瞒新引入的错误。环境无法执行某项检查时，说明原因，不要声称已通过。
+
+## 工作流程
+
+- 开工前先读本文件，运行 `git status --short` 看清工作区，只改任务需要的文件。
+- `AGENTS.override.md`、`CLAUDE.md`、`PLAN.md`、`UPLOAD_CHECK.md`、`.claude/`、`.agents/`、`.codex/` 是各人的本地配置与过程记录，已在 `.gitignore` 中，不得强制加入 Git，也不要在仓库文件里引用其中的内容。
+- `pnpm deploy:server`、`pnpm restart:server` 读取 `.env.local`，直接操作本机的 Suwayomi Server，属于维护者的本地运维命令；完成开发任务不需要运行它们，也不要为它们补写真实路径或地址。
+- 拉取请求上的 CI 有两个必需检查：`ci-release`（`pnpm codegen` 后 `src/api/gql/` 不得有变化，再跑 `typecheck`、`test`、`build`）和 `ci-preview`（同样检查，以 `SUKIMI_CHANNEL=preview` 构建）。本地按改动范围先跑对应命令，不要依赖 CI 才发现问题。
+- `.gitattributes` 强制 LF，新文件不要带 CR。
+
+## 提交与 PR
+
+- **提交信息**：Conventional Commits，`type(scope)` 用英文，描述用简体中文，例如 `fix(reader): 书签出错不再让顶栏一直不收起`；正文用中文说明为什么改、改了什么。一个提交只做一件事。scope 沿用已有的功能名（如 `reader`、`library`、`nav`、`ui`、`glass`、`api`）。
+- **通过 PR 合入**：所有改动都从分支开 PR 合入 `main`，不直接推送到 `main`。`main` 受规则集保护：只允许 squash merge，必须通过 `ci-release` 与 `ci-preview`，审查讨论需全部解决。一个 PR 只做一件事。
+- **高风险改动**：认证与切换账号、Apollo 缓存与 IndexedDB 快照（含 `persist.ts` 的 `VERSION`）、阅读进度同步、开发者工具箱的真实写入、构建渠道与 CI、依赖大版本升级。这类 PR 要补足测试，并在 Merge Danger 里写清楚影响；拿不准时按高风险处理。
+- **PR 标题**：Conventional Commits 前缀加中文概述，例如 `perf(history): 历史页改用虚拟列表，翻到上千条也只挂视口附近的行`。Dependabot 自动生成的 PR 保留其原标题。
+- **PR 正文**（中文，三节）：
+  - `## Summary`：先用一个 `diff` 代码块列出改了哪些文件、各改了什么，再用一两段话说明改动和原因。
+  - `## Evidence`：验证结果（命令、测试数量、CI 运行、实测数据）；没验证的单独写 `**未验证：**`。
+  - `## Merge Danger`：`**Door:**` 写 `two-way`（可轻易回退）或 `one-way`（缓存格式、数据写入等一旦放出难以收回）；`**Blast Radius:**` 写合并后影响到谁、影响什么。
+- **只写仓库里的事**：PR 标题、正文和提交信息要让任何读仓库的人都看得懂：写改了什么、为什么改、怎么验证的，原因用代码和仓库里的事实说明。不要提仓库外的讨论、评审或审计文档及其条目编号、聊天记录、任务或某人的请求，也不要列其他项目的内部文件。
+- **合并**：由维护者 squash merge，合并提交标题与 PR 标题一致，所以 PR 标题要能直接当提交标题用。
+- **代码审查意见**（人工或自动审查）：逐条核实，按根因归并，修掉成立的，在对应讨论里说明不采纳的理由。
+
+## 发布
+
+发布由维护者进行，普通 PR 不涉及：
+
+- 合并到 `main` 会触发 `webui-release`，重新打包并更新滚动的 `webui-latest` 预发布版本，日用服务器会定时拉取它。因此合并本身就是一次发布，只由维护者决定。
+- 推送到 `preview` 分支（或手动触发）会触发 `webui-preview`，更新 `webui-preview` 预发布版本；Preview 与日用版共用同一个 Suwayomi Server 时写入的是真实数据。
+- 普通 PR 不推送 `preview` 分支，不移动 `webui-latest`、`webui-preview` 标签，不改 `package.json` 的版本号。改动 `.github/rulesets/` 或发布工作流的 PR 按高风险处理。
 
 ## 审查与交付
 
