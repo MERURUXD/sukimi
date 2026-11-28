@@ -43,6 +43,7 @@ function pageThemeFixture(theme = 'light') {
   const document = { documentElement: { dataset: { theme } } }
   const media = { matches: false }
   const exports = {}
+  let persistOptions
   runInNewContext(ts.transpileModule(read('src/design/settings.ts'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS },
   }).outputText, {
@@ -53,12 +54,12 @@ function pageThemeFixture(theme = 'light') {
       if (name === '@/lib/demo') return { preferenceKey: key => `${key}.demo` }
       if (name === './defaultGlass') return { defaultGlass: () => 'refract' }
       if (name === '@/features/home/preferences') return { normalizeHomePreferences: () => ({}) }
-      if (name === 'zustand/middleware') return { persist: config => config }
+      if (name === 'zustand/middleware') return { persist: (config, options) => ((persistOptions = options), config) }
       return require(name)
     },
   })
   exports.useAppearance.getState().setTheme(theme)
-  return { ...exports, glass: glass.store, document, media, cleanups }
+  return { ...exports, glass: glass.store, document, media, cleanups, persistOptions }
 }
 
 test('阅读器主题：深色背景使用深色玻璃参数，切白底与退出时恢复对应参数', () => {
@@ -226,6 +227,19 @@ test('外观设置：glassAdaptiveTint 默认为 false，并能持久化与安�
   assert.equal(f.useAppearance.getState().glassAdaptiveTint, true)
   f.useAppearance.getState().setGlassAdaptiveTint(false)
   assert.equal(f.useAppearance.getState().glassAdaptiveTint, false)
+
+  // 强度默认标准、关闭开关时保留；旧偏好或非法值回落标准
+  const state = f.useAppearance.getState()
+  assert.equal(state.glassAdaptiveLevel, 'standard')
+  state.setGlassAdaptiveLevel('high')
+  assert.equal(f.useAppearance.getState().glassAdaptiveLevel, 'high')
+  const { merge, partialize } = f.persistOptions
+  assert.equal(partialize(f.useAppearance.getState()).glassAdaptiveLevel, 'high')
+  const current = f.useAppearance.getState()
+  assert.equal(merge({ glassAdaptiveTint: true, glassAdaptiveLevel: 'low' }, current).glassAdaptiveLevel, 'low')
+  for (const saved of [undefined, {}, { glassAdaptiveTint: true }, { glassAdaptiveLevel: 'medium' }, { glassAdaptiveLevel: 2 }]) {
+    assert.equal(merge(saved, current).glassAdaptiveLevel, 'standard')
+  }
 })
 
 test('外观设置：popoverMotion 默认为 false，可开启与重新关闭并接入性能警告与 Popover', () => {

@@ -3,7 +3,7 @@ import { supportsSvgBackdropRefraction } from '@sessile/dom'
 import { GlassPreview, GlassSliders } from '@/components/settings/GlassTuner'
 import { Seg } from '@/components/ui/Seg'
 import { useGlassTuning, type GlassPreset } from '@/design/glassTuning'
-import { useAppearance } from '@/design/settings'
+import { useAppearance, type AdaptiveTintLevel } from '@/design/settings'
 import { NsfwSettings } from '@/features/nsfw/NsfwSettings'
 import { Dropdown, Row, Section, Switch } from '../parts'
 import { ThumbPicker, ThemeThumb } from '../thumbs'
@@ -11,8 +11,8 @@ import { readLocalePref, setLocalePref, t, type LocalePref } from '@/i18n'
 
 export function AppearanceTab() {
   const {
-    theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMotionBg, homeIntro,
-    setTheme, setGlass, setGlassAdaptiveTint, setMangaDetailMotion, setReaderMotion, setPopoverMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
+    theme, glass, glassAdaptiveTint, glassAdaptiveLevel, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMotionBg, homeIntro,
+    setTheme, setGlass, setGlassAdaptiveTint, setGlassAdaptiveLevel, setMangaDetailMotion, setReaderMotion, setPopoverMotion, setAutoHideNav, setNavBlur, setHomeMotionBg, setHomeIntro,
   } = useAppearance()
   const reset = useGlassTuning((s) => s.reset)
   const glassTheme = useGlassTuning((s) => s.theme)
@@ -88,6 +88,21 @@ export function AppearanceTab() {
         >
           <Switch on={glassAdaptiveTint} onChange={setGlassAdaptiveTint} label={t('settings.appearance.glassAdaptiveTint')} />
         </Row>
+        {glassAdaptiveTint && (
+          <Row label={t('settings.appearance.glassAdaptiveLevel')} help={t('settings.appearance.glassAdaptiveLevelHelp')}>
+            <Seg<AdaptiveTintLevel>
+              glass={false}
+              label={t('settings.appearance.glassAdaptiveLevelAria')}
+              items={[
+                { value: 'low', label: t('settings.appearance.glassAdaptiveLevelLow') },
+                { value: 'standard', label: t('settings.appearance.glassAdaptiveLevelStandard') },
+                { value: 'high', label: t('settings.appearance.glassAdaptiveLevelHigh') },
+              ]}
+              value={glassAdaptiveLevel}
+              onChange={setGlassAdaptiveLevel}
+            />
+          </Row>
+        )}
       </Section>
 
       <Section title={t('settings.appearance.motionTitle')} desc={t('settings.appearance.motionDesc')}>

@@ -5,6 +5,7 @@ import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
 import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
 import { glassBackdropProbe } from './backdrop'
+import { resolveAdaptiveTint } from './legibilityLevel'
 import { useElasticPress } from './elasticPress'
 import { MovingGlassBackdrop } from './MovingGlassBackdrop'
 import { useGlassSurface } from './surface'
@@ -34,7 +35,7 @@ type GlassProps<T extends Tag> = {
  *   refract 在 Chromium 上挂透镜位移滤镜，其他浏览器自动退回毛玻璃。关掉透镜时仍用折射档的底色，
  *   不然会突然换成毛玻璃的白底，在氛围光上明显发亮
  * - solid 与 flat：纯 CSS 的不透明表面
- * - 开启「自适应底色」时按背后的内容调整底色、提亮和压缩力度，保证文字对比度
+ * - 开启「自适应底色」时按背后的内容调整底色、提亮和压缩力度，保证文字对比度；强度档位见 legibilityLevel.ts
  */
 export function Glass<T extends Tag = 'div'>({
   as,
@@ -53,6 +54,7 @@ export function Glass<T extends Tag = 'div'>({
   const t = useGlassTuning()
   const moving = useContext(MovingGlassBackdrop)
   const adaptive = useAppearance((s) => s.glassAdaptiveTint)
+  const adaptiveLevel = useAppearance((s) => s.glassAdaptiveLevel)
   const host = useRef<HTMLElement>(null)
   const isDisabled = 'disabled' in rest && Boolean(rest.disabled)
   const elasticEnabled = (elastic ?? ((as === 'button' || as === 'a') && !flat)) && !isDisabled
@@ -80,7 +82,7 @@ export function Glass<T extends Tag = 'div'>({
     blur: tone ? blur : null,
     saturate: tone ? t.saturate : null,
     refraction: o,
-    legibility: adaptive ? { tier, probe: glassBackdropProbe } : null,
+    legibility: adaptive ? { ...resolveAdaptiveTint(adaptiveLevel, tier), probe: glassBackdropProbe } : null,
     styleKey: `${t.preset}|${t.tint}|${t.denseTint}|${dense}|${className}`,
   })
   const setRef = useCallback(

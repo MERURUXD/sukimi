@@ -9,11 +9,17 @@ import { normalizeHomeOrder, normalizeHomePreferences, type HomeContentSection, 
 export type ThemePref = 'system' | 'dark' | 'light'
 export type GlassMode = 'refract' | 'frosted' | 'solid'
 export type HomeLayout = 'poster' | 'cover'
+/** 自适应底色的强度，换算见 components/glass/legibilityLevel.ts */
+export type AdaptiveTintLevel = 'low' | 'standard' | 'high'
+const ADAPTIVE_TINT_LEVELS: readonly AdaptiveTintLevel[] = ['low', 'standard', 'high']
+const isAdaptiveTintLevel = (v: unknown): v is AdaptiveTintLevel => ADAPTIVE_TINT_LEVELS.includes(v as AdaptiveTintLevel)
 
 interface AppearanceState {
   theme: ThemePref
   glass: GlassMode
   glassAdaptiveTint: boolean
+  /** 自适应底色的强度；关闭时保留，重新打开沿用 */
+  glassAdaptiveLevel: AdaptiveTintLevel
   mangaDetailMotion: boolean
   /** 进出阅读器时从入口展开 / 缩回 */
   readerMotion: boolean
@@ -35,6 +41,7 @@ interface AppearanceState {
   setTheme: (theme: ThemePref) => void
   setGlass: (glass: GlassMode) => void
   setGlassAdaptiveTint: (on: boolean) => void
+  setGlassAdaptiveLevel: (level: AdaptiveTintLevel) => void
   setMangaDetailMotion: (on: boolean) => void
   setReaderMotion: (on: boolean) => void
   setPopoverMotion: (on: boolean) => void
@@ -59,6 +66,7 @@ export const useAppearance = create<AppearanceState>()(
       theme: 'dark',
       glass: defaultGlass(navigator.hardwareConcurrency),
       glassAdaptiveTint: false,
+      glassAdaptiveLevel: 'standard',
       mangaDetailMotion: true,
       // 旧偏好里没有这个字段，合并默认值后开启
       readerMotion: true,
@@ -80,6 +88,7 @@ export const useAppearance = create<AppearanceState>()(
       setTheme: (theme) => set({ theme }),
       setGlass: (glass) => set({ glass }),
       setGlassAdaptiveTint: (glassAdaptiveTint) => set({ glassAdaptiveTint }),
+      setGlassAdaptiveLevel: (glassAdaptiveLevel) => set({ glassAdaptiveLevel }),
       setMangaDetailMotion: (mangaDetailMotion) => set({ mangaDetailMotion }),
       setReaderMotion: (readerMotion) => set({ readerMotion }),
       setPopoverMotion: (popoverMotion) => set({ popoverMotion }),
@@ -96,16 +105,20 @@ export const useAppearance = create<AppearanceState>()(
     }),
     {
       name: APPEARANCE_KEY,
-      partialize: ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
+      partialize: ({ theme, glass, glassAdaptiveTint, glassAdaptiveLevel, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
         homeSections, homeSectionOrder, homeGallery }) =>
-        ({ theme, glass, glassAdaptiveTint, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
+        ({ theme, glass, glassAdaptiveTint, glassAdaptiveLevel, mangaDetailMotion, readerMotion, popoverMotion, autoHideNav, navBlur, homeMobileLayout, homeDesktopLayout, homeMotionBg, homeIntro, galleryInterval,
           homeSections, homeSectionOrder, homeGallery }),
-      merge: (saved, current) => ({
-        ...current,
-        ...(saved as Partial<AppearanceState>),
-        ...normalizeHomePreferences(saved),
-        glassAdaptiveTint: (saved as Partial<AppearanceState>)?.glassAdaptiveTint ?? false,
-      }),
+      merge: (saved, current) => {
+        const s = saved as Partial<AppearanceState> | undefined
+        return {
+          ...current,
+          ...s,
+          ...normalizeHomePreferences(saved),
+          glassAdaptiveTint: s?.glassAdaptiveTint ?? false,
+          glassAdaptiveLevel: isAdaptiveTintLevel(s?.glassAdaptiveLevel) ? s.glassAdaptiveLevel : 'standard',
+        }
+      },
     },
   ),
 )
