@@ -30,6 +30,12 @@ export const morph = {
 } satisfies Record<string, Transition>
 
 /**
+ * 搜索按钮长成搜索条（components/ui/MorphSearch.tsx）复用弹出层形变；
+ * maxStretchY：途中纵向最多鼓起静息高度的几倍（软上限），横向长条不需要菜单那样先鼓成圆再落下。
+ */
+export const searchMorph = { maxStretchY: 0.5 }
+
+/**
  * 进出阅读器（lib/readerTransition.ts）：仿 iOS 打开 / 关闭应用的弹簧，
  * 写法同 SwiftUI 的 .spring(response:dampingFraction:)，max 为时长上限（秒）。
  * radius 是展开途中的圆角，落定前收成直角；depth 是背后页面推近的比例。

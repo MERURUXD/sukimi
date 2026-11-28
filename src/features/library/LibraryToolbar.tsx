@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Glass } from '@/components/glass/Glass'
 import { BottomSheet } from '@/components/ui/BottomSheet'
+import { MorphSearch } from '@/components/ui/MorphSearch'
 import { Popover } from '@/components/ui/Popover'
 import { Seg, type SegItem } from '@/components/ui/Seg'
 import { useMobile } from '@/features/gallery/hooks'
@@ -325,17 +326,14 @@ export function LibraryToolbar({
 
       <span className="flex-1 max-sm:hidden" />
 
-      <Glass as="label" className="flex h-11 min-w-0 flex-[0_1_300px] items-center gap-2.5 rounded-full px-4 text-muted max-sm:flex-[1_1_120px]">
-        <Search className="size-[18px] flex-none" strokeWidth={1.8} />
-        <span className="sr">{t('library.toolbar.search')}</span>
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
-          placeholder={t('library.toolbar.searchPlaceholder')}
-          className="min-w-0 flex-1 border-0 bg-transparent text-text outline-none placeholder:text-faint"
-        />
-      </Glass>
+      <MorphSearch
+        value={query}
+        onChange={onQuery}
+        label={t('library.toolbar.search')}
+        placeholder={t('library.toolbar.searchPlaceholder')}
+        width={300}
+        mobileClassName="flex-[0_1_300px] max-sm:flex-[1_1_120px]"
+      />
 
       {mobile ? button : (
         <Popover
