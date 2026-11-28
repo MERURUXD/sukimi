@@ -11,7 +11,6 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  DEFAULT_SPRINGS,
   clamp,
   createGlassOverlayRenderer,
   interpolateCssGlassSurfaceToMaterial,
@@ -37,7 +36,6 @@ import {
   applyMorphBackdropLayers,
   applyPanelMorphFrame,
   clearPanelMorphStyles,
-  computePointPivot,
   computeTransitionBounds,
   readElementGlassSurface,
   resolveElementTheme,
@@ -48,24 +46,9 @@ import {
 } from '@/components/glass/morph/hybridSurface'
 import { MorphRefractFilter, type MorphRefractFilterHandle } from '@/components/glass/morph/refractFilter'
 import { GLASS_REFRACT_SCALE_MULTIPLIER, useGlassTuning } from '@/design/glassTuning'
-import { still } from '@/design/motion'
+import { fade, still } from '@/design/motion'
 import { useAppearance } from '@/design/settings'
 import { cn } from '@/lib/cn'
-
-const POINT_OPEN_SPRING = {
-  type: 'spring' as const,
-  mass: DEFAULT_SPRINGS.standard.mass,
-  stiffness: DEFAULT_SPRINGS.standard.stiffness,
-  damping:
-    2 *
-    DEFAULT_SPRINGS.standard.dampingRatio *
-    Math.sqrt(DEFAULT_SPRINGS.standard.stiffness * DEFAULT_SPRINGS.standard.mass),
-}
-
-const POINT_CLOSE_TRANSITION = {
-  duration: POPOVER_MORPH_DEFAULTS.pointCloseDurationSec,
-  ease: [0.22, 1, 0.36, 1] as const,
-}
 
 export type { ContextMenuPoint }
 
@@ -203,7 +186,7 @@ function useContextMenuBehavior({
   }, [active, panelRef])
 }
 
-/** 轻量路径与减少动态路径：复用 `belowPoint` 定位与以点击点为原点的弹出/点退动画，零逐帧折射开销。 */
+/** 关闭「菜单液态形变」或系统减弱动态时的菜单：复用 `belowPoint` 定位，只淡入淡出（减弱动态时直接出现），零逐帧折射开销。 */
 function LiteContextMenuPanel({
   at,
   onClose,
@@ -247,28 +230,21 @@ function LiteContextMenuPanel({
     onClose,
   })
 
-  const pivot = pos ? computePointPivot(at, pos) : { x: 0, y: 0 }
-
   return (
     <MotionGlass
       ref={panelRef}
       role="menu"
       aria-label={label}
       dense
-      initial={reduced ? false : { opacity: 0, scale: 0.76 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={
-        reduced
-          ? { opacity: 0 }
-          : { opacity: 0, scale: POPOVER_MORPH_DEFAULTS.pointCloseEndScale, transition: POINT_CLOSE_TRANSITION }
-      }
-      transition={reduced ? still : POINT_OPEN_SPRING}
+      initial={reduced ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={reduced ? still : fade.fast}
       // 量好尺寸之前先藏着，免得在角落闪一下
       style={{
         left: pos?.left ?? at.x,
         top: pos?.top ?? at.y,
         visibility: pos ? 'visible' : 'hidden',
-        transformOrigin: reduced ? 'top left' : `${pivot.x.toFixed(1)}px ${pivot.y.toFixed(1)}px`,
         pointerEvents: isPresent ? undefined : 'none',
       }}
       className={cn('fixed z-[70] w-[220px] rounded-[24px] p-3 [--g-drop:0_24px_60px_rgba(0,0,0,.45)]', className)}

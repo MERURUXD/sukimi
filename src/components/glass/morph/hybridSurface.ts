@@ -13,7 +13,6 @@ import {
   type IGlassOverlayRenderer,
   type LegibilityParams,
   type OpticalMaterial,
-  type Point,
   type Rect,
 } from '@sessile/core'
 import { buildBackdropFilterCss, computeClampedRefractBounds, formatRgbaCss, type RefractFilterFrame } from '@sessile/dom'
@@ -59,17 +58,6 @@ export function resolvePointCardRect(
       restingRadius,
     },
   )
-}
-
-/** 计算点击位置相对菜单卡片内部的缩放锚点（px）。 */
-export function computePointPivot(
-  at: ContextMenuPoint,
-  card: { left: number; top: number; width: number; height: number },
-): Point {
-  return {
-    x: Math.max(0, Math.min(card.width, at.x - card.left)),
-    y: Math.max(0, Math.min(card.height, at.y - card.top)),
-  }
 }
 
 export interface ElementTintVars {

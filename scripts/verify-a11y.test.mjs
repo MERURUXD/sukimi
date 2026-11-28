@@ -990,23 +990,20 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
     }
   })
 
-  test('ContextMenu：接入 belowPoint 定位翻转、点枢轴及轻量/液态双路径动画', async () => {
-    const { resolvePointCardRect, computePointPivot } = await mod('/src/components/glass/morph/hybridSurface.ts')
+  test('ContextMenu：接入 belowPoint 定位翻转及淡入淡出/液态双路径动画', async () => {
+    const { resolvePointCardRect } = await mod('/src/components/glass/morph/hybridSurface.ts')
     const { ContextMenu, useContextMenu } = await mod('/src/components/ui/ContextMenu.tsx')
     const { useAppearance } = await mod('/src/design/settings.ts')
 
     // 1. 纯几何定位：常规展开、近底翻转、近右收边、带 avoidRect 避让
     const normal = resolvePointCardRect({ x: 40, y: 100 }, 220, 180)
     assert.deepEqual(normal, { x: 40, y: 100, width: 220, height: 180 })
-    assert.deepEqual(computePointPivot({ x: 40, y: 100 }, { left: normal.x, top: normal.y, width: 220, height: 180 }), { x: 0, y: 0 })
 
     const flippedBottom = resolvePointCardRect({ x: 40, y: 760 }, 220, 180)
     assert.deepEqual(flippedBottom, { x: 40, y: 580, width: 220, height: 180 })
-    assert.deepEqual(computePointPivot({ x: 40, y: 760 }, { left: flippedBottom.x, top: flippedBottom.y, width: 220, height: 180 }), { x: 0, y: 180 })
 
     const clampedRight = resolvePointCardRect({ x: 350, y: 100 }, 220, 180)
     assert.deepEqual(clampedRight, { x: 158, y: 100, width: 220, height: 180 })
-    assert.deepEqual(computePointPivot({ x: 350, y: 100 }, { left: clampedRight.x, top: clampedRight.y, width: 220, height: 180 }), { x: 192, y: 0 })
 
     const avoided = resolvePointCardRect({ x: 100, y: 700, avoidRect: { x: 100, y: 700, width: 120, height: 40 } }, 220, 180)
     assert.deepEqual(avoided, { x: 100, y: 512, width: 220, height: 180 })
@@ -1039,7 +1036,7 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       medias.forEach((m) => m.dispatchEvent())
     })
     try {
-      // 2. 轻量路径（popoverMotion = false）：belowPoint 翻转与枢轴原点
+      // 2. 淡入淡出路径（popoverMotion = false）：belowPoint 翻转，不缩放
       await act(async () => { useAppearance.setState({ popoverMotion: false }) })
       await render(createElement(Harness, { point: { x: 300, y: 760 } }))
       const trigger = [...document.querySelectorAll('button')].find((b) => named(b) === '右键触发')
@@ -1049,8 +1046,8 @@ describe('键盘与读屏', { concurrency: 1, timeout: 120_000 }, () => {
       assert.ok(liteMenu)
       assert.equal(liteMenu.style.left, '158px')
       assert.equal(liteMenu.style.top, '580px')
-      // jsdom 31 起和浏览器一样把 142.0px 规范成 142px，按数值比较，不依赖序列化写法
-      assert.deepEqual(liteMenu.style.transformOrigin.split(' ').map(parseFloat), [142, 180])
+      assert.equal(liteMenu.style.transformOrigin, '')
+      assert.ok(!/scale/.test(liteMenu.style.transform), `淡入淡出路径不应缩放：${liteMenu.style.transform}`)
       press('Escape')
       await act(async () => {})
       focused(trigger)
